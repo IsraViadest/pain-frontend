@@ -297,9 +297,12 @@ export class GlobeView {
     this.rebuildPainGeometryAndTexture();
   }
 
-  /** Base mesh is only shown in texture mode. */
+  /**
+   * Keep base mesh visible in scars mode so dents remain readable,
+   * even when stipple display mode is active.
+   */
   private syncBaseGlobeVisibility(): void {
-    this.globe.visible = this.displayMode === "texture";
+    this.globe.visible = this.displayMode === "texture" || this.painVizMode === "scars";
   }
 
   private ensureStipple(): Promise<void> {

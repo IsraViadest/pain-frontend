@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:pain-server": "VITE_USE_MOCK_API=false vite",
     "dev:web": "vite",
     "dev:api": "tsx watch server/index.ts",
     "build": "vite build",

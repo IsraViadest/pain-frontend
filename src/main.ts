@@ -146,11 +146,11 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
       const source = info.metadata.sourceUrl.length > 42
         ? `${info.metadata.sourceUrl.slice(0, 39)}...`
         : info.metadata.sourceUrl;
-      return `${info.metadata.country} · ${info.metadata.layerLabel} · ${info.metadata.metricLabel} ${info.metadata.rawValue.toFixed(3)}${year} · source ${source}`;
+      return `${info.metadata.country} · ${info.metadata.layerLabel} · ${info.metadata.metricLabel} ${info.metadata.rawValue.toFixed(1)}${year} · normalized ${info.intensity.toFixed(2)} · source ${source}`;
     }
     const fallbackLabel =
       info.type[0]?.toUpperCase() + info.type.slice(1).toLowerCase();
-    return `${fallbackLabel} · value ${info.intensity.toFixed(3)} · source user submission`;
+    return `${fallbackLabel} · normalized ${info.intensity.toFixed(2)} · source user submission`;
   }
   return `<strong>Cluster beacon</strong><br/>${info.count} nearby points<br/>Avg intensity ${info.avgIntensity.toFixed(2)}`;
 }
@@ -275,7 +275,7 @@ function loop(): void {
     setStatus(
       e instanceof Error
         ? e.message
-        : "API unreachable — run `npm run dev` (starts mock API + Vite).",
+        : "API unreachable — mock: `npm run dev`; pain-server: run backend on :3000 then `npm run dev:pain-server`.",
     );
   }
   requestAnimationFrame(loop);

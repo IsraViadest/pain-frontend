@@ -4,3 +4,7 @@ dist
 *.local
 .env
 .env.*
+!.env.example
+
+# Local-only Cursor rules, compliance docs, and pre-commit checks (not for the repo)
+.cursor/

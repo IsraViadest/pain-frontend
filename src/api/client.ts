@@ -4,36 +4,42 @@ import type {
   PointsResponse,
   SubmissionResponse,
 } from "../types/api";
-
-async function parseJson<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${text}`);
-  }
-  return res.json() as Promise<T>;
-}
+import { mapInitResponseToPainPoints } from "./adapter";
+import { useMockApi } from "./config";
+import { UI_MAP_LAYERS } from "./layers";
+import {
+  fetchLayersMock,
+  fetchPointsMock,
+  submitPainMock,
+} from "./mockClient";
+import { fetchInitLayer } from "./painServer";
 
 export async function fetchLayers(): Promise<LayersResponse> {
-  const res = await fetch("/api/map/layers");
-  return parseJson<LayersResponse>(res);
+  if (useMockApi) {
+    return fetchLayersMock();
+  }
+  return { layers: UI_MAP_LAYERS };
 }
 
 export async function fetchPoints(layerId?: string): Promise<PointsResponse> {
-  const q =
-    layerId && layerId.length > 0
-      ? `?layer=${encodeURIComponent(layerId)}`
-      : "";
-  const res = await fetch(`/api/map/points${q}`);
-  return parseJson<PointsResponse>(res);
+  if (useMockApi) {
+    return fetchPointsMock(layerId);
+  }
+  if (!layerId || layerId.length === 0) {
+    return { points: [] };
+  }
+  const raw = await fetchInitLayer(layerId);
+  const points = mapInitResponseToPainPoints(raw);
+  return { points };
 }
 
 export async function submitPain(
   body: PainSubmission,
 ): Promise<SubmissionResponse> {
-  const res = await fetch("/api/pain-submission", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return parseJson<SubmissionResponse>(res);
+  if (!useMockApi) {
+    throw new Error(
+      "Pain submission is not wired to pain-server yet. Use mock dev mode or wait for the backend submission API.",
+    );
+  }
+  return submitPainMock(body);
 }
