@@ -53,8 +53,7 @@ function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
   tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = false;
   tex.colorSpace = THREE.NoColorSpace;
-  // Row 0 = north in our buffer; Three.js sphere samples north at uv.y = 1.
-  tex.flipY = true;
+  tex.flipY = false;
   tex.needsUpdate = true;
   return tex;
 }
@@ -85,7 +84,7 @@ export function createPainScarDisplacementTexture(
   for (const p of points) {
     const { cx, cy } = painPointToScarTexel(p);
     const inten = Math.sqrt(THREE.MathUtils.clamp(p.intensity, 0, 1));
-    const radiusPx = Math.max(1, Math.round(1 + 3 * (0.2 + 0.8 * inten)));
+    const radiusPx = Math.max(1, Math.round(2 + 3 * (0.2 + 0.8 * inten)));
     const peakDent = 72 + 140 * (0.15 + 0.85 * inten);
 
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
@@ -137,9 +136,8 @@ export function drawScarMapPreview(
 
   const imgData = ctx.createImageData(w, h);
   for (let row = 0; row < h; row++) {
-    const srcRow = h - 1 - row;
     for (let col = 0; col < w; col++) {
-      const g = data[srcRow * w + col] ?? SCAR_NEUTRAL_DEPTH;
+      const g = data[row * w + col] ?? SCAR_NEUTRAL_DEPTH;
       const o = (row * w + col) * 4;
       imgData.data[o] = g;
       imgData.data[o + 1] = g;

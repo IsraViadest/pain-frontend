@@ -30,7 +30,8 @@ void main() {
   float vRaw = 0.5 - asin(clamp(dir.y, -1.0, 1.0)) * 0.31830988618379067154;
   vec2 scarUv = vec2(uRaw, vRaw);
   float h = texture2D(uScarMap, scarUv).r;
-  float radial = (h * uScarDispScale + uScarDispBias) * uScarActive;
+  float landW = step(0.5, aLand);
+  float radial = (h * uScarDispScale + uScarDispBias) * uScarActive * landW;
   vec3 displacedPos = position + dir * radial;
 
   vec3 worldPos = (modelMatrix * vec4(displacedPos, 1.0)).xyz;

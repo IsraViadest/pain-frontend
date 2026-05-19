@@ -17,7 +17,7 @@ export function scarRadialOffset(
  * Tiny outward lift so stipple / lines pass depth test on the CPU-warped globe mesh.
  * Fat lines need extra bias ≈ half line width in world units.
  */
-export const SCAR_OVERLAY_SURFACE_BIAS = 0.0012;
+export const SCAR_OVERLAY_SURFACE_BIAS = 0.0008;
 
 /** Read red-channel scar height (0–1) from a CPU-side {@link THREE.DataTexture}. */
 export function sampleScarHeight01(

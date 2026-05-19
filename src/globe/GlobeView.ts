@@ -26,8 +26,10 @@ import {
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 
 /** Radial offset = texture×scale + bias; 128/255 texels → ~0 offset at neutral grey. */
-const SCAR_DISPLACEMENT_SCALE = 0.2;
-const SCAR_DISPLACEMENT_BIAS = -SCAR_DISPLACEMENT_SCALE * 0.5;
+const SCAR_DISPLACEMENT_SCALE = 0.04;
+const SCAR_DISPLACEMENT_BIAS = -SCAR_DISPLACEMENT_SCALE * 0.8;
+/** Coastlines follow the same field but read more gently than the solid globe. */
+const SCAR_BORDER_DISPLACEMENT_MULT = 0.5;
 /** Runtime Three.js supports clipping on materials; some @types/three versions omit it. */
 type MaterialWithClipping = THREE.Material & {
   clipping: boolean;
@@ -326,8 +328,8 @@ export class GlobeView {
   }
 
   /**
-   * Solid mesh: canvas texture in texture mode; displaced shell in scar/multiplex
-   * (stipple + borders follow that topology via CPU warp).
+   * Solid mesh only in texture mode. Scar/multiplex uses stipple + coastlines only
+   * (globe shell hidden unless debug flag).
    */
   private syncBaseGlobeVisibility(): void {
     const scars =
@@ -340,9 +342,11 @@ export class GlobeView {
       this.globe.visible = true;
       return;
     }
-    this.globe.visible =
-      this.displayMode === "texture" ||
-      (scars && this.displayMode === "points");
+    if (scars) {
+      this.globe.visible = false;
+      return;
+    }
+    this.globe.visible = this.displayMode === "texture";
   }
 
   /** Neutral base color for the displaced globe under stipple (no canvas layer map). */
@@ -459,30 +463,17 @@ export class GlobeView {
       mat.polygonOffsetFactor = 0;
       mat.polygonOffsetUnits = 0;
 
-      this.resetGlobeShellPositions();
-      this.warpGlobeMeshToScarField(map);
+      if (this.globe.visible) {
+        this.resetGlobeShellPositions();
+        this.warpGlobeMeshToScarField(map);
+      }
 
       this.resetStippleShellPositions();
-      if (this.pointsStipple && this.stippleBasePositions) {
-        const posAttr = this.pointsStipple.geometry.getAttribute("position");
-        if (posAttr) {
-          applyScarToSpherePositions(
-            this.stippleBasePositions,
-            posAttr.array as Float32Array,
-            map,
-            SCAR_DISPLACEMENT_SCALE,
-            SCAR_DISPLACEMENT_BIAS,
-            SCAR_OVERLAY_SURFACE_BIAS,
-          );
-          posAttr.needsUpdate = true;
-          this.pointsStipple.geometry.computeBoundingSphere();
-        }
-      }
 
       this.bordersOutlines?.setScarDisplacementMap(
         map,
-        SCAR_DISPLACEMENT_SCALE,
-        SCAR_DISPLACEMENT_BIAS,
+        SCAR_DISPLACEMENT_SCALE * SCAR_BORDER_DISPLACEMENT_MULT,
+        SCAR_DISPLACEMENT_BIAS * SCAR_BORDER_DISPLACEMENT_MULT,
       );
     } else {
       mat.displacementMap = null;
@@ -607,7 +598,7 @@ export class GlobeView {
       );
       this.stipplePromise = createEarthStippleGlobe(
         RADIUS,
-        52_000,
+        82_000,
         STIPPLE_LAND_MASK_GEOJSON_URL,
         tint,
         new THREE.Vector3(1, 1, 1),
@@ -680,11 +671,14 @@ export class GlobeView {
   private applyStippleScarUniforms(): void {
     if (!this.pointsMaterial) return;
     const u = this.pointsMaterial.uniforms;
-    // Topology comes from the solid globe + CPU-warped positions; keep GPU scar off.
-    u.uScarDispScale.value = 0;
-    u.uScarDispBias.value = 0;
-    u.uScarActive.value = 0;
-    if (this.stippleNeutralScarTexture) {
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    u.uScarDispScale.value = scars ? SCAR_DISPLACEMENT_SCALE : 0;
+    u.uScarDispBias.value = scars ? SCAR_DISPLACEMENT_BIAS : 0;
+    u.uScarActive.value = scars ? 1 : 0;
+    if (scars && this.scarDisplacementMap) {
+      u.uScarMap.value = this.scarDisplacementMap;
+    } else if (this.stippleNeutralScarTexture) {
       u.uScarMap.value = this.stippleNeutralScarTexture;
     }
   }
