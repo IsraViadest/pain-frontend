@@ -9,6 +9,10 @@ import {
 } from "./globe/GlobeView";
 import type { VisualTheme } from "./globe/layerTextures";
 import { isDebugScarVisual } from "./globe/debugScarVisual";
+import {
+  mountGlobeDebugPanel,
+  shouldShowGlobeDebugPanel,
+} from "./globe/globeDebugPanel";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -92,15 +96,18 @@ document.documentElement.dataset.theme = initialTheme;
 
 if (isDebugScarVisual()) {
   document.documentElement.dataset.scarDebug = "true";
-  const legend = document.querySelector<HTMLElement>("#debug-layer-legend");
-  if (legend) legend.hidden = false;
 }
 
 const globe = new GlobeView(canvas);
 const scarMapPreview = document.querySelector<HTMLCanvasElement>(
   "#scar-map-preview",
 );
-if (isDebugScarVisual() && scarMapPreview) {
+const globeDebugHost = document.querySelector<HTMLElement>("#globe-debug-panel");
+if (shouldShowGlobeDebugPanel() && globeDebugHost) {
+  globeDebugHost.hidden = false;
+  if (scarMapPreview) scarMapPreview.hidden = false;
+  mountGlobeDebugPanel(globe, globeDebugHost, scarMapPreview);
+} else if (isDebugScarVisual() && scarMapPreview) {
   globe.setScarMapPreviewCanvas(scarMapPreview);
 }
 globe.setVisualTheme(initialTheme);

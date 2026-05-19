@@ -60,67 +60,19 @@
         </div>
         <p id="status" class="status"></p>
         <div
-          id="debug-layer-legend"
-          class="debug-layer-legend"
+          id="globe-debug-panel"
+          class="globe-debug-panel-host"
           hidden
-          aria-label="Globe layer names (debug)"
-        >
-          <h2 class="debug-layer-legend__title">Globe layers (debug)</h2>
-          <ul class="debug-layer-legend__list">
-            <li>
-              <span class="swatch swatch--globe"></span>
-              <strong>Solid globe mesh</strong> (<code>globe</code>) — hidden by
-              default; if enabled, gray/green procedural layer texture (not the
-              stipple)
-            </li>
-            <li>
-              <span class="swatch swatch--stipple-land"></span>
-              <strong>Point stipple — land</strong> (<code>pointsStipple</code>)
-              — dark dots
-            </li>
-            <li>
-              <span class="swatch swatch--stipple-ocean"></span>
-              <strong>Point stipple — ocean</strong> (<code>pointsStipple</code>)
-              — blue dots (higher opacity)
-            </li>
-            <li>
-              <span class="swatch swatch--coast"></span>
-              <strong>Coast outlines</strong> (<code>bordersOutlines</code> coast)
-              — red fat lines
-            </li>
-            <li>
-              <span class="swatch swatch--inner"></span>
-              <strong>Country borders</strong> (<code>bordersOutlines</code> inner)
-              — green thin lines
-            </li>
-            <li>
-              <span class="swatch swatch--glow"></span>
-              <strong>Atmosphere glow</strong> (<code>glow</code>) — faint blue halo
-            </li>
-            <li>
-              <strong>Pain markers</strong> (<code>markersGroup</code>) — only in
-              “Point markers” mode
-            </li>
-            <li>
-              <strong>Scar height map</strong> (<code>scarDisplacementMap</code>) —
-              invisible; drives dents on stipple + coasts
-            </li>
-          </ul>
-          <p class="debug-layer-legend__hint">
-            Scar map (mid grey = flat, dark = dent) — built in memory, not a file:
-          </p>
-          <canvas
-            id="scar-map-preview"
-            class="scar-map-preview"
-            width="512"
-            height="256"
-            title="Scar displacement height map (128 = neutral)"
-          ></canvas>
-          <p class="debug-layer-legend__hint">
-            Console: <code>[scar map] built</code> (land vs ocean stamps),
-            <code>[scar debug] sync</code>.
-          </p>
-        </div>
+          aria-label="Globe layer toggles (debug)"
+        ></div>
+        <canvas
+          id="scar-map-preview"
+          class="scar-map-preview"
+          width="512"
+          height="256"
+          hidden
+          title="Scar displacement height map (128 = neutral)"
+        ></canvas>
       </aside>
     </div>
     <script type="module" src="/src/main.ts"></script>

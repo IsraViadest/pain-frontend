@@ -1,8 +1,13 @@
+/**
+ * Scar height map (DataTexture) — not a visible shell.
+ * Fed into stipple vertex shader + CPU border warp; optional globe CPU warp when visible.
+ * Built by GlobeView.scheduleScarFieldRebuild() from API pain points.
+ */
 import * as THREE from "three";
 import {
   DUMMY_PAIN_TEXTURE_HEIGHT,
   DUMMY_PAIN_TEXTURE_WIDTH,
-  legacyTexturePixelToEquirectUv,
+  PPP_TEXTURE_PIXEL_Y_OFFSET,
 } from "../api/coordinates";
 import type { PainPoint } from "../types/api";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
@@ -16,19 +21,23 @@ export const SCAR_MAP_HEIGHT = DUMMY_PAIN_TEXTURE_HEIGHT;
 export const SCAR_NEUTRAL_DEPTH = 128;
 export const SCAR_MIN_DEPTH = 0;
 
-function painPointToScarTexel(p: PainPoint): { cx: number; cy: number } {
+/** DummyPain grid / lat-lng → scar & heat map texel (shared frame). */
+export function painPointToFieldTexel(p: PainPoint): { cx: number; cy: number } {
   const maxCol = SCAR_MAP_WIDTH - 1;
   const maxRow = SCAR_MAP_HEIGHT - 1;
   const tx = p.metadata?.textureX;
   const ty = p.metadata?.textureY;
   if (typeof tx === "number" && typeof ty === "number") {
-    const uv = legacyTexturePixelToEquirectUv(tx, ty);
-    if (uv) {
-      return {
-        cx: Math.floor(uv.u * maxCol),
-        cy: Math.floor(THREE.MathUtils.clamp(uv.v, 0, 1) * maxRow),
-      };
-    }
+    return {
+      cx: Math.round(THREE.MathUtils.clamp(tx, 0, maxCol)),
+      cy: Math.round(
+        THREE.MathUtils.clamp(
+          ty + PPP_TEXTURE_PIXEL_Y_OFFSET,
+          0,
+          maxRow,
+        ),
+      ),
+    };
   }
   const { u, v } = unitDirectionToGlobeEquirectUV(
     latLngToVector3(p.lat, p.lng, 1),
@@ -82,7 +91,7 @@ export function createPainScarDisplacementTexture(
   };
 
   for (const p of points) {
-    const { cx, cy } = painPointToScarTexel(p);
+    const { cx, cy } = painPointToFieldTexel(p);
     const inten = Math.sqrt(THREE.MathUtils.clamp(p.intensity, 0, 1));
     const radiusPx = Math.max(1, Math.round(2 + 3 * (0.2 + 0.8 * inten)));
     const peakDent = 72 + 140 * (0.15 + 0.85 * inten);

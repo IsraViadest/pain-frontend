@@ -1,3 +1,8 @@
+/**
+ * SHELL: coastlines + country borders (fat LineSegments2 in a THREE.Group).
+ * Loaded by GlobeView.loadCountryOutlines() → loadGlobeBorderOutlines().
+ * Scar mode: CPU-warped positions via scarDisplacement.ts (same field as stipple dents).
+ */
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
@@ -95,6 +100,8 @@ function makeFatLine(
 
 export interface GlobeBorderOutlines {
   readonly group: THREE.Group;
+  setCoastVisible(visible: boolean): void;
+  setInnerBordersVisible(visible: boolean): void;
   setResolution(width: number, height: number): void;
   /** Clip to camera-facing hemisphere (same plane object can be updated per frame). */
   setClippingPlanes(planes: THREE.Plane[]): void;
@@ -159,6 +166,12 @@ export async function loadGlobeBorderOutlines(
 
   return {
     group,
+    setCoastVisible(visible: boolean): void {
+      coastLine.visible = visible;
+    },
+    setInnerBordersVisible(visible: boolean): void {
+      innerLine.visible = visible;
+    },
     setResolution(width: number, height: number): void {
       resolution.set(width, height);
       coastMat.resolution.copy(resolution);
@@ -167,6 +180,9 @@ export async function loadGlobeBorderOutlines(
       innerMat.needsUpdate = true;
     },
     setClippingPlanes(planes: THREE.Plane[]): void {
+      const enabled = planes.length > 0;
+      coastMat.clipping = enabled;
+      innerMat.clipping = enabled;
       coastMat.clippingPlanes = planes;
       innerMat.clippingPlanes = planes;
     },
@@ -176,8 +192,9 @@ export async function loadGlobeBorderOutlines(
       displacementBias: number,
     ): void {
       const scarActive = Boolean(map);
-      coastMat.depthWrite = !scarActive;
-      innerMat.depthWrite = !scarActive;
+      // Write depth in scar mode so lines stay above the oceanFill shell (fill has depthWrite off).
+      coastMat.depthWrite = true;
+      innerMat.depthWrite = true;
       coastMat.polygonOffset = scarActive;
       coastMat.polygonOffsetFactor = scarActive ? -2 : 0;
       coastMat.polygonOffsetUnits = scarActive ? -2 : 0;

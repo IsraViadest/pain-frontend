@@ -10,11 +10,16 @@ import {
   STIPPLE_LAND_MASK_GEOJSON_URL,
 } from "./earthStippleGlobe";
 import {
+  createOceanFillMaterial,
+  loadOceanFillLandMask,
+} from "./oceanFillShell";
+import {
   createLayerCanvasTexture,
   getLayerBaseColorLinear,
   type VisualTheme,
 } from "./layerTextures";
 import { latLngToVector3 } from "./latLng";
+import { createPainHeatTexture } from "./painHeatField";
 import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
@@ -28,8 +33,42 @@ import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 /** Radial offset = texture×scale + bias; 128/255 texels → ~0 offset at neutral grey. */
 const SCAR_DISPLACEMENT_SCALE = 0.04;
 const SCAR_DISPLACEMENT_BIAS = -SCAR_DISPLACEMENT_SCALE * 0.8;
+/**
+ * “Inner black sphere” in scar mode is usually NOT a mesh — land stipple is GPU-dented
+ * inward (earthStippleGlobe VS `landW`) while ocean dots stay at RADIUS; transparent ocean
+ * shows the WebGL clear color between shells. Zoom exaggerates the depth gap.
+ * Hardware hemisphere clip on stipple was removed (point sprites + plane = false inner shell).
+ * Fix: `oceanFill` mesh + matching `setClearColor` (not black) behind transparent ocean dots.
+ */
+/** Stipple: discard when dot(surfaceNormal, viewDir) < this (0–1). Try 0.05–0.25 in debug panel. */
+export const GLOBE_DEBUG_TUNE_DEFAULTS = {
+  facingCullMin: 0.1,
+  scarDispScale: 0.04,
+  scarDispBias: -SCAR_DISPLACEMENT_SCALE * 0.8,
+  oceanAlphaBoost: 1,
+  /** 1 = land dents only (can look like inner shell); 0 = ocean + land move together. */
+  scarLandOnly: 1,
+  oceanFillScale: 1,
+  oceanAlphaMin: 0.32,
+  glowIntensity: 0.18,
+} as const;
+
+export type GlobeDebugTune = {
+  facingCullMin: number;
+  scarDispScale: number;
+  scarDispBias: number;
+  oceanAlphaBoost: number;
+  scarLandOnly: number;
+  oceanFillScale: number;
+  oceanAlphaMin: number;
+  glowIntensity: number;
+};
+
+const STIPPLE_FACING_CULL_OFF = -0.5;
 /** Coastlines follow the same field but read more gently than the solid globe. */
 const SCAR_BORDER_DISPLACEMENT_MULT = 0.5;
+/** Land stipple heat-map tint strength (0–1). */
+const SCAR_HEAT_STRENGTH = 2.82;
 /** Runtime Three.js supports clipping on materials; some @types/three versions omit it. */
 type MaterialWithClipping = THREE.Material & {
   clipping: boolean;
@@ -38,6 +77,14 @@ type MaterialWithClipping = THREE.Material & {
 };
 
 const RADIUS = 1;
+/** Same radius as stipple — inset radii read as a separate “inner sphere”. */
+const OCEAN_FILL_RADIUS = RADIUS;
+/** Rim sphere (`glow`) additive shell. */
+const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
+/** Solid globe shell tint (map cleared when applied — solid color). */
+const GLOBE_SHELL_COLOR = 0xff0000;
+/** Show solid `globe` mesh in scar/multiplex mode (stipple display). */
+const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
 const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 160;
 const GLOW_RADIUS = RADIUS * 1.09;
@@ -60,33 +107,6 @@ varying float vGlow;
 void main() {
   float alpha = vGlow * uGlowIntensity;
   gl_FragColor = vec4(uGlowColor, alpha);
-}
-`;
-const BACK_GLOW_DISTANCE = RADIUS * 1.45;
-const BACK_GLOW_SIZE = RADIUS * 3.8;
-const BACK_GLOW_VS = /* glsl */ `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`;
-const BACK_GLOW_FS = /* glsl */ `
-uniform vec3 uBackGlowColor;
-uniform float uBackGlowIntensity;
-uniform float uInnerRadius;
-uniform float uMidRadius;
-uniform float uOuterRadius;
-varying vec2 vUv;
-void main() {
-  vec2 p = vUv - vec2(0.5);
-  float r = length(p) * 2.0;
-  float rise = smoothstep(uInnerRadius, uMidRadius, r);
-  float fall = 1.0 - smoothstep(uMidRadius, uOuterRadius, r);
-  float ring = rise * fall;
-  float alpha = max(0.0, ring) * uBackGlowIntensity;
-  if (alpha < 0.001) discard;
-  gl_FragColor = vec4(uBackGlowColor, alpha);
 }
 `;
 type MultiplexLink = {
@@ -140,26 +160,104 @@ export type MultiplexHoverInfo = MultiplexNodeHover | MultiplexClusterHover;
 export type GlobeDisplayMode = "texture" | "points";
 /** How pain submissions are drawn: floating markers vs. inward dents on the sphere. */
 export type PainVisualizationMode = "points" | "scars" | "multiplex-v0";
+
+/** Toggle targets for the temporary globe debug panel (`globeDebugPanel.ts`). */
+export type GlobeDebugLayerId =
+  | "glow"
+  | "globe"
+  | "oceanFill"
+  | "stipple"
+  | "stippleLand"
+  | "stippleOcean"
+  | "coastlines"
+  | "countryBorders"
+  | "markers"
+  | "multiplex"
+  | "wordCloud"
+  | "scarDisplacement"
+  | "heatOverlay"
+  | "hemisphereClip"
+  | "lights";
+
+export type GlobeDebugLayerState = {
+  id: GlobeDebugLayerId;
+  visible: boolean;
+  /** Visibility from app mode alone (ignores debug overrides). */
+  autoVisible: boolean;
+  available: boolean;
+  overridden: boolean;
+};
 const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
 
+/**
+ * GLOBE SCENE LAYERS (bottom → top, renderOrder)
+ * =============================================
+ * All geographic shells use radius RADIUS (= 1) unless noted.
+ *
+ * scene (root)
+ * ├── lights (ambLight, keyLight, fillLight)
+ * ├── earthContent      rotates with auto-spin; parent of solid + rim glow
+ * │   ├── glow          renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
+ * │   └── globe         renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)
+ * │       · texture mode: canvas layer map on mesh
+ * │       · scar mode: usually hidden; CPU-warped when debug showGlobeMeshInScarMode
+ * ├── pointsStipple     renderOrder  2  — land/ocean dots (earthStippleGlobe.ts)
+ * │       · scar: GPU displacement + heat tint on land dots
+ * ├── markersGroup      renderOrder  2  — pain “points” mode markers (small spheres)
+ * ├── bordersOutlines   renderOrder  3  — coast + country lines (countryBorders.ts)
+ * ├── multiplexGroup    renderOrder  3  — multiplex-v0 nodes / links / clusters
+ * └── emotionalWordsGroup renderOrder 4 — word-cloud sprites
+ *
+ * Scar / heat data (not separate meshes):
+ *   painScarField.ts  → scarDisplacementMap → dents (stipple VS + border CPU warp)
+ *   painHeatField.ts  → painHeatMap         → orange heat tint (stipple FS only)
+ *
+ * Visibility toggles (search these method names):
+ *   syncBaseGlobeVisibility()  — globe solid shell
+ *   syncStippleVisibility()    — pointsStipple layer
+ *   syncScarVisualization()    — scar + heat textures, border/stipple warp
+ *   rebuildPainGeometryAndTexture() — markersGroup / multiplexGroup
+ *
+ * Files:
+ *   GlobeView.ts          — scene graph, modes, orchestration
+ *   earthStippleGlobe.ts    — stipple point shell + shaders
+ *   countryBorders.ts     — coastline + inner border line shell
+ *   painScarField.ts      — height map for dents
+ *   painHeatField.ts      — intensity map for heat color
+ *   layerTextures.ts      — procedural texture for globe shell (texture mode)
+ *
+ * Scar-mode artifact: “inner black sphere” → see SCAR_DISPLACEMENT_* comment above;
+ *   not glow/globe (those are separate). Clip plane can add a flat dark cut at the limb.
+ */
 export class GlobeView {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
+  /** Rotating group: solid globe shell + rim glow (spins with globeSpinY). */
   private readonly earthContent = new THREE.Group();
+  /** SHELL 0 — Solid sphere (MeshStandardMaterial). See syncBaseGlobeVisibility(). */
   private readonly globe: THREE.Mesh<
     THREE.SphereGeometry,
     THREE.MeshStandardMaterial
   >;
+  /** Opaque ocean-colored sphere behind stipple (blocks black clear showing through). */
+  private readonly oceanFill: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.ShaderMaterial
+  >;
+  private oceanFillLandMask: THREE.DataTexture | null = null;
+  /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
-  private readonly backGlow: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+  /** SHELL markers — “points” viz mode only (rebuildPainGeometryAndTexture). */
   private readonly markersGroup = new THREE.Group();
   private readonly multiplexGroup = new THREE.Group();
   private readonly markerGeometry: THREE.SphereGeometry;
   private readonly emotionalWordsGroup = new THREE.Group();
   private readonly textureCache = new Map<string, THREE.CanvasTexture>();
+  /** SHELL coast + borders — LineSegments2 group (loadCountryOutlines). */
   private bordersOutlines: GlobeBorderOutlines | null = null;
+  /** SHELL stipple — Points on sphere (ensureStipple → earthStippleGlobe). */
   private pointsStipple: THREE.Points | null = null;
   private pointsMaterial: THREE.ShaderMaterial | null = null;
   private stippleCleanup: (() => void) | null = null;
@@ -173,9 +271,11 @@ export class GlobeView {
   private painVizMode: PainVisualizationMode = "points";
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
+  private painHeatMap: THREE.DataTexture | null = null;
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
   private scarBuildGeneration = 0;
   private stippleNeutralScarTexture: THREE.DataTexture | null = null;
+  private stippleNeutralHeatTexture: THREE.DataTexture | null = null;
   private readonly ambLight: THREE.AmbientLight;
   private readonly keyLight: THREE.DirectionalLight;
   private readonly fillLight: THREE.DirectionalLight;
@@ -192,6 +292,10 @@ export class GlobeView {
   private multiplexRuntime: MultiplexRuntime | null = null;
   private wordCloudEnabled = false;
   private wordCloudItems: WordCloudItem[] = [];
+  /** Per-layer visibility overrides from the debug panel (`null` = follow auto). */
+  private readonly debugLayerOverrides = new Map<GlobeDebugLayerId, boolean>();
+  /** Live tuning (debug panel sliders) — see GLOBE_DEBUG_TUNE_DEFAULTS. */
+  private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -232,11 +336,14 @@ export class GlobeView {
     this.fillLight.position.set(-3, -1, -2);
     this.scene.add(this.fillLight);
 
+    // --- SHELL 0: solid globe (hidden in scar mode; see syncBaseGlobeVisibility) ---
     const geo = new THREE.SphereGeometry(RADIUS, 192, 128);
     const mat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
+      color: GLOBE_SHELL_COLOR,
       roughness: 0.78,
       metalness: 0.06,
+      transparent: false,
+      opacity: 1,
     });
     this.globe = new THREE.Mesh(geo, mat);
     this.globe.renderOrder = 0;
@@ -244,6 +351,19 @@ export class GlobeView {
       geo.attributes.position!.array,
     );
     this.earthContent.add(this.globe);
+
+    this.oceanFill = new THREE.Mesh(
+      new THREE.SphereGeometry(OCEAN_FILL_RADIUS, 96, 64),
+      createOceanFillMaterial(
+        new THREE.Color(0x000000),
+        GLOBE_DEBUG_TUNE_DEFAULTS.facingCullMin,
+      ),
+    );
+    this.oceanFill.renderOrder = 0.5;
+    this.earthContent.add(this.oceanFill);
+    void this.loadOceanFillLandMask();
+
+    // --- Rim glow shell (slightly larger sphere; additive fresnel on back faces) ---
     this.glow = new THREE.Mesh(
       new THREE.SphereGeometry(GLOW_RADIUS, 64, 48),
       new THREE.ShaderMaterial({
@@ -261,28 +381,12 @@ export class GlobeView {
       }),
     );
     this.glow.renderOrder = -1;
+    this.glow.visible = GLOBE_ATMOSPHERE_GLOW_ENABLED;
     this.earthContent.add(this.glow);
-    this.backGlow = new THREE.Mesh(
-      new THREE.PlaneGeometry(BACK_GLOW_SIZE, BACK_GLOW_SIZE, 1, 1),
-      new THREE.ShaderMaterial({
-        uniforms: {
-          uBackGlowColor: { value: new THREE.Color(0xffffff) },
-          uBackGlowIntensity: { value: 0.08 },
-          uInnerRadius: { value: 0.55 },
-          uMidRadius: { value: 0.62 },
-          uOuterRadius: { value: 0.9 },
-        },
-        vertexShader: BACK_GLOW_VS,
-        fragmentShader: BACK_GLOW_FS,
-        transparent: true,
-        depthWrite: false,
-        depthTest: true,
-        blending: THREE.AdditiveBlending,
-      }),
-    );
-    this.backGlow.renderOrder = -2;
-    this.scene.add(this.backGlow);
+
     this.scene.add(this.earthContent);
+
+    // --- Overlay shells (siblings of earthContent; same world rotation via syncWorldRotation) ---
     this.markersGroup.renderOrder = 2;
     this.scene.add(this.markersGroup);
     this.multiplexGroup.renderOrder = 3;
@@ -327,60 +431,407 @@ export class GlobeView {
     this.rebuildPainGeometryAndTexture();
   }
 
-  /**
-   * Solid mesh only in texture mode. Scar/multiplex uses stipple + coastlines only
-   * (globe shell hidden unless debug flag).
-   */
-  private syncBaseGlobeVisibility(): void {
+  /** Debug panel: force a layer on/off (`clearDebugLayerOverride` restores auto). */
+  setDebugLayerVisible(id: GlobeDebugLayerId, visible: boolean): void {
+    this.debugLayerOverrides.set(id, visible);
+    this.applyDebugLayerVisibility();
+  }
+
+  clearDebugLayerOverride(id: GlobeDebugLayerId): void {
+    this.debugLayerOverrides.delete(id);
+    this.applyDebugLayerVisibility();
+  }
+
+  resetDebugLayerOverrides(): void {
+    this.debugLayerOverrides.clear();
+    this.applyDebugLayerVisibility();
+  }
+
+  getDebugTune(): GlobeDebugTune {
+    return { ...this.debugTune };
+  }
+
+  /** Adjust stipple/scar tuning live (debug panel). */
+  setDebugTune(partial: Partial<GlobeDebugTune>): void {
+    this.debugTune = { ...this.debugTune, ...partial };
+    this.applyStippleTuneUniforms();
+    this.applyHemisphereClipping();
+    this.applyStippleScarUniforms();
+  }
+
+  resetDebugTune(): void {
+    this.debugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
+    this.applyStippleTuneUniforms();
+    this.applyHemisphereClipping();
+    this.applyStippleScarUniforms();
+  }
+
+  private async loadOceanFillLandMask(): Promise<void> {
+    try {
+      const tex = await loadOceanFillLandMask(STIPPLE_LAND_MASK_GEOJSON_URL);
+      this.oceanFillLandMask?.dispose();
+      this.oceanFillLandMask = tex;
+      this.oceanFill.material.uniforms.uLandMask.value = tex;
+    } catch (e) {
+      console.warn("[GlobeView] ocean fill land mask failed:", e);
+    }
+  }
+
+  private applyStippleTuneUniforms(): void {
+    this.oceanFill.scale.setScalar(this.debugTune.oceanFillScale);
+    this.oceanFill.material.uniforms.uFacingCullMin.value =
+      this.debugTune.facingCullMin;
+    this.glow.material.uniforms.uGlowIntensity.value =
+      this.debugTune.glowIntensity;
+    if (!this.pointsMaterial) return;
+    const u = this.pointsMaterial.uniforms;
+    u.uScarLandOnly.value = this.debugTune.scarLandOnly;
+    u.uOceanAlphaMin.value = this.debugTune.oceanAlphaMin;
+    if (!isDebugScarVisual()) {
+      u.uOceanAlphaBoost.value = this.debugTune.oceanAlphaBoost;
+    }
+  }
+
+  getDebugLayerStates(): GlobeDebugLayerState[] {
+    const ids: GlobeDebugLayerId[] = [
+      "glow",
+      "globe",
+      "oceanFill",
+      "stipple",
+      "stippleLand",
+      "stippleOcean",
+      "coastlines",
+      "countryBorders",
+      "markers",
+      "multiplex",
+      "wordCloud",
+      "scarDisplacement",
+      "heatOverlay",
+      "hemisphereClip",
+      "lights",
+    ];
+    return ids.map((id) => ({
+      id,
+      visible: this.getDebugLayerVisible(id),
+      autoVisible: this.getAutoDebugLayerVisible(id),
+      available: this.isDebugLayerAvailable(id),
+      overridden: this.debugLayerOverrides.has(id),
+    }));
+  }
+
+  private resolveDebugLayerVisibility(
+    id: GlobeDebugLayerId,
+    autoVisible: boolean,
+  ): boolean {
+    const o = this.debugLayerOverrides.get(id);
+    return o !== undefined ? o : autoVisible;
+  }
+
+  private getAutoGlobeVisible(): boolean {
     const scars =
       this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
-    if (
-      isDebugScarVisual() &&
-      DEBUG_SCAR_VISUAL.showGlobeMeshInScarMode &&
-      scars
-    ) {
-      this.globe.visible = true;
-      return;
-    }
     if (scars) {
-      this.globe.visible = false;
-      return;
+      return (
+        GLOBE_SHELL_VISIBLE_IN_SCAR_MODE ||
+        (isDebugScarVisual() && DEBUG_SCAR_VISUAL.showGlobeMeshInScarMode)
+      );
     }
-    this.globe.visible = this.displayMode === "texture";
+    return this.displayMode === "texture";
+  }
+
+  private getAutoStippleVisible(): boolean {
+    return (
+      this.displayMode === "points" ||
+      this.painVizMode === "scars" ||
+      this.painVizMode === "multiplex-v0"
+    );
+  }
+
+  /** Opaque backdrop for transparent ocean stipple (hidden when debug solid globe is on). */
+  private getAutoOceanFillVisible(): boolean {
+    return this.getAutoStippleVisible() && !this.getAutoGlobeVisible();
+  }
+
+  private getAutoScarDisplacementActive(): boolean {
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    return scars && Boolean(this.scarDisplacementMap);
+  }
+
+  private getAutoHeatOverlayActive(): boolean {
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    return scars && Boolean(this.painHeatMap);
+  }
+
+  private isDebugLayerAvailable(id: GlobeDebugLayerId): boolean {
+    switch (id) {
+      case "stipple":
+      case "stippleLand":
+      case "stippleOcean":
+      case "scarDisplacement":
+      case "heatOverlay":
+        return Boolean(this.pointsStipple);
+      case "coastlines":
+      case "countryBorders":
+        return Boolean(this.bordersOutlines);
+      case "wordCloud":
+        return this.wordCloudEnabled;
+      default:
+        return true;
+    }
+  }
+
+  private getAutoDebugLayerVisible(id: GlobeDebugLayerId): boolean {
+    switch (id) {
+      case "glow":
+        return GLOBE_ATMOSPHERE_GLOW_ENABLED;
+      case "globe":
+        return this.getAutoGlobeVisible();
+      case "oceanFill":
+        return this.getAutoOceanFillVisible();
+      case "stipple":
+        return this.getAutoStippleVisible();
+      case "stippleLand":
+      case "stippleOcean":
+        return this.getAutoStippleVisible();
+      case "coastlines":
+      case "countryBorders":
+        return Boolean(this.bordersOutlines);
+      case "markers":
+        return this.painVizMode === "points";
+      case "multiplex":
+        return this.painVizMode === "multiplex-v0";
+      case "wordCloud":
+        return this.wordCloudEnabled && this.emotionalWordsGroup.children.length > 0;
+      case "scarDisplacement":
+        return this.getAutoScarDisplacementActive();
+      case "heatOverlay":
+        return this.getAutoHeatOverlayActive();
+      case "hemisphereClip":
+      case "lights":
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  private getDebugLayerVisible(id: GlobeDebugLayerId): boolean {
+    switch (id) {
+      case "glow":
+        return this.glow.visible;
+      case "globe":
+        return this.globe.visible;
+      case "oceanFill":
+        return this.oceanFill.visible;
+      case "stipple":
+        return this.pointsStipple?.visible ?? false;
+      case "stippleLand":
+        return (
+          (this.pointsMaterial?.uniforms.uShowLand?.value as number) >= 0.5
+        );
+      case "stippleOcean":
+        return (
+          (this.pointsMaterial?.uniforms.uShowOcean?.value as number) >= 0.5
+        );
+      case "coastlines":
+        return this.bordersOutlines?.group.children[0]?.visible ?? false;
+      case "countryBorders":
+        return this.bordersOutlines?.group.children[1]?.visible ?? false;
+      case "markers":
+        return this.markersGroup.visible;
+      case "multiplex":
+        return this.multiplexGroup.visible;
+      case "wordCloud":
+        return this.emotionalWordsGroup.visible;
+      case "scarDisplacement":
+        return (this.pointsMaterial?.uniforms.uScarActive?.value as number) >= 0.5;
+      case "heatOverlay":
+        return (this.pointsMaterial?.uniforms.uHeatActive?.value as number) >= 0.5;
+      case "hemisphereClip":
+        return (
+          (this.pointsMaterial?.uniforms.uFacingCullMin?.value as number) >=
+          0
+        );
+      case "lights":
+        return this.ambLight.visible;
+      default:
+        return false;
+    }
+  }
+
+  /** Apply mesh/uniform visibility (respects debug overrides). */
+  private applyDebugLayerVisibility(): void {
+    this.globe.visible = this.resolveDebugLayerVisibility(
+      "globe",
+      this.getAutoGlobeVisible(),
+    );
+    this.oceanFill.visible = this.resolveDebugLayerVisibility(
+      "oceanFill",
+      this.getAutoOceanFillVisible(),
+    );
+    if (this.pointsStipple) {
+      this.pointsStipple.visible = this.resolveDebugLayerVisibility(
+        "stipple",
+        this.getAutoStippleVisible(),
+      );
+    }
+    this.glow.visible = this.resolveDebugLayerVisibility(
+      "glow",
+      GLOBE_ATMOSPHERE_GLOW_ENABLED,
+    );
+    this.markersGroup.visible = this.resolveDebugLayerVisibility(
+      "markers",
+      this.painVizMode === "points",
+    );
+    this.multiplexGroup.visible = this.resolveDebugLayerVisibility(
+      "multiplex",
+      this.painVizMode === "multiplex-v0",
+    );
+    this.emotionalWordsGroup.visible = this.resolveDebugLayerVisibility(
+      "wordCloud",
+      this.wordCloudEnabled && this.emotionalWordsGroup.children.length > 0,
+    );
+    if (this.bordersOutlines) {
+      const coastAuto = Boolean(this.bordersOutlines);
+      this.bordersOutlines.setCoastVisible(
+        this.resolveDebugLayerVisibility("coastlines", coastAuto),
+      );
+      this.bordersOutlines.setInnerBordersVisible(
+        this.resolveDebugLayerVisibility("countryBorders", coastAuto),
+      );
+    }
+    if (this.pointsMaterial) {
+      const u = this.pointsMaterial.uniforms;
+      const stippleOn = this.pointsStipple?.visible ?? false;
+      u.uShowLand.value = this.resolveDebugLayerVisibility(
+        "stippleLand",
+        this.getAutoStippleVisible(),
+      )
+        ? 1
+        : 0;
+      u.uShowOcean.value = this.resolveDebugLayerVisibility(
+        "stippleOcean",
+        this.getAutoStippleVisible(),
+      )
+        ? 1
+        : 0;
+    }
+    const lightsOn = this.resolveDebugLayerVisibility("lights", true);
+    this.ambLight.visible = lightsOn;
+    this.keyLight.visible = lightsOn;
+    this.fillLight.visible = lightsOn;
+    this.applyHemisphereClipping();
+    this.applyStippleScarUniforms();
+    this.applyStippleHeatUniforms();
+    this.syncStippleBackdropClearColor();
+  }
+
+  private applyHemisphereClipping(): void {
+    const enabled = this.resolveDebugLayerVisibility("hemisphereClip", true);
+    const planes = enabled ? this.clipPlanesFront : [];
+
+    // Point sprites + a plane through the origin clip at the limb and look like a
+    // smaller inner sphere when zooming; use shader facing cull on stipple instead.
+    if (this.pointsMaterial) {
+      const m = this.pointsMaterial as unknown as MaterialWithClipping;
+      m.clipping = false;
+      m.clippingPlanes = [];
+      this.pointsMaterial.uniforms.uFacingCullMin.value = enabled
+        ? this.debugTune.facingCullMin
+        : STIPPLE_FACING_CULL_OFF;
+    }
+
+    this.bordersOutlines?.setClippingPlanes(planes);
+
+    for (const ch of this.markersGroup.children) {
+      if (ch instanceof THREE.Mesh) {
+        const m = ch.material as unknown as MaterialWithClipping;
+        m.clipping = enabled;
+        m.clippingPlanes = planes;
+      }
+    }
+    for (const ch of this.multiplexGroup.children) {
+      const mats = Array.isArray(
+        (ch as THREE.Object3D & { material?: THREE.Material | THREE.Material[] })
+          .material,
+      )
+        ? ((ch as THREE.Mesh).material as THREE.Material[])
+        : [(ch as THREE.Mesh).material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        const m = mat as unknown as MaterialWithClipping;
+        m.clipping = enabled;
+        m.clippingPlanes = planes;
+      }
+    }
+  }
+
+  /**
+   * SHELL 0 visibility — solid `globe` mesh.
+   * Texture display: on. Scar/multiplex: GLOBE_SHELL_VISIBLE_IN_SCAR_MODE (or debugScarVisual flag).
+   */
+  private syncBaseGlobeVisibility(): void {
+    this.globe.visible = this.resolveDebugLayerVisibility(
+      "globe",
+      this.getAutoGlobeVisible(),
+    );
+  }
+
+  /** Solid globe shell: full opacity, no layer map. */
+  private applyGlobeShellColor(): void {
+    const mat = this.globe.material as THREE.MeshStandardMaterial;
+    mat.map = null;
+    mat.color.setHex(GLOBE_SHELL_COLOR);
+    mat.transparent = false;
+    mat.opacity = 1;
+    mat.needsUpdate = true;
   }
 
   /** Neutral base color for the displaced globe under stipple (no canvas layer map). */
   private applyGlobeScarShellMaterial(): void {
-    const mat = this.globe.material as THREE.MeshStandardMaterial;
     const scars =
       this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
     if (!scars || this.displayMode !== "points") return;
-    mat.map = null;
-    mat.transparent = false;
-    mat.opacity = 1;
     if (isDebugScarVisual()) {
       this.applyDebugGlobeMaterial();
       return;
     }
-    mat.color.setHex(this.visualTheme === "blue" ? 0xb8cedc : 0x8e98a6);
+    this.applyGlobeShellColor();
+    const mat = this.globe.material as THREE.MeshStandardMaterial;
     mat.roughness = 0.82;
     mat.metalness = 0.06;
     mat.needsUpdate = true;
   }
 
-  /** Stipple land mask — shared look for point stipple, scars, and multiplex. */
+  /**
+   * SHELL stipple visibility — `pointsStipple` (earthStippleGlobe).
+   * On for displayMode "points" and for painVizMode scars | multiplex-v0.
+   */
   private syncStippleVisibility(): void {
     if (!this.pointsStipple) return;
-    const useStipple =
-      this.displayMode === "points" ||
-      this.painVizMode === "scars" ||
-      this.painVizMode === "multiplex-v0";
-    this.pointsStipple.visible = useStipple;
+    this.pointsStipple.visible = this.resolveDebugLayerVisibility(
+      "stipple",
+      this.getAutoStippleVisible(),
+    );
   }
 
   private syncGlobeSurfaceVisibility(): void {
     this.syncBaseGlobeVisibility();
     this.syncStippleVisibility();
+    this.applyDebugLayerVisibility();
+    this.syncStippleBackdropClearColor();
+  }
+
+  /** Keep canvas clear transparent — CSS theme shows outside the globe (never fill whole viewport). */
+  private syncStippleBackdropClearColor(): void {
+    if (isDebugScarVisual()) return;
+    this.renderer.setClearColor(0x000000, 0);
+  }
+
+  private applyStippleOceanFillColor(): void {
+    // Ocean-only shell stays black; land pixels are discarded in oceanFillShell shader.
+    this.oceanFill.material.uniforms.uFillColor.value.setHex(0x000000);
   }
 
   private disposeStipple(): void {
@@ -394,6 +845,7 @@ export class GlobeView {
       this.stippleCleanup = null;
     }
     this.stippleNeutralScarTexture = null;
+    this.stippleNeutralHeatTexture = null;
     this.stippleLandMaskUrl = null;
     this.stippleBasePositions = null;
   }
@@ -441,7 +893,8 @@ export class GlobeView {
   }
 
   /**
-   * One scar field, one CPU warp for globe + stipple + borders (no GPU displacementMap).
+   * Scar + heat fields → stipple shader uniforms + CPU-warped coast/border lines.
+   * Does not add meshes; updates existing shells. See painScarField.ts, painHeatField.ts.
    */
   private syncScarVisualization(): void {
     const scars =
@@ -452,9 +905,10 @@ export class GlobeView {
       this.captureStippleBasePositions();
     }
 
-    if (scars && this.scarDisplacementMap) {
+    if (scars && this.scarDisplacementMap && this.painHeatMap) {
       const map = this.scarDisplacementMap;
       map.needsUpdate = true;
+      this.painHeatMap.needsUpdate = true;
 
       mat.displacementMap = null;
       mat.displacementScale = 0;
@@ -490,7 +944,8 @@ export class GlobeView {
     mat.needsUpdate = true;
     this.applyGlobeScarShellMaterial();
     this.applyStippleScarUniforms();
-    this.syncBaseGlobeVisibility();
+    this.applyStippleHeatUniforms();
+    this.applyDebugLayerVisibility();
 
     if (isDebugScarVisual() && DEBUG_SCAR_VISUAL.logScarSync) {
       const u = this.pointsMaterial?.uniforms;
@@ -549,6 +1004,10 @@ export class GlobeView {
       this.scarDisplacementMap.dispose();
       this.scarDisplacementMap = null;
     }
+    if (this.painHeatMap) {
+      this.painHeatMap.dispose();
+      this.painHeatMap = null;
+    }
 
     const scars =
       this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
@@ -568,6 +1027,7 @@ export class GlobeView {
         points,
         this.currentLayerId,
       );
+      this.painHeatMap = createPainHeatTexture(points);
       this.updateScarMapPreview();
       void this.ensureStipple().then(() => {
         if (generation !== this.scarBuildGeneration) return;
@@ -579,6 +1039,7 @@ export class GlobeView {
     }, 0);
   }
 
+  /** Creates SHELL stipple if missing (earthStippleGlobe.ts) and parents it to earthContent. */
   private ensureStipple(): Promise<void> {
     if (
       this.pointsStipple &&
@@ -606,20 +1067,22 @@ export class GlobeView {
         0.16,
         this.renderer.getPixelRatio(),
       )
-        .then(({ points, material, dispose, neutralScarTexture }) => {
+        .then(({ points, material, dispose, neutralScarTexture, neutralHeatTexture }) => {
           this.pointsStipple = points;
           this.pointsMaterial = material;
           this.stippleCleanup = dispose;
           this.stippleLandMaskUrl = STIPPLE_LAND_MASK_GEOJSON_URL;
           this.stippleNeutralScarTexture = neutralScarTexture;
+          this.stippleNeutralHeatTexture = neutralHeatTexture;
           this.syncStippleVisibility();
+          // SHELL stipple — lives on earthContent so it spins with the globe
           this.pointsStipple.renderOrder = 2;
           this.earthContent.add(this.pointsStipple);
           const mClip = material as unknown as MaterialWithClipping;
-          mClip.clipping = true;
-          mClip.clipIntersection = false;
-          mClip.clippingPlanes = this.clipPlanesFront;
+          mClip.clipping = false;
+          mClip.clippingPlanes = [];
           this.applyPointsTint();
+          this.applyHemisphereClipping();
           this.captureStippleBasePositions();
           this.syncScarVisualization();
           this.syncWorldRotation();
@@ -647,9 +1110,9 @@ export class GlobeView {
       u.uLandTintStrength.value = 1;
       u.uOceanAlphaBoost.value = DEBUG_SCAR_VISUAL.stippleOceanAlphaBoost;
       u.uOceanPointScale.value = DEBUG_SCAR_VISUAL.stippleOceanPointScale;
+      this.applyStippleHeatUniforms();
       return;
     }
-    u.uOceanAlphaBoost.value = 1;
     u.uOceanPointScale.value = 1;
     const rgb = getLayerBaseColorLinear(this.currentLayerId, this.visualTheme);
     u.uTint.value.set(rgb[0], rgb[1], rgb[2]);
@@ -666,6 +1129,10 @@ export class GlobeView {
       u.uLandTint.value.set(0.86, 0.9, 0.96);
       u.uLandTintStrength.value = 0.22;
     }
+    this.applyStippleTuneUniforms();
+    this.applyStippleOceanFillColor();
+    this.applyStippleHeatUniforms();
+    this.syncStippleBackdropClearColor();
   }
 
   private applyStippleScarUniforms(): void {
@@ -673,16 +1140,44 @@ export class GlobeView {
     const u = this.pointsMaterial.uniforms;
     const scars =
       this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
-    u.uScarDispScale.value = scars ? SCAR_DISPLACEMENT_SCALE : 0;
-    u.uScarDispBias.value = scars ? SCAR_DISPLACEMENT_BIAS : 0;
-    u.uScarActive.value = scars ? 1 : 0;
-    if (scars && this.scarDisplacementMap) {
+    const scarOn = this.resolveDebugLayerVisibility(
+      "scarDisplacement",
+      scars && Boolean(this.scarDisplacementMap),
+    );
+    u.uScarDispScale.value = scarOn ? this.debugTune.scarDispScale : 0;
+    u.uScarDispBias.value = scarOn ? this.debugTune.scarDispBias : 0;
+    u.uScarActive.value = scarOn ? 1 : 0;
+    if (scarOn && this.scarDisplacementMap) {
       u.uScarMap.value = this.scarDisplacementMap;
     } else if (this.stippleNeutralScarTexture) {
       u.uScarMap.value = this.stippleNeutralScarTexture;
     }
   }
 
+  private applyStippleHeatUniforms(): void {
+    if (!this.pointsMaterial) return;
+    const u = this.pointsMaterial.uniforms;
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    const heatOn = this.resolveDebugLayerVisibility(
+      "heatOverlay",
+      scars && Boolean(this.painHeatMap),
+    );
+    u.uHeatActive.value = heatOn ? 1 : 0;
+    u.uHeatStrength.value = SCAR_HEAT_STRENGTH;
+    if (heatOn && this.painHeatMap) {
+      this.painHeatMap.needsUpdate = true;
+      u.uHeatMap.value = this.painHeatMap;
+    } else if (this.stippleNeutralHeatTexture) {
+      u.uHeatMap.value = this.stippleNeutralHeatTexture;
+    }
+
+    // High-contrast ramp (independent of stipple grey/cyan so heat stays visible).
+    u.uHeatCool.value.set(0.04, 0.07, 0.18);
+    u.uHeatHot.value.set(1.0, 0.28, 0.06);
+  }
+
+  /** SHELL coast + borders — loads GeoJSON, adds `bordersOutlines.group` to scene. */
   private async loadCountryOutlines(): Promise<void> {
     try {
       const w = this.renderer.domElement.clientWidth || window.innerWidth;
@@ -697,6 +1192,7 @@ export class GlobeView {
       this.bordersOutlines.setClippingPlanes(this.clipPlanesFront);
       this.syncScarVisualization();
       this.scene.remove(this.markersGroup);
+      // Coast + country border lines (countryBorders.ts); scar-warped in syncScarVisualization
       this.bordersOutlines.group.renderOrder = 3;
       this.scene.add(this.bordersOutlines.group);
       this.scene.add(this.markersGroup);
@@ -739,8 +1235,6 @@ export class GlobeView {
       this.fillLight.intensity = 0.45;
       this.glow.material.uniforms.uGlowColor.value.setHex(0x4488ff);
       this.glow.material.uniforms.uGlowIntensity.value = 0.08;
-      this.backGlow.material.uniforms.uBackGlowColor.value.setHex(0xffffff);
-      this.backGlow.material.uniforms.uBackGlowIntensity.value = 0;
       this.applyDebugGlobeMaterial();
       this.syncBorderAppearance();
       this.applyPointsTint();
@@ -757,11 +1251,9 @@ export class GlobeView {
       this.keyLight.intensity = 1.12;
       this.fillLight.color.setHex(0x3b69cc);
       this.fillLight.intensity = 0.42;
-      this.globe.material.color.setHex(0xd1f7ff);
+      this.applyGlobeShellColor();
       this.glow.material.uniforms.uGlowColor.value.setHex(0x05e2c2);
       this.glow.material.uniforms.uGlowIntensity.value = 0.2;
-      this.backGlow.material.uniforms.uBackGlowColor.value.setHex(0xffffff);
-      this.backGlow.material.uniforms.uBackGlowIntensity.value = 0.08;
     } else {
       this.scene.background = null;
       this.renderer.toneMappingExposure = 1.05;
@@ -771,14 +1263,13 @@ export class GlobeView {
       this.keyLight.intensity = 1.25;
       this.fillLight.color.setHex(0xb8c4ff);
       this.fillLight.intensity = 0.35;
-      this.globe.material.color.setHex(0xffffff);
+      this.applyGlobeShellColor();
       this.glow.material.uniforms.uGlowColor.value.setHex(0x7da8ff);
       this.glow.material.uniforms.uGlowIntensity.value = 0.18;
-      this.backGlow.material.uniforms.uBackGlowColor.value.setHex(0xffffff);
-      this.backGlow.material.uniforms.uBackGlowIntensity.value = 0.06;
     }
     this.syncBorderAppearance();
     this.applyMultiplexTheme();
+    this.applyStippleTuneUniforms();
   }
 
   dispose(): void {
@@ -796,10 +1287,11 @@ export class GlobeView {
     this.renderer.dispose();
     this.globe.geometry.dispose();
     this.globe.material.dispose();
+    this.oceanFill.geometry.dispose();
+    this.oceanFill.material.dispose();
+    this.oceanFillLandMask?.dispose();
     this.glow.geometry.dispose();
     this.glow.material.dispose();
-    this.backGlow.geometry.dispose();
-    this.backGlow.material.dispose();
     this.markerGeometry.dispose();
     this.clearWordCloud();
     this.disposeMultiplexObjects();
@@ -815,14 +1307,11 @@ export class GlobeView {
       tex = createLayerCanvasTexture(layerId, this.visualTheme);
       this.textureCache.set(cacheKey, tex);
     }
-    const m = this.globe.material;
-    // Layer canvas texture is only for “texture” display mode; in stipple/scar mode the
-    // mesh stays hidden — otherwise it reads as a gray sphere under transparent ocean dots.
-    if (this.displayMode === "texture") {
-      m.map = tex;
-    } else {
-      m.map = null;
-    }
+    // Solid shell (GLOBE_SHELL_COLOR); layer canvas stays cached but is not mapped onto the mesh.
+    this.applyGlobeShellColor();
+    const m = this.globe.material as THREE.MeshStandardMaterial;
+    m.roughness = 0.78;
+    m.metalness = 0.06;
     m.needsUpdate = true;
     this.applyPointsTint();
     this.applyGlobeScarShellMaterial();
@@ -891,8 +1380,7 @@ export class GlobeView {
       }
     }
 
-    this.markersGroup.visible = this.painVizMode === "points";
-    this.multiplexGroup.visible = this.painVizMode === "multiplex-v0";
+    this.applyDebugLayerVisibility();
     if (this.painVizMode === "multiplex-v0") {
       this.rebuildMultiplexVisualization(this.lastPainPoints);
     } else {
@@ -909,7 +1397,6 @@ export class GlobeView {
     this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;
     this.syncWorldRotation();
     this.controls.update();
-    this.syncBackGlowToCamera();
     this.tickMultiplex(dt);
     this.tickWordCloud();
     const cp = this.camera.position;
@@ -919,6 +1406,7 @@ export class GlobeView {
       this.hemisphereClipPlane.normal.set(0, 0, 1);
     }
     this.hemisphereClipPlane.constant = 0;
+    this.applyHemisphereClipping();
     if (this.pointsMaterial) {
       this.pointsMaterial.uniforms.uPixelRatio.value =
         this.renderer.getPixelRatio();
@@ -981,6 +1469,7 @@ export class GlobeView {
         baseScaleY: sprite.scale.y,
       });
     }
+    this.applyDebugLayerVisibility();
   }
 
   private clearWordCloud(): void {
@@ -1538,29 +2027,6 @@ export class GlobeView {
       }
       rt.linkPositionAttr.needsUpdate = true;
     }
-  }
-
-  private syncBackGlowToCamera(): void {
-    const camPos = this.camera.position;
-    const camDist = camPos.length();
-    const camDir = camPos.clone().normalize();
-    this.backGlow.position.copy(camDir.multiplyScalar(-BACK_GLOW_DISTANCE));
-    this.backGlow.quaternion.copy(this.camera.quaternion);
-    const cameraToPlane = camDist + BACK_GLOW_DISTANCE;
-    const alpha = Math.asin(THREE.MathUtils.clamp(RADIUS / camDist, 0, 0.9999));
-    const silhouetteRadiusOnPlane = Math.tan(alpha) * cameraToPlane;
-    const planeHalf = BACK_GLOW_SIZE * 0.5;
-    const silhouetteNorm = THREE.MathUtils.clamp(
-      silhouetteRadiusOnPlane / planeHalf,
-      0.15,
-      0.94,
-    );
-    const inner = Math.min(0.97, silhouetteNorm + 0.02);
-    const outer = Math.min(0.995, inner + 0.105);
-    const mid = inner + (outer - inner) * 0.48;
-    this.backGlow.material.uniforms.uInnerRadius.value = inner;
-    this.backGlow.material.uniforms.uMidRadius.value = mid;
-    this.backGlow.material.uniforms.uOuterRadius.value = outer;
   }
 
   private onResize = (): void => {
