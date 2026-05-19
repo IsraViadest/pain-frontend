@@ -10,20 +10,9 @@ export const SCAR_MAP_HEIGHT = 512;
 /** Flat surface in the scar height map (byte 0–255). 128 = neutral with displacement bias. */
 export const SCAR_NEUTRAL_DEPTH = 128;
 export const SCAR_MIN_DEPTH = 0;
-const SCAR_STAMP_POINT_CAP = 3_000;
 
 function painPointToGlobeUv(p: PainPoint): { u: number; v: number } {
   return unitDirectionToGlobeEquirectUV(latLngToVector3(p.lat, p.lng, 1));
-}
-
-function scarStampPoints(points: PainPoint[]): PainPoint[] {
-  if (points.length <= SCAR_STAMP_POINT_CAP) return points;
-  const step = Math.ceil(points.length / SCAR_STAMP_POINT_CAP);
-  const sampled: PainPoint[] = [];
-  for (let i = 0; i < points.length; i += step) {
-    sampled.push(points[i]!);
-  }
-  return sampled;
 }
 
 function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
@@ -57,22 +46,22 @@ export function createPainScarDisplacementTexture(
   points: PainPoint[],
   layerId = "unknown",
 ): THREE.DataTexture {
+  const t0 = isDebugScarVisual() ? performance.now() : 0;
   const depthAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
   depthAcc.fill(SCAR_NEUTRAL_DEPTH);
 
   const stats: ScarMapBuildStats = {
     layerId,
     pointCount: points.length,
-    pointsConsidered: 0,
+    pointsConsidered: points.length,
   };
 
-  for (const p of scarStampPoints(points)) {
-    stats.pointsConsidered++;
+  for (const p of points) {
     const { u, v } = painPointToGlobeUv(p);
     const cx = Math.floor(((u % 1) + 1) % 1 * (SCAR_MAP_WIDTH - 1));
     const cy = Math.floor(THREE.MathUtils.clamp(v, 0, 1) * (SCAR_MAP_HEIGHT - 1));
     const inten = Math.sqrt(THREE.MathUtils.clamp(p.intensity, 0, 1));
-    const radiusPx = Math.round(18 + 58 * (0.2 + 0.8 * inten));
+    const radiusPx = Math.max(1, Math.round(1 + 3 * (0.2 + 0.8 * inten)));
     const peakDent = 72 + 140 * (0.15 + 0.85 * inten);
 
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
@@ -93,7 +82,10 @@ export function createPainScarDisplacementTexture(
   }
 
   if (isDebugScarVisual()) {
-    console.info("[scar map] built", stats);
+    console.info("[scar map] built", {
+      ...stats,
+      buildMs: Math.round(performance.now() - t0),
+    });
   }
 
   const depthBytes = new Uint8Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
