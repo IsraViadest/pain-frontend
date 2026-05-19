@@ -3,7 +3,7 @@
  * Import only from globe rendering code — not used in production builds when disabled.
  */
 export const DEBUG_SCAR_VISUAL = {
-  enabled: true,
+  enabled: false,
   /** WebGL + scene backdrop */
   sceneBackground: 0xf4f4f4,
   /** Solid sphere mesh (MeshStandardMaterial) — normally hidden in stipple display mode */
