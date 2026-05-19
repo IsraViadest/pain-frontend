@@ -7,7 +7,7 @@ import {
 } from "./countryBorders";
 import {
   createEarthStippleGlobe,
-  STIPPLE_LAND_TEXTURE_URL,
+  STIPPLE_LAND_MASK_GEOJSON_URL,
 } from "./earthStippleGlobe";
 import {
   createLayerCanvasTexture,
@@ -15,13 +15,15 @@ import {
   type VisualTheme,
 } from "./layerTextures";
 import { latLngToVector3 } from "./latLng";
-import { createPainScarDisplacementTexture } from "./painScarField";
+import {
+  createPainScarDisplacementTexture,
+  drawScarMapPreview,
+} from "./painScarField";
+import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 
-/** Same scale/bias on textured globe and stipple (world units along surface normal). */
-const SCAR_DISPLACEMENT_SCALE = 0.13;
+/** Radial offset = texture×scale + bias; 128/255 texels → ~0 offset at neutral grey. */
+const SCAR_DISPLACEMENT_SCALE = 0.2;
 const SCAR_DISPLACEMENT_BIAS = -SCAR_DISPLACEMENT_SCALE * 0.5;
-/** Slightly stronger on strokes to make distortion easier to verify visually. */
-const BORDER_SCAR_MULTIPLIER = 1.2;
 
 /** Runtime Three.js supports clipping on materials; some @types/three versions omit it. */
 type MaterialWithClipping = THREE.Material & {
@@ -133,8 +135,6 @@ export type MultiplexHoverInfo = MultiplexNodeHover | MultiplexClusterHover;
 export type GlobeDisplayMode = "texture" | "points";
 /** How pain submissions are drawn: floating markers vs. inward dents on the sphere. */
 export type PainVisualizationMode = "points" | "scars" | "multiplex-v0";
-/** Slightly above the globe so outlines sit on top of the data texture without z-fighting. */
-const BORDER_RADIUS = RADIUS * 1.0009;
 const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
 
 export class GlobeView {
@@ -159,10 +159,15 @@ export class GlobeView {
   private pointsMaterial: THREE.ShaderMaterial | null = null;
   private stippleCleanup: (() => void) | null = null;
   private stipplePromise: Promise<void> | null = null;
+  private stippleLandMaskUrl: string | null = null;
+  /** Unwarped stipple shell; scar mode warps a copy into the points geometry. */
+  private stippleBasePositions: Float32Array | null = null;
   private displayMode: GlobeDisplayMode = "texture";
   private painVizMode: PainVisualizationMode = "points";
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
+  private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
+  private scarBuildGeneration = 0;
   private stippleNeutralScarTexture: THREE.DataTexture | null = null;
   private readonly ambLight: THREE.AmbientLight;
   private readonly keyLight: THREE.DirectionalLight;
@@ -194,7 +199,12 @@ export class GlobeView {
     this.renderer.toneMappingExposure = 1.05;
 
     this.scene = new THREE.Scene();
-    this.scene.background = null;
+    if (isDebugScarVisual()) {
+      this.scene.background = new THREE.Color(DEBUG_SCAR_VISUAL.sceneBackground);
+      this.renderer.setClearColor(DEBUG_SCAR_VISUAL.sceneBackground, 1);
+    } else {
+      this.scene.background = null;
+    }
 
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 50);
     this.camera.position.set(0, 0.35, 2.6);
@@ -280,12 +290,22 @@ export class GlobeView {
   /** Swap between procedural canvas texture and stippled point globe (test). */
   setGlobeDisplayMode(mode: GlobeDisplayMode): void {
     this.displayMode = mode;
-    this.syncBaseGlobeVisibility();
+    this.syncGlobeSurfaceVisibility();
     void this.ensureStipple().then(() => {
-      if (this.pointsStipple) {
-        this.pointsStipple.visible = mode === "points";
+      this.syncGlobeSurfaceVisibility();
+      if (
+        this.painVizMode === "scars" ||
+        this.painVizMode === "multiplex-v0"
+      ) {
+        this.syncScarVisualization();
       }
     });
+    if (
+      this.painVizMode === "scars" ||
+      this.painVizMode === "multiplex-v0"
+    ) {
+      this.syncScarVisualization();
+    }
     this.setLayerTexture(this.currentLayerId);
   }
 
@@ -293,28 +313,228 @@ export class GlobeView {
   setPainVisualizationMode(mode: PainVisualizationMode): void {
     if (this.painVizMode === mode) return;
     this.painVizMode = mode;
-    this.syncBaseGlobeVisibility();
+    this.syncGlobeSurfaceVisibility();
     this.rebuildPainGeometryAndTexture();
   }
 
-  /**
-   * Keep base mesh visible in scars mode so dents remain readable,
-   * even when stipple display mode is active.
-   */
+  /** Solid mesh + canvas texture (legacy “noise texture” surface only). */
   private syncBaseGlobeVisibility(): void {
-    this.globe.visible = this.displayMode === "texture" || this.painVizMode === "scars";
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    if (
+      isDebugScarVisual() &&
+      DEBUG_SCAR_VISUAL.showGlobeMeshInScarMode &&
+      scars
+    ) {
+      this.globe.visible = true;
+      return;
+    }
+    this.globe.visible = this.displayMode === "texture";
+  }
+
+  /** Stipple land mask — shared look for point stipple, scars, and multiplex. */
+  private syncStippleVisibility(): void {
+    if (!this.pointsStipple) return;
+    const useStipple =
+      this.displayMode === "points" ||
+      this.painVizMode === "scars" ||
+      this.painVizMode === "multiplex-v0";
+    this.pointsStipple.visible = useStipple;
+  }
+
+  private syncGlobeSurfaceVisibility(): void {
+    this.syncBaseGlobeVisibility();
+    this.syncStippleVisibility();
+  }
+
+  private disposeStipple(): void {
+    if (this.pointsStipple) {
+      this.earthContent.remove(this.pointsStipple);
+      this.pointsStipple = null;
+      this.pointsMaterial = null;
+    }
+    if (this.stippleCleanup) {
+      this.stippleCleanup();
+      this.stippleCleanup = null;
+    }
+    this.stippleNeutralScarTexture = null;
+    this.stippleLandMaskUrl = null;
+    this.stippleBasePositions = null;
+  }
+
+  private captureStippleBasePositions(): void {
+    if (!this.pointsStipple) return;
+    const pos = this.pointsStipple.geometry.getAttribute("position");
+    if (!pos) return;
+    this.stippleBasePositions = new Float32Array(pos.array);
+  }
+
+  /** Reset stipple positions to base radius; scar offset is applied in the vertex shader. */
+  private resetStippleShellPositions(): void {
+    if (!this.pointsStipple || !this.stippleBasePositions) return;
+    const posAttr = this.pointsStipple.geometry.getAttribute("position");
+    if (!posAttr) return;
+    (posAttr.array as Float32Array).set(this.stippleBasePositions);
+    posAttr.needsUpdate = true;
+    this.pointsStipple.geometry.computeBoundingSphere();
+  }
+
+  /**
+   * Scar field → stipple (GPU) and coastlines (CPU) share one height map and displacement scale
+   * so land, ocean, and borders stay on the same shell.
+   */
+  private syncScarVisualization(): void {
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    const mat = this.globe.material as THREE.MeshStandardMaterial;
+
+    if (this.pointsStipple && !this.stippleBasePositions) {
+      this.captureStippleBasePositions();
+    }
+
+    if (scars && this.scarDisplacementMap) {
+      const map = this.scarDisplacementMap;
+      map.needsUpdate = true;
+
+      // Avoid a second displaced shell visible through ocean stipple (points display mode).
+      if (this.displayMode === "texture") {
+        mat.displacementMap = map;
+        mat.displacementScale = SCAR_DISPLACEMENT_SCALE;
+        mat.displacementBias = SCAR_DISPLACEMENT_BIAS;
+      } else {
+        mat.displacementMap = null;
+        mat.displacementScale = 0;
+        mat.displacementBias = 0;
+      }
+
+      this.resetStippleShellPositions();
+
+      this.bordersOutlines?.setScarDisplacementMap(
+        map,
+        SCAR_DISPLACEMENT_SCALE,
+        SCAR_DISPLACEMENT_BIAS,
+      );
+    } else {
+      mat.displacementMap = null;
+      mat.displacementScale = 0;
+      mat.displacementBias = 0;
+      this.bordersOutlines?.setScarDisplacementMap(null, 0, 0);
+      this.resetStippleShellPositions();
+    }
+
+    mat.needsUpdate = true;
+    this.applyStippleScarUniforms();
+    this.applyDebugGlobeMaterial();
+    this.syncBaseGlobeVisibility();
+
+    if (isDebugScarVisual() && DEBUG_SCAR_VISUAL.logScarSync) {
+      const u = this.pointsMaterial?.uniforms;
+      console.info("[scar debug] sync", {
+        mode: this.painVizMode,
+        displayMode: this.displayMode,
+        hasScarMap: Boolean(this.scarDisplacementMap),
+        globeVisible: this.globe.visible,
+        stippleVisible: this.pointsStipple?.visible ?? false,
+        bordersLoaded: Boolean(this.bordersOutlines),
+        painPoints: this.lastPainPoints.length,
+        stippleGpuScar: u?.uScarActive?.value === 1,
+        scarScale: u?.uScarDispScale?.value,
+        scarBias: u?.uScarDispBias?.value,
+      });
+    }
+  }
+
+  private applyDebugGlobeMaterial(): void {
+    const mat = this.globe.material;
+    if (!isDebugScarVisual()) {
+      mat.transparent = false;
+      mat.opacity = 1;
+      return;
+    }
+    mat.color.setHex(DEBUG_SCAR_VISUAL.globeMeshColor);
+    mat.transparent = true;
+    mat.opacity = DEBUG_SCAR_VISUAL.globeMeshOpacity;
+    mat.needsUpdate = true;
+  }
+
+  /** Debug HUD: live preview of the in-memory scar height map (not a file on disk). */
+  setScarMapPreviewCanvas(canvas: HTMLCanvasElement | null): void {
+    this.scarMapPreviewCanvas = canvas;
+    if (canvas && this.scarDisplacementMap) {
+      drawScarMapPreview(canvas, this.scarDisplacementMap);
+    }
+  }
+
+  private updateScarMapPreview(): void {
+    if (
+      !isDebugScarVisual() ||
+      !this.scarMapPreviewCanvas ||
+      !this.scarDisplacementMap
+    ) {
+      return;
+    }
+    drawScarMapPreview(this.scarMapPreviewCanvas, this.scarDisplacementMap);
+  }
+
+  /** Build scar height map off the hot path (full layers are ~20k rows). */
+  private scheduleScarFieldRebuild(): void {
+    const generation = ++this.scarBuildGeneration;
+
+    if (this.scarDisplacementMap) {
+      this.scarDisplacementMap.dispose();
+      this.scarDisplacementMap = null;
+    }
+
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    if (!scars) {
+      const mat = this.globe.material as THREE.MeshStandardMaterial;
+      mat.emissiveMap = null;
+      mat.emissive.setHex(0x000000);
+      mat.emissiveIntensity = 1;
+      void this.ensureStipple().then(() => this.syncScarVisualization());
+      return;
+    }
+
+    const points = this.lastPainPoints;
+    window.setTimeout(() => {
+      if (generation !== this.scarBuildGeneration) return;
+      this.scarDisplacementMap = createPainScarDisplacementTexture(
+        points,
+        this.currentLayerId,
+      );
+      this.updateScarMapPreview();
+      void this.ensureStipple().then(() => {
+        if (generation !== this.scarBuildGeneration) return;
+        this.syncScarVisualization();
+      });
+      if (this.pointsStipple && this.pointsMaterial) {
+        this.syncScarVisualization();
+      }
+    }, 0);
   }
 
   private ensureStipple(): Promise<void> {
-    if (this.pointsStipple) return Promise.resolve();
+    if (
+      this.pointsStipple &&
+      this.stippleLandMaskUrl === STIPPLE_LAND_MASK_GEOJSON_URL
+    ) {
+      if (!this.stippleBasePositions) {
+        this.captureStippleBasePositions();
+      }
+      return Promise.resolve();
+    }
+    if (this.pointsStipple) {
+      this.disposeStipple();
+    }
     if (!this.stipplePromise) {
       const tint = new THREE.Vector3().fromArray(
         getLayerBaseColorLinear(this.currentLayerId, this.visualTheme),
       );
       this.stipplePromise = createEarthStippleGlobe(
         RADIUS,
-        36_000,
-        STIPPLE_LAND_TEXTURE_URL,
+        52_000,
+        STIPPLE_LAND_MASK_GEOJSON_URL,
         tint,
         new THREE.Vector3(1, 1, 1),
         new THREE.Vector3(0.82, 0.9, 1.0),
@@ -325,15 +545,17 @@ export class GlobeView {
           this.pointsStipple = points;
           this.pointsMaterial = material;
           this.stippleCleanup = dispose;
+          this.stippleLandMaskUrl = STIPPLE_LAND_MASK_GEOJSON_URL;
           this.stippleNeutralScarTexture = neutralScarTexture;
-          this.pointsStipple.visible = this.displayMode === "points";
+          this.syncStippleVisibility();
           this.earthContent.add(this.pointsStipple);
           const mClip = material as unknown as MaterialWithClipping;
           mClip.clipping = true;
           mClip.clipIntersection = false;
           mClip.clippingPlanes = this.clipPlanesFront;
           this.applyPointsTint();
-          this.applyStippleScarUniforms();
+          this.captureStippleBasePositions();
+          this.syncScarVisualization();
           this.syncWorldRotation();
         })
         .catch((e) => {
@@ -348,8 +570,22 @@ export class GlobeView {
 
   private applyPointsTint(): void {
     if (!this.pointsMaterial) return;
-    const rgb = getLayerBaseColorLinear(this.currentLayerId, this.visualTheme);
     const u = this.pointsMaterial.uniforms;
+    if (isDebugScarVisual()) {
+      const [lr, lg, lb] = DEBUG_SCAR_VISUAL.stippleLandRgb;
+      const [or, og, ob] = DEBUG_SCAR_VISUAL.stippleOceanRgb;
+      const [tr, tg, tb] = DEBUG_SCAR_VISUAL.stippleTintRgb;
+      u.uTint.value.set(tr, tg, tb);
+      u.uShadeBase.value.set(or, og, ob);
+      u.uLandTint.value.set(lr, lg, lb);
+      u.uLandTintStrength.value = 1;
+      u.uOceanAlphaBoost.value = DEBUG_SCAR_VISUAL.stippleOceanAlphaBoost;
+      u.uOceanPointScale.value = DEBUG_SCAR_VISUAL.stippleOceanPointScale;
+      return;
+    }
+    u.uOceanAlphaBoost.value = 1;
+    u.uOceanPointScale.value = 1;
+    const rgb = getLayerBaseColorLinear(this.currentLayerId, this.visualTheme);
     u.uTint.value.set(rgb[0], rgb[1], rgb[2]);
     if (this.visualTheme === "blue") {
       u.uShadeBase.value.set(
@@ -369,7 +605,8 @@ export class GlobeView {
   private applyStippleScarUniforms(): void {
     if (!this.pointsMaterial) return;
     const u = this.pointsMaterial.uniforms;
-    const scars = this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
     u.uScarDispScale.value = scars ? SCAR_DISPLACEMENT_SCALE : 0;
     u.uScarDispBias.value = scars ? SCAR_DISPLACEMENT_BIAS : 0;
     u.uScarActive.value = scars ? 1 : 0;
@@ -387,16 +624,12 @@ export class GlobeView {
       const resolution = new THREE.Vector2(w, h);
       this.bordersOutlines = await loadGlobeBorderOutlines(
         BORDERS_BASE,
-        BORDER_RADIUS,
+        RADIUS,
         resolution,
       );
       this.bordersOutlines.syncAppearance(this.visualTheme);
       this.bordersOutlines.setClippingPlanes(this.clipPlanesFront);
-      this.bordersOutlines.setScarDisplacementMap(
-        this.painVizMode === "scars" ? this.scarDisplacementMap : null,
-        SCAR_DISPLACEMENT_SCALE * BORDER_SCAR_MULTIPLIER,
-        SCAR_DISPLACEMENT_BIAS * BORDER_SCAR_MULTIPLIER,
-      );
+      this.syncScarVisualization();
       this.scene.remove(this.markersGroup);
       this.scene.add(this.bordersOutlines.group);
       this.scene.add(this.markersGroup);
@@ -425,6 +658,27 @@ export class GlobeView {
   }
 
   private applyScenePalette(theme: VisualTheme): void {
+    if (isDebugScarVisual()) {
+      this.scene.background = new THREE.Color(DEBUG_SCAR_VISUAL.sceneBackground);
+      this.renderer.setClearColor(DEBUG_SCAR_VISUAL.sceneBackground, 1);
+      this.renderer.toneMappingExposure = 1;
+      this.ambLight.color.setHex(0xffffff);
+      this.ambLight.intensity = 0.85;
+      this.keyLight.color.setHex(0xffffff);
+      this.keyLight.intensity = 1.1;
+      this.fillLight.color.setHex(0xffffff);
+      this.fillLight.intensity = 0.45;
+      this.glow.material.uniforms.uGlowColor.value.setHex(0x4488ff);
+      this.glow.material.uniforms.uGlowIntensity.value = 0.08;
+      this.backGlow.material.uniforms.uBackGlowColor.value.setHex(0xffffff);
+      this.backGlow.material.uniforms.uBackGlowIntensity.value = 0;
+      this.applyDebugGlobeMaterial();
+      this.syncBorderAppearance();
+      this.applyPointsTint();
+      return;
+    }
+
+    this.renderer.setClearColor(0x000000, 0);
     if (theme === "blue") {
       this.scene.background = null;
       this.renderer.toneMappingExposure = 1.12;
@@ -463,16 +717,7 @@ export class GlobeView {
     this.painVizMode = "points";
     this.lastPainPoints = [];
     this.rebuildPainGeometryAndTexture();
-    if (this.pointsStipple) {
-      this.earthContent.remove(this.pointsStipple);
-      this.pointsStipple = null;
-      this.pointsMaterial = null;
-    }
-    if (this.stippleCleanup) {
-      this.stippleCleanup();
-      this.stippleCleanup = null;
-      this.stippleNeutralScarTexture = null;
-    }
+    this.disposeStipple();
     if (this.bordersOutlines) {
       this.scene.remove(this.bordersOutlines.group);
       this.bordersOutlines.dispose();
@@ -502,7 +747,13 @@ export class GlobeView {
       this.textureCache.set(cacheKey, tex);
     }
     const m = this.globe.material;
-    m.map = tex;
+    // Layer canvas texture is only for “texture” display mode; in stipple/scar mode the
+    // mesh stays hidden — otherwise it reads as a gray sphere under transparent ocean dots.
+    if (this.displayMode === "texture") {
+      m.map = tex;
+    } else {
+      m.map = null;
+    }
     m.needsUpdate = true;
     this.applyPointsTint();
     this.refreshWordCloud();
@@ -540,7 +791,7 @@ export class GlobeView {
 
     if (this.painVizMode === "points") {
       for (const p of this.lastPainPoints) {
-        const pos = latLngToVector3(p.lat, p.lng, RADIUS * 1.002);
+        const pos = latLngToVector3(p.lat, p.lng, RADIUS);
         const hue =
           p.type === "environmental"
             ? 0.45
@@ -578,39 +829,8 @@ export class GlobeView {
       this.disposeMultiplexObjects();
     }
 
-    if (this.scarDisplacementMap) {
-      if (this.pointsMaterial && this.stippleNeutralScarTexture) {
-        this.pointsMaterial.uniforms.uScarMap.value =
-          this.stippleNeutralScarTexture;
-      }
-      this.scarDisplacementMap.dispose();
-      this.scarDisplacementMap = null;
-    }
-
-    const mat = this.globe.material;
-    if (this.painVizMode === "scars" || this.painVizMode === "multiplex-v0") {
-      this.scarDisplacementMap = createPainScarDisplacementTexture(
-        this.lastPainPoints,
-      );
-      mat.displacementMap = this.scarDisplacementMap;
-      mat.displacementScale = SCAR_DISPLACEMENT_SCALE;
-      mat.displacementBias = SCAR_DISPLACEMENT_BIAS;
-      this.bordersOutlines?.setScarDisplacementMap(
-        this.scarDisplacementMap,
-        SCAR_DISPLACEMENT_SCALE * BORDER_SCAR_MULTIPLIER,
-        SCAR_DISPLACEMENT_BIAS * BORDER_SCAR_MULTIPLIER,
-      );
-    } else {
-      mat.displacementMap = null;
-      mat.displacementScale = 0;
-      mat.displacementBias = 0;
-      mat.emissiveMap = null;
-      mat.emissive.setHex(0x000000);
-      mat.emissiveIntensity = 1;
-      this.bordersOutlines?.setScarDisplacementMap(null, 0, 0);
-    }
-    mat.needsUpdate = true;
-    this.applyStippleScarUniforms();
+    this.scheduleScarFieldRebuild();
+    this.syncGlobeSurfaceVisibility();
     this.refreshWordCloud();
   }
 

@@ -8,6 +8,7 @@ import {
   type WordCloudHoverInfo,
 } from "./globe/GlobeView";
 import type { VisualTheme } from "./globe/layerTextures";
+import { isDebugScarVisual } from "./globe/debugScarVisual";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -89,7 +90,19 @@ function persistTheme(theme: VisualTheme): void {
 const initialTheme = getInitialTheme();
 document.documentElement.dataset.theme = initialTheme;
 
+if (isDebugScarVisual()) {
+  document.documentElement.dataset.scarDebug = "true";
+  const legend = document.querySelector<HTMLElement>("#debug-layer-legend");
+  if (legend) legend.hidden = false;
+}
+
 const globe = new GlobeView(canvas);
+const scarMapPreview = document.querySelector<HTMLCanvasElement>(
+  "#scar-map-preview",
+);
+if (isDebugScarVisual() && scarMapPreview) {
+  globe.setScarMapPreviewCanvas(scarMapPreview);
+}
 globe.setVisualTheme(initialTheme);
 globe.setGlobeDisplayMode("points");
 globe.setPainVisualizationMode(readPainVizMode());
@@ -218,7 +231,9 @@ async function loadPoints(): Promise<void> {
   const layer = layerPicker.value;
   const { points } = await fetchPoints(layer);
   globe.setMarkers(points);
-  setStatus(`${points.length} point(s) for “${layer}”`);
+  setStatus(
+    `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
+  );
 }
 
 layerPicker.addEventListener("change", () => {

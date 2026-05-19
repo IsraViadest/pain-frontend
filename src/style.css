@@ -262,3 +262,108 @@ button:disabled {
 .word-cloud-toggle:hover {
   background: rgba(255, 255, 255, 0.06);
 }
+
+/* ——— TEMPORARY scar debug (see src/globe/debugScarVisual.ts) ——— */
+[data-scar-debug="true"] {
+  --bg-page: #f0f0f0;
+  --bg-page-mid: #f4f4f4;
+  --text-primary: #111;
+  --text-muted: #333;
+  --text-hint: #555;
+  --text-status: #222;
+  --hud-bg: rgba(255, 255, 255, 0.92);
+  --hud-border: rgba(0, 0, 0, 0.12);
+  --input-bg: #fff;
+  --input-border: rgba(0, 0, 0, 0.2);
+  --btn-bg: #e8e8e8;
+  --btn-bg-hover: #ddd;
+  --btn-border: rgba(0, 0, 0, 0.15);
+  --theme-btn-bg: rgba(255, 255, 255, 0.95);
+  --theme-btn-border: rgba(0, 0, 0, 0.15);
+  --bg-gradient: #f4f4f4;
+}
+
+.debug-layer-legend {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.debug-layer-legend__title {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.debug-layer-legend__list {
+  margin: 0;
+  padding: 0 0 0 4px;
+  list-style: none;
+}
+
+.debug-layer-legend__list li {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.debug-layer-legend__list .swatch {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.swatch--globe {
+  background: #ff6600;
+}
+
+.swatch--stipple-land {
+  background: #111;
+}
+
+.swatch--stipple-ocean {
+  background: #1f6beb;
+}
+
+.swatch--coast {
+  background: #c00;
+}
+
+.swatch--inner {
+  background: #060;
+}
+
+.swatch--glow {
+  background: #48f;
+}
+
+.debug-layer-legend__hint {
+  margin: 8px 0 0;
+  color: var(--text-hint);
+  font-size: 0.68rem;
+}
+
+.debug-layer-legend code {
+  font-size: 0.68rem;
+}
+
+.scar-map-preview {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  margin-top: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  image-rendering: pixelated;
+}

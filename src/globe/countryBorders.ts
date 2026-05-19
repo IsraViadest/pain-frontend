@@ -5,6 +5,11 @@ import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js
 import type { VisualTheme } from "./layerTextures";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { latLngToVector3 } from "./latLng";
+import {
+  sampleScarHeight01,
+  scarRadialOffset,
+} from "./scarDisplacement";
+import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 
 type LineStringGeom = { type: "LineString"; coordinates: number[][] };
 type MultiLineStringGeom = { type: "MultiLineString"; coordinates: number[][][] };
@@ -18,7 +23,7 @@ interface FeatureCollection {
 }
 
 /** World-space half-width of fat lines on the unit-ish globe (LineMaterial + worldUnits). */
-const COAST_LINEWIDTH = 0.0029;
+const COAST_LINEWIDTH = 0.0036;
 const INNER_BORDER_LINEWIDTH = 0.00085;
 
 function appendOpenLineString(
@@ -104,33 +109,6 @@ export interface GlobeBorderOutlines {
   dispose(): void;
 }
 
-function sampleRedBilinear(
-  data: ArrayLike<number>,
-  w: number,
-  h: number,
-  u: number,
-  v: number,
-): number {
-  const uu = ((u % 1) + 1) % 1;
-  const vv = THREE.MathUtils.clamp(v, 0, 1);
-  const x = uu * (w - 1);
-  const y = vv * (h - 1);
-  const x0 = Math.floor(x);
-  const y0 = Math.floor(y);
-  const x1 = Math.min(x0 + 1, w - 1);
-  const y1 = Math.min(y0 + 1, h - 1);
-  const tx = x - x0;
-  const ty = y - y0;
-  const i = (ix: number, iy: number) => data[iy * w + ix] ?? 0;
-  const r00 = i(x0, y0);
-  const r10 = i(x1, y0);
-  const r01 = i(x0, y1);
-  const r11 = i(x1, y1);
-  const a = THREE.MathUtils.lerp(r00, r10, tx);
-  const b = THREE.MathUtils.lerp(r01, r11, tx);
-  return THREE.MathUtils.lerp(a, b, ty) / 255;
-}
-
 function applyScarToLinePositions(
   base: Float32Array,
   out: Float32Array,
@@ -138,15 +116,6 @@ function applyScarToLinePositions(
   displacementScale: number,
   displacementBias: number,
 ): void {
-  const image = map.image as { data?: ArrayLike<number>; width?: number; height?: number };
-  const data = image.data;
-  const w = image.width ?? 0;
-  const h = image.height ?? 0;
-  if (!data || w < 1 || h < 1) {
-    out.set(base);
-    return;
-  }
-
   for (let i = 0; i < base.length; i += 3) {
     const x = base[i]!;
     const y = base[i + 1]!;
@@ -154,13 +123,9 @@ function applyScarToLinePositions(
     const dir = new THREE.Vector3(x, y, z).normalize();
     const baseRadius = Math.sqrt(x * x + y * y + z * z);
     const { u, v } = unitDirectionToGlobeEquirectUV(dir);
-    const red = sampleRedBilinear(data, w, h, u, v);
-    const radial = red * displacementScale + displacementBias;
-    /**
-     * Preserve the original border shell radius, then apply scar radial offset.
-     * Keep a tiny outward lift so lines remain visible over textured globe shading.
-     */
-    const s = Math.max(0.0001, baseRadius + radial + 0.0011);
+    const h = sampleScarHeight01(map, u, v);
+    const radial = scarRadialOffset(h, displacementScale, displacementBias);
+    const s = Math.max(0.0001, baseRadius + radial);
     out[i] = dir.x * s;
     out[i + 1] = dir.y * s;
     out[i + 2] = dir.z * s;
@@ -262,17 +227,28 @@ export async function loadGlobeBorderOutlines(
       innerLine.computeLineDistances();
     },
     syncAppearance(theme: VisualTheme): void {
-      if (theme === "blue") {
+      if (isDebugScarVisual()) {
+        coastMat.color.setHex(DEBUG_SCAR_VISUAL.coastOutlineHex);
+        innerMat.color.setHex(DEBUG_SCAR_VISUAL.innerBorderHex);
+        coastMat.linewidth = DEBUG_SCAR_VISUAL.coastLineWidth;
+        innerMat.linewidth = DEBUG_SCAR_VISUAL.innerBorderLineWidth;
+      } else if (theme === "blue") {
         coastMat.color.setHex(0x8ab8dd);
         innerMat.color.setHex(0x6a92b0);
+        coastMat.linewidth = COAST_LINEWIDTH;
+        innerMat.linewidth = INNER_BORDER_LINEWIDTH;
       } else {
         coastMat.color.setHex(0x6a7588);
         innerMat.color.setHex(0x5a6270);
+        coastMat.linewidth = COAST_LINEWIDTH;
+        innerMat.linewidth = INNER_BORDER_LINEWIDTH;
       }
       coastMat.opacity = 1;
       innerMat.opacity = 1;
       coastMat.transparent = false;
       innerMat.transparent = false;
+      coastMat.needsUpdate = true;
+      innerMat.needsUpdate = true;
     },
     dispose(): void {
       coastLine.geometry.dispose();

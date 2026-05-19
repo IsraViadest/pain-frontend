@@ -1,37 +1,16 @@
 import type { PainPoint } from "../types/api";
-import type { PainServerRow } from "../types/painServer";
+import { mapPainOriginToUiLayer, resolvePainServerCoordinates } from "./coordinates";
 import {
-  mapPainOriginToUiLayer,
-  resolvePainServerCoordinates,
-} from "./coordinates";
-
-function asNumber(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim() !== "") {
-    const n = Number(v);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
-}
+  isPainServerRow,
+  normalizePainServerRow,
+} from "./painServerRow";
 
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
-function isPainServerRow(row: unknown): row is PainServerRow {
-  if (!row || typeof row !== "object") return false;
-  const r = row as Record<string, unknown>;
-  return (
-    asNumber(r.id) !== null &&
-    (asNumber(r.x) !== null || asNumber(r.lng) !== null) &&
-    (asNumber(r.y) !== null || asNumber(r.lat) !== null) &&
-    asNumber(r.value) !== null
-  );
-}
-
 /**
- * Maps pain-server GET /init/:layer JSON (array of DB rows) → app PainPoint[].
- * Texture x/y (1000×482 grid) are converted to lat/lng for the globe; see coordinates.ts.
+ * Maps pain-server GET /init/:layer → PainPoint[] (lat/lng on the globe).
  */
 export function mapInitResponseToPainPoints(data: unknown): PainPoint[] {
   if (!Array.isArray(data)) {
@@ -41,12 +20,13 @@ export function mapInitResponseToPainPoints(data: unknown): PainPoint[] {
   const points: PainPoint[] = [];
   let skipped = 0;
   for (let i = 0; i < data.length; i++) {
-    const row = data[i];
-    if (!isPainServerRow(row)) {
-      console.warn("[adapter] Skipping row with unexpected shape at index", i, row);
+    const raw = data[i];
+    if (!isPainServerRow(raw)) {
+      console.warn("[adapter] Skipping row with unexpected shape at index", i, raw);
       skipped++;
       continue;
     }
+    const row = normalizePainServerRow(raw)!;
     const point = mapRow(row, i);
     if (point) points.push(point);
     else skipped++;
@@ -57,21 +37,21 @@ export function mapInitResponseToPainPoints(data: unknown): PainPoint[] {
   return points;
 }
 
-function mapRow(row: PainServerRow, index: number): PainPoint | null {
+function mapRow(
+  row: NonNullable<ReturnType<typeof normalizePainServerRow>>,
+  index: number,
+): PainPoint | null {
   const coords = resolvePainServerCoordinates(row);
   if (!coords) {
     console.warn("[adapter] Unmapped coordinates for row", row.id, row);
     return null;
   }
 
-  const painorigin = String(row.painorigin ?? "unknown");
-  const datatype = String(row.datatype ?? "unknown");
-  const value = asNumber(row.value) ?? 0;
-  const id = String(row.id ?? `pain-server-${index}`);
+  const { datatype, painorigin, value, id } = row;
   const type = mapPainOriginToUiLayer(painorigin);
 
   return {
-    id,
+    id: String(id ?? `pain-server-${index}`),
     lat: coords.lat,
     lng: coords.lng,
     type,
@@ -84,6 +64,8 @@ function mapRow(row: PainServerRow, index: number): PainPoint | null {
       metricLabel: datatype,
       rawValue: value,
       sourceUrl: "",
+      textureX: coords.textureX,
+      textureY: coords.textureY,
     },
     createdAt: new Date().toISOString(),
   };

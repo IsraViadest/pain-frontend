@@ -1,7 +1,12 @@
 import * as THREE from "three";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
+import { rasterLandMaskFromCountries } from "./landMaskRaster";
 
-/** Land/ocean mask source (specular map: oceans bright, land dark), used to build a binary mask. */
+/** Same Natural Earth source as vector coastlines / borders (WGS84 plate-carrée). */
+export const STIPPLE_LAND_MASK_GEOJSON_URL =
+  `${import.meta.env.BASE_URL}borders/ne_110m_admin_0_countries.geojson?v=4`;
+
+/** Fallback only if the local GeoJSON mask cannot be loaded. */
 export const STIPPLE_LAND_TEXTURE_URL =
   "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg";
 
@@ -11,6 +16,7 @@ varying float vLand;
 varying float vFresnel;
 varying float vFacing;
 uniform float uPixelRatio;
+uniform float uOceanPointScale;
 uniform sampler2D uScarMap;
 uniform float uScarDispScale;
 uniform float uScarDispBias;
@@ -41,7 +47,9 @@ void main() {
   float frontSize = 2.55;
   float rimSize = 1.55;
   float sizeByView = mix(frontSize, rimSize, smoothstep(0.0, 1.0, vFresnel));
-  float baseSize = sizeByView * mix(0.44, 0.84, landMask);
+  // Same screen size for land and ocean so scar dents read equally on both (large land
+  // sprites previously hid deformation and looked like a separate shell).
+  float baseSize = sizeByView * 0.72;
   gl_PointSize = baseSize * uPixelRatio;
   gl_Position = projectionMatrix * mvPosition;
 }
@@ -52,6 +60,7 @@ uniform vec3 uTint;
 uniform vec3 uShadeBase;
 uniform vec3 uLandTint;
 uniform float uLandTintStrength;
+uniform float uOceanAlphaBoost;
 varying float vLand;
 varying float vFresnel;
 varying float vFacing;
@@ -68,12 +77,13 @@ void main() {
   float landFrontMix = landMask * (0.34 + 0.66 * frontFactor);
 
   vec3 baseCol = mix(uShadeBase * 0.86, uTint, 0.54);
-  vec3 waterCol = baseCol * (0.68 + 0.08 * frontFactor);
+  vec3 waterCol = mix(uShadeBase, uTint, 0.72);
+  waterCol *= (0.9 + 0.1 * frontFactor);
   vec3 landCol = mix(baseCol, uLandTint, 0.45 + 0.4 * uLandTintStrength);
   landCol *= (0.98 + 0.26 * frontFactor);
   vec3 col = mix(waterCol, landCol, landFrontMix);
 
-  float alphaWater = disk * (0.04 + 0.08 * frontFactor);
+  float alphaWater = min(disk * (0.1 + 0.35 * frontFactor) * uOceanAlphaBoost, 1.0);
   float alphaLand = disk * (0.2 + 0.44 * frontFactor);
   float alpha = mix(alphaWater, alphaLand, landMask);
   if (alpha < 0.002) discard;
@@ -126,7 +136,7 @@ function sampleLuminanceBilinear(
   return THREE.MathUtils.lerp(a, b, ty) / 255;
 }
 
-async function rasterLandStrength(
+async function rasterLandStrengthFromImage(
   imageUrl: string,
   sampleW = 1024,
   sampleH = 512,
@@ -146,6 +156,28 @@ async function rasterLandStrength(
   tex.dispose();
   const { data, width, height } = ctx.getImageData(0, 0, sampleW, sampleH);
   return { data, w: width, h: height };
+}
+
+function isGeoJsonLandMaskUrl(url: string): boolean {
+  const path = url.split("?")[0]?.split("#")[0] ?? url;
+  return path.endsWith(".geojson");
+}
+
+async function loadLandMaskRaster(
+  landMaskUrl: string,
+  sampleW = 1024,
+  sampleH = 512,
+): Promise<{ data: Uint8ClampedArray; w: number; h: number }> {
+  if (isGeoJsonLandMaskUrl(landMaskUrl)) {
+    return rasterLandMaskFromCountries(landMaskUrl, sampleW, sampleH);
+  }
+  return rasterLandStrengthFromImage(landMaskUrl, sampleW, sampleH);
+}
+
+function isLandPixel(lum: number, fromGeoJson: boolean): boolean {
+  if (fromGeoJson) return lum > 0.45;
+  // Specular map: oceans bright, land dark.
+  return 1 - lum > 0.12;
 }
 
 /** Neutral scar height (0.5) so the stipple shader can stay bound while scars are off. */
@@ -182,18 +214,32 @@ export interface EarthStippleGlobeResult {
 export async function createEarthStippleGlobe(
   radius: number,
   pointCount: number,
-  landImageUrl: string,
+  landMaskUrl: string,
   initialTint: THREE.Vector3,
   initialShadeBase: THREE.Vector3,
   initialLandTint: THREE.Vector3,
   initialLandTintStrength: number,
   initialPixelRatio: number,
 ): Promise<EarthStippleGlobeResult> {
+  let landSource: "geojson" | "image" | "empty" = "empty";
   let land;
   try {
-    land = await rasterLandStrength(landImageUrl);
-  } catch {
-    land = { data: new Uint8ClampedArray(4), w: 1, h: 1 };
+    land = await loadLandMaskRaster(landMaskUrl);
+    landSource = isGeoJsonLandMaskUrl(landMaskUrl) ? "geojson" : "image";
+    console.info("[earthStippleGlobe] land mask ready:", landSource, landMaskUrl);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    console.warn(
+      "[earthStippleGlobe] land mask failed, trying fallback texture:",
+      detail,
+      e,
+    );
+    try {
+      land = await rasterLandStrengthFromImage(STIPPLE_LAND_TEXTURE_URL);
+      landSource = "image";
+    } catch {
+      land = { data: new Uint8ClampedArray(4), w: 1, h: 1 };
+    }
   }
 
   const positions: number[] = [];
@@ -207,8 +253,7 @@ export async function createEarthStippleGlobe(
     let L = 0.0;
     if (land.w > 1 && land.h > 1) {
       const lum = sampleLuminanceBilinear(land.data, land.w, land.h, u, v);
-      const landness = 1 - lum;
-      L = landness > 0.12 ? 1 : 0;
+      L = isLandPixel(lum, landSource === "geojson") ? 1 : 0;
     }
     positions.push(p.x, p.y, p.z);
     normals.push(dir.x, dir.y, dir.z);
@@ -228,6 +273,8 @@ export async function createEarthStippleGlobe(
       uShadeBase: { value: initialShadeBase.clone() },
       uLandTint: { value: initialLandTint.clone() },
       uLandTintStrength: { value: initialLandTintStrength },
+      uOceanAlphaBoost: { value: 1 },
+      uOceanPointScale: { value: 1 },
       uPixelRatio: { value: initialPixelRatio },
       uScarMap: { value: neutralScarTexture },
       uScarDispScale: { value: 0 },

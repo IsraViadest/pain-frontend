@@ -33,6 +33,10 @@ export interface PainPointMetadata {
   rawValue: number;
   year?: number;
   sourceUrl: string;
+  /** DummyPain texture column (0…999) when coords came from the legacy grid. */
+  textureX?: number;
+  /** DummyPain texture row (0…481), north at 0. */
+  textureY?: number;
 }
 
 export interface PainSubmission {
