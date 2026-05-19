@@ -99,7 +99,7 @@ function fibonacciPointOnSphere(i: number, n: number, radius: number): THREE.Vec
   return new THREE.Vector3(Math.cos(phi) * r * radius, y * radius, Math.sin(phi) * r * radius);
 }
 
-function dirToEquirectUV(dir: THREE.Vector3): { u: number; v: number } {
+function dirToLandMaskUV(dir: THREE.Vector3): { u: number; v: number } {
   return unitDirectionToGlobeEquirectUV(dir);
 }
 
@@ -249,7 +249,7 @@ export async function createEarthStippleGlobe(
   for (let i = 0; i < pointCount; i++) {
     const p = fibonacciPointOnSphere(i, pointCount, radius);
     const dir = p.clone().multiplyScalar(1 / radius);
-    const { u, v } = dirToEquirectUV(dir);
+    const { u, v } = dirToLandMaskUV(dir);
     let L = 0.0;
     if (land.w > 1 && land.h > 1) {
       const lum = sampleLuminanceBilinear(land.data, land.w, land.h, u, v);
@@ -290,7 +290,7 @@ export async function createEarthStippleGlobe(
   });
 
   const points = new THREE.Points(geom, material);
-  points.renderOrder = 0;
+  points.renderOrder = 2;
   points.frustumCulled = false;
 
   return {

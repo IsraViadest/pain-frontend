@@ -1,12 +1,9 @@
 import * as THREE from "three";
 
 /**
- * Equirectangular UV for a unit direction, aligned with Three.js default
- * {@link THREE.SphereGeometry} (phiLength 2π, thetaLength π). Use this for
- * displacement maps, stipple land sampling, and scar sampling so data lines
- * up with the mesh and with GeoJSON built from the same `latLngToVector3`.
- *
- * (The common mistake `atan2(z, x) + 0.5` shifts longitude vs this sphere.)
+ * Plate-carrée equirect UV for a unit direction (v = 0 at north pole).
+ * Matches DummyPain row indexing, GeoJSON land masks, and scar map texel rows.
+ * For Three.js {@link THREE.SphereGeometry} displacement, set `DataTexture.flipY = true`.
  */
 export function unitDirectionToGlobeEquirectUV(dir: THREE.Vector3): {
   u: number;
@@ -20,7 +17,15 @@ export function unitDirectionToGlobeEquirectUV(dir: THREE.Vector3): {
   return { u, v };
 }
 
-/** Inverse of {@link unitDirectionToGlobeEquirectUV} (plate-carrée lat from v). */
+/** @deprecated Alias for {@link unitDirectionToGlobeEquirectUV}. */
+export function unitDirectionToPlateCarreeUV(dir: THREE.Vector3): {
+  u: number;
+  v: number;
+} {
+  return unitDirectionToGlobeEquirectUV(dir);
+}
+
+/** Inverse of {@link unitDirectionToGlobeEquirectUV}. */
 export function globeEquirectUvToLatLng(u: number, v: number): {
   lat: number;
   lng: number;
@@ -33,7 +38,7 @@ export function globeEquirectUvToLatLng(u: number, v: number): {
   };
 }
 
-/** Unit-sphere direction for equirect UV (matches {@link latLngToVector3} after conversion). */
+/** Unit-sphere direction for equirect UV (matches {@link latLngToVector3}). */
 export function globeEquirectUvToUnitDirection(
   u: number,
   v: number,

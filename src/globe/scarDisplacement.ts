@@ -13,6 +13,12 @@ export function scarRadialOffset(
   return height01 * displacementScale + displacementBias;
 }
 
+/**
+ * Tiny outward lift so stipple / lines pass depth test on the CPU-warped globe mesh.
+ * Fat lines need extra bias ≈ half line width in world units.
+ */
+export const SCAR_OVERLAY_SURFACE_BIAS = 0.0012;
+
 /** Read red-channel scar height (0–1) from a CPU-side {@link THREE.DataTexture}. */
 export function sampleScarHeight01(
   map: THREE.DataTexture,
@@ -61,6 +67,7 @@ export function applyScarToSpherePositions(
   map: THREE.DataTexture,
   displacementScale: number,
   displacementBias: number,
+  surfaceBias = 0,
   landAttr?: THREE.BufferAttribute,
 ): void {
   const nVerts = base.length / 3;
@@ -81,7 +88,7 @@ export function applyScarToSpherePositions(
     const { u, v } = unitDirectionToGlobeEquirectUV(dir);
     const h = sampleScarHeight01(map, u, v);
     const radial = scarRadialOffset(h, displacementScale, displacementBias);
-    const s = Math.max(0.0001, baseRadius + radial);
+    const s = Math.max(0.0001, baseRadius + radial + surfaceBias);
     out[i] = dir.x * s;
     out[i + 1] = dir.y * s;
     out[i + 2] = dir.z * s;

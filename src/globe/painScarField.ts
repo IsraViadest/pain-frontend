@@ -1,18 +1,42 @@
 import * as THREE from "three";
+import {
+  DUMMY_PAIN_TEXTURE_HEIGHT,
+  DUMMY_PAIN_TEXTURE_WIDTH,
+  legacyTexturePixelToEquirectUv,
+} from "../api/coordinates";
 import type { PainPoint } from "../types/api";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { latLngToVector3 } from "./latLng";
 import { isDebugScarVisual } from "./debugScarVisual";
 
-/** Equirect resolution; must match sphere UVs (same convention as stipple + borders). */
-export const SCAR_MAP_WIDTH = 1024;
-export const SCAR_MAP_HEIGHT = 512;
+/** Same grid as DummyPain / pain-server x,y (aligns with coast + stipple lat/lng). */
+export const SCAR_MAP_WIDTH = DUMMY_PAIN_TEXTURE_WIDTH;
+export const SCAR_MAP_HEIGHT = DUMMY_PAIN_TEXTURE_HEIGHT;
 /** Flat surface in the scar height map (byte 0–255). 128 = neutral with displacement bias. */
 export const SCAR_NEUTRAL_DEPTH = 128;
 export const SCAR_MIN_DEPTH = 0;
 
-function painPointToGlobeUv(p: PainPoint): { u: number; v: number } {
-  return unitDirectionToGlobeEquirectUV(latLngToVector3(p.lat, p.lng, 1));
+function painPointToScarTexel(p: PainPoint): { cx: number; cy: number } {
+  const maxCol = SCAR_MAP_WIDTH - 1;
+  const maxRow = SCAR_MAP_HEIGHT - 1;
+  const tx = p.metadata?.textureX;
+  const ty = p.metadata?.textureY;
+  if (typeof tx === "number" && typeof ty === "number") {
+    const uv = legacyTexturePixelToEquirectUv(tx, ty);
+    if (uv) {
+      return {
+        cx: Math.floor(uv.u * maxCol),
+        cy: Math.floor(THREE.MathUtils.clamp(uv.v, 0, 1) * maxRow),
+      };
+    }
+  }
+  const { u, v } = unitDirectionToGlobeEquirectUV(
+    latLngToVector3(p.lat, p.lng, 1),
+  );
+  return {
+    cx: Math.floor(((u % 1) + 1) % 1 * maxCol),
+    cy: Math.floor(THREE.MathUtils.clamp(v, 0, 1) * maxRow),
+  };
 }
 
 function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
@@ -29,6 +53,8 @@ function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
   tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = false;
   tex.colorSpace = THREE.NoColorSpace;
+  // Row 0 = north in our buffer; Three.js sphere samples north at uv.y = 1.
+  tex.flipY = true;
   tex.needsUpdate = true;
   return tex;
 }
@@ -57,9 +83,7 @@ export function createPainScarDisplacementTexture(
   };
 
   for (const p of points) {
-    const { u, v } = painPointToGlobeUv(p);
-    const cx = Math.floor(((u % 1) + 1) % 1 * (SCAR_MAP_WIDTH - 1));
-    const cy = Math.floor(THREE.MathUtils.clamp(v, 0, 1) * (SCAR_MAP_HEIGHT - 1));
+    const { cx, cy } = painPointToScarTexel(p);
     const inten = Math.sqrt(THREE.MathUtils.clamp(p.intensity, 0, 1));
     const radiusPx = Math.max(1, Math.round(1 + 3 * (0.2 + 0.8 * inten)));
     const peakDent = 72 + 140 * (0.15 + 0.85 * inten);
@@ -112,13 +136,16 @@ export function drawScarMapPreview(
   if (!ctx) return;
 
   const imgData = ctx.createImageData(w, h);
-  for (let i = 0; i < w * h; i++) {
-    const g = data[i] ?? SCAR_NEUTRAL_DEPTH;
-    const o = i * 4;
-    imgData.data[o] = g;
-    imgData.data[o + 1] = g;
-    imgData.data[o + 2] = g;
-    imgData.data[o + 3] = 255;
+  for (let row = 0; row < h; row++) {
+    const srcRow = h - 1 - row;
+    for (let col = 0; col < w; col++) {
+      const g = data[srcRow * w + col] ?? SCAR_NEUTRAL_DEPTH;
+      const o = (row * w + col) * 4;
+      imgData.data[o] = g;
+      imgData.data[o + 1] = g;
+      imgData.data[o + 2] = g;
+      imgData.data[o + 3] = 255;
+    }
   }
   ctx.putImageData(imgData, 0, 0);
 }

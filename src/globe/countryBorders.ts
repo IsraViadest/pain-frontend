@@ -3,11 +3,10 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import type { VisualTheme } from "./layerTextures";
-import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { latLngToVector3 } from "./latLng";
 import {
-  sampleScarHeight01,
-  scarRadialOffset,
+  applyScarToSpherePositions,
+  SCAR_OVERLAY_SURFACE_BIAS,
 } from "./scarDisplacement";
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 
@@ -90,7 +89,7 @@ function makeFatLine(
   });
   const line = new LineSegments2(geom, mat);
   line.computeLineDistances();
-  line.renderOrder = 1;
+  line.renderOrder = 4;
   return line;
 }
 
@@ -107,29 +106,6 @@ export interface GlobeBorderOutlines {
   ): void;
   syncAppearance(theme: VisualTheme): void;
   dispose(): void;
-}
-
-function applyScarToLinePositions(
-  base: Float32Array,
-  out: Float32Array,
-  map: THREE.DataTexture,
-  displacementScale: number,
-  displacementBias: number,
-): void {
-  for (let i = 0; i < base.length; i += 3) {
-    const x = base[i]!;
-    const y = base[i + 1]!;
-    const z = base[i + 2]!;
-    const dir = new THREE.Vector3(x, y, z).normalize();
-    const baseRadius = Math.sqrt(x * x + y * y + z * z);
-    const { u, v } = unitDirectionToGlobeEquirectUV(dir);
-    const h = sampleScarHeight01(map, u, v);
-    const radial = scarRadialOffset(h, displacementScale, displacementBias);
-    const s = Math.max(0.0001, baseRadius + radial);
-    out[i] = dir.x * s;
-    out[i + 1] = dir.y * s;
-    out[i + 2] = dir.z * s;
-  }
 }
 
 /**
@@ -199,23 +175,39 @@ export async function loadGlobeBorderOutlines(
       displacementScale: number,
       displacementBias: number,
     ): void {
+      const scarActive = Boolean(map);
+      coastMat.depthWrite = !scarActive;
+      innerMat.depthWrite = !scarActive;
+      coastMat.polygonOffset = scarActive;
+      coastMat.polygonOffsetFactor = scarActive ? -2 : 0;
+      coastMat.polygonOffsetUnits = scarActive ? -2 : 0;
+      innerMat.polygonOffset = scarActive;
+      innerMat.polygonOffsetFactor = scarActive ? -2 : 0;
+      innerMat.polygonOffsetUnits = scarActive ? -2 : 0;
+
       if (!map) {
         coastWarpPos.set(coastBasePos);
         innerWarpPos.set(innerBasePos);
       } else {
-        applyScarToLinePositions(
+        const coastBias =
+          SCAR_OVERLAY_SURFACE_BIAS + COAST_LINEWIDTH * 0.55;
+        const innerBias =
+          SCAR_OVERLAY_SURFACE_BIAS + INNER_BORDER_LINEWIDTH * 0.55;
+        applyScarToSpherePositions(
           coastBasePos,
           coastWarpPos,
           map,
           displacementScale,
           displacementBias,
+          coastBias,
         );
-        applyScarToLinePositions(
+        applyScarToSpherePositions(
           innerBasePos,
           innerWarpPos,
           map,
           displacementScale,
           displacementBias,
+          innerBias,
         );
       }
 
