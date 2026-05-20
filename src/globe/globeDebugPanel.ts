@@ -13,11 +13,6 @@ const LAYER_UI: {
 }[] = [
   { id: "glow", label: "Rim glow (sphere)", hint: "glow · larger additive shell" },
   { id: "globe", label: "Solid globe mesh", hint: "globe · MeshStandardMaterial" },
-  {
-    id: "stippleSubstrate",
-    label: "Stipple substrate (opaque)",
-    hint: "stippleSubstrate · land+ocean shell under dots",
-  },
   { id: "stipple", label: "Stipple (all points)", hint: "pointsStipple" },
   {
     id: "stippleLand",
@@ -144,7 +139,7 @@ export function mountGlobeDebugPanel(
     {
       key: "facingCullMin",
       label: "Facing cull min",
-      hint: "Hide back/limb stipple (uFacingCullMin). Try 0.12–0.22.",
+      hint: "Stipple limb cull (uFacingCullMin). Negative keeps more rim dots; positive hides back face faster.",
       min: -0.2,
       max: 0.35,
       step: 0.005,
@@ -152,9 +147,9 @@ export function mountGlobeDebugPanel(
     {
       key: "hemisphereClipBias",
       label: "Hemisphere clip bias",
-      hint: "More negative = clip more at limb (back coastlines bleed). Try -0.02 to -0.08.",
-      min: -0.12,
-      max: 0.02,
+      hint: "Plane offset in world units along view. More negative clips more at limb; positive shows more far side. Wide range for experiments.",
+      min: -0.5,
+      max: 0.2,
       step: 0.005,
     },
     {
@@ -176,10 +171,10 @@ export function mountGlobeDebugPanel(
     {
       key: "oceanAlphaBoost",
       label: "Ocean alpha boost",
-      hint: "↑ = less black between dots (uOceanAlphaBoost). Try 2–5.",
-      min: 0.5,
+      hint: "Scales opaque part of ocean dots (uOceanAlphaBoost). Lower = finer grain.",
+      min: 0.2,
       max: 8,
-      step: 0.1,
+      step: 0.05,
     },
     {
       key: "oceanAlphaMin",
@@ -190,27 +185,11 @@ export function mountGlobeDebugPanel(
       step: 0.02,
     },
     {
-      key: "substrateScale",
-      label: "Substrate scale",
-      hint: "Keep at 1.0 — warped substrate matches stipple; scale only for fine tuning.",
-      min: 0.97,
-      max: 1.01,
-      step: 0.001,
-    },
-    {
-      key: "substrateDepthInset",
-      label: "Substrate depth inset",
-      hint: "Depth-only pull inward so stipple/lines draw on top. Try 0.0001–0.0003.",
-      min: 0,
-      max: 0.001,
-      step: 0.00001,
-    },
-    {
       key: "glowIntensity",
       label: "Rim glow intensity",
       hint: "uGlowIntensity on glow shell.",
       min: 0,
-      max: 0.5,
+      max: 0.6,
       step: 0.01,
     },
   ];

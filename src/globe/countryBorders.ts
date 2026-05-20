@@ -192,7 +192,7 @@ export async function loadGlobeBorderOutlines(
       displacementBias: number,
     ): void {
       const scarActive = Boolean(map);
-      // Write depth in scar mode so lines stay above the stipple substrate (depthWrite off).
+      // Write depth in scar mode so fat lines win over transparent stipple sprites.
       coastMat.depthWrite = true;
       innerMat.depthWrite = true;
       coastMat.polygonOffset = scarActive;
