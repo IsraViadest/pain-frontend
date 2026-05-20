@@ -2,7 +2,6 @@ import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
 import {
   GlobeView,
-  type GlobeDisplayMode,
   type MultiplexHoverInfo,
   type PainVisualizationMode,
   type WordCloudHoverInfo,
@@ -23,8 +22,6 @@ const refreshBtn = document.querySelector<HTMLButtonElement>("#refresh-points");
 const testPostBtn = document.querySelector<HTMLButtonElement>("#test-post");
 const wordCloudToggle = document.querySelector<HTMLButtonElement>("#word-cloud-toggle");
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
-const globeModeSelect =
-  document.querySelector<HTMLSelectElement>("#globe-render-mode");
 const painVizSelect =
   document.querySelector<HTMLSelectElement>("#pain-viz-mode");
 
@@ -36,7 +33,6 @@ if (
   !testPostBtn ||
   !wordCloudToggle ||
   !themeToggle ||
-  !globeModeSelect ||
   !painVizSelect
 ) {
   throw new Error("Missing DOM nodes");
@@ -103,11 +99,58 @@ const scarMapPreview = document.querySelector<HTMLCanvasElement>(
   "#scar-map-preview",
 );
 const globeDebugHost = document.querySelector<HTMLElement>("#globe-debug-panel");
-if (shouldShowGlobeDebugPanel() && globeDebugHost) {
-  globeDebugHost.hidden = false;
-  if (scarMapPreview) scarMapPreview.hidden = false;
-  mountGlobeDebugPanel(globe, globeDebugHost, scarMapPreview);
-} else if (isDebugScarVisual() && scarMapPreview) {
+const globeDebugToggle = document.querySelector<HTMLButtonElement>(
+  "#globe-debug-toggle",
+);
+
+const showGlobeDebugEntry = shouldShowGlobeDebugPanel();
+let globeDebugMounted = false;
+
+function setGlobeDebugPanelOpen(open: boolean): void {
+  if (!globeDebugHost || !globeDebugToggle) return;
+  if (open) {
+    globeDebugHost.hidden = false;
+    if (scarMapPreview) scarMapPreview.hidden = false;
+    if (!globeDebugMounted) {
+      mountGlobeDebugPanel(globe, globeDebugHost, scarMapPreview);
+      globeDebugMounted = true;
+    }
+    globeDebugToggle.setAttribute("aria-expanded", "true");
+  } else {
+    globeDebugHost.hidden = true;
+    if (scarMapPreview) scarMapPreview.hidden = true;
+    globeDebugToggle.setAttribute("aria-expanded", "false");
+  }
+}
+
+function isGlobeDebugHotkey(ev: KeyboardEvent): boolean {
+  if (!ev.shiftKey || ev.code !== "KeyG") return false;
+  // Mac: Option+Shift+G; also Cmd+Shift+G (common expectation on macOS).
+  return ev.altKey || ev.metaKey;
+}
+
+function globeDebugHotkeyTargetIgnoresShortcut(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (target.closest("[contenteditable=true]")) return true;
+  return false;
+}
+
+if (globeDebugToggle && globeDebugHost && showGlobeDebugEntry) {
+  globeDebugToggle.hidden = false;
+  globeDebugToggle.title =
+    "Toggle globe debug (Option+Shift+G or Cmd+Shift+G on Mac)";
+  globeDebugToggle.addEventListener("click", () => {
+    setGlobeDebugPanelOpen(globeDebugHost.hidden);
+  });
+  window.addEventListener("keydown", (ev) => {
+    if (!isGlobeDebugHotkey(ev)) return;
+    if (globeDebugHotkeyTargetIgnoresShortcut(ev.target)) return;
+    ev.preventDefault();
+    setGlobeDebugPanelOpen(globeDebugHost.hidden);
+  });
+} else if (!showGlobeDebugEntry && isDebugScarVisual() && scarMapPreview) {
   globe.setScarMapPreviewCanvas(scarMapPreview);
 }
 globe.setVisualTheme(initialTheme);
@@ -140,12 +183,6 @@ themeBtn.addEventListener("click", () => {
   persistTheme(next);
   globe.setVisualTheme(next);
   syncThemeToggle();
-});
-
-globeModeSelect.addEventListener("change", () => {
-  const mode: GlobeDisplayMode =
-    globeModeSelect.value === "points" ? "points" : "texture";
-  globe.setGlobeDisplayMode(mode);
 });
 
 painVizEl.addEventListener("change", () => {

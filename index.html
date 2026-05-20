@@ -27,19 +27,6 @@
           <select id="layer-select"></select>
         </label>
         <label>
-          Globe surface
-          <select
-            id="globe-render-mode"
-            title="Stipple mode only for now"
-            disabled
-          >
-            <!-- Texture mode parked for now:
-            <option value="texture">Noise texture (canvas)</option>
-            -->
-            <option value="points">Point stipple (land mask)</option>
-          </select>
-        </label>
-        <label>
           Pain data
           <select
             id="pain-viz-mode"
@@ -59,21 +46,31 @@
           </button>
         </div>
         <p id="status" class="status"></p>
-        <div
-          id="globe-debug-panel"
-          class="globe-debug-panel-host"
-          hidden
-          aria-label="Globe layer toggles (debug)"
-        ></div>
-        <canvas
-          id="scar-map-preview"
-          class="scar-map-preview"
-          width="512"
-          height="256"
-          hidden
-          title="Scar displacement height map (128 = neutral)"
-        ></canvas>
       </aside>
+      <button
+        type="button"
+        id="globe-debug-toggle"
+        class="globe-debug-entry"
+        hidden
+        aria-expanded="false"
+        aria-controls="globe-debug-panel"
+      >
+        Debug
+      </button>
+      <div
+        id="globe-debug-panel"
+        class="globe-debug-panel-host globe-debug-panel-host--floating"
+        hidden
+        aria-label="Globe layer toggles (debug)"
+      ></div>
+      <canvas
+        id="scar-map-preview"
+        class="scar-map-preview"
+        width="512"
+        height="256"
+        hidden
+        title="Scar displacement height map (128 = neutral)"
+      ></canvas>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -55,8 +55,175 @@ function layerLabel(meta: (typeof LAYER_UI)[number]): string {
   return meta.label;
 }
 
+type TuneSliderSpec = {
+  key: keyof GlobeDebugTune;
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+  /** Display decimals (blur radii → 0). */
+  decimals?: number;
+};
+
+const TUNE_SECTIONS: {
+  summary: string;
+  defaultOpen: boolean;
+  sliders: TuneSliderSpec[];
+}[] = [
+  {
+    summary: "Clip & rim glow",
+    defaultOpen: true,
+    sliders: [
+      {
+        key: "facingCullMin",
+        label: "Facing cull min",
+        hint: "Stipple limb discard. Negative keeps more rim dots.",
+        min: -0.2,
+        max: 0.35,
+        step: 0.005,
+      },
+      {
+        key: "hemisphereClipBias",
+        label: "Hemisphere clip bias",
+        hint: "Clip plane offset (world units along view); more negative = harder limb cut.",
+        min: -0.5,
+        max: 0.2,
+        step: 0.005,
+      },
+      {
+        key: "glowIntensity",
+        label: "Rim glow intensity",
+        hint: "uGlowIntensity on rim sphere.",
+        min: 0,
+        max: 0.6,
+        step: 0.01,
+      },
+    ],
+  },
+  {
+    summary: "Stipple & GPU scar",
+    defaultOpen: true,
+    sliders: [
+      {
+        key: "scarDispScale",
+        label: "Scar dent scale (GPU)",
+        hint: "Radial depth from height map.",
+        min: 0,
+        max: 0.2,
+        step: 0.002,
+      },
+      {
+        key: "scarDispBias",
+        label: "Scar dent bias (GPU)",
+        hint: "Adds constant radial offset.",
+        min: -0.1,
+        max: 0.02,
+        step: 0.002,
+      },
+      {
+        key: "oceanAlphaBoost",
+        label: "Ocean alpha boost",
+        hint: "Ocean stipple sprite opacity multiplier.",
+        min: 0.2,
+        max: 8,
+        step: 0.05,
+      },
+      {
+        key: "oceanAlphaMin",
+        label: "Ocean alpha min",
+        hint: "Floor opacity for ocean dots.",
+        min: 0,
+        max: 1,
+        step: 0.01,
+      },
+    ],
+  },
+  {
+    summary: "Scar height map (CPU stamp)",
+    defaultOpen: true,
+    sliders: [
+      {
+        key: "scarStampRadiusMin",
+        label: "Stamp radius min (px)",
+        hint: "Floor footprint on 1000×482 texture.",
+        min: 1,
+        max: 32,
+        step: 1,
+        decimals: 0,
+      },
+      {
+        key: "scarStampRadiusMul",
+        label: "Stamp footprint scale",
+        hint: ">1 widens bumps (smoother, less sharp detail); <1 sharper / spikier.",
+        min: 0.15,
+        max: 4,
+        step: 0.05,
+      },
+      {
+        key: "scarStampPeakMul",
+        label: "Stamp depth mul",
+        hint: "Brightness of each dent before GPU scale (detail vs strength).",
+        min: 0.2,
+        max: 2.5,
+        step: 0.05,
+      },
+      {
+        key: "scarFalloffSigma",
+        label: "Stamp falloff σ",
+        hint: "Gaussian shoulder exp(−t²σ); ↑ sharper peak, ↓ softer dish.",
+        min: 0.5,
+        max: 12,
+        step: 0.05,
+      },
+      {
+        key: "scarBlurPass1Radius",
+        label: "Blur pass 1 (px)",
+        hint: "0 = off. Wider smoothing (flattens, merges bumps).",
+        min: 0,
+        max: 12,
+        step: 1,
+        decimals: 0,
+      },
+      {
+        key: "scarBlurPass2Radius",
+        label: "Blur pass 2 (px)",
+        hint: "Second box blur after pass 1; 0 = off.",
+        min: 0,
+        max: 12,
+        step: 1,
+        decimals: 0,
+      },
+    ],
+  },
+];
+
+/** Sliders flattened for sync (`Scar …` section checkbox lives separately). */
+const ALL_TUNING_SLIDER_SPECS = TUNE_SECTIONS.flatMap((s) => s.sliders);
+
+function formatTuneValue(value: number, decimals: number): string {
+  if (decimals <= 0) return String(Math.round(value));
+  return value.toFixed(decimals);
+}
+
+function makeDetails(summaryText: string, defaultOpen: boolean): {
+  el: HTMLDetailsElement;
+  body: HTMLElement;
+} {
+  const details = document.createElement("details");
+  details.className = "globe-debug-panel__details";
+  details.open = defaultOpen;
+  const summary = document.createElement("summary");
+  summary.className = "globe-debug-panel__details-summary";
+  summary.textContent = summaryText;
+  const body = document.createElement("div");
+  body.className = "globe-debug-panel__details-body";
+  details.append(summary, body);
+  return { el: details, body };
+}
+
 /**
- * Temporary HUD to toggle every globe layer (dev / `?globeDebug=1`).
+ * Full globe layer / tuning UI. Mount once; show/hide via `#globe-debug-toggle` in `main.ts`.
  */
 export function mountGlobeDebugPanel(
   globe: GlobeView,
@@ -68,18 +235,18 @@ export function mountGlobeDebugPanel(
 
   const title = document.createElement("h2");
   title.className = "globe-debug-panel__title";
-  title.textContent = "Globe layers (debug)";
+  title.textContent = "Globe debug";
   host.appendChild(title);
 
-  const intro = document.createElement("p");
-  intro.className = "globe-debug-panel__intro";
-  intro.textContent =
-    "Toggle visibility. Italic rows = manual override (Reset restores app defaults).";
-  host.appendChild(intro);
+  const layersBlock = makeDetails("Layer visibility", true);
+  const layerIntro = document.createElement("p");
+  layerIntro.className = "globe-debug-panel__intro";
+  layerIntro.textContent =
+    "Toggle visibility. Italic = manual override (Reset overrides restores app defaults).";
+  layersBlock.body.appendChild(layerIntro);
 
   const list = document.createElement("ul");
   list.className = "globe-debug-panel__list";
-  host.appendChild(list);
 
   const rowById = new Map<GlobeDebugLayerId, HTMLLabelElement>();
 
@@ -113,150 +280,105 @@ export function mountGlobeDebugPanel(
     });
   }
 
-  const tuneTitle = document.createElement("h3");
-  tuneTitle.className = "globe-debug-panel__subtitle";
-  tuneTitle.textContent = "Inner-shell tuning";
-  host.appendChild(tuneTitle);
+  layersBlock.body.appendChild(list);
+  host.appendChild(layersBlock.el);
 
-  const tuneIntro = document.createElement("p");
-  tuneIntro.className = "globe-debug-panel__intro";
-  tuneIntro.textContent =
-    "Ocean fill = mesh behind dots (not canvas clear). ↑ ocean alpha min fills gaps.";
-  host.appendChild(tuneIntro);
-
-  const tuneForm = document.createElement("div");
-  tuneForm.className = "globe-debug-panel__tune";
-  host.appendChild(tuneForm);
-
-  const tuneSliders: {
-    key: keyof GlobeDebugTune;
-    label: string;
-    hint: string;
-    min: number;
-    max: number;
-    step: number;
-  }[] = [
-    {
-      key: "facingCullMin",
-      label: "Facing cull min",
-      hint: "Stipple limb cull (uFacingCullMin). Negative keeps more rim dots; positive hides back face faster.",
-      min: -0.2,
-      max: 0.35,
-      step: 0.005,
-    },
-    {
-      key: "hemisphereClipBias",
-      label: "Hemisphere clip bias",
-      hint: "Plane offset in world units along view. More negative clips more at limb; positive shows more far side. Wide range for experiments.",
-      min: -0.5,
-      max: 0.2,
-      step: 0.005,
-    },
-    {
-      key: "scarDispScale",
-      label: "Scar dent scale",
-      hint: "Depth of dents (uScarDispScale). Lower = flatter.",
-      min: 0,
-      max: 0.12,
-      step: 0.002,
-    },
-    {
-      key: "scarDispBias",
-      label: "Scar dent bias",
-      hint: "Inward pull (uScarDispBias). Less negative = less recess.",
-      min: -0.1,
-      max: 0.02,
-      step: 0.002,
-    },
-    {
-      key: "oceanAlphaBoost",
-      label: "Ocean alpha boost",
-      hint: "Scales opaque part of ocean dots (uOceanAlphaBoost). Lower = finer grain.",
-      min: 0.2,
-      max: 8,
-      step: 0.05,
-    },
-    {
-      key: "oceanAlphaMin",
-      label: "Ocean alpha min",
-      hint: "Floor opacity for ocean dots (uOceanAlphaMin). Try 0.4–0.7.",
-      min: 0,
-      max: 1,
-      step: 0.02,
-    },
-    {
-      key: "glowIntensity",
-      label: "Rim glow intensity",
-      hint: "uGlowIntensity on glow shell.",
-      min: 0,
-      max: 0.6,
-      step: 0.01,
-    },
-  ];
+  const tuningIntro = document.createElement("p");
+  tuningIntro.className = "globe-debug-panel__intro globe-debug-panel__intro--below-layers";
+  tuningIntro.textContent =
+    "Tuning grouped below. Changing scar height-map values rebuilds the CPU texture (scar / multiplex mode).";
+  host.appendChild(tuningIntro);
 
   const tuneInputs: Partial<
     Record<keyof GlobeDebugTune, HTMLInputElement>
   > = {};
 
-  for (const spec of tuneSliders) {
-    const row = document.createElement("label");
-    row.className = "globe-debug-panel__tune-row";
+  let landOnlyCheckboxRef: HTMLInputElement | null = null;
 
-    const head = document.createElement("span");
-    head.className = "globe-debug-panel__tune-head";
-    const valSpan = document.createElement("output");
-    valSpan.className = "globe-debug-panel__tune-val";
+  for (const section of TUNE_SECTIONS) {
+    const block = makeDetails(section.summary, section.defaultOpen);
 
-    const range = document.createElement("input");
-    range.type = "range";
-    range.min = String(spec.min);
-    range.max = String(spec.max);
-    range.step = String(spec.step);
+    if (section.summary === "Stipple & GPU scar") {
+      const landOnlyRow = document.createElement("label");
+      landOnlyRow.className =
+        "globe-debug-panel__tune-row globe-debug-panel__tune-row--check";
+      const landOnlyCb = document.createElement("input");
+      landOnlyCb.type = "checkbox";
+      landOnlyCb.checked =
+        GLOBE_DEBUG_TUNE_DEFAULTS.scarLandOnly >= 0.5;
+      landOnlyCb.title =
+        "Land dents only — off = land+ocean move together (reduces inner sphere)";
+      const landOnlyText = document.createElement("span");
+      landOnlyText.textContent =
+        "Scar dents on land only (off = ocean + land together)";
+      landOnlyRow.append(landOnlyCb, landOnlyText);
+      block.body.appendChild(landOnlyRow);
+      landOnlyCheckboxRef = landOnlyCb;
+      landOnlyCb.addEventListener("change", () => {
+        globe.setDebugTune({ scarLandOnly: landOnlyCb.checked ? 1 : 0 });
+      });
+    }
 
-    const hint = document.createElement("span");
-    hint.className = "globe-debug-panel__tune-hint";
-    hint.textContent = spec.hint;
+    for (const spec of section.sliders) {
+      const row = document.createElement("label");
+      row.className = "globe-debug-panel__tune-row";
 
-    head.textContent = `${spec.label} `;
-    head.append(valSpan);
-    row.append(head, range, hint);
-    tuneForm.appendChild(row);
-    tuneInputs[spec.key] = range;
+      const head = document.createElement("span");
+      head.className = "globe-debug-panel__tune-head";
+      const valSpan = document.createElement("output");
+      valSpan.className = "globe-debug-panel__tune-val";
 
-    range.addEventListener("input", () => {
-      const v = Number(range.value);
-      valSpan.textContent = v.toFixed(3);
-      globe.setDebugTune({ [spec.key]: v });
-    });
+      const range = document.createElement("input");
+      range.type = "range";
+      range.min = String(spec.min);
+      range.max = String(spec.max);
+      range.step = String(spec.step);
+
+      const hint = document.createElement("span");
+      hint.className = "globe-debug-panel__tune-hint";
+      hint.textContent = spec.hint;
+
+      head.textContent = `${spec.label} `;
+      head.append(valSpan);
+      row.append(head, range, hint);
+      block.body.appendChild(row);
+      tuneInputs[spec.key] = range;
+
+      const decimals = spec.decimals ?? 3;
+
+      range.addEventListener("input", () => {
+        const v = Number(range.value);
+        valSpan.textContent = formatTuneValue(v, decimals);
+        globe.setDebugTune({ [spec.key]: v });
+      });
+    }
+
+    if (section.summary === "Scar height map (CPU stamp)" && scarPreviewCanvas) {
+      const scarHint = document.createElement("p");
+      scarHint.className = "globe-debug-panel__hint globe-debug-panel__hint--nested";
+      scarHint.textContent = "Preview (128 = flat)";
+      block.body.appendChild(scarHint);
+      scarPreviewCanvas.classList.add("scar-map-preview");
+      block.body.appendChild(scarPreviewCanvas);
+      globe.setScarMapPreviewCanvas(scarPreviewCanvas);
+    }
+
+    host.appendChild(block.el);
   }
-
-  const landOnlyRow = document.createElement("label");
-  landOnlyRow.className =
-    "globe-debug-panel__tune-row globe-debug-panel__tune-row--check";
-  const landOnlyCb = document.createElement("input");
-  landOnlyCb.type = "checkbox";
-  landOnlyCb.checked = GLOBE_DEBUG_TUNE_DEFAULTS.scarLandOnly >= 0.5;
-  landOnlyCb.title =
-    "Land dents only — off = land+ocean move together (reduces inner sphere)";
-  const landOnlyText = document.createElement("span");
-  landOnlyText.textContent =
-    "Scar dents on land only (off = ocean + land move together)";
-  landOnlyRow.append(landOnlyCb, landOnlyText);
-  tuneForm.appendChild(landOnlyRow);
-  landOnlyCb.addEventListener("change", () => {
-    globe.setDebugTune({ scarLandOnly: landOnlyCb.checked ? 1 : 0 });
-  });
 
   function syncTuneSliders(): void {
     const t = globe.getDebugTune();
-    for (const spec of tuneSliders) {
+    for (const spec of ALL_TUNING_SLIDER_SPECS) {
       const range = tuneInputs[spec.key];
       if (!range) continue;
       range.value = String(t[spec.key]);
       const out = range.parentElement?.querySelector("output");
-      if (out) out.textContent = Number(t[spec.key]).toFixed(3);
+      const decimals = spec.decimals ?? 3;
+      if (out)
+        out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
     }
-    landOnlyCb.checked = t.scarLandOnly >= 0.5;
+    if (landOnlyCheckboxRef)
+      landOnlyCheckboxRef.checked = t.scarLandOnly >= 0.5;
   }
 
   const buttonWrap = document.createElement("div");
@@ -294,7 +416,10 @@ export function mountGlobeDebugPanel(
   host.appendChild(buttonWrap);
   syncTuneSliders();
 
-  if (scarPreviewCanvas) {
+  if (
+    scarPreviewCanvas &&
+    !host.querySelector("canvas.scar-map-preview")
+  ) {
     const hint = document.createElement("p");
     hint.className = "globe-debug-panel__hint";
     hint.textContent = "Scar height map (128 = flat):";
@@ -339,10 +464,21 @@ export function mountGlobeDebugPanel(
   };
 }
 
+const GLOBE_DEBUG_LS_KEY = "pain-globe-debug";
+
+/**
+ * Opt-in: show bottom-right Debug control (does not mount the panel until opened).
+ * Enable with `?globeDebug=1` or `localStorage.setItem("pain-globe-debug", "1")` then reload.
+ */
 export function shouldShowGlobeDebugPanel(): boolean {
-  if (import.meta.env.DEV) return true;
   try {
-    return new URLSearchParams(window.location.search).has("globeDebug");
+    if (localStorage.getItem(GLOBE_DEBUG_LS_KEY) === "1") return true;
+  } catch {
+    /* private mode / quota */
+  }
+  try {
+    const v = new URLSearchParams(window.location.search).get("globeDebug");
+    return v === "1" || v === "true";
   } catch {
     return false;
   }

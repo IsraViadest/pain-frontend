@@ -34,15 +34,26 @@ import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 /** Stipple: discard when dot(surfaceNormal, viewDir) < this; can be negative to keep more limb dots. */
 export const GLOBE_DEBUG_TUNE_DEFAULTS = {
   facingCullMin: -0.2,
-  scarDispScale: 0.056,
-  scarDispBias: 0,
-  oceanAlphaBoost: 0.5,
+  scarDispScale: 0.12,
+  scarDispBias: -0.052,
+  oceanAlphaBoost: 0.2,
   /** 1 = land dents only (nested “inner sphere”); 0 = land + ocean move together. */
   scarLandOnly: 0,
-  oceanAlphaMin: 0.55,
+  oceanAlphaMin: 0.16,
   /** Clip plane offset along view (world units); more negative clips harder at the limb. */
   hemisphereClipBias: -0.5,
   glowIntensity: 0.38,
+  /** Scar height map: min stamp radius (px on 1000×482 texture). */
+  scarStampRadiusMin: 1,
+  /** Scales stamp footprint before min clamp. */
+  scarStampRadiusMul: 0.15,
+  /** Scales per-stamp depth in texture. */
+  scarStampPeakMul: 0.35,
+  /** Gaussian tightness inside each stamp disk. */
+  scarFalloffSigma: 1.05,
+  /** Post-stamp box blur (px); 0 = off. */
+  scarBlurPass1Radius: 4,
+  scarBlurPass2Radius: 1,
 } as const;
 
 export type GlobeDebugTune = {
@@ -54,7 +65,22 @@ export type GlobeDebugTune = {
   oceanAlphaMin: number;
   hemisphereClipBias: number;
   glowIntensity: number;
+  scarStampRadiusMin: number;
+  scarStampRadiusMul: number;
+  scarStampPeakMul: number;
+  scarFalloffSigma: number;
+  scarBlurPass1Radius: number;
+  scarBlurPass2Radius: number;
 };
+
+const SCAR_HEIGHT_MAP_TUNE_KEYS: readonly (keyof GlobeDebugTune)[] = [
+  "scarStampRadiusMin",
+  "scarStampRadiusMul",
+  "scarStampPeakMul",
+  "scarFalloffSigma",
+  "scarBlurPass1Radius",
+  "scarBlurPass2Radius",
+];
 
 const STIPPLE_FACING_CULL_OFF = -0.5;
 /** Land stipple heat-map tint strength (0–1). */
@@ -433,6 +459,12 @@ export class GlobeView {
     ) {
       this.refreshCpuScarDisplacementFromTune();
     }
+    if (
+      SCAR_HEIGHT_MAP_TUNE_KEYS.some((k) => partial[k] !== undefined) &&
+      (this.painVizMode === "scars" || this.painVizMode === "multiplex-v0")
+    ) {
+      this.scheduleScarFieldRebuild();
+    }
   }
 
   resetDebugTune(): void {
@@ -441,6 +473,12 @@ export class GlobeView {
     this.applyHemisphereClipping();
     this.applyStippleScarUniforms();
     this.refreshCpuScarDisplacementFromTune();
+    if (
+      this.painVizMode === "scars" ||
+      this.painVizMode === "multiplex-v0"
+    ) {
+      this.scheduleScarFieldRebuild();
+    }
   }
 
   private applyStippleTuneUniforms(): void {
@@ -991,6 +1029,14 @@ export class GlobeView {
       this.scarDisplacementMap = createPainScarDisplacementTexture(
         points,
         this.currentLayerId,
+        {
+          stampRadiusMin: this.debugTune.scarStampRadiusMin,
+          stampRadiusMul: this.debugTune.scarStampRadiusMul,
+          stampPeakMul: this.debugTune.scarStampPeakMul,
+          falloffSigma: this.debugTune.scarFalloffSigma,
+          blurPass1Radius: this.debugTune.scarBlurPass1Radius,
+          blurPass2Radius: this.debugTune.scarBlurPass2Radius,
+        },
       );
       this.painHeatMap = createPainHeatTexture(points);
       this.updateScarMapPreview();
