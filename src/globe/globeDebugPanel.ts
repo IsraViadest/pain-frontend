@@ -14,9 +14,9 @@ const LAYER_UI: {
   { id: "glow", label: "Rim glow (sphere)", hint: "glow · larger additive shell" },
   { id: "globe", label: "Solid globe mesh", hint: "globe · MeshStandardMaterial" },
   {
-    id: "oceanFill",
-    label: "Ocean fill (opaque)",
-    hint: "oceanFill · stops black void through stipple",
+    id: "stippleSubstrate",
+    label: "Stipple substrate (opaque)",
+    hint: "stippleSubstrate · land+ocean shell under dots",
   },
   { id: "stipple", label: "Stipple (all points)", hint: "pointsStipple" },
   {
@@ -144,9 +144,17 @@ export function mountGlobeDebugPanel(
     {
       key: "facingCullMin",
       label: "Facing cull min",
-      hint: "Hide back/limb stipple (uFacingCullMin). Try 0.08–0.2.",
+      hint: "Hide back/limb stipple (uFacingCullMin). Try 0.12–0.22.",
       min: -0.2,
       max: 0.35,
+      step: 0.005,
+    },
+    {
+      key: "hemisphereClipBias",
+      label: "Hemisphere clip bias",
+      hint: "More negative = clip more at limb (back coastlines bleed). Try -0.02 to -0.08.",
+      min: -0.12,
+      max: 0.02,
       step: 0.005,
     },
     {
@@ -182,12 +190,20 @@ export function mountGlobeDebugPanel(
       step: 0.02,
     },
     {
-      key: "oceanFillScale",
-      label: "Ocean fill scale",
-      hint: "0.999 = slightly inside stipple; 1.0 = coplanar (limb may show edge).",
+      key: "substrateScale",
+      label: "Substrate scale",
+      hint: "Keep at 1.0 — warped substrate matches stipple; scale only for fine tuning.",
       min: 0.97,
       max: 1.01,
       step: 0.001,
+    },
+    {
+      key: "substrateDepthInset",
+      label: "Substrate depth inset",
+      hint: "Depth-only pull inward so stipple/lines draw on top. Try 0.0001–0.0003.",
+      min: 0,
+      max: 0.001,
+      step: 0.00001,
     },
     {
       key: "glowIntensity",
@@ -241,6 +257,8 @@ export function mountGlobeDebugPanel(
   const landOnlyCb = document.createElement("input");
   landOnlyCb.type = "checkbox";
   landOnlyCb.checked = GLOBE_DEBUG_TUNE_DEFAULTS.scarLandOnly >= 0.5;
+  landOnlyCb.title =
+    "Land dents only — off = land+ocean move together (reduces inner sphere)";
   const landOnlyText = document.createElement("span");
   landOnlyText.textContent =
     "Scar dents on land only (off = ocean + land move together)";

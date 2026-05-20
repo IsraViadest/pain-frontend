@@ -10,9 +10,10 @@ import {
   STIPPLE_LAND_MASK_GEOJSON_URL,
 } from "./earthStippleGlobe";
 import {
-  createOceanFillMaterial,
-  loadOceanFillLandMask,
-} from "./oceanFillShell";
+  createStippleSubstrateMaterial,
+  loadStippleSubstrateLandMask,
+  stippleSubstrateColorsFromTint,
+} from "./stippleSubstrateShell";
 import {
   createLayerCanvasTexture,
   getLayerBaseColorLinear,
@@ -38,18 +39,22 @@ const SCAR_DISPLACEMENT_BIAS = -SCAR_DISPLACEMENT_SCALE * 0.8;
  * inward (earthStippleGlobe VS `landW`) while ocean dots stay at RADIUS; transparent ocean
  * shows the WebGL clear color between shells. Zoom exaggerates the depth gap.
  * Hardware hemisphere clip on stipple was removed (point sprites + plane = false inner shell).
- * Fix: `oceanFill` mesh + matching `setClearColor` (not black) behind transparent ocean dots.
+ * Fix: opaque `stippleSubstrate` with depthWrite + hemisphere clip (color alone is not enough).
  */
-/** Stipple: discard when dot(surfaceNormal, viewDir) < this (0–1). Try 0.05–0.25 in debug panel. */
+/** Stipple: discard when dot(surfaceNormal, viewDir) < this (0–1). Try 0.12–0.22 in debug panel. */
 export const GLOBE_DEBUG_TUNE_DEFAULTS = {
-  facingCullMin: 0.1,
+  facingCullMin: 0.18,
   scarDispScale: 0.04,
   scarDispBias: -SCAR_DISPLACEMENT_SCALE * 0.8,
   oceanAlphaBoost: 1,
-  /** 1 = land dents only (can look like inner shell); 0 = ocean + land move together. */
-  scarLandOnly: 1,
-  oceanFillScale: 1,
-  oceanAlphaMin: 0.32,
+  /** 1 = land dents only (nested “inner sphere”); 0 = land + ocean share one shell. */
+  scarLandOnly: 0,
+  substrateScale: 1,
+  oceanAlphaMin: 0.55,
+  /** Clip plane offset (world units); more negative = shave more at the limb. */
+  hemisphereClipBias: -0.04,
+  /** Depth-only inset so stipple/outlines sit on top of the warped substrate. */
+  substrateDepthInset: 0.00015,
   glowIntensity: 0.18,
 } as const;
 
@@ -59,14 +64,14 @@ export type GlobeDebugTune = {
   scarDispBias: number;
   oceanAlphaBoost: number;
   scarLandOnly: number;
-  oceanFillScale: number;
+  substrateScale: number;
   oceanAlphaMin: number;
+  hemisphereClipBias: number;
+  substrateDepthInset: number;
   glowIntensity: number;
 };
 
 const STIPPLE_FACING_CULL_OFF = -0.5;
-/** Coastlines follow the same field but read more gently than the solid globe. */
-const SCAR_BORDER_DISPLACEMENT_MULT = 0.5;
 /** Land stipple heat-map tint strength (0–1). */
 const SCAR_HEAT_STRENGTH = 2.82;
 /** Runtime Three.js supports clipping on materials; some @types/three versions omit it. */
@@ -77,8 +82,8 @@ type MaterialWithClipping = THREE.Material & {
 };
 
 const RADIUS = 1;
-/** Same radius as stipple — inset radii read as a separate “inner sphere”. */
-const OCEAN_FILL_RADIUS = RADIUS;
+/** Coplanar with stipple; use `substrateScale` < 1 to sit slightly inside. */
+const SUBSTRATE_RADIUS = RADIUS;
 /** Rim sphere (`glow`) additive shell. */
 const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
 /** Solid globe shell tint (map cleared when applied — solid color). */
@@ -165,7 +170,7 @@ export type PainVisualizationMode = "points" | "scars" | "multiplex-v0";
 export type GlobeDebugLayerId =
   | "glow"
   | "globe"
-  | "oceanFill"
+  | "stippleSubstrate"
   | "stipple"
   | "stippleLand"
   | "stippleOcean"
@@ -197,8 +202,9 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * scene (root)
  * ├── lights (ambLight, keyLight, fillLight)
  * ├── earthContent      rotates with auto-spin; parent of solid + rim glow
- * │   ├── glow          renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
- * │   └── globe         renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)
+ * │   ├── glow              renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
+ * │   ├── stippleSubstrate  renderOrder  0.5 — opaque land+ocean under stipple dots
+ * │   └── globe             renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)
  * │       · texture mode: canvas layer map on mesh
  * │       · scar mode: usually hidden; CPU-warped when debug showGlobeMeshInScarMode
  * ├── pointsStipple     renderOrder  2  — land/ocean dots (earthStippleGlobe.ts)
@@ -241,12 +247,12 @@ export class GlobeView {
     THREE.SphereGeometry,
     THREE.MeshStandardMaterial
   >;
-  /** Opaque ocean-colored sphere behind stipple (blocks black clear showing through). */
-  private readonly oceanFill: THREE.Mesh<
+  /** Opaque land+ocean shell behind stipple (blocks void through transparent dots). */
+  private readonly stippleSubstrate: THREE.Mesh<
     THREE.SphereGeometry,
     THREE.ShaderMaterial
   >;
-  private oceanFillLandMask: THREE.DataTexture | null = null;
+  private stippleSubstrateLandMask: THREE.DataTexture | null = null;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   /** SHELL markers — “points” viz mode only (rebuildPainGeometryAndTexture). */
@@ -352,16 +358,18 @@ export class GlobeView {
     );
     this.earthContent.add(this.globe);
 
-    this.oceanFill = new THREE.Mesh(
-      new THREE.SphereGeometry(OCEAN_FILL_RADIUS, 96, 64),
-      createOceanFillMaterial(
-        new THREE.Color(0x000000),
+    this.stippleSubstrate = new THREE.Mesh(
+      new THREE.SphereGeometry(SUBSTRATE_RADIUS, 128, 96),
+      createStippleSubstrateMaterial(
+        new THREE.Color(0.86, 0.9, 0.96),
+        new THREE.Color(0.72, 0.82, 0.95),
         GLOBE_DEBUG_TUNE_DEFAULTS.facingCullMin,
+        GLOBE_DEBUG_TUNE_DEFAULTS.substrateDepthInset,
       ),
     );
-    this.oceanFill.renderOrder = 0.5;
-    this.earthContent.add(this.oceanFill);
-    void this.loadOceanFillLandMask();
+    this.stippleSubstrate.renderOrder = 0.5;
+    this.earthContent.add(this.stippleSubstrate);
+    void this.loadStippleSubstrateLandMask();
 
     // --- Rim glow shell (slightly larger sphere; additive fresnel on back faces) ---
     this.glow = new THREE.Mesh(
@@ -457,6 +465,12 @@ export class GlobeView {
     this.applyStippleTuneUniforms();
     this.applyHemisphereClipping();
     this.applyStippleScarUniforms();
+    if (
+      partial.scarDispScale !== undefined ||
+      partial.scarDispBias !== undefined
+    ) {
+      this.refreshCpuScarDisplacementFromTune();
+    }
   }
 
   resetDebugTune(): void {
@@ -464,23 +478,28 @@ export class GlobeView {
     this.applyStippleTuneUniforms();
     this.applyHemisphereClipping();
     this.applyStippleScarUniforms();
+    this.refreshCpuScarDisplacementFromTune();
   }
 
-  private async loadOceanFillLandMask(): Promise<void> {
+  private async loadStippleSubstrateLandMask(): Promise<void> {
     try {
-      const tex = await loadOceanFillLandMask(STIPPLE_LAND_MASK_GEOJSON_URL);
-      this.oceanFillLandMask?.dispose();
-      this.oceanFillLandMask = tex;
-      this.oceanFill.material.uniforms.uLandMask.value = tex;
+      const tex = await loadStippleSubstrateLandMask(
+        STIPPLE_LAND_MASK_GEOJSON_URL,
+      );
+      this.stippleSubstrateLandMask?.dispose();
+      this.stippleSubstrateLandMask = tex;
+      this.stippleSubstrate.material.uniforms.uLandMask.value = tex;
     } catch (e) {
-      console.warn("[GlobeView] ocean fill land mask failed:", e);
+      console.warn("[GlobeView] stipple substrate land mask failed:", e);
     }
   }
 
   private applyStippleTuneUniforms(): void {
-    this.oceanFill.scale.setScalar(this.debugTune.oceanFillScale);
-    this.oceanFill.material.uniforms.uFacingCullMin.value =
-      this.debugTune.facingCullMin;
+    this.stippleSubstrate.scale.setScalar(this.debugTune.substrateScale);
+    const sub = this.stippleSubstrate.material.uniforms;
+    sub.uFacingCullMin.value = this.debugTune.facingCullMin;
+    sub.uScarLandOnly.value = this.debugTune.scarLandOnly;
+    sub.uDepthInset.value = this.debugTune.substrateDepthInset;
     this.glow.material.uniforms.uGlowIntensity.value =
       this.debugTune.glowIntensity;
     if (!this.pointsMaterial) return;
@@ -496,7 +515,7 @@ export class GlobeView {
     const ids: GlobeDebugLayerId[] = [
       "glow",
       "globe",
-      "oceanFill",
+      "stippleSubstrate",
       "stipple",
       "stippleLand",
       "stippleOcean",
@@ -547,8 +566,8 @@ export class GlobeView {
     );
   }
 
-  /** Opaque backdrop for transparent ocean stipple (hidden when debug solid globe is on). */
-  private getAutoOceanFillVisible(): boolean {
+  /** Opaque land+ocean backdrop for stipple (hidden when solid globe mesh is on). */
+  private getAutoStippleSubstrateVisible(): boolean {
     return this.getAutoStippleVisible() && !this.getAutoGlobeVisible();
   }
 
@@ -588,8 +607,8 @@ export class GlobeView {
         return GLOBE_ATMOSPHERE_GLOW_ENABLED;
       case "globe":
         return this.getAutoGlobeVisible();
-      case "oceanFill":
-        return this.getAutoOceanFillVisible();
+      case "stippleSubstrate":
+        return this.getAutoStippleSubstrateVisible();
       case "stipple":
         return this.getAutoStippleVisible();
       case "stippleLand":
@@ -622,8 +641,8 @@ export class GlobeView {
         return this.glow.visible;
       case "globe":
         return this.globe.visible;
-      case "oceanFill":
-        return this.oceanFill.visible;
+      case "stippleSubstrate":
+        return this.stippleSubstrate.visible;
       case "stipple":
         return this.pointsStipple?.visible ?? false;
       case "stippleLand":
@@ -666,9 +685,9 @@ export class GlobeView {
       "globe",
       this.getAutoGlobeVisible(),
     );
-    this.oceanFill.visible = this.resolveDebugLayerVisibility(
-      "oceanFill",
-      this.getAutoOceanFillVisible(),
+    this.stippleSubstrate.visible = this.resolveDebugLayerVisibility(
+      "stippleSubstrate",
+      this.getAutoStippleSubstrateVisible(),
     );
     if (this.pointsStipple) {
       this.pointsStipple.visible = this.resolveDebugLayerVisibility(
@@ -743,6 +762,11 @@ export class GlobeView {
     }
 
     this.bordersOutlines?.setClippingPlanes(planes);
+
+    const substrateMat = this.stippleSubstrate
+      .material as unknown as MaterialWithClipping;
+    substrateMat.clipping = enabled;
+    substrateMat.clippingPlanes = planes;
 
     for (const ch of this.markersGroup.children) {
       if (ch instanceof THREE.Mesh) {
@@ -829,9 +853,26 @@ export class GlobeView {
     this.renderer.setClearColor(0x000000, 0);
   }
 
-  private applyStippleOceanFillColor(): void {
-    // Ocean-only shell stays black; land pixels are discarded in oceanFillShell shader.
-    this.oceanFill.material.uniforms.uFillColor.value.setHex(0x000000);
+  private applyStippleSubstrateColors(): void {
+    const u = this.stippleSubstrate.material.uniforms;
+    if (isDebugScarVisual()) {
+      const [lr, lg, lb] = DEBUG_SCAR_VISUAL.stippleLandRgb;
+      const [or, og, ob] = DEBUG_SCAR_VISUAL.stippleOceanRgb;
+      u.uLandColor.value.set(lr, lg, lb);
+      u.uOceanColor.value.set(or, og, ob);
+      return;
+    }
+    if (this.pointsMaterial) {
+      const pu = this.pointsMaterial.uniforms;
+      const { land, ocean } = stippleSubstrateColorsFromTint(
+        pu.uShadeBase.value,
+        pu.uTint.value,
+        pu.uLandTint.value,
+        pu.uLandTintStrength.value as number,
+      );
+      u.uLandColor.value.copy(land);
+      u.uOceanColor.value.copy(ocean);
+    }
   }
 
   private disposeStipple(): void {
@@ -883,13 +924,34 @@ export class GlobeView {
       this.globeBasePositions,
       posAttr.array as Float32Array,
       map,
-      SCAR_DISPLACEMENT_SCALE,
-      SCAR_DISPLACEMENT_BIAS,
+      this.debugTune.scarDispScale,
+      this.debugTune.scarDispBias,
       0,
     );
     posAttr.needsUpdate = true;
     this.globe.geometry.computeVertexNormals();
     this.globe.geometry.computeBoundingSphere();
+  }
+
+  /**
+   * Borders + solid globe use CPU vertex warp; stipple/substrate use GPU scar uniforms.
+   * Use the same scale/bias (`debugTune`) so outlines sit on the same deformed shell as dots.
+   */
+  private refreshCpuScarDisplacementFromTune(): void {
+    const scars =
+      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+    const map = this.scarDisplacementMap;
+    if (!scars || !map) return;
+
+    this.bordersOutlines?.setScarDisplacementMap(
+      map,
+      this.debugTune.scarDispScale,
+      this.debugTune.scarDispBias,
+    );
+    if (this.globe.visible) {
+      this.resetGlobeShellPositions();
+      this.warpGlobeMeshToScarField(map);
+    }
   }
 
   /**
@@ -926,8 +988,8 @@ export class GlobeView {
 
       this.bordersOutlines?.setScarDisplacementMap(
         map,
-        SCAR_DISPLACEMENT_SCALE * SCAR_BORDER_DISPLACEMENT_MULT,
-        SCAR_DISPLACEMENT_BIAS * SCAR_BORDER_DISPLACEMENT_MULT,
+        this.debugTune.scarDispScale,
+        this.debugTune.scarDispBias,
       );
     } else {
       mat.displacementMap = null;
@@ -958,8 +1020,8 @@ export class GlobeView {
         bordersLoaded: Boolean(this.bordersOutlines),
         painPoints: this.lastPainPoints.length,
         globeCpuWarp: scars && Boolean(this.scarDisplacementMap),
-        scarScale: SCAR_DISPLACEMENT_SCALE,
-        scarBias: SCAR_DISPLACEMENT_BIAS,
+        scarScale: this.debugTune.scarDispScale,
+        scarBias: this.debugTune.scarDispBias,
       });
     }
   }
@@ -1110,6 +1172,7 @@ export class GlobeView {
       u.uLandTintStrength.value = 1;
       u.uOceanAlphaBoost.value = DEBUG_SCAR_VISUAL.stippleOceanAlphaBoost;
       u.uOceanPointScale.value = DEBUG_SCAR_VISUAL.stippleOceanPointScale;
+      this.applyStippleSubstrateColors();
       this.applyStippleHeatUniforms();
       return;
     }
@@ -1130,23 +1193,39 @@ export class GlobeView {
       u.uLandTintStrength.value = 0.22;
     }
     this.applyStippleTuneUniforms();
-    this.applyStippleOceanFillColor();
+    this.applyStippleSubstrateColors();
     this.applyStippleHeatUniforms();
     this.syncStippleBackdropClearColor();
   }
 
   private applyStippleScarUniforms(): void {
-    if (!this.pointsMaterial) return;
-    const u = this.pointsMaterial.uniforms;
     const scars =
       this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
     const scarOn = this.resolveDebugLayerVisibility(
       "scarDisplacement",
       scars && Boolean(this.scarDisplacementMap),
     );
-    u.uScarDispScale.value = scarOn ? this.debugTune.scarDispScale : 0;
-    u.uScarDispBias.value = scarOn ? this.debugTune.scarDispBias : 0;
-    u.uScarActive.value = scarOn ? 1 : 0;
+    const scale = scarOn ? this.debugTune.scarDispScale : 0;
+    const bias = scarOn ? this.debugTune.scarDispBias : 0;
+    const active = scarOn ? 1 : 0;
+
+    const sub = this.stippleSubstrate.material.uniforms;
+    sub.uScarDispScale.value = scale;
+    sub.uScarDispBias.value = bias;
+    sub.uScarActive.value = active;
+    if (scarOn && this.scarDisplacementMap) {
+      sub.uScarMap.value = this.scarDisplacementMap;
+    } else if (this.stippleNeutralScarTexture) {
+      sub.uScarMap.value = this.stippleNeutralScarTexture;
+    } else {
+      sub.uScarMap.value = this.scarDisplacementMap ?? sub.uScarMap.value;
+    }
+
+    if (!this.pointsMaterial) return;
+    const u = this.pointsMaterial.uniforms;
+    u.uScarDispScale.value = scale;
+    u.uScarDispBias.value = bias;
+    u.uScarActive.value = active;
     if (scarOn && this.scarDisplacementMap) {
       u.uScarMap.value = this.scarDisplacementMap;
     } else if (this.stippleNeutralScarTexture) {
@@ -1287,9 +1366,9 @@ export class GlobeView {
     this.renderer.dispose();
     this.globe.geometry.dispose();
     this.globe.material.dispose();
-    this.oceanFill.geometry.dispose();
-    this.oceanFill.material.dispose();
-    this.oceanFillLandMask?.dispose();
+    this.stippleSubstrate.geometry.dispose();
+    this.stippleSubstrate.material.dispose();
+    this.stippleSubstrateLandMask?.dispose();
     this.glow.geometry.dispose();
     this.glow.material.dispose();
     this.markerGeometry.dispose();
@@ -1405,7 +1484,7 @@ export class GlobeView {
     } else {
       this.hemisphereClipPlane.normal.set(0, 0, 1);
     }
-    this.hemisphereClipPlane.constant = 0;
+    this.hemisphereClipPlane.constant = this.debugTune.hemisphereClipBias;
     this.applyHemisphereClipping();
     if (this.pointsMaterial) {
       this.pointsMaterial.uniforms.uPixelRatio.value =
