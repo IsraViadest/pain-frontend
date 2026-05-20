@@ -1,3 +1,4 @@
+/** pain-server HTTP client — production data path (no /server, no CSV). */
 import { apiUrl } from "./config";
 import { uiLayerIdToApiLayer } from "./layers";
 

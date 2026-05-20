@@ -397,6 +397,8 @@ export class GlobeView {
     this.onResize();
   }
 
+  // --- Public mode API (called from main.ts HUD) ---
+
   /** Swap between procedural canvas texture and stippled point globe (test). */
   setGlobeDisplayMode(mode: GlobeDisplayMode): void {
     this.displayMode = mode;
@@ -428,6 +430,8 @@ export class GlobeView {
   }
 
   /** Debug panel: force a layer on/off (`clearDebugLayerOverride` restores auto). */
+  // --- Debug panel API (globeDebugPanel.ts) ---
+
   setDebugLayerVisible(id: GlobeDebugLayerId, visible: boolean): void {
     this.debugLayerOverrides.set(id, visible);
     this.applyDebugLayerVisibility();
@@ -1220,6 +1224,8 @@ export class GlobeView {
     this.bordersOutlines?.syncAppearance(this.visualTheme);
   }
 
+  // --- Theme, layer tint, and pain data from main.ts ---
+
   /** Match WebGL backdrop and lighting to the document UI theme. */
   setVisualTheme(theme: VisualTheme): void {
     this.applyScenePalette(theme);
@@ -1327,6 +1333,7 @@ export class GlobeView {
     this.refreshWordCloud();
   }
 
+  /** Entry from main.ts after fetchPoints — drives markers, scars, multiplex, word cloud. */
   setMarkers(points: PainPoint[]): void {
     this.lastPainPoints = points;
     this.rebuildPainGeometryAndTexture();
@@ -1401,6 +1408,7 @@ export class GlobeView {
     this.refreshWordCloud();
   }
 
+  /** Per-frame update: spin, controls, hemisphere clip, multiplex / word-cloud animation. */
   tick(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
     this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;

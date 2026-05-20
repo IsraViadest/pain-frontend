@@ -1,3 +1,12 @@
+/**
+ * Single API facade for the UI.
+ *
+ * Production (`npm run build`, VITE_USE_MOCK_API unset/false):
+ *   fetchPoints → painServer.fetchInitLayer → GET /init/:layer → adapter
+ *
+ * Dev mock (`npm run dev`):
+ *   fetchPoints → mockClient (local Express + CSV; not shipped in dist)
+ */
 import type {
   LayersResponse,
   PainSubmission,

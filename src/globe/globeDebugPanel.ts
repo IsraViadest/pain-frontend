@@ -1,3 +1,8 @@
+/**
+ * Opt-in dev HUD: layer visibility toggles + tuning sliders for GlobeView.
+ * Mounted from main.ts when ?globeDebug=1 or localStorage pain-globe-debug=1.
+ * Not shown in production builds unless that opt-in is enabled.
+ */
 import {
   GLOBE_DEBUG_TUNE_DEFAULTS,
   type GlobeDebugLayerId,

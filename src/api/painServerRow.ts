@@ -1,3 +1,7 @@
+/**
+ * Normalizes one row from GET /init/:layer before coordinates + adapter run.
+ * Column names follow pain-server DummyPain / db_data.csv (see painServerDbConfig).
+ */
 import { PAIN_SERVER_ROW_ALIASES, PainServerDbConfig } from "./painServerDbConfig";
 
 function asNumber(v: unknown): number | null {

@@ -1,3 +1,10 @@
+/**
+ * Vite dev proxies only — production `dist/` is static; the host must serve
+ * GET /init/:layer (same origin) or set VITE_PAIN_API_BASE at build time.
+ *
+ * - VITE_USE_MOCK_API true (default in dev): proxy /api → local mock (:3847)
+ * - VITE_USE_MOCK_API false: proxy /init → pain-server (:3000), use dev:pain-server
+ */
 import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {

@@ -1,3 +1,15 @@
+/**
+ * App entry — wires HUD controls to GlobeView and pain-server (or dev mock).
+ *
+ * Data flow (production):
+ *   layer select → fetchPoints(layer) → api/client → GET /init/:layer → adapter → globe.setMarkers()
+ *
+ * Dev:
+ *   npm run dev              — mock CSV API (Vite /api proxy)
+ *   npm run dev:pain-server  — real backend on :3000 (Vite /init proxy)
+ *
+ * Globe debug UI is opt-in only (?globeDebug=1 or localStorage pain-globe-debug=1).
+ */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
 import {
@@ -53,6 +65,7 @@ const wordCloudBtn = wordCloudToggle;
 const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
 if (!appRoot) throw new Error("Missing app root");
+// Floating tooltip for multiplex / word-cloud hovers (not in index.html).
 const hoverModal = document.createElement("div");
 hoverModal.id = "multiplex-hover";
 hoverModal.className = "multiplex-hover";
@@ -94,6 +107,7 @@ if (isDebugScarVisual()) {
   document.documentElement.dataset.scarDebug = "true";
 }
 
+// --- Globe + optional debug panel (outside HUD — see index.html) ---
 const globe = new GlobeView(canvas);
 const scarMapPreview = document.querySelector<HTMLCanvasElement>(
   "#scar-map-preview",
@@ -159,6 +173,7 @@ globe.setPainVisualizationMode(readPainVizMode());
 let wordCloudEnabled = false;
 globe.setWordCloudEnabled(wordCloudEnabled);
 
+// --- HUD event handlers ---
 function syncThemeToggle(): void {
   const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
   themeBtn.textContent = t === "blue" ? "Dark mode" : "Blue mode";
@@ -257,6 +272,7 @@ function setStatus(msg: string): void {
   hudStatus.textContent = msg;
 }
 
+// --- pain-server / mock: populate layer list and load points for current layer ---
 async function loadLayersIntoSelect(): Promise<void> {
   const { layers } = await fetchLayers();
   layerPicker.innerHTML = "";
@@ -321,6 +337,7 @@ testPostBtn.addEventListener("click", async () => {
   }
 });
 
+// --- render loop + initial API bootstrap ---
 function loop(): void {
   globe.tick();
   requestAnimationFrame(loop);
