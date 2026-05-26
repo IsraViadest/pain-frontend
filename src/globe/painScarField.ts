@@ -98,6 +98,32 @@ const DEFAULT_SCAR_HEIGHT_MAP_BUILD: ScarHeightMapBuildParams = {
 };
 
 /**
+ * Per-point stamp size/depth from normalized intensity (before debug overrides).
+ * radiusPx ≈ BASE + SPAN × (FLOOR + WEIGHT × √intensity); peak uses the same blend shape.
+ */
+const SCAR_STAMP_RADIUS_BASE_PX = 8;
+const SCAR_STAMP_RADIUS_INTENSITY_SPAN_PX = 24;
+/** Minimum radius blend at intensity 0 (keeps faint points visible). */
+const SCAR_STAMP_RADIUS_INTENSITY_FLOOR = 0.2;
+/** How much intensity scales radius above the floor. */
+const SCAR_STAMP_RADIUS_INTENSITY_WEIGHT = 0.8;
+
+const SCAR_STAMP_PEAK_BASE = 60;
+const SCAR_STAMP_PEAK_INTENSITY_SPAN = 110;
+const SCAR_STAMP_PEAK_INTENSITY_FLOOR = 0.15;
+const SCAR_STAMP_PEAK_INTENSITY_WEIGHT = 0.85;
+
+function scarStampIntensityBlend(intensity01: number): number {
+  const t = Math.sqrt(THREE.MathUtils.clamp(intensity01, 0, 1));
+  return SCAR_STAMP_RADIUS_INTENSITY_FLOOR + SCAR_STAMP_RADIUS_INTENSITY_WEIGHT * t;
+}
+
+function scarStampPeakIntensityBlend(intensity01: number): number {
+  const t = Math.sqrt(THREE.MathUtils.clamp(intensity01, 0, 1));
+  return SCAR_STAMP_PEAK_INTENSITY_FLOOR + SCAR_STAMP_PEAK_INTENSITY_WEIGHT * t;
+}
+
+/**
  * Box blur on float scar depth (neutral = {@link SCAR_NEUTRAL_DEPTH}).
  * Smooths the height field so coastlines / stipple follow broad dents instead of pixel spikes.
  */
@@ -159,13 +185,17 @@ export function createPainScarDisplacementTexture(
 
   for (const p of points) {
     const { cx, cy } = painPointToFieldTexel(p);
-    const inten = Math.sqrt(THREE.MathUtils.clamp(p.intensity, 0, 1));
+    const radiusBlend = scarStampIntensityBlend(p.intensity);
     const baseRadius = Math.round(
-      (8 + 24 * (0.2 + 0.8 * inten)) * cfg.stampRadiusMul,
+      (SCAR_STAMP_RADIUS_BASE_PX +
+        SCAR_STAMP_RADIUS_INTENSITY_SPAN_PX * radiusBlend) *
+        cfg.stampRadiusMul,
     );
     const radiusPx = Math.max(1, Math.max(cfg.stampRadiusMin, baseRadius));
     const peakDent =
-      (60 + 110 * (0.15 + 0.85 * inten)) * cfg.stampPeakMul;
+      (SCAR_STAMP_PEAK_BASE +
+        SCAR_STAMP_PEAK_INTENSITY_SPAN * scarStampPeakIntensityBlend(p.intensity)) *
+      cfg.stampPeakMul;
 
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
       const iy = cy + dy;

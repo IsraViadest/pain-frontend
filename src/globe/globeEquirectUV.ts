@@ -2,7 +2,8 @@ import * as THREE from "three";
 
 /**
  * Plate-carrée equirect UV for a unit direction (v = 0 at north pole).
- * Matches DummyPain row indexing, GeoJSON land masks, and scar map texel rows.
+ * Same grid as pain-server texture column/row (`x`/`y`), GeoJSON land masks, and scar
+ * map texels (1000×482). Not a separate “row index” scheme — one shared equirect frame.
  * For Three.js {@link THREE.SphereGeometry} displacement, set `DataTexture.flipY = true`.
  */
 export function unitDirectionToGlobeEquirectUV(dir: THREE.Vector3): {
