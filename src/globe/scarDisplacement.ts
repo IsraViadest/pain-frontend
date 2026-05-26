@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 
-export function scarHeightTo01(byte: number): number {
+function scarHeightTo01(byte: number): number {
   return byte / 255;
 }
 
-export function scarRadialOffset(
+function scarRadialOffset(
   height01: number,
   displacementScale: number,
   displacementBias: number,
@@ -20,7 +20,7 @@ export function scarRadialOffset(
 export const SCAR_OVERLAY_SURFACE_BIAS = 0.0008;
 
 /** Read red-channel scar height (0–1) from a CPU-side {@link THREE.DataTexture}. */
-export function sampleScarHeight01(
+function sampleScarHeight01(
   map: THREE.DataTexture,
   u: number,
   v: number,

@@ -17,14 +17,6 @@ export function unitDirectionToGlobeEquirectUV(dir: THREE.Vector3): {
   return { u, v };
 }
 
-/** @deprecated Alias for {@link unitDirectionToGlobeEquirectUV}. */
-export function unitDirectionToPlateCarreeUV(dir: THREE.Vector3): {
-  u: number;
-  v: number;
-} {
-  return unitDirectionToGlobeEquirectUV(dir);
-}
-
 /** Inverse of {@link unitDirectionToGlobeEquirectUV}. */
 export function globeEquirectUvToLatLng(u: number, v: number): {
   lat: number;
@@ -36,19 +28,4 @@ export function globeEquirectUvToLatLng(u: number, v: number): {
     lat: 90 - vv * 180,
     lng: uu * 360 - 180,
   };
-}
-
-/** Unit-sphere direction for equirect UV (matches {@link latLngToVector3}). */
-export function globeEquirectUvToUnitDirection(
-  u: number,
-  v: number,
-  target = new THREE.Vector3(),
-): THREE.Vector3 {
-  const { lat, lng } = globeEquirectUvToLatLng(u, v);
-  const phi = THREE.MathUtils.degToRad(90 - lat);
-  const theta = THREE.MathUtils.degToRad(lng + 180);
-  target.x = -Math.sin(phi) * Math.cos(theta);
-  target.z = Math.sin(phi) * Math.sin(theta);
-  target.y = Math.cos(phi);
-  return target;
 }

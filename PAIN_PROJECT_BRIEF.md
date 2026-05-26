@@ -93,7 +93,7 @@ Each point may look like:
   "lng": 16.37,
   "type": "emotional",
   "intensity": 0.7,
-  "element": "water",
+  "datatype": "water",
   "text": "optional",
   "createdAt": "timestamp"
 }

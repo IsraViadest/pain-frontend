@@ -60,7 +60,8 @@ app.get("/api/map/points", (req, res) => {
 });
 
 app.post("/api/pain-submission", (req, res) => {
-  const body = req.body as Partial<PainSubmission>;
+  /** Accept legacy `element` from older dev clients until removed. */
+  const body = req.body as Partial<PainSubmission> & { element?: string };
   const lat = Number(body.lat);
   const lng = Number(body.lng);
   const type = body.type;
@@ -87,7 +88,12 @@ app.post("/api/pain-submission", (req, res) => {
       body.intensity === undefined
         ? 0.5
         : Math.min(1, Math.max(0, Number(body.intensity))),
-    element: typeof body.element === "string" ? body.element : undefined,
+    datatype:
+      typeof body.datatype === "string"
+        ? body.datatype
+        : typeof body.element === "string"
+          ? body.element
+          : undefined,
     text: typeof body.text === "string" ? body.text : undefined,
     createdAt: new Date().toISOString(),
   };

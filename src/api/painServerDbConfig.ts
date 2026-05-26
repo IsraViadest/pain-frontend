@@ -1,6 +1,6 @@
 /**
- * pain-server row field names (keep in sync with backend `scripts/config.ts`).
- * @see https://github.com/7Magic7Mike7/pain-server/blob/prototype/scripts/config.ts
+ * pain-server row field names (keep in sync with backend `db-config.env`).
+ * @see https://github.com/7Magic7Mike7/pain-setup/blob/development/db-config.env
  */
 export class PainServerDbConfig {
   static readonly TABLE_COLUMN_ID = "id";

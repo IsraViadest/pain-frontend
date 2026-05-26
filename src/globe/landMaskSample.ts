@@ -1,13 +1,13 @@
 import * as THREE from "three";
 
-export type LandMaskRaster = {
+type LandMaskRaster = {
   data: Uint8ClampedArray;
   w: number;
   h: number;
 };
 
 /** Bilinear sample of mask luminance 0–1 (RGBA canvas from {@link rasterLandMaskFromCountries}). */
-export function sampleMaskLuminance01(
+function sampleMaskLuminance01(
   mask: LandMaskRaster,
   u: number,
   v: number,
@@ -39,16 +39,6 @@ export function sampleMaskLuminance01(
 }
 
 /** Same threshold as stipple GeoJSON land mask (`earthStippleGlobe` `isLandPixel`). */
-export function isLandAtUv(mask: LandMaskRaster, u: number, v: number): boolean {
+function isLandAtUv(mask: LandMaskRaster, u: number, v: number): boolean {
   return sampleMaskLuminance01(mask, u, v) > 0.45;
-}
-
-export function isLandTexel(
-  mask: LandMaskRaster,
-  ix: number,
-  iy: number,
-): boolean {
-  const u = (ix + 0.5) / mask.w;
-  const v = (iy + 0.5) / mask.h;
-  return isLandAtUv(mask, u, v);
 }

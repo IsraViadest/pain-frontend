@@ -20,23 +20,28 @@ export interface PainPoint {
   lng: number;
   type: string;
   intensity: number;
-  element?: string;
+  /** pain-server row `datatype` (metric / category label from API). */
+  datatype?: string;
   text?: string;
+  /** Hover / multiplex display fields only — not used for scar stamping. */
   metadata?: PainPointMetadata;
+  /**
+   * Scar height-map column (0…999) when API coords are still grid indices.
+   * Used only by `painScarField.ts`; never shown in tooltips.
+   */
+  scarMapTexelX?: number;
+  /** Scar height-map row (0…481, north at 0); internal stamping only. */
+  scarMapTexelY?: number;
   createdAt: string;
 }
 
-export interface PainPointMetadata {
+interface PainPointMetadata {
   country: string;
   layerLabel: string;
   metricLabel: string;
   rawValue: number;
   year?: number;
   sourceUrl: string;
-  /** DummyPain texture column (0…999) when coords came from the legacy grid. */
-  textureX?: number;
-  /** DummyPain texture row (0…481), north at 0. */
-  textureY?: number;
 }
 
 export interface PainSubmission {
@@ -44,7 +49,8 @@ export interface PainSubmission {
   lng: number;
   type: string;
   intensity?: number;
-  element?: string;
+  /** pain-server `datatype` for the submission payload. */
+  datatype?: string;
   text?: string;
 }
 

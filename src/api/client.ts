@@ -23,6 +23,7 @@ import {
 } from "./mockClient";
 import { fetchInitLayer } from "./painServer";
 
+/** Layer list for the HUD (static labels in prod until GET /layers exists). */
 export async function fetchLayers(): Promise<LayersResponse> {
   if (useMockApi) {
     return fetchLayersMock();
@@ -30,6 +31,10 @@ export async function fetchLayers(): Promise<LayersResponse> {
   return { layers: UI_MAP_LAYERS };
 }
 
+/**
+ * Load pain points for the selected UI layer id.
+ * Production: GET /init/:apiLayer via {@link fetchInitLayer}.
+ */
 export async function fetchPoints(layerId?: string): Promise<PointsResponse> {
   if (useMockApi) {
     return fetchPointsMock(layerId);
@@ -42,6 +47,7 @@ export async function fetchPoints(layerId?: string): Promise<PointsResponse> {
   return { points };
 }
 
+/** Dev mock only until pain-server exposes a submission endpoint. */
 export async function submitPain(
   body: PainSubmission,
 ): Promise<SubmissionResponse> {

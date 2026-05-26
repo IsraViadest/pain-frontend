@@ -2,6 +2,7 @@
 import { apiUrl } from "./config";
 import { uiLayerIdToApiLayer } from "./layers";
 
+/** Read `fetch` body as JSON; throw with status + body text if the HTTP response failed. */
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();

@@ -38,7 +38,7 @@ function toPoint(
   country: Country,
   type: string,
   intensity: number,
-  element: string | undefined,
+  datatype: string | undefined,
   text: string | undefined,
   metadata?: PainPoint["metadata"],
 ): PainPoint {
@@ -49,7 +49,7 @@ function toPoint(
     lng,
     type,
     intensity: clamp01(intensity),
-    element,
+    datatype,
     text,
     metadata,
     createdAt: "1970-01-01T00:00:00.000Z",

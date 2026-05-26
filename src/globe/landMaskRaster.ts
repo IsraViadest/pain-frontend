@@ -108,8 +108,10 @@ export async function rasterLandMaskFromCountries(
   for (const feature of fc.features) {
     const g = feature.geometry;
     if (!g) continue;
-    if (g.type === "Polygon" || g.type === "MultiPolygon") {
-      fillGeometry(ctx, g, sampleW, sampleH);
+    if (g.type === "Polygon") {
+      fillGeometry(ctx, g as PolygonGeom, sampleW, sampleH);
+    } else if (g.type === "MultiPolygon") {
+      fillGeometry(ctx, g as MultiPolygonGeom, sampleW, sampleH);
     }
   }
 

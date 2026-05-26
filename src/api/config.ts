@@ -14,7 +14,7 @@ function resolveUseMockApi(): boolean {
 export const useMockApi = resolveUseMockApi();
 
 /** Trailing slash stripped. Empty string = same-origin relative paths. */
-export function getApiBase(): string {
+function getApiBase(): string {
   const base = import.meta.env.VITE_PAIN_API_BASE?.trim() ?? "";
   return base.replace(/\/$/, "");
 }

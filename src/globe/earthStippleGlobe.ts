@@ -14,7 +14,7 @@ export const STIPPLE_LAND_MASK_GEOJSON_URL =
   `${import.meta.env.BASE_URL}borders/ne_110m_admin_0_countries.geojson?v=4`;
 
 /** Fallback only if the local GeoJSON mask cannot be loaded. */
-export const STIPPLE_LAND_TEXTURE_URL =
+const STIPPLE_LAND_TEXTURE_URL =
   "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg";
 
 const VS = /* glsl */ `
@@ -246,7 +246,7 @@ function createNeutralScarTexture(): THREE.DataTexture {
   return tex;
 }
 
-export interface EarthStippleGlobeResult {
+interface EarthStippleGlobeResult {
   points: THREE.Points;
   material: THREE.ShaderMaterial;
   /** Mid-grey stub; assign real scar map on this material’s `uScarMap` when in scar mode. */

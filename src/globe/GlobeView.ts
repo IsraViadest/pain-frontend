@@ -171,7 +171,7 @@ type MultiplexClusterHover = {
   lng: number;
 };
 export type MultiplexHoverInfo = MultiplexNodeHover | MultiplexClusterHover;
-export type GlobeDisplayMode = "texture" | "points";
+type GlobeDisplayMode = "texture" | "points";
 /** How pain submissions are drawn: floating markers vs. inward dents on the sphere. */
 export type PainVisualizationMode = "points" | "scars" | "multiplex-v0";
 
@@ -1345,6 +1345,10 @@ export class GlobeView {
     this.refreshWordCloud();
   }
 
+  /**
+   * Rebuild markers, multiplex graph, and scar field from `lastPainPoints`
+   * (called after `setMarkers`, viz-mode changes, and layer updates).
+   */
   private rebuildPainGeometryAndTexture(): void {
     if (
       this.painVizMode === "scars" ||
@@ -1631,6 +1635,7 @@ export class GlobeView {
     return sprite;
   }
 
+  /** Per-frame animation update for emotional word-cloud sprites (billboard toward camera). */
   private tickWordCloud(): void {
     if (!this.wordCloudEnabled || this.currentLayerId !== "emotional") return;
     const camDir = this.camera.position.clone().normalize();
@@ -1933,6 +1938,7 @@ export class GlobeView {
     }
   }
 
+  /** Per-frame animation update for multiplex nodes, links, and cluster beacons. */
   private tickMultiplex(dt: number): void {
     if (this.painVizMode !== "multiplex-v0") return;
     this.multiplexTime += dt;

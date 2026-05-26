@@ -20,6 +20,7 @@ export async function fetchLayersMock(): Promise<LayersResponse> {
   return parseJson<LayersResponse>(res);
 }
 
+/** Dev-only points from local mock server (`server/` + Vite `/api` proxy). */
 export async function fetchPointsMock(layerId?: string): Promise<PointsResponse> {
   const q =
     layerId && layerId.length > 0
@@ -29,6 +30,7 @@ export async function fetchPointsMock(layerId?: string): Promise<PointsResponse>
   return parseJson<PointsResponse>(res);
 }
 
+/** Dev-only POST to local mock server. */
 export async function submitPainMock(
   body: PainSubmission,
 ): Promise<SubmissionResponse> {

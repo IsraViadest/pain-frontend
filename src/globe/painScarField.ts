@@ -18,15 +18,15 @@ import { isDebugScarVisual } from "./debugScarVisual";
 export const SCAR_MAP_WIDTH = DUMMY_PAIN_TEXTURE_WIDTH;
 export const SCAR_MAP_HEIGHT = DUMMY_PAIN_TEXTURE_HEIGHT;
 /** Flat surface in the scar height map (byte 0–255). 128 = neutral with displacement bias. */
-export const SCAR_NEUTRAL_DEPTH = 128;
-export const SCAR_MIN_DEPTH = 0;
+const SCAR_NEUTRAL_DEPTH = 128;
+const SCAR_MIN_DEPTH = 0;
 
 /** DummyPain grid / lat-lng → scar & heat map texel (shared frame). */
 export function painPointToFieldTexel(p: PainPoint): { cx: number; cy: number } {
   const maxCol = SCAR_MAP_WIDTH - 1;
   const maxRow = SCAR_MAP_HEIGHT - 1;
-  const tx = p.metadata?.textureX;
-  const ty = p.metadata?.textureY;
+  const tx = p.scarMapTexelX;
+  const ty = p.scarMapTexelY;
   if (typeof tx === "number" && typeof ty === "number") {
     return {
       cx: Math.round(THREE.MathUtils.clamp(tx, 0, maxCol)),
@@ -67,14 +67,14 @@ function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
   return tex;
 }
 
-export type ScarMapBuildStats = {
+type ScarMapBuildStats = {
   layerId: string;
   pointCount: number;
   pointsConsidered: number;
 };
 
 /** CPU-side knobs for stamping + blurring before the scar DataTexture uploads to GPU. */
-export type ScarHeightMapBuildParams = {
+type ScarHeightMapBuildParams = {
   /** Floor on stamp radius in texture pixels (after intensity-based size). */
   stampRadiusMin: number;
   /** Scales footprint; large values merge sites and flatten detail. */
@@ -88,7 +88,7 @@ export type ScarHeightMapBuildParams = {
   blurPass2Radius: number;
 };
 
-export const DEFAULT_SCAR_HEIGHT_MAP_BUILD: ScarHeightMapBuildParams = {
+const DEFAULT_SCAR_HEIGHT_MAP_BUILD: ScarHeightMapBuildParams = {
   stampRadiusMin: 5,
   stampRadiusMul: 1,
   stampPeakMul: 1,

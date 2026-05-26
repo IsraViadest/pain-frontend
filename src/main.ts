@@ -211,6 +211,7 @@ wordCloudBtn.addEventListener("click", () => {
   syncWordCloudToggle();
 });
 
+/** HTML for the floating tooltip when hovering a multiplex node or cluster. */
 function renderMultiplexHover(info: MultiplexHoverInfo): string {
   if (info.kind === "node") {
     if (info.metadata) {
@@ -227,6 +228,7 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
   return `<strong>Cluster beacon</strong><br/>${info.count} nearby points<br/>Avg intensity ${info.avgIntensity.toFixed(2)}`;
 }
 
+/** HTML for the floating tooltip when hovering an emotional word-cloud sprite. */
 function renderWordCloudHover(info: WordCloudHoverInfo): string {
   const msg = info.fullText.length > 220
     ? `${info.fullText.slice(0, 217)}...`
@@ -326,7 +328,7 @@ testPostBtn.addEventListener("click", async () => {
       lng: Number(lng),
       type,
       intensity: Math.random(),
-      element: "water",
+      datatype: "water",
       text: "Dev test submission",
     });
     await loadPoints();

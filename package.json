@@ -9,6 +9,8 @@
     "dev:web": "vite",
     "dev:api": "tsx watch server/index.ts",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "check": "node scripts/check-compliance.mjs",
     "preview": "vite preview",
     "fetch:data": "node scripts/fetch-pain-data.mjs"
   },
@@ -25,6 +27,7 @@
     "@types/node": "^22.10.5",
     "@types/three": "^0.170.0",
     "concurrently": "^9.1.2",
+    "ts-prune": "^0.10.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"

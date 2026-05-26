@@ -35,11 +35,12 @@ const UI_TO_API_LAYER: Record<PainLayerId, string> = {
   socioeconomic: "socioeco",
 };
 
+/**
+ * Map HUD layer id to pain-server `:layer` path segment (see input-validator.ts).
+ *
+ * @param uiLayerId — e.g. `environmental` → `env`
+ */
 export function uiLayerIdToApiLayer(uiLayerId: string): string {
   const key = uiLayerId as PainLayerId;
   return UI_TO_API_LAYER[key] ?? uiLayerId;
-}
-
-export function isKnownUiLayerId(id: string): id is PainLayerId {
-  return id in UI_TO_API_LAYER;
 }

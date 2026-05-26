@@ -1,25 +1,21 @@
 import type { PainLayerId } from "../types/api";
 import type { NormalizedPainServerRow } from "./painServerRow";
-import {
-  globeEquirectUvToLatLng,
-  unitDirectionToGlobeEquirectUV,
-} from "../globe/globeEquirectUV";
-import { latLngToVector3 } from "../globe/latLng";
+import { globeEquirectUvToLatLng } from "../globe/globeEquirectUV";
 
-export interface GeoCoordinates {
+interface GeoCoordinates {
   lat: number;
   lng: number;
 }
 
 /** Resolved globe position plus optional DummyPain grid indices for scar stamping. */
-export interface ResolvedPainCoordinates extends GeoCoordinates {
+interface ResolvedPainCoordinates extends GeoCoordinates {
   textureX?: number;
   textureY?: number;
 }
 
 /** Internal scar height-map resolution (matches DummyPain / db_data.csv). */
-export const SCAR_DISPLACEMENT_MAP_WIDTH = 1000;
-export const SCAR_DISPLACEMENT_MAP_HEIGHT = 482;
+const SCAR_DISPLACEMENT_MAP_WIDTH = 1000;
+const SCAR_DISPLACEMENT_MAP_HEIGHT = 482;
 
 /**
  * DummyPain API grid (pain-server `DummyPain` table / db_data.csv).
@@ -53,7 +49,7 @@ function isWgs84Degrees(latVal: number, lngVal: number): boolean {
  * DummyPain still returns texture column/row indices in lat/lng (or x/y) fields.
  * Values like (57, 75) must not be read as 57°N 75°E.
  */
-export function isLikelyDummyPainTextureIndices(
+function isLikelyDummyPainTextureIndices(
   latVal: number,
   lngVal: number,
 ): boolean {
@@ -93,6 +89,7 @@ export function resolvePainServerCoordinates(
 ): ResolvedPainCoordinates | null {
   const latVal = row.latColumn;
   const lngVal = row.lngColumn;
+  if (latVal === null || lngVal === null) return null;
 
   if (isLikelyDummyPainTextureIndices(latVal, lngVal)) {
     const geo = legacyTexturePixelToGeo(latVal, lngVal);
@@ -125,7 +122,7 @@ export function resolvePainServerCoordinates(
  * Legacy DummyPain: first arg is texture column x (0…999), second is row y (0…481).
  * Plate-carrée, same frame as the scar map and Natural Earth land mask.
  */
-export function legacyTexturePixelToGeo(
+function legacyTexturePixelToGeo(
   x: number,
   y: number,
   textureWidth = DUMMY_PAIN_TEXTURE_WIDTH,
@@ -139,35 +136,4 @@ export function legacyTexturePixelToGeo(
   const u = (x + 0.5) / textureWidth;
   const v = (yTex + 0.5) / textureHeight;
   return globeEquirectUvToLatLng(u, v);
-}
-
-/** Equirect UV for a DummyPain texture pixel (matches scar map texels). */
-export function legacyTexturePixelToEquirectUv(
-  x: number,
-  y: number,
-  textureWidth = DUMMY_PAIN_TEXTURE_WIDTH,
-  textureHeight = DUMMY_PAIN_TEXTURE_HEIGHT,
-): { u: number; v: number } | null {
-  const maxX = textureWidth - 1;
-  const maxY = textureHeight - 1;
-  if (x < 0 || x > maxX || y < 0 || y > maxY) return null;
-  const yTex = Math.min(maxY, y + PPP_TEXTURE_PIXEL_Y_OFFSET);
-  return {
-    u: (x + 0.5) / textureWidth,
-    v: (yTex + 0.5) / textureHeight,
-  };
-}
-
-/** Globe equirect UV for a legacy texture pixel (round-trips with legacyTexturePixelToGeo). */
-export function legacyTexturePixelToGlobeUv(
-  x: number,
-  y: number,
-  textureWidth = DUMMY_PAIN_TEXTURE_WIDTH,
-  textureHeight = DUMMY_PAIN_TEXTURE_HEIGHT,
-): { u: number; v: number } | null {
-  const geo = legacyTexturePixelToGeo(x, y, textureWidth, textureHeight);
-  if (!geo) return null;
-  return unitDirectionToGlobeEquirectUV(
-    latLngToVector3(geo.lat, geo.lng, 1),
-  );
 }

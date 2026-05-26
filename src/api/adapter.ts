@@ -5,28 +5,31 @@ import {
   normalizePainServerRow,
 } from "./painServerRow";
 
+/** Clamp a numeric intensity to 0…1 for globe shaders and marker sizing. */
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
 /**
- * Maps pain-server GET /init/:layer → PainPoint[] (lat/lng on the globe).
+ * Maps the JSON body of pain-server `GET /init/:layer` to globe-ready {@link PainPoint}s.
+ *
+ * @param initLayerRows — parsed response body (must be an array of row objects).
  */
-export function mapInitResponseToPainPoints(data: unknown): PainPoint[] {
-  if (!Array.isArray(data)) {
+export function mapInitResponseToPainPoints(initLayerRows: unknown): PainPoint[] {
+  if (!Array.isArray(initLayerRows)) {
     throw new Error("Expected an array from GET /init/:layer");
   }
 
   const points: PainPoint[] = [];
   let skipped = 0;
-  for (let i = 0; i < data.length; i++) {
-    const raw = data[i];
-    if (!isPainServerRow(raw)) {
-      console.warn("[adapter] Skipping row with unexpected shape at index", i, raw);
+  for (let i = 0; i < initLayerRows.length; i++) {
+    const initLayerRow = initLayerRows[i];
+    if (!isPainServerRow(initLayerRow)) {
+      console.warn("[adapter] Skipping row with unexpected shape at index", i, initLayerRow);
       skipped++;
       continue;
     }
-    const row = normalizePainServerRow(raw)!;
+    const row = normalizePainServerRow(initLayerRow)!;
     const point = mapRow(row, i);
     if (point) points.push(point);
     else skipped++;
@@ -37,6 +40,10 @@ export function mapInitResponseToPainPoints(data: unknown): PainPoint[] {
   return points;
 }
 
+/**
+ * Turn one validated API row into a {@link PainPoint} (lat/lng, layer type, intensity).
+ * Returns null when coordinates cannot be resolved (row is skipped).
+ */
 function mapRow(
   row: NonNullable<ReturnType<typeof normalizePainServerRow>>,
   index: number,
@@ -56,16 +63,17 @@ function mapRow(
     lng: coords.lng,
     type,
     intensity: clamp01(value),
-    element: datatype,
+    datatype,
     text: `${datatype} · ${painorigin}`,
+    ...(coords.textureX !== undefined && coords.textureY !== undefined
+      ? { scarMapTexelX: coords.textureX, scarMapTexelY: coords.textureY }
+      : {}),
     metadata: {
       country: "PPP map record",
       layerLabel: type,
       metricLabel: datatype,
       rawValue: value,
       sourceUrl: "",
-      textureX: coords.textureX,
-      textureY: coords.textureY,
     },
     createdAt: new Date().toISOString(),
   };

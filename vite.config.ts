@@ -5,7 +5,7 @@
  * - VITE_USE_MOCK_API true (default in dev): proxy /api → local mock (:3847)
  * - VITE_USE_MOCK_API false: proxy /init → pain-server (:3000), use dev:pain-server
  */
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
   const mockPort = Number(env.PAIN_API_PORT ?? 3847);
   const painServerPort = Number(env.PAIN_SERVER_PORT ?? 3000);
 
-  const proxy = useMockApi
+  const proxy: Record<string, ProxyOptions> = useMockApi
     ? {
         "/api": {
           target: `http://127.0.0.1:${mockPort}`,
