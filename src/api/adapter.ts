@@ -1,9 +1,7 @@
 import type { PainPoint } from "../types/api";
+import type { PainServerRow } from "../types/painServer";
 import { mapPainOriginToUiLayer, resolvePainServerCoordinates } from "./coordinates";
-import {
-  isPainServerRow,
-  normalizePainServerRow,
-} from "./painServerRow";
+import { normalizePainServerRow } from "./painServerRow";
 
 /** Clamp a numeric intensity to 0…1 for globe shaders and marker sizing. */
 function clamp01(n: number): number {
@@ -15,7 +13,7 @@ function clamp01(n: number): number {
  *
  * @param initLayerRows — parsed response body (must be an array of row objects).
  */
-export function mapInitResponseToPainPoints(initLayerRows: unknown): PainPoint[] {
+export function mapInitResponseToPainPoints(initLayerRows: PainServerRow[]): PainPoint[] {
   if (!Array.isArray(initLayerRows)) {
     throw new Error("Expected an array from GET /init/:layer");
   }
@@ -24,18 +22,20 @@ export function mapInitResponseToPainPoints(initLayerRows: unknown): PainPoint[]
   let skipped = 0;
   for (let i = 0; i < initLayerRows.length; i++) {
     const initLayerRow = initLayerRows[i];
-    if (!isPainServerRow(initLayerRow)) {
+    const row = normalizePainServerRow(initLayerRow);
+    if (!row) {
       console.warn("[adapter] Skipping row with unexpected shape at index", i, initLayerRow);
       skipped++;
       continue;
     }
-    const row = normalizePainServerRow(initLayerRow)!;
     const point = mapRow(row, i);
     if (point) points.push(point);
     else skipped++;
   }
   if (skipped > 0) {
-    console.warn(`[adapter] Skipped ${skipped} row(s) with unmapped coordinates`);
+    console.warn(
+      `[adapter] Skipped ${skipped} row(s) (invalid shape or coordinates outside WGS84)`,
+    );
   }
   return points;
 }
@@ -50,7 +50,11 @@ function mapRow(
 ): PainPoint | null {
   const coords = resolvePainServerCoordinates(row);
   if (!coords) {
-    console.warn("[adapter] Unmapped coordinates for row", row.id, row);
+    console.warn(
+      "[adapter] Skipping row with invalid WGS84 coordinates",
+      row.id,
+      { lat: row.lat, lng: row.lng },
+    );
     return null;
   }
 
@@ -65,9 +69,6 @@ function mapRow(
     intensity: clamp01(value),
     datatype,
     text: `${datatype} · ${painorigin}`,
-    ...(coords.textureX !== undefined && coords.textureY !== undefined
-      ? { scarMapTexelX: coords.textureX, scarMapTexelY: coords.textureY }
-      : {}),
     metadata: {
       country: "PPP map record",
       layerLabel: type,

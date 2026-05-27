@@ -4,41 +4,22 @@
  * Built by GlobeView.scheduleScarFieldRebuild() from API pain points.
  */
 import * as THREE from "three";
-import {
-  DUMMY_PAIN_TEXTURE_HEIGHT,
-  DUMMY_PAIN_TEXTURE_WIDTH,
-  PPP_TEXTURE_PIXEL_Y_OFFSET,
-} from "../api/coordinates";
 import type { PainPoint } from "../types/api";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { latLngToVector3 } from "./latLng";
 import { isDebugScarVisual } from "./debugScarVisual";
 
-/** Same grid as DummyPain / pain-server x,y (aligns with coast + stipple lat/lng). */
-export const SCAR_MAP_WIDTH = DUMMY_PAIN_TEXTURE_WIDTH;
-export const SCAR_MAP_HEIGHT = DUMMY_PAIN_TEXTURE_HEIGHT;
+/** Internal scar height-map resolution (rendering only; not the API data contract). */
+export const SCAR_MAP_WIDTH = 1000;
+export const SCAR_MAP_HEIGHT = 482;
 /** Flat surface in the scar height map (byte 0–255). 128 = neutral with displacement bias. */
 const SCAR_NEUTRAL_DEPTH = 128;
 const SCAR_MIN_DEPTH = 0;
 
-/** DummyPain grid / lat-lng → scar & heat map texel (shared frame). */
+/** WGS84 lat/lng → scar height-map texel (same equirect frame as stipple shader). */
 export function painPointToFieldTexel(p: PainPoint): { cx: number; cy: number } {
   const maxCol = SCAR_MAP_WIDTH - 1;
   const maxRow = SCAR_MAP_HEIGHT - 1;
-  const tx = p.scarMapTexelX;
-  const ty = p.scarMapTexelY;
-  if (typeof tx === "number" && typeof ty === "number") {
-    return {
-      cx: Math.round(THREE.MathUtils.clamp(tx, 0, maxCol)),
-      cy: Math.round(
-        THREE.MathUtils.clamp(
-          ty + PPP_TEXTURE_PIXEL_Y_OFFSET,
-          0,
-          maxRow,
-        ),
-      ),
-    };
-  }
   const { u, v } = unitDirectionToGlobeEquirectUV(
     latLngToVector3(p.lat, p.lng, 1),
   );

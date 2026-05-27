@@ -1,5 +1,15 @@
 /**
- * Raw JSON object from pain-server GET /init/:layer.
- * Parsed in {@link ../api/painServerRow.ts}; field names via {@link ../api/painServerDbConfig.ts PainServerDbConfig}.
+ * Raw JSON row from pain-server GET /init/:layer.
+ * Field names match {@link ../api/painServerDbConfig.ts PainServerDbConfig} / db-config.env.
+ * Numeric columns may arrive as strings; {@link ../api/painServerRow.ts normalizePainServerRow} coerces them.
  */
-export type PainServerRow = Record<string, unknown>;
+export interface PainServerRow {
+  id?: number | string;
+  lat?: number | string;
+  lng?: number | string;
+  value?: number | string;
+  datatype?: string;
+  painorigin?: string;
+  /** Legacy export key — see {@link ../api/painServerDbConfig.ts PAIN_SERVER_ROW_ALIASES}. */
+  pain_origin?: string;
+}

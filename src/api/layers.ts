@@ -41,6 +41,11 @@ const UI_TO_API_LAYER: Record<PainLayerId, string> = {
  * @param uiLayerId — e.g. `environmental` → `env`
  */
 export function uiLayerIdToApiLayer(uiLayerId: string): string {
-  const key = uiLayerId as PainLayerId;
-  return UI_TO_API_LAYER[key] ?? uiLayerId;
+  if (!(uiLayerId in UI_TO_API_LAYER)) {
+    console.warn(
+      `[layers] Unknown UI layer id "${uiLayerId}" — using it verbatim for GET /init/:layer. If intentional, add it to UI_TO_API_LAYER (input-validator).`,
+    );
+    return uiLayerId;
+  }
+  return UI_TO_API_LAYER[uiLayerId as PainLayerId];
 }

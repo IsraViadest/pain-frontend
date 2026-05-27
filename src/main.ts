@@ -276,7 +276,7 @@ function setStatus(msg: string): void {
 
 // --- pain-server / mock: populate layer list and load points for current layer ---
 async function loadLayersIntoSelect(): Promise<void> {
-  const { layers } = await fetchLayers();
+  const layers = await fetchLayers();
   layerPicker.innerHTML = "";
   for (const layer of layers) {
     const opt = document.createElement("option");
@@ -291,7 +291,7 @@ async function loadLayersIntoSelect(): Promise<void> {
 
 async function loadPoints(): Promise<void> {
   const layer = layerPicker.value;
-  const { points } = await fetchPoints(layer);
+  const points = await fetchPoints(layer);
   globe.setMarkers(points);
   setStatus(
     `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,

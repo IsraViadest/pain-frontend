@@ -13,7 +13,7 @@ function resolveUseMockApi(): boolean {
  */
 export const useMockApi = resolveUseMockApi();
 
-/** Trailing slash stripped. Empty string = same-origin relative paths. */
+/** Leading/trailing whitespace trimmed, then one trailing `/` removed. Empty string = same-origin relative paths. */
 function getApiBase(): string {
   const base = import.meta.env.VITE_PAIN_API_BASE?.trim() ?? "";
   return base.replace(/\/$/, "");

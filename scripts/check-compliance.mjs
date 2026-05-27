@@ -106,7 +106,7 @@ const apiFiles = [
   "src/api/adapter.ts",
   "src/api/painServerRow.ts",
   "src/api/layers.ts",
-  "src/api/mockClient.ts",
+  "dev/mockClient.ts",
 ];
 
 function hasJSDocAbove(text, exportIndex) {
