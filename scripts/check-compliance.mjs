@@ -99,6 +99,51 @@ try {
   errors.push(`ts-prune failed: ${e.message ?? e}`);
 }
 
+// 3b) Pattern checklist reminder (advisory — never fails the run)
+/**
+ * Read `.cursor/PATTERN_CHECK.md` (or repo-root copy) and print pattern titles
+ * as a checklist reminder. Advisory only — never adds to `errors`.
+ */
+function printPatternCheckReminder() {
+  const candidates = [
+    path.join(root, ".cursor", "PATTERN_CHECK.md"),
+    path.join(root, "PATTERN_CHECK.md"),
+  ];
+  const patternFile = candidates.find((p) => fs.existsSync(p));
+
+  console.log("Pattern Check Reminder\n");
+
+  if (!patternFile) {
+    console.log(
+      "  (no PATTERN_CHECK.md — local copy lives at .cursor/PATTERN_CHECK.md; gitignored)\n",
+    );
+    return;
+  }
+
+  const text = fs.readFileSync(patternFile, "utf8");
+  const titles = [];
+  for (const line of text.split("\n")) {
+    const m = line.match(/^## (Pattern \d+:.+)$/);
+    if (m) titles.push(m[1]);
+  }
+
+  if (titles.length === 0) {
+    console.warn(
+      `check-compliance: no pattern headings matched in ${rel(patternFile)} (expected "## Pattern N: …")`,
+    );
+    console.log(`  (no pattern titles found in ${rel(patternFile)})\n`);
+    return;
+  }
+
+  console.log(`  From ${rel(patternFile)} — audit your diff against each:\n`);
+  for (const title of titles) {
+    console.log(`  ☐ ${title}`);
+  }
+  console.log();
+}
+
+printPatternCheckReminder();
+
 // 4) Public API modules: exported functions need a JSDoc block immediately above
 const apiFiles = [
   "src/api/client.ts",
