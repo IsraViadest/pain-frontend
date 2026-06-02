@@ -15,6 +15,7 @@ If anything fails, **do not ask Mike to review yet**.
 | `tsc --noEmit` | Catches type errors Vite ignores |
 | `vite build` | Deployable static site |
 | `ts-prune` | No dead exports; `(used in module)` → remove `export` |
+| Pattern Check Reminder | Prints titles from `.cursor/PATTERN_CHECK.md` if present (advisory; does not fail) |
 | JSDoc on `src/api` exports | Readable public API for backend dev |
 | No `server/` in `src/` | Production uses pain-server only |
 
@@ -25,7 +26,11 @@ If anything fails, **do not ask Mike to review yet**.
 
 ## Self-review (2 minutes)
 
-- [ ] `npm run check` green
+Same order as `.cursor/PATTERN_CHECK.md` (“How to Use”):
+
+1. [ ] **Pattern audit (Cursor):** *“Scan my changes for violations of every pattern in PATTERN_CHECK.md across ALL changed files.”* Fix issues.
+2. [ ] **`npm run check` green** (prints Pattern Check Reminder after ts-prune; fix failures).
+3. [ ] **Optional second pattern pass** on staged diff before push.
 - [ ] PR description says how to build and that `/init` must be proxied
 - [ ] No experimental dead code in the diff
 - [ ] Renamed vague params (`data` → `initLayerRows`, etc.)

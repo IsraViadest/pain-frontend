@@ -19,8 +19,9 @@ This runs:
 1. **`tsc --noEmit`** — TypeScript errors (Vite build alone does not catch these).
 2. **`vite build`** — production bundle.
 3. **`ts-prune`** — no unused exports in `src/` (Mike’s review standard).
-4. **JSDoc** on exported functions in `src/api/*.ts`.
-5. Static rules (no `server/` imports in `src/`, no magic `39000`, etc.).
+4. **Pattern Check Reminder** — prints pattern titles from local `.cursor/PATTERN_CHECK.md` if present (advisory; does not fail the run).
+5. **JSDoc** on exported functions in `src/api/*.ts`.
+6. Static rules (no `server/` imports in `src/`, no magic `39000`, etc.).
 
 Optional: install git hook once:
 
