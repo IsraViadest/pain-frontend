@@ -1,6 +1,7 @@
 import type { PainPoint } from "../types/api";
 import type { PainServerRow } from "../types/painServer";
-import { mapPainOriginToUiLayer, resolvePainServerCoordinates } from "./coordinates";
+import { resolvePainServerCoordinates } from "./coordinates";
+import { painOriginToUiLayerId } from "./layers";
 import { normalizePainServerRow } from "./painServerRow";
 
 /** Clamp a numeric intensity to 0…1 for globe shaders and marker sizing. */
@@ -59,7 +60,7 @@ function mapRow(
   }
 
   const { datatype, painorigin, value, id } = row;
-  const type = mapPainOriginToUiLayer(painorigin);
+  const type = painOriginToUiLayerId(painorigin);
 
   return {
     id: String(id ?? `pain-server-${index}`),

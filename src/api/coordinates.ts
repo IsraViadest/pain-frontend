@@ -2,7 +2,6 @@
  * pain-server row coordinates → globe WGS84.
  * Only accepts valid degree ranges; grid indices are not converted (backend responsibility).
  */
-import type { PainLayerId } from "../types/api";
 import type { NormalizedPainServerRow } from "./painServerRow";
 
 interface GeoCoordinates {
@@ -13,20 +12,11 @@ interface GeoCoordinates {
 /** True WGS84 degrees (fractional lat/lng allowed). */
 function isWgs84Degrees(latVal: number, lngVal: number): boolean {
   return (
-    latVal >= -90 &&
+    -90 <= latVal &&
     latVal <= 90 &&
-    lngVal >= -180 &&
+    -180 <= lngVal &&
     lngVal <= 180
   );
-}
-
-/** pain-server painorigin → UI layer id for markers / styling. */
-export function mapPainOriginToUiLayer(origin: string): PainLayerId | string {
-  const k = origin.toLowerCase();
-  if (k.includes("emo")) return "emotional";
-  if (k.includes("phys")) return "physical";
-  if (k.includes("socio")) return "socioeconomic";
-  return "environmental";
 }
 
 /**
