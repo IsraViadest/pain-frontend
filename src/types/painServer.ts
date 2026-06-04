@@ -10,6 +10,4 @@ export interface PainServerRow {
   value?: number | string;
   datatype?: string;
   painorigin?: string;
-  /** Legacy export key — see {@link ../api/painServerDbConfig.ts PAIN_SERVER_ROW_ALIASES}. */
-  pain_origin?: string;
 }

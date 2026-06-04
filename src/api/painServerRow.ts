@@ -6,7 +6,7 @@
  * “DummyPain / db_data.csv” is only the legacy name of that schema, not a file we
  * load in production.
  */
-import { PAIN_SERVER_ROW_ALIASES, PainServerDbConfig } from "./painServerDbConfig";
+import { PainServerDbConfig } from "./painServerDbConfig";
 import type { PainServerRow } from "../types/painServer";
 
 function asNumber(v: unknown): number | null {
@@ -65,10 +65,7 @@ export function normalizePainServerRow(
   const datatype =
     pickString(r, [PainServerDbConfig.TABLE_COLUMN_DATATYPE]) ?? "unknown";
   const painorigin =
-    pickString(r, [
-      ...PAIN_SERVER_ROW_ALIASES.painorigin,
-      PainServerDbConfig.TABLE_COLUMN_PAINORIGIN,
-    ]) ?? "unknown";
+    pickString(r, [PainServerDbConfig.TABLE_COLUMN_PAINORIGIN]) ?? "unknown";
 
   return {
     id,

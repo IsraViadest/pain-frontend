@@ -10,8 +10,3 @@ export class PainServerDbConfig {
   static readonly TABLE_COLUMN_DATATYPE = "datatype";
   static readonly TABLE_COLUMN_PAINORIGIN = "painorigin";
 }
-
-/** Fallback keys for older pain-server builds / local DB exports. */
-export const PAIN_SERVER_ROW_ALIASES = {
-  painorigin: ["painorigin", "pain_origin"],
-} as const;
