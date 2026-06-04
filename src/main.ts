@@ -222,7 +222,7 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
       return `${info.metadata.country} · ${info.metadata.layerLabel} · ${info.metadata.metricLabel} ${info.metadata.rawValue.toFixed(1)}${year} · normalized ${info.intensity.toFixed(2)} · source ${source}`;
     }
     const fallbackLabel =
-      // MultiplexNodeHover uses .type (hover struct field, not PainPoint) — not renamed in Bundle B.
+      // MultiplexNodeHover.type is a hover tooltip field, not a PainPoint property. Kept separate from the uiLayer rename intentionally.
       info.type[0]?.toUpperCase() + info.type.slice(1).toLowerCase();
     return `${fallbackLabel} · normalized ${info.intensity.toFixed(2)} · source user submission`;
   }
