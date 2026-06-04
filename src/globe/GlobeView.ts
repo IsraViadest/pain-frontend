@@ -1372,13 +1372,13 @@ export class GlobeView {
       for (const p of this.lastPainPoints) {
         const pos = latLngToVector3(p.lat, p.lng, RADIUS);
         const hue =
-          p.type === "environmental"
+          p.uiLayer === "environmental"
             ? 0.45
-            : p.type === "physical"
+            : p.uiLayer === "physical"
               ? 0.92
-              : p.type === "emotional"
+              : p.uiLayer === "emotional"
                 ? 0.72
-                : p.type === "socioeconomic"
+                : p.uiLayer === "socioeconomic"
                   ? 0.08
                   : 0.6;
         const col = new THREE.Color().setHSL(hue, 0.65, 0.55);
@@ -1466,7 +1466,7 @@ export class GlobeView {
   private refreshWordCloud(): void {
     this.clearWordCloud();
     if (!this.wordCloudEnabled || this.currentLayerId !== "emotional") return;
-    const source = this.lastPainPoints.filter((p) => p.type === "emotional");
+    const source = this.lastPainPoints.filter((p) => p.uiLayer === "emotional");
     if (!source.length) return;
     const sample = source.slice(0, 42);
     for (const p of sample) {
@@ -1587,7 +1587,7 @@ export class GlobeView {
       physical: ["pain", "fatigue", "injury", "chronic", "migraine", "strain"],
       socioeconomic: ["poverty", "inequality", "precarity", "debt", "inflation", "stress"],
     };
-    const bag = lexicon[p.type] ?? ["pain", "stress", "strain"];
+    const bag = lexicon[p.uiLayer] ?? ["pain", "stress", "strain"];
     const seed = Math.abs(
       Math.floor((p.lat + 90) * 131 + (p.lng + 180) * 71 + p.intensity * 1000),
     );
@@ -1696,8 +1696,8 @@ export class GlobeView {
       const shell = RADIUS * (1.02 + 0.11 * p.intensity);
       nodeTargets.push(shell);
       nodeIntensity.push(p.intensity);
-      nodeType.push(p.type);
-      const c = this.painTypeColor(p.type);
+      nodeType.push(p.uiLayer);
+      const c = this.painTypeColor(p.uiLayer);
       const node = new THREE.Mesh(
         new THREE.SphereGeometry(0.009, 10, 10),
         new THREE.MeshBasicMaterial({
@@ -1714,7 +1714,7 @@ export class GlobeView {
       node.position.copy(dir.clone().multiplyScalar(RADIUS * 1.003));
       node.userData.multiplexHover = {
         kind: "node",
-        type: p.type,
+        type: p.uiLayer,
         intensity: p.intensity,
         text: p.text,
         metadata: p.metadata,

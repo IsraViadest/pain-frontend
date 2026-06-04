@@ -54,7 +54,7 @@ app.get("/api/map/points", (req, res) => {
     typeof req.query.layer === "string" && req.query.layer.length > 0
       ? req.query.layer
       : undefined;
-  const pick = (p: PainPoint) => !layer || p.type === layer;
+  const pick = (p: PainPoint) => !layer || p.uiLayer === layer;
   const points = [...userPoints.filter(pick), ...staticPoints.filter(pick)];
   res.json({ points });
 });
@@ -83,11 +83,11 @@ app.post("/api/pain-submission", (req, res) => {
     id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     lat,
     lng,
-    type,
     intensity:
       body.intensity === undefined
         ? 0.5
         : Math.min(1, Math.max(0, Number(body.intensity))),
+    uiLayer: type,
     datatype:
       typeof body.datatype === "string"
         ? body.datatype

@@ -12,13 +12,9 @@ function clamp01(n: number): number {
 /**
  * Maps the JSON body of pain-server `GET /init/:layer` to globe-ready {@link PainPoint}s.
  *
- * @param initLayerRows — parsed response body (must be an array of row objects).
+ * @param initLayerRows — parsed array from pain-server GET /init/:layer (HTTP client validates shape).
  */
 export function mapInitResponseToPainPoints(initLayerRows: PainServerRow[]): PainPoint[] {
-  if (!Array.isArray(initLayerRows)) {
-    throw new Error("Expected an array from GET /init/:layer");
-  }
-
   const points: PainPoint[] = [];
   let skipped = 0;
   for (let i = 0; i < initLayerRows.length; i++) {
@@ -42,7 +38,7 @@ export function mapInitResponseToPainPoints(initLayerRows: PainServerRow[]): Pai
 }
 
 /**
- * Turn one validated API row into a {@link PainPoint} (lat/lng, layer type, intensity).
+ * Turn one validated API row into a {@link PainPoint} (lat/lng, uiLayer, intensity).
  * Returns null when coordinates cannot be resolved (row is skipped).
  */
 function mapRow(
@@ -50,7 +46,7 @@ function mapRow(
   index: number,
 ): PainPoint | null {
   const coords = resolvePainServerCoordinates(row);
-  if (!coords) {
+  if (coords == null) {
     console.warn(
       "[adapter] Skipping row with invalid WGS84 coordinates",
       row.id,
@@ -59,20 +55,20 @@ function mapRow(
     return null;
   }
 
-  const { datatype, painorigin, value, id } = row;
-  const type = painOriginToUiLayerId(painorigin);
+  const { id, value, datatype, painorigin } = row;
+  const uiLayer = painOriginToUiLayerId(painorigin);
 
   return {
     id: String(id ?? `pain-server-${index}`),
     lat: coords.lat,
     lng: coords.lng,
-    type,
     intensity: clamp01(value),
     datatype,
+    uiLayer,
     text: `${datatype} · ${painorigin}`,
     metadata: {
       country: "PPP map record",
-      layerLabel: type,
+      layerLabel: uiLayer,
       metricLabel: datatype,
       rawValue: value,
       sourceUrl: "",
