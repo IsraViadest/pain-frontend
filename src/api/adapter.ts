@@ -20,7 +20,7 @@ export function mapInitResponseToPainPoints(initLayerRows: PainServerRow[]): Pai
   for (let i = 0; i < initLayerRows.length; i++) {
     const initLayerRow = initLayerRows[i];
     const row = normalizePainServerRow(initLayerRow);
-    if (!row) {
+    if (row == null) {
       console.warn("[adapter] Skipping row with unexpected shape at index", i, initLayerRow);
       skipped++;
       continue;

@@ -28,7 +28,7 @@ async function getMockApiModule(): Promise<MockApiModule> {
       "Mock API is dev-only. Use pain-server mode for production builds.",
     );
   }
-  if (!mockApiModulePromise) {
+  if (mockApiModulePromise == null) {
     const modulePath = "/dev/mockClient.ts";
     mockApiModulePromise = import(/* @vite-ignore */ modulePath) as Promise<MockApiModule>;
   }
