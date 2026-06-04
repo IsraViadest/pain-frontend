@@ -17,7 +17,15 @@ export const STIPPLE_LAND_MASK_GEOJSON_URL =
 const STIPPLE_LAND_TEXTURE_URL =
   "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg";
 
+/**
+ * Stipple vertex shader inlines the same plate-carrée equirect UV as
+ * {@link unitDirectionToGlobeEquirectUV} in globeEquirectUV.ts (GLSL cannot import TS).
+ */
 const VS = /* glsl */ `
+// 1/(2π) and 1/π — equirect U/V from unit direction (matches globeEquirectUV.ts).
+const float EQUIRECT_INV_TWO_PI = 0.15915494309189533577;
+const float EQUIRECT_INV_PI = 0.31830988618379067154;
+
 attribute float aLand;
 varying float vLand;
 varying float vFresnel;
@@ -36,10 +44,10 @@ uniform float uFacingCullMin;
 
 void main() {
   vec3 dir = normalize(position);
-  float uRaw = atan(dir.z, -dir.x) * 0.15915494309189533577;
+  float uRaw = atan(dir.z, -dir.x) * EQUIRECT_INV_TWO_PI;
   if (uRaw < 0.0) uRaw += 1.0;
   if (uRaw >= 1.0) uRaw -= 1.0;
-  float vRaw = 0.5 - asin(clamp(dir.y, -1.0, 1.0)) * 0.31830988618379067154;
+  float vRaw = 0.5 - asin(clamp(dir.y, -1.0, 1.0)) * EQUIRECT_INV_PI;
   vec2 scarUv = vec2(uRaw, vRaw);
   float h = texture2D(uScarMap, scarUv).r;
   // Scar dents apply to land only; ocean stays at base radius → recessed land reads as a
@@ -49,10 +57,10 @@ void main() {
   float radial = (h * uScarDispScale + uScarDispBias) * uScarActive * scarMask;
   vec3 displacedPos = position + dir * radial;
   vec3 dispDir = normalize(displacedPos);
-  float uHeat = atan(dispDir.z, -dispDir.x) * 0.15915494309189533577;
+  float uHeat = atan(dispDir.z, -dispDir.x) * EQUIRECT_INV_TWO_PI;
   if (uHeat < 0.0) uHeat += 1.0;
   if (uHeat >= 1.0) uHeat -= 1.0;
-  float vHeat = 0.5 - asin(clamp(dispDir.y, -1.0, 1.0)) * 0.31830988618379067154;
+  float vHeat = 0.5 - asin(clamp(dispDir.y, -1.0, 1.0)) * EQUIRECT_INV_PI;
   vHeatUv = vec2(uHeat, vHeat);
 
   vec3 worldPos = (modelMatrix * vec4(displacedPos, 1.0)).xyz;
