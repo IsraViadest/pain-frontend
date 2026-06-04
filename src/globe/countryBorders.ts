@@ -30,6 +30,13 @@ interface FeatureCollection {
 const COAST_LINEWIDTH = 0.0036;
 const INNER_BORDER_LINEWIDTH = 0.00085;
 
+/**
+ * Fraction of fat-line world linewidth added to {@link SCAR_OVERLAY_SURFACE_BIAS}
+ * when CPU-warping border strokes onto the scar field. ~0.5–0.6 keeps coast/inner lines
+ * on the deformed shell and reduces z-fighting with stipple; shared by coast and inner.
+ */
+const LINE_BIAS_FRACTION = 0.55;
+
 function appendOpenLineString(
   coords: number[][],
   radius: number,
@@ -207,9 +214,9 @@ export async function loadGlobeBorderOutlines(
         innerWarpPos.set(innerBasePos);
       } else {
         const coastBias =
-          SCAR_OVERLAY_SURFACE_BIAS + COAST_LINEWIDTH * 0.55;
+          SCAR_OVERLAY_SURFACE_BIAS + COAST_LINEWIDTH * LINE_BIAS_FRACTION;
         const innerBias =
-          SCAR_OVERLAY_SURFACE_BIAS + INNER_BORDER_LINEWIDTH * 0.55;
+          SCAR_OVERLAY_SURFACE_BIAS + INNER_BORDER_LINEWIDTH * LINE_BIAS_FRACTION;
         applyScarToSpherePositions(
           coastBasePos,
           coastWarpPos,
