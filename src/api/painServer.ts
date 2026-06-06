@@ -2,7 +2,6 @@
 import type { PainServerLayerRow, PainServerRow } from "../types/painServer";
 import { apiUrl } from "./config";
 import { parseInitLayerListResponse } from "./initLayerList";
-import { uiLayerIdToApiLayer } from "./layers";
 
 /** Read `fetch` body as JSON; throw with status + body text if the HTTP response failed. */
 async function parseJson<T>(res: Response): Promise<T> {
@@ -35,8 +34,7 @@ export async function fetchInitLayerList(): Promise<PainServerLayerRow[]> {
  * @param layerId — id from GET /init/ (e.g. Env, Emo)
  */
 export async function fetchInitLayer(layerId: string): Promise<PainServerRow[]> {
-  const apiLayer = uiLayerIdToApiLayer(layerId);
-  const res = await fetch(apiUrl(`/init/${encodeURIComponent(apiLayer)}`));
+  const res = await fetch(apiUrl(`/init/${encodeURIComponent(layerId)}`));
   const body = await parseJson<PainServerRow[]>(res);
   if (!Array.isArray(body)) {
     throw new Error("Expected JSON array from GET /init/:layer");

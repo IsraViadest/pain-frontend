@@ -13,7 +13,7 @@ import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
 import { mapInitLayerListToMapLayers } from "./initLayerList";
-import { UI_MAP_LAYERS } from "./layers";
+import { setCachedMapLayers, UI_MAP_LAYERS } from "./layers";
 import { fetchInitLayer, fetchInitLayerList } from "./painServer";
 
 type MockApiModule = {
@@ -37,13 +37,22 @@ async function getMockApiModule(): Promise<MockApiModule> {
   return mockApiModulePromise;
 }
 
-/** Layer list for the HUD — GET /init/ in production; static mock list in dev mock mode. */
+/**
+ * Layer list for the HUD — GET /init/ in production; static mock list in dev mock mode.
+ *
+ * **Call order:** The UI must call `fetchLayers` before `fetchPoints` so
+ * {@link setCachedMapLayers} runs first. Unknown row `painorigin` values fall back to the
+ * first cached layer id (see {@link ./layers.ts painOriginToUiLayerId}).
+ */
 export async function fetchLayers(): Promise<MapLayer[]> {
   if (useMockApi) {
+    setCachedMapLayers(UI_MAP_LAYERS);
     return UI_MAP_LAYERS;
   }
   const rows = await fetchInitLayerList();
-  return mapInitLayerListToMapLayers(rows);
+  const layers = mapInitLayerListToMapLayers(rows);
+  setCachedMapLayers(layers);
+  return layers;
 }
 
 /**
