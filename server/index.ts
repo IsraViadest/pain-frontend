@@ -12,29 +12,34 @@ const layers: MapLayer[] = [
   {
     id: "environmental",
     label: "Environmental",
-    description:
-      "Prototype markers from Red List Index (latest year per country).",
-    dataSource: `${PAIN_DATA_TREE}/env_earth.csv`,
+    desc: "Prototype markers from Red List Index (latest year per country).",
+    color: "#22785f",
+    geospatial: true,
+    text: false,
   },
   {
     id: "physical",
     label: "Physical / Physiological",
-    description:
-      "Prototype markers from aggregated pain-related DALYs (IHME-style export).",
-    dataSource: `${PAIN_DATA_TREE}/painful_disease_prevalence_vs_environment.csv`,
+    desc: "Prototype markers from aggregated pain-related DALYs (IHME-style export).",
+    color: "#a0466e",
+    geospatial: true,
+    text: false,
   },
   {
     id: "emotional",
     label: "Emotional",
-    description:
-      "Prototype markers from country-level emotional text pain scores.",
-    dataSource: `${PAIN_DATA_TREE}/emotional.csv`,
+    desc: "Prototype markers from country-level emotional text pain scores.",
+    color: "#5a6ec8",
+    geospatial: false,
+    text: true,
   },
   {
     id: "socioeconomic",
     label: "Socio-economic",
-    description: "Prototype markers from national Gini coefficients.",
-    dataSource: `${PAIN_DATA_TREE}/gini-coefficient-by-country-2025.csv`,
+    desc: "Prototype markers from national Gini coefficients.",
+    color: "#be8228",
+    geospatial: false,
+    text: false,
   },
 ];
 

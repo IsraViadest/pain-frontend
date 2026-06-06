@@ -11,3 +11,16 @@ export interface PainServerRow {
   datatype?: string;
   painorigin?: string;
 }
+
+/**
+ * One layer entry from pain-server GET /init/ (layer metadata list).
+ * Field names match the API exactly — see deployed pain-server GET /init/.
+ */
+export interface PainServerLayerRow {
+  id: string;
+  label: string;
+  desc: string;
+  color: string;
+  geospatial: boolean;
+  text: boolean;
+}

@@ -1,17 +1,10 @@
-export type PainLayerId =
-  | "environmental"
-  | "physical"
-  | "emotional"
-  | "socioeconomic";
-
 export interface MapLayer {
-  id: PainLayerId | string;
+  id: string;
   label: string;
-  description?: string;
-  /** When the pipeline serves files, the client can load this instead of procedural textures. */
-  textureUrl?: string;
-  /** Human-readable source for the prototype dataset (CSV / pipeline). */
-  dataSource?: string;
+  desc: string;
+  color: string;
+  geospatial: boolean;
+  text: boolean;
 }
 
 export interface PainPoint {
@@ -22,7 +15,7 @@ export interface PainPoint {
   /** pain-server row `datatype` (metric / category label from API). */
   datatype?: string;
   /** HUD layer id derived from pain-server `painorigin` (see {@link ../api/layers.ts painOriginToUiLayerId}). */
-  uiLayer: PainLayerId | string;
+  uiLayer: string;
   text?: string;
   /** Hover / multiplex display fields only. */
   metadata?: PainPointMetadata;

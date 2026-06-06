@@ -2,19 +2,21 @@
  * Single API facade for the UI.
  *
  * Production (`npm run build`, VITE_USE_MOCK_API unset/false):
+ *   fetchLayers → painServer.fetchInitLayerList → GET /init/
  *   fetchPoints → painServer.fetchInitLayer → GET /init/:layer → adapter
  *
  * Dev mock (`npm run dev`):
+ *   fetchLayers → static UI_MAP_LAYERS
  *   fetchPoints → mockClient (local Express + CSV; not shipped in dist)
  */
 import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
+import { mapInitLayerListToMapLayers } from "./initLayerList";
 import { UI_MAP_LAYERS } from "./layers";
-import { fetchInitLayer } from "./painServer";
+import { fetchInitLayer, fetchInitLayerList } from "./painServer";
 
 type MockApiModule = {
-  fetchLayersMock: () => Promise<MapLayer[]>;
   fetchPointsMock: (layerId?: string) => Promise<PainPoint[]>;
   submitPainMock: (body: PainSubmission) => Promise<PainPoint>;
 };
@@ -35,18 +37,18 @@ async function getMockApiModule(): Promise<MockApiModule> {
   return mockApiModulePromise;
 }
 
-/** Layer list for the HUD (static labels in prod until GET /layers exists). */
+/** Layer list for the HUD — GET /init/ in production; static mock list in dev mock mode. */
 export async function fetchLayers(): Promise<MapLayer[]> {
   if (useMockApi) {
-    const { fetchLayersMock } = await getMockApiModule();
-    return fetchLayersMock();
+    return UI_MAP_LAYERS;
   }
-  return UI_MAP_LAYERS;
+  const rows = await fetchInitLayerList();
+  return mapInitLayerListToMapLayers(rows);
 }
 
 /**
- * Load pain points for the selected UI layer id.
- * Production: GET /init/:apiLayer via {@link fetchInitLayer}.
+ * Load pain points for the selected layer id.
+ * Production: GET /init/:layerId via {@link fetchInitLayer}.
  */
 export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
   if (useMockApi) {
