@@ -4,11 +4,6 @@ import { resolvePainServerCoordinates } from "./coordinates";
 import { painOriginToUiLayerId } from "./layers";
 import { normalizePainServerRow } from "./painServerRow";
 
-/** Clamp a numeric intensity to 0…1 for globe shaders and marker sizing. */
-function clamp01(n: number): number {
-  return Math.min(1, Math.max(0, n));
-}
-
 /**
  * Maps the JSON body of pain-server `GET /init/:layer` to globe-ready {@link PainPoint}s.
  *
@@ -58,11 +53,19 @@ function mapRow(
   const { id, value, datatype, painorigin } = row;
   const uiLayer = painOriginToUiLayerId(painorigin);
 
+  if (value < 0 || value > 1) {
+    console.warn(
+      "[adapter] pain-server `value` outside 0…1 — storing as-is (backend should normalize).",
+      id,
+      value,
+    );
+  }
+
   return {
     id: String(id ?? `pain-server-${index}`),
     lat: coords.lat,
     lng: coords.lng,
-    intensity: clamp01(value),
+    intensity: value,
     datatype,
     uiLayer,
     text: `${datatype} · ${painorigin}`,
