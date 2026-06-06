@@ -83,6 +83,11 @@ export function setCachedMapLayers(layers: MapLayer[]): void {
   cachedMapLayers = layers;
 }
 
+/** Lookup a layer from the cache populated by {@link setCachedMapLayers} / {@link ../client.ts fetchLayers}. */
+export function getMapLayerById(id: string): MapLayer | undefined {
+  return cachedMapLayers.find((layer) => layer.id === id);
+}
+
 /** First cached layer id, or `"Env"` when the cache is empty (e.g. fetchPoints before fetchLayers). */
 function getDefaultLayerId(): string {
   const first = cachedMapLayers[0];

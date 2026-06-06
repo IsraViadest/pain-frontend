@@ -12,6 +12,8 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
+import { getMapLayerById } from "./api/layers";
+import type { MapLayer } from "./types/api";
 import {
   GlobeView,
   type MultiplexHoverInfo,
@@ -182,7 +184,27 @@ function syncThemeToggle(): void {
 
 syncThemeToggle();
 
+function getCurrentMapLayer(): MapLayer | undefined {
+  return getMapLayerById(layerPicker.value);
+}
+
+function currentLayerSupportsWordCloud(): boolean {
+  return getCurrentMapLayer()?.text === true;
+}
+
+/** Turn off word clouds when the selected layer has no text metadata; sync button state. */
+function syncWordCloudForCurrentLayer(): void {
+  if (!currentLayerSupportsWordCloud() && wordCloudEnabled) {
+    wordCloudEnabled = false;
+    globe.setWordCloudEnabled(false);
+  }
+  syncWordCloudToggle();
+}
+
 function syncWordCloudToggle(): void {
+  const supportsText = currentLayerSupportsWordCloud();
+  wordCloudBtn.disabled = !supportsText;
+  wordCloudBtn.setAttribute("aria-disabled", supportsText ? "false" : "true");
   wordCloudBtn.textContent = wordCloudEnabled
     ? "Word clouds: On"
     : "Word clouds: Off";
@@ -229,7 +251,7 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
   return `<strong>Cluster beacon</strong><br/>${info.count} nearby points<br/>Avg intensity ${info.avgIntensity.toFixed(2)}`;
 }
 
-/** HTML for the floating tooltip when hovering an emotional word-cloud sprite. */
+/** HTML for the floating tooltip when hovering a text-layer word-cloud sprite. */
 function renderWordCloudHover(info: WordCloudHoverInfo): string {
   const msg = info.fullText.length > 220
     ? `${info.fullText.slice(0, 217)}...`
@@ -238,7 +260,7 @@ function renderWordCloudHover(info: WordCloudHoverInfo): string {
 }
 
 canvas.addEventListener("pointermove", (ev) => {
-  if (wordCloudEnabled && layerPicker.value === "emotional") {
+  if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
     const w = globe.pickWordCloudHover(ev.clientX, ev.clientY);
     if (w) {
       hoverModal.hidden = false;
@@ -288,6 +310,7 @@ async function loadLayersIntoSelect(): Promise<void> {
   if (layers[0]) {
     globe.setLayerTexture(String(layers[0].id));
   }
+  syncWordCloudForCurrentLayer();
 }
 
 async function loadPoints(): Promise<void> {
@@ -300,6 +323,7 @@ async function loadPoints(): Promise<void> {
 }
 
 layerPicker.addEventListener("change", () => {
+  syncWordCloudForCurrentLayer();
   globe.setLayerTexture(layerPicker.value);
   void loadPoints().catch((e) =>
     setStatus(e instanceof Error ? e.message : String(e)),
