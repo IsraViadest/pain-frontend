@@ -242,6 +242,12 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * Scar-mode artifact: “inner black sphere” → see SCAR_DISPLACEMENT_* comment above;
  *   not glow/globe (those are separate). Clip plane can add a flat dark cut at the limb.
  */
+
+/** Layer metadata passed from main.ts into {@link GlobeView.setLayerTexture} (not raw API shape). */
+export type GlobeLayerDisplayMeta = Pick<MapLayer, "color" | "text"> & {
+  lexiconBucket: string;
+};
+
 export class GlobeView {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
@@ -288,9 +294,10 @@ export class GlobeView {
   private readonly fillLight: THREE.DirectionalLight;
   private visualTheme: VisualTheme = "dark";
   private currentLayerId = "environmental";
-  private currentLayerMeta: Pick<MapLayer, "color" | "text"> | undefined;
+  private currentLayerMeta: GlobeLayerDisplayMeta | undefined;
   private currentLayerColorHex: string | null = null;
   private currentLayerSupportsText = false;
+  private currentLayerLexiconBucket = "generic";
   /** Keeps coast / borders / stipple / markers on the camera-facing hemisphere only. */
   private readonly hemisphereClipPlane = new THREE.Plane();
   private readonly clipPlanesFront: THREE.Plane[] = [this.hemisphereClipPlane];
@@ -1324,11 +1331,11 @@ export class GlobeView {
   /**
    * Select active layer for tinting and word-cloud eligibility.
    *
-   * @param meta — `color` / `text` from GET /init/ (via main.ts {@link getMapLayerById}).
+   * @param meta — display fields from main.ts (`applyGlobeLayer`: color, text, lexicon bucket).
    */
   setLayerTexture(
     layerId: string,
-    meta?: Pick<MapLayer, "color" | "text">,
+    meta?: GlobeLayerDisplayMeta,
   ): void {
     this.currentLayerId = layerId;
     if (arguments.length >= 2) {
@@ -1336,6 +1343,8 @@ export class GlobeView {
     }
     this.currentLayerSupportsText = this.currentLayerMeta?.text === true;
     this.currentLayerColorHex = this.currentLayerMeta?.color ?? null;
+    this.currentLayerLexiconBucket =
+      this.currentLayerMeta?.lexiconBucket ?? "generic";
     if (this.currentLayerColorHex == null) {
       console.warn(
         "[GlobeView] Layer metadata missing or has no color — using neutral fallback.",
@@ -1401,17 +1410,7 @@ export class GlobeView {
     if (this.painVizMode === "points") {
       for (const p of this.lastPainPoints) {
         const pos = latLngToVector3(p.lat, p.lng, RADIUS);
-        const hue =
-          p.uiLayer === "environmental"
-            ? 0.45
-            : p.uiLayer === "physical"
-              ? 0.92
-              : p.uiLayer === "emotional"
-                ? 0.72
-                : p.uiLayer === "socioeconomic"
-                  ? 0.08
-                  : 0.6;
-        const col = new THREE.Color().setHSL(hue, 0.65, 0.55);
+        const col = this.markerColorForActiveLayer();
         const mat = new THREE.MeshStandardMaterial({
           color: col,
           emissive: col,
@@ -1499,7 +1498,7 @@ export class GlobeView {
     if (!this.lastPainPoints.length) return;
     const sample = this.lastPainPoints.slice(0, 42);
     for (const p of sample) {
-      const label = p.metadata?.country ?? "text signal";
+      const label = this.wordCloudLabelForPoint(p);
       const sprite = this.createWordSprite(label);
       sprite.userData.wordCloudHover = {
         country: p.metadata?.country ?? "Unknown",
@@ -1532,6 +1531,28 @@ export class GlobeView {
     while (this.emotionalWordsGroup.children.length) {
       this.emotionalWordsGroup.remove(this.emotionalWordsGroup.children[0]!);
     }
+  }
+
+  private wordCloudLabelForPoint(p: PainPoint): string {
+    if (p.text) {
+      const words = this.extractCloudWords(p.text);
+      if (words[0]) return words[0];
+    }
+    const [word] = this.fallbackPainWords(p);
+    return word ?? "text signal";
+  }
+
+  /**
+   * Marker tint in points viz mode.
+   *
+   * Uses {@link currentLayerColorHex} (selected layer from setLayerTexture), not `p.uiLayer`:
+   * (1) All visible points are fetched for the selected layer id.
+   * (2) Multi-layer views will need per-point / per-uiLayer colors — revisit with deferred
+   *     multiplex per-uiLayer tinting (`painTypeColor` multi-layer work).
+   */
+  private markerColorForActiveLayer(): THREE.Color {
+    const [r, g, b] = this.getActiveLayerColorLinear();
+    return new THREE.Color(r, g, b);
   }
 
   private extractCloudWords(text: string): string[] {
@@ -1593,6 +1614,14 @@ export class GlobeView {
       .slice(0, 5);
   }
 
+  /**
+   * Procedural word-cloud labels when `extractCloudWords` finds nothing useful.
+   *
+   * Uses {@link currentLayerLexiconBucket} (from main.ts via setLayerTexture), not `p.uiLayer`:
+   * (1) All visible points belong to the selected layer.
+   * (2) Multi-layer views will need per-point buckets — revisit with deferred multiplex
+   *     per-uiLayer tinting (`painTypeColor` multi-layer work).
+   */
   private fallbackPainWords(p: PainPoint): string[] {
     const lexicon: Record<string, string[]> = {
       emotional: [
@@ -1614,9 +1643,18 @@ export class GlobeView {
         "pollution",
       ],
       physical: ["pain", "fatigue", "injury", "chronic", "migraine", "strain"],
-      socioeconomic: ["poverty", "inequality", "precarity", "debt", "inflation", "stress"],
+      socioeconomic: [
+        "poverty",
+        "inequality",
+        "precarity",
+        "debt",
+        "inflation",
+        "stress",
+      ],
+      generic: ["pain", "stress", "strain"],
     };
-    const bag = lexicon[p.uiLayer] ?? ["pain", "stress", "strain"];
+    const bag =
+      lexicon[this.currentLayerLexiconBucket] ?? lexicon.generic ?? ["pain"];
     const seed = Math.abs(
       Math.floor((p.lat + 90) * 131 + (p.lng + 180) * 71 + p.intensity * 1000),
     );

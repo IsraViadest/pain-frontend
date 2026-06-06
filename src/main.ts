@@ -12,10 +12,11 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
-import { getMapLayerById } from "./api/layers";
+import { getMapLayerById, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer } from "./types/api";
 import {
   GlobeView,
+  type GlobeLayerDisplayMeta,
   type MultiplexHoverInfo,
   type PainVisualizationMode,
   type WordCloudHoverInfo,
@@ -299,10 +300,14 @@ function setStatus(msg: string): void {
 
 function applyGlobeLayer(layerId: string): void {
   const layer = getMapLayerById(layerId);
-  globe.setLayerTexture(
-    layerId,
-    layer ? { color: layer.color, text: layer.text } : undefined,
-  );
+  const meta: GlobeLayerDisplayMeta | undefined = layer
+    ? {
+        color: layer.color,
+        text: layer.text,
+        lexiconBucket: resolveLayerLexiconBucket(layerId),
+      }
+    : undefined;
+  globe.setLayerTexture(layerId, meta);
 }
 
 // --- pain-server / mock: populate layer list and load points for current layer ---

@@ -73,6 +73,34 @@ const PAIN_ORIGIN_TO_LAYER_ID: Record<string, string> = {
   Socioeco: "Socioeco",
 };
 
+// --- Lexicon bucket (mock + prod layer ids → semantic word-list key) ---
+
+/** Maps layer list id (Env, Emo, …) or mock id (environmental, …) → semantic fallback word bucket. */
+const LAYER_ID_TO_LEXICON_BUCKET: Record<string, string> = {
+  Env: "environmental",
+  environmental: "environmental",
+  Phys: "physical",
+  physical: "physical",
+  Emo: "emotional",
+  emotional: "emotional",
+  Socioeco: "socioeconomic",
+  socioeconomic: "socioeconomic",
+};
+
+/**
+ * Resolve a layer id to a semantic lexicon bucket for word-cloud fallback words.
+ *
+ * @param layerId — e.g. `Emo` or mock `emotional`
+ */
+export function resolveLayerLexiconBucket(layerId: string): string {
+  const bucket = LAYER_ID_TO_LEXICON_BUCKET[layerId.trim()];
+  if (bucket) return bucket;
+  console.warn(
+    `[layers] Unknown layer id for lexicon bucket "${layerId}" — using "generic".`,
+  );
+  return "generic";
+}
+
 // --- Runtime layer cache (populated by client.fetchLayers) ---
 
 /** Last layer list from {@link ../client.ts fetchLayers} — used for unknown painorigin fallback. */
