@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import type { PainPoint } from "../types/api";
+import type { MapLayer, PainPoint } from "../types/api";
 import {
   loadGlobeBorderOutlines,
   type GlobeBorderOutlines,
@@ -288,6 +288,9 @@ export class GlobeView {
   private readonly fillLight: THREE.DirectionalLight;
   private visualTheme: VisualTheme = "dark";
   private currentLayerId = "environmental";
+  private currentLayerMeta: Pick<MapLayer, "color" | "text"> | undefined;
+  private currentLayerColorHex: string | null = null;
+  private currentLayerSupportsText = false;
   /** Keeps coast / borders / stipple / markers on the camera-facing hemisphere only. */
   private readonly hemisphereClipPlane = new THREE.Plane();
   private readonly clipPlanesFront: THREE.Plane[] = [this.hemisphereClipPlane];
@@ -418,7 +421,7 @@ export class GlobeView {
     ) {
       this.syncScarVisualization();
     }
-    this.setLayerTexture(this.currentLayerId);
+    this.setLayerTexture(this.currentLayerId, this.currentLayerMeta);
   }
 
   /** Markers on the surface vs. displacement “scars” (dents) from the same dataset. */
@@ -1070,7 +1073,7 @@ export class GlobeView {
     }
     if (!this.stipplePromise) {
       const tint = new THREE.Vector3().fromArray(
-        getLayerBaseColorLinear(this.currentLayerId, this.visualTheme),
+        this.getActiveLayerColorLinear(),
       );
       this.stipplePromise = createEarthStippleGlobe(
         RADIUS,
@@ -1129,7 +1132,7 @@ export class GlobeView {
       return;
     }
     u.uOceanPointScale.value = 1;
-    const rgb = getLayerBaseColorLinear(this.currentLayerId, this.visualTheme);
+    const rgb = this.getActiveLayerColorLinear();
     u.uTint.value.set(rgb[0], rgb[1], rgb[2]);
     if (this.visualTheme === "blue") {
       u.uShadeBase.value.set(
@@ -1237,9 +1240,13 @@ export class GlobeView {
       tex.dispose();
     }
     this.textureCache.clear();
-    this.setLayerTexture(this.currentLayerId);
+    this.setLayerTexture(this.currentLayerId, this.currentLayerMeta);
     this.applyGlobeScarShellMaterial();
     this.syncScarVisualization();
+  }
+
+  private getActiveLayerColorLinear(): [number, number, number] {
+    return getLayerBaseColorLinear(this.currentLayerColorHex, this.visualTheme);
   }
 
   private applyScenePalette(theme: VisualTheme): void {
@@ -1314,12 +1321,35 @@ export class GlobeView {
     this.textureCache.clear();
   }
 
-  setLayerTexture(layerId: string): void {
+  /**
+   * Select active layer for tinting and word-cloud eligibility.
+   *
+   * @param meta — `color` / `text` from GET /init/ (via main.ts {@link getMapLayerById}).
+   */
+  setLayerTexture(
+    layerId: string,
+    meta?: Pick<MapLayer, "color" | "text">,
+  ): void {
     this.currentLayerId = layerId;
-    const cacheKey = `${layerId}:${this.visualTheme}`;
+    if (arguments.length >= 2) {
+      this.currentLayerMeta = meta;
+    }
+    this.currentLayerSupportsText = this.currentLayerMeta?.text === true;
+    this.currentLayerColorHex = this.currentLayerMeta?.color ?? null;
+    if (this.currentLayerColorHex == null) {
+      console.warn(
+        "[GlobeView] Layer metadata missing or has no color — using neutral fallback.",
+        layerId,
+      );
+    }
+    const cacheKey = `${layerId}:${this.currentLayerColorHex ?? "default"}:${this.visualTheme}`;
     let tex = this.textureCache.get(cacheKey);
     if (!tex) {
-      tex = createLayerCanvasTexture(layerId, this.visualTheme);
+      tex = createLayerCanvasTexture(
+        this.currentLayerColorHex,
+        this.visualTheme,
+        layerId,
+      );
       this.textureCache.set(cacheKey, tex);
     }
     // Solid shell (GLOBE_SHELL_COLOR); layer canvas stays cached but is not mapped onto the mesh.
@@ -1465,12 +1495,11 @@ export class GlobeView {
 
   private refreshWordCloud(): void {
     this.clearWordCloud();
-    if (!this.wordCloudEnabled || this.currentLayerId !== "emotional") return;
-    const source = this.lastPainPoints.filter((p) => p.uiLayer === "emotional");
-    if (!source.length) return;
-    const sample = source.slice(0, 42);
+    if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return;
+    if (!this.lastPainPoints.length) return;
+    const sample = this.lastPainPoints.slice(0, 42);
     for (const p of sample) {
-      const label = p.metadata?.country ?? "emotional signal";
+      const label = p.metadata?.country ?? "text signal";
       const sprite = this.createWordSprite(label);
       sprite.userData.wordCloudHover = {
         country: p.metadata?.country ?? "Unknown",
@@ -1635,9 +1664,9 @@ export class GlobeView {
     return sprite;
   }
 
-  /** Per-frame animation update for emotional word-cloud sprites (billboard toward camera). */
+  /** Per-frame animation update for text-layer word-cloud sprites (billboard toward camera). */
   private tickWordCloud(): void {
-    if (!this.wordCloudEnabled || this.currentLayerId !== "emotional") return;
+    if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return;
     const camDir = this.camera.position.clone().normalize();
     const q = this.emotionalWordsGroup.quaternion;
     for (const item of this.wordCloudItems) {
@@ -1651,7 +1680,7 @@ export class GlobeView {
   }
 
   pickWordCloudHover(clientX: number, clientY: number): WordCloudHoverInfo | null {
-    if (!this.wordCloudEnabled || this.currentLayerId !== "emotional") return null;
+    if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return null;
     if (!this.wordCloudItems.length) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
@@ -1670,12 +1699,10 @@ export class GlobeView {
     return null;
   }
 
-  private painTypeColor(type: string): THREE.Color {
-    if (type === "environmental") return new THREE.Color(0x05e2c2);
-    if (type === "physical") return new THREE.Color(0xff7a96);
-    if (type === "emotional") return new THREE.Color(0x7f90ff);
-    if (type === "socioeconomic") return new THREE.Color(0xffcc72);
-    return new THREE.Color(0x9ab8d4);
+  /** Multiplex node tint for the active layer (per-type colors deferred to step 4b). */
+  private painTypeColor(_type: string): THREE.Color {
+    const [r, g, b] = this.getActiveLayerColorLinear();
+    return new THREE.Color(r, g, b);
   }
 
   private rebuildMultiplexVisualization(points: PainPoint[]): void {

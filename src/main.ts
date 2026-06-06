@@ -297,6 +297,14 @@ function setStatus(msg: string): void {
   hudStatus.textContent = msg;
 }
 
+function applyGlobeLayer(layerId: string): void {
+  const layer = getMapLayerById(layerId);
+  globe.setLayerTexture(
+    layerId,
+    layer ? { color: layer.color, text: layer.text } : undefined,
+  );
+}
+
 // --- pain-server / mock: populate layer list and load points for current layer ---
 async function loadLayersIntoSelect(): Promise<void> {
   const layers = await fetchLayers();
@@ -308,7 +316,7 @@ async function loadLayersIntoSelect(): Promise<void> {
     layerPicker.appendChild(opt);
   }
   if (layers[0]) {
-    globe.setLayerTexture(String(layers[0].id));
+    applyGlobeLayer(String(layers[0].id));
   }
   syncWordCloudForCurrentLayer();
 }
@@ -324,7 +332,7 @@ async function loadPoints(): Promise<void> {
 
 layerPicker.addEventListener("change", () => {
   syncWordCloudForCurrentLayer();
-  globe.setLayerTexture(layerPicker.value);
+  applyGlobeLayer(layerPicker.value);
   void loadPoints().catch((e) =>
     setStatus(e instanceof Error ? e.message : String(e)),
   );
