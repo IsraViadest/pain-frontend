@@ -102,6 +102,16 @@ const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
 const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 160;
 const GLOW_RADIUS = RADIUS * 1.09;
+/** Pain “points” mode marker sphere radius on the globe surface. */
+const MARKER_BASE_RADIUS = 0.018;
+const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
+const MARKER_SPHERE_HEIGHT_SEGMENTS = 8;
+const MARKER_ROUGHNESS = 0.4;
+const MARKER_METALNESS = 0.2;
+/** Legacy per-marker emissiveIntensity = BASE + SCALE × intensity (see updateMarkerInstanceColors). */
+const MARKER_EMISSIVE_BASE = 0.35;
+const MARKER_EMISSIVE_INTENSITY_SCALE = 0.5;
+const MARKER_INSTANCE_INITIAL_CAPACITY = 256;
 const GLOW_VS = /* glsl */ `
 varying float vGlow;
 void main() {
@@ -262,10 +272,20 @@ export class GlobeView {
   >;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
-  /** SHELL markers — “points” viz mode only (rebuildPainGeometryAndTexture). */
+  /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
   private readonly markersGroup = new THREE.Group();
   private readonly multiplexGroup = new THREE.Group();
   private readonly markerGeometry: THREE.SphereGeometry;
+  /** Single draw call for all pain markers; marker picking is out of scope (no per-instance userData). */
+  private painMarkersInstanced: THREE.InstancedMesh | null = null;
+  private markerMaterial: THREE.MeshStandardMaterial | null = null;
+  private markerInstanceCapacity = 0;
+  private markerUseInstanceColor = true;
+  private readonly markerTempMatrix = new THREE.Matrix4();
+  private readonly markerTempPosition = new THREE.Vector3();
+  private readonly markerTempScale = new THREE.Vector3(1, 1, 1);
+  private readonly markerTempQuaternion = new THREE.Quaternion();
+  private readonly markerTempColor = new THREE.Color();
   private readonly textLayerGroup = new THREE.Group();
   private readonly textureCache = new Map<string, THREE.CanvasTexture>();
   /** SHELL coast + borders — LineSegments2 group (loadCountryOutlines). */
@@ -399,7 +419,12 @@ export class GlobeView {
     this.scene.add(this.multiplexGroup);
     this.textLayerGroup.renderOrder = 4;
     this.scene.add(this.textLayerGroup);
-    this.markerGeometry = new THREE.SphereGeometry(0.018, 16, 16);
+    this.markerGeometry = new THREE.SphereGeometry(
+      MARKER_BASE_RADIUS,
+      MARKER_SPHERE_WIDTH_SEGMENTS,
+      MARKER_SPHERE_HEIGHT_SEGMENTS,
+    );
+    this.markerUseInstanceColor = GlobeView.probeMarkerInstanceColorSupport();
 
     // Neutral tint until main.ts applyGlobeLayer runs after fetchLayers.
     this.setLayerTexture("");
@@ -747,7 +772,7 @@ export class GlobeView {
     this.bordersOutlines?.setClippingPlanes(planes);
 
     for (const ch of this.markersGroup.children) {
-      if (ch instanceof THREE.Mesh) {
+      if (ch instanceof THREE.InstancedMesh) {
         const m = ch.material as unknown as MaterialWithClipping;
         m.clipping = enabled;
         m.clippingPlanes = planes;
@@ -1323,6 +1348,11 @@ export class GlobeView {
     this.glow.geometry.dispose();
     this.glow.material.dispose();
     this.markerGeometry.dispose();
+    this.disposePainMarkersInstanced();
+    if (this.markerMaterial) {
+      this.markerMaterial.dispose();
+      this.markerMaterial = null;
+    }
     this.clearWordCloud();
     this.disposeMultiplexObjects();
     for (const t of this.textureCache.values()) t.dispose();
@@ -1391,6 +1421,158 @@ export class GlobeView {
   }
 
   /**
+   * Quick capability probe: InstancedMesh.setColorAt + instanceColor with MeshStandardMaterial (Three r170).
+   * Falls back to uniform marker color when unavailable.
+   */
+  private static probeMarkerInstanceColorSupport(): boolean {
+    return typeof THREE.InstancedMesh.prototype.setColorAt === "function";
+  }
+
+  private createMarkerMaterial(): THREE.MeshStandardMaterial {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: MARKER_ROUGHNESS,
+      metalness: MARKER_METALNESS,
+    });
+    const mClip = mat as unknown as MaterialWithClipping;
+    mClip.clipping = true;
+    mClip.clipIntersection = false;
+    mClip.clippingPlanes = this.clipPlanesFront;
+    return mat;
+  }
+
+  private disposePainMarkersInstanced(): void {
+    if (!this.painMarkersInstanced) return;
+    this.painMarkersInstanced.dispose();
+    (
+      this.painMarkersInstanced.instanceMatrix as unknown as {
+        dispose?: () => void;
+      }
+    ).dispose?.();
+    (
+      this.painMarkersInstanced.instanceColor as unknown as {
+        dispose?: () => void;
+      }
+    )?.dispose?.();
+    this.markersGroup.remove(this.painMarkersInstanced);
+    this.painMarkersInstanced = null;
+    this.markerInstanceCapacity = 0;
+  }
+
+  private ensurePainMarkersInstanced(requiredCount: number): THREE.InstancedMesh {
+    if (
+      this.painMarkersInstanced &&
+      this.markerInstanceCapacity >= requiredCount
+    ) {
+      return this.painMarkersInstanced;
+    }
+    this.disposePainMarkersInstanced();
+    const capacity = Math.max(requiredCount, MARKER_INSTANCE_INITIAL_CAPACITY);
+    if (!this.markerMaterial) {
+      this.markerMaterial = this.createMarkerMaterial();
+    }
+    const mesh = new THREE.InstancedMesh(
+      this.markerGeometry,
+      this.markerMaterial,
+      capacity,
+    );
+    mesh.frustumCulled = false;
+    if (this.markerUseInstanceColor) {
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(
+        new Float32Array(capacity * 3),
+        3,
+      );
+    }
+    this.markersGroup.add(mesh);
+    this.painMarkersInstanced = mesh;
+    this.markerInstanceCapacity = capacity;
+    return mesh;
+  }
+
+  private logMarkerRebuildMeasure(pointCount: number): void {
+    performance.mark("pain-markers-rebuild-end");
+    performance.measure(
+      "pain-markers-rebuild",
+      "pain-markers-rebuild-start",
+      "pain-markers-rebuild-end",
+    );
+    const entries = performance.getEntriesByName("pain-markers-rebuild");
+    const last = entries[entries.length - 1];
+    if (last) {
+      console.info(
+        `[GlobeView perf] pain-markers-rebuild: ${last.duration.toFixed(2)} ms (${pointCount} points)`,
+      );
+    }
+    performance.clearMeasures("pain-markers-rebuild");
+    performance.clearMarks("pain-markers-rebuild-start");
+    performance.clearMarks("pain-markers-rebuild-end");
+  }
+
+  /** Per-instance tint from layer color × intensity; does not touch instance matrices. */
+  private updateMarkerInstanceColors(points: PainPoint[]): void {
+    const mesh = this.painMarkersInstanced;
+    if (!mesh || points.length === 0) return;
+
+    const base = this.markerColorForActiveLayer();
+    if (this.markerMaterial) {
+      this.markerMaterial.color.set(0xffffff);
+      this.markerMaterial.emissive.copy(base);
+      this.markerMaterial.emissiveIntensity = MARKER_EMISSIVE_BASE;
+      this.markerMaterial.needsUpdate = true;
+    }
+
+    if (!this.markerUseInstanceColor || !mesh.instanceColor) {
+      return;
+    }
+
+    for (let i = 0; i < points.length; i++) {
+      const intensity = points[i]!.intensity;
+      const scale =
+        MARKER_EMISSIVE_BASE + MARKER_EMISSIVE_INTENSITY_SCALE * intensity;
+      this.markerTempColor.copy(base).multiplyScalar(scale);
+      mesh.setColorAt(i, this.markerTempColor);
+    }
+    mesh.instanceColor.needsUpdate = true;
+  }
+
+  /** Rebuild marker instance matrices when point data changes (setMarkers / viz mode). */
+  private rebuildMarkerInstanceMatrices(points: PainPoint[]): void {
+    performance.mark("pain-markers-rebuild-start");
+
+    if (points.length === 0) {
+      if (this.painMarkersInstanced) {
+        this.painMarkersInstanced.count = 0;
+      }
+      this.logMarkerRebuildMeasure(0);
+      return;
+    }
+
+    const mesh = this.ensurePainMarkersInstanced(points.length);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i]!;
+      this.markerTempPosition.copy(latLngToVector3(p.lat, p.lng, RADIUS));
+      this.markerTempMatrix.compose(
+        this.markerTempPosition,
+        this.markerTempQuaternion,
+        this.markerTempScale,
+      );
+      mesh.setMatrixAt(i, this.markerTempMatrix);
+    }
+    mesh.count = points.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    this.updateMarkerInstanceColors(points);
+    this.logMarkerRebuildMeasure(points.length);
+  }
+
+  private syncPainMarkersForVizMode(): void {
+    if (this.painVizMode === "points") {
+      this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
+    } else {
+      this.disposePainMarkersInstanced();
+    }
+  }
+
+  /**
    * Rebuild markers, multiplex graph, and scar field from `lastPainPoints`
    * (called after `setMarkers`, viz-mode changes, and layer updates).
    */
@@ -1401,39 +1583,8 @@ export class GlobeView {
     ) {
       void this.ensureStipple();
     }
-    while (this.markersGroup.children.length) {
-      const ch = this.markersGroup.children[0]!;
-      this.markersGroup.remove(ch);
-      if (ch instanceof THREE.Mesh) {
-        if (Array.isArray(ch.material)) {
-          for (const m of ch.material) m.dispose();
-        } else {
-          ch.material.dispose();
-        }
-      }
-    }
 
-    if (this.painVizMode === "points") {
-      for (const p of this.lastPainPoints) {
-        const pos = latLngToVector3(p.lat, p.lng, RADIUS);
-        const col = this.markerColorForActiveLayer();
-        const mat = new THREE.MeshStandardMaterial({
-          color: col,
-          emissive: col,
-          emissiveIntensity: 0.35 + 0.5 * p.intensity,
-          roughness: 0.4,
-          metalness: 0.2,
-        });
-        const mClip = mat as unknown as MaterialWithClipping;
-        mClip.clipping = true;
-        mClip.clipIntersection = false;
-        mClip.clippingPlanes = this.clipPlanesFront;
-        const mesh = new THREE.Mesh(this.markerGeometry, mat);
-        mesh.position.copy(pos);
-        mesh.userData.painPoint = p;
-        this.markersGroup.add(mesh);
-      }
-    }
+    this.syncPainMarkersForVizMode();
 
     this.applyDebugLayerVisibility();
     if (this.painVizMode === "multiplex-v0") {
