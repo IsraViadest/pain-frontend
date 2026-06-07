@@ -1,19 +1,4 @@
 import type { MapLayer } from "../types/api";
-import { MOCK_LAYERS } from "../../mock/layers";
-
-// --- Mock static layers (dev mock mode only) ---
-
-/** Static layer list for dev mock mode only (`npm run dev`). Extend {@link MOCK_LAYERS} here for frontend-only fields. */
-export const UI_MAP_LAYERS: MapLayer[] = MOCK_LAYERS.map(
-  ({ id, label, desc, color, geospatial, text }) => ({
-    id,
-    label,
-    desc,
-    color,
-    geospatial,
-    text,
-  }),
-);
 
 // --- Row painorigin → layer id (production point rows) ---
 

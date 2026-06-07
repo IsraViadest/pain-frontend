@@ -6,14 +6,14 @@
  *   fetchPoints → painServer.fetchInitLayer → GET /init/:layer → adapter
  *
  * Dev mock (`npm run dev`):
- *   fetchLayers → static UI_MAP_LAYERS
+ *   fetchLayers → loadMockMapLayers (dynamic import of mock/layers.ts)
  *   fetchPoints → mockClient (local Express + CSV; not shipped in dist)
  */
 import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
 import { mapInitLayerListToMapLayers } from "./initLayerList";
-import { setCachedMapLayers, UI_MAP_LAYERS } from "./layers";
+import { setCachedMapLayers } from "./layers";
 import { fetchInitLayer, fetchInitLayerList } from "./painServer";
 
 type MockApiModule = {
@@ -38,7 +38,54 @@ async function getMockApiModule(): Promise<MockApiModule> {
 }
 
 /**
- * Layer list for the HUD — GET /init/ in production; static mock list in dev mock mode.
+ * Dev mock layer list via dynamic import of `mock/layers.ts`.
+ *
+ * Separate from {@link getMockApiModule} — this loads mock **layer metadata**;
+ * `getMockApiModule` loads mock **API handlers** (`fetchPointsMock`, etc.). Do not consolidate.
+ *
+ * `useMockApi` is resolved once when `config.ts` loads and does not change at runtime
+ * (mock ↔ pain-server requires a full page reload).
+ */
+let mockMapLayersPromise: Promise<MapLayer[]> | null = null;
+
+function mapMockLayersToMapLayers(
+  mockLayers: readonly {
+    id: string;
+    label: string;
+    desc: string;
+    color: string;
+    geospatial: boolean;
+    text: boolean;
+  }[],
+): MapLayer[] {
+  return mockLayers.map(({ id, label, desc, color, geospatial, text }) => ({
+    id,
+    label,
+    desc,
+    color,
+    geospatial,
+    text,
+  }));
+}
+
+/** Load HUD layer list for dev mock mode — not used when `useMockApi` is false. */
+function loadMockMapLayers(): Promise<MapLayer[]> {
+  if (!useMockApi) {
+    return Promise.resolve([]);
+  }
+  if (mockMapLayersPromise == null) {
+    mockMapLayersPromise = import("../../mock/layers")
+      .then(({ MOCK_LAYERS }) => mapMockLayersToMapLayers(MOCK_LAYERS))
+      .catch((err: unknown) => {
+        console.error("[client] Failed to load mock layer fixture:", err);
+        return [];
+      });
+  }
+  return mockMapLayersPromise;
+}
+
+/**
+ * Layer list for the HUD — GET /init/ in production; dynamic mock import in dev mock mode.
  *
  * **Call order:** The UI must call `fetchLayers` before `fetchPoints` so
  * {@link setCachedMapLayers} runs first. Unknown row `painorigin` values fall back to the
@@ -46,10 +93,9 @@ async function getMockApiModule(): Promise<MockApiModule> {
  */
 export async function fetchLayers(): Promise<MapLayer[]> {
   if (useMockApi) {
-    // Note: this branch and its imports (UI_MAP_LAYERS → mock/layers.ts) are present in
-    // the production bundle as dead code until useMockApi becomes a build-time constant.
-    setCachedMapLayers(UI_MAP_LAYERS);
-    return UI_MAP_LAYERS;
+    const layers = await loadMockMapLayers();
+    setCachedMapLayers(layers);
+    return layers;
   }
   const rows = await fetchInitLayerList();
   const layers = mapInitLayerListToMapLayers(rows);

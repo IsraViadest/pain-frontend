@@ -11,9 +11,9 @@ function resolveUseMockApi(): boolean {
  * - Mock (dev): Vite proxies /api → local Express in /server (CSV prototype only).
  * - pain-server (prod): GET /init/:layer on the deployed backend; no /server in dist.
  */
-// TODO: convert to a build-time constant (Vite define) so Rollup can tree-shake mock
-// branches from the production bundle. Currently useMockApi is a runtime check, which
-// keeps mock code in dist even when unused.
+// TODO: convert useMockApi to a build-time constant (Vite define) so Rollup can drop mock
+// branches entirely from dist. Dynamic import of mock/layers.ts may still emit a lazy
+// chunk with fixture strings — verify with `grep environmental dist/assets/*.js` after build.
 export const useMockApi = resolveUseMockApi();
 
 /** Leading/trailing whitespace trimmed, then one trailing `/` removed. Empty string = same-origin relative paths. */
