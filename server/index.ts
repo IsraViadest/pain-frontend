@@ -1,47 +1,13 @@
 import cors from "cors";
 import express from "express";
-import type { MapLayer, PainPoint, PainSubmission } from "../src/types/api";
+import { MOCK_LAYERS } from "../mock/layers";
+import type { PainPoint, PainSubmission } from "../src/types/api";
 import { loadPainRepoPoints } from "./loadPainPoints";
 
 const PORT = Number(process.env.PAIN_API_PORT ?? 3847);
 
 const PAIN_DATA_TREE =
   "https://github.com/7Magic7Mike7/pain/tree/main/data";
-
-const layers: MapLayer[] = [
-  {
-    id: "environmental",
-    label: "Environmental",
-    desc: "Prototype markers from Red List Index (latest year per country).",
-    color: "#22785f",
-    geospatial: true,
-    text: false,
-  },
-  {
-    id: "physical",
-    label: "Physical / Physiological",
-    desc: "Prototype markers from aggregated pain-related DALYs (IHME-style export).",
-    color: "#a0466e",
-    geospatial: true,
-    text: false,
-  },
-  {
-    id: "emotional",
-    label: "Emotional",
-    desc: "Prototype markers from country-level emotional text pain scores.",
-    color: "#5a6ec8",
-    geospatial: false,
-    text: true,
-  },
-  {
-    id: "socioeconomic",
-    label: "Socio-economic",
-    desc: "Prototype markers from national Gini coefficients.",
-    color: "#be8228",
-    geospatial: false,
-    text: false,
-  },
-];
 
 const staticPoints = loadPainRepoPoints();
 let userPoints: PainPoint[] = [];
@@ -51,7 +17,7 @@ app.use(cors({ origin: true }));
 app.use(express.json({ limit: "256kb" }));
 
 app.get("/api/map/layers", (_req, res) => {
-  res.json({ layers });
+  res.json({ layers: MOCK_LAYERS });
 });
 
 app.get("/api/map/points", (req, res) => {

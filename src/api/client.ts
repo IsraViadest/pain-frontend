@@ -46,6 +46,8 @@ async function getMockApiModule(): Promise<MockApiModule> {
  */
 export async function fetchLayers(): Promise<MapLayer[]> {
   if (useMockApi) {
+    // Note: this branch and its imports (UI_MAP_LAYERS → mock/layers.ts) are present in
+    // the production bundle as dead code until useMockApi becomes a build-time constant.
     setCachedMapLayers(UI_MAP_LAYERS);
     return UI_MAP_LAYERS;
   }

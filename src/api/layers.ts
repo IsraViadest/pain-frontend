@@ -1,54 +1,10 @@
 import type { MapLayer } from "../types/api";
-
-/** Mock-only layer ids (dev CSV / Express server). Production uses ids from GET /init/ (Env, Emo, …). */
-type MockLayerId = "environmental" | "physical" | "emotional" | "socioeconomic";
+import { MOCK_LAYERS } from "../../mock/layers";
 
 // --- Mock static layers (dev mock mode only) ---
 
-const MOCK_LAYER_REGISTRY = [
-  {
-    id: "environmental" as MockLayerId,
-    label: "Environmental",
-    desc: "Natural and anthropogenic environmental pain (mock dev layer).",
-    color: "#22785f",
-    geospatial: true,
-    text: false,
-  },
-  {
-    id: "physical" as MockLayerId,
-    label: "Physical / Physiological",
-    desc: "Physical pain layer (mock dev layer).",
-    color: "#a0466e",
-    geospatial: true,
-    text: false,
-  },
-  {
-    id: "emotional" as MockLayerId,
-    label: "Emotional",
-    desc: "Emotional pain layer (mock dev layer).",
-    color: "#5a6ec8",
-    geospatial: false,
-    text: true,
-  },
-  {
-    id: "socioeconomic" as MockLayerId,
-    label: "Socio-economic",
-    desc: "Socio-economic pain layer (mock dev layer).",
-    color: "#be8228",
-    geospatial: false,
-    text: false,
-  },
-] as const satisfies readonly {
-  id: MockLayerId;
-  label: string;
-  desc: string;
-  color: string;
-  geospatial: boolean;
-  text: boolean;
-}[];
-
-/** Static layer list for dev mock mode only (`npm run dev`). */
-export const UI_MAP_LAYERS: MapLayer[] = MOCK_LAYER_REGISTRY.map(
+/** Static layer list for dev mock mode only (`npm run dev`). Extend {@link MOCK_LAYERS} here for frontend-only fields. */
+export const UI_MAP_LAYERS: MapLayer[] = MOCK_LAYERS.map(
   ({ id, label, desc, color, geospatial, text }) => ({
     id,
     label,
