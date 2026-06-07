@@ -9,7 +9,7 @@
  */
 
 /** Mock layer row shape (matches pain-server GET /init/ and {@link ../src/types/api.ts MapLayer}). */
-export type MockLayerFixture = {
+type MockLayerFixture = {
   id: string;
   label: string;
   desc: string;

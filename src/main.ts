@@ -242,12 +242,12 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
       const source = info.metadata.sourceUrl.length > 42
         ? `${info.metadata.sourceUrl.slice(0, 39)}...`
         : info.metadata.sourceUrl;
-      return `${info.metadata.country} · ${info.metadata.layerLabel} · ${info.metadata.metricLabel} ${info.metadata.rawValue.toFixed(1)}${year} · normalized ${info.intensity.toFixed(2)} · source ${source}`;
+      return `${info.metadata.country} · ${info.metadata.layerLabel} · ${info.metadata.metricLabel} ${info.metadata.rawValue.toFixed(1)}${year} · intensity ${info.intensity.toFixed(2)} · source ${source}`;
     }
     const fallbackLabel =
       // MultiplexNodeHover.type is a hover tooltip field, not a PainPoint property. Kept separate from the uiLayer rename intentionally.
       info.type[0]?.toUpperCase() + info.type.slice(1).toLowerCase();
-    return `${fallbackLabel} · normalized ${info.intensity.toFixed(2)} · source user submission`;
+    return `${fallbackLabel} · intensity ${info.intensity.toFixed(2)} · source user submission`;
   }
   return `<strong>Cluster beacon</strong><br/>${info.count} nearby points<br/>Avg intensity ${info.avgIntensity.toFixed(2)}`;
 }

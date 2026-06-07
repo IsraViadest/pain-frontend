@@ -293,7 +293,7 @@ export class GlobeView {
   private readonly keyLight: THREE.DirectionalLight;
   private readonly fillLight: THREE.DirectionalLight;
   private visualTheme: VisualTheme = "dark";
-  private currentLayerId = "environmental";
+  private currentLayerId = "";
   private currentLayerMeta: GlobeLayerDisplayMeta | undefined;
   private currentLayerColorHex: string | null = null;
   private currentLayerSupportsText = false;
@@ -401,7 +401,8 @@ export class GlobeView {
     this.scene.add(this.emotionalWordsGroup);
     this.markerGeometry = new THREE.SphereGeometry(0.018, 16, 16);
 
-    this.setLayerTexture("environmental");
+    // Neutral tint until main.ts applyGlobeLayer runs after fetchLayers.
+    this.setLayerTexture("");
     void this.loadCountryOutlines();
     window.addEventListener("resize", this.onResize);
     this.onResize();
@@ -1345,7 +1346,7 @@ export class GlobeView {
     this.currentLayerColorHex = this.currentLayerMeta?.color ?? null;
     this.currentLayerLexiconBucket =
       this.currentLayerMeta?.lexiconBucket ?? "generic";
-    if (this.currentLayerColorHex == null) {
+    if (this.currentLayerColorHex == null && layerId.length > 0) {
       console.warn(
         "[GlobeView] Layer metadata missing or has no color — using neutral fallback.",
         layerId,
