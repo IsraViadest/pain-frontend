@@ -1407,6 +1407,7 @@ export class GlobeView {
     m.needsUpdate = true;
     this.applyPointsTint();
     this.applyGlobeScarShellMaterial();
+    this.updateMarkerInstanceColors(this.lastPainPoints);
     this.refreshWordCloud();
   }
 
