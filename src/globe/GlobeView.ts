@@ -111,6 +111,8 @@ const MARKER_METALNESS = 0.2;
 /** Legacy per-marker emissiveIntensity = BASE + SCALE × intensity (see updateMarkerInstanceColors). */
 const MARKER_EMISSIVE_BASE = 0.35;
 const MARKER_EMISSIVE_INTENSITY_SCALE = 0.5;
+/** Grow instanced buffer when point count exceeds capacity. */
+const MARKER_INSTANCE_CAPACITY_GROWTH = 1.25;
 const MARKER_INSTANCE_INITIAL_CAPACITY = 256;
 const GLOW_VS = /* glsl */ `
 varying float vGlow;
@@ -1467,7 +1469,12 @@ export class GlobeView {
       return this.painMarkersInstanced;
     }
     this.disposePainMarkersInstanced();
-    const capacity = Math.max(requiredCount, MARKER_INSTANCE_INITIAL_CAPACITY);
+    const capacity = Math.max(
+      requiredCount,
+      this.markerInstanceCapacity > 0
+        ? Math.ceil(this.markerInstanceCapacity * MARKER_INSTANCE_CAPACITY_GROWTH)
+        : MARKER_INSTANCE_INITIAL_CAPACITY,
+    );
     if (!this.markerMaterial) {
       this.markerMaterial = this.createMarkerMaterial();
     }
