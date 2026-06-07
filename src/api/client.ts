@@ -13,7 +13,7 @@ import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
 import { mapInitLayerListToMapLayers } from "./initLayerList";
-import { setCachedMapLayers } from "./layers";
+import { isLayerCacheEmpty, setCachedMapLayers } from "./layers";
 import { fetchInitLayer, fetchInitLayerList } from "./painServer";
 
 type MockApiModule = {
@@ -117,6 +117,11 @@ export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
       "[client] fetchPoints called without a layerId — returning empty points. UI should always pass a known layer.",
     );
     return [];
+  }
+  if (isLayerCacheEmpty()) {
+    console.warn(
+      "[client] fetchPoints before fetchLayers — layer cache empty; painorigin fallbacks may use wrong defaults. Call fetchLayers first.",
+    );
   }
   const raw = await fetchInitLayer(layerId);
   return mapInitResponseToPainPoints(raw);

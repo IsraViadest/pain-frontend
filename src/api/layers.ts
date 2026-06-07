@@ -1,5 +1,7 @@
 import type { MapLayer } from "../types/api";
 
+// Layer ids: production HUD uses Env / Emo / … (GET /init/); dev mock uses environmental / emotional / … — see LAYER_ID_TO_LEXICON_BUCKET and docs/BACKEND_CONTRACT.md.
+
 // --- Row painorigin → layer id (production point rows) ---
 
 /**
@@ -50,6 +52,15 @@ let cachedMapLayers: MapLayer[] = [];
 /** Store the layer list after a successful {@link ../client.ts fetchLayers} call. */
 export function setCachedMapLayers(layers: MapLayer[]): void {
   cachedMapLayers = layers;
+}
+
+/**
+ * Returns true if the layer cache is empty.
+ * Used by client.ts to warn when fetchPoints is called before fetchLayers.
+ * @internal
+ */
+export function isLayerCacheEmpty(): boolean {
+  return cachedMapLayers.length === 0;
 }
 
 /** Lookup a layer from the cache populated by {@link setCachedMapLayers} / {@link ../client.ts fetchLayers}. */

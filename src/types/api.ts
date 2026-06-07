@@ -3,6 +3,7 @@ export interface MapLayer {
   label: string;
   desc: string;
   color: string;
+  /** TODO: fetched from GET /init/ but not yet used by the HUD (no filtering of non-geospatial layers). */
   geospatial: boolean;
   text: boolean;
 }

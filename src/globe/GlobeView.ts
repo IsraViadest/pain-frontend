@@ -219,7 +219,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * ├── markersGroup      renderOrder  2  — pain “points” mode markers (small spheres)
  * ├── bordersOutlines   renderOrder  3  — coast + country lines (countryBorders.ts)
  * ├── multiplexGroup    renderOrder  3  — multiplex-v0 nodes / links / clusters
- * └── emotionalWordsGroup renderOrder 4 — word-cloud sprites
+ * └── textLayerGroup renderOrder 4 — word-cloud sprites
  *
  * Scar / heat data (not separate meshes):
  *   painScarField.ts  → scarDisplacementMap → dents (stipple VS + border CPU warp)
@@ -266,7 +266,7 @@ export class GlobeView {
   private readonly markersGroup = new THREE.Group();
   private readonly multiplexGroup = new THREE.Group();
   private readonly markerGeometry: THREE.SphereGeometry;
-  private readonly emotionalWordsGroup = new THREE.Group();
+  private readonly textLayerGroup = new THREE.Group();
   private readonly textureCache = new Map<string, THREE.CanvasTexture>();
   /** SHELL coast + borders — LineSegments2 group (loadCountryOutlines). */
   private bordersOutlines: GlobeBorderOutlines | null = null;
@@ -397,8 +397,8 @@ export class GlobeView {
     this.scene.add(this.markersGroup);
     this.multiplexGroup.renderOrder = 3;
     this.scene.add(this.multiplexGroup);
-    this.emotionalWordsGroup.renderOrder = 4;
-    this.scene.add(this.emotionalWordsGroup);
+    this.textLayerGroup.renderOrder = 4;
+    this.scene.add(this.textLayerGroup);
     this.markerGeometry = new THREE.SphereGeometry(0.018, 16, 16);
 
     // Neutral tint until main.ts applyGlobeLayer runs after fetchLayers.
@@ -611,7 +611,7 @@ export class GlobeView {
       case "multiplex":
         return this.painVizMode === "multiplex-v0";
       case "wordCloud":
-        return this.wordCloudEnabled && this.emotionalWordsGroup.children.length > 0;
+        return this.wordCloudEnabled && this.textLayerGroup.children.length > 0;
       case "scarDisplacement":
         return this.getAutoScarDisplacementActive();
       case "heatOverlay":
@@ -649,7 +649,7 @@ export class GlobeView {
       case "multiplex":
         return this.multiplexGroup.visible;
       case "wordCloud":
-        return this.emotionalWordsGroup.visible;
+        return this.textLayerGroup.visible;
       case "scarDisplacement":
         return (this.pointsMaterial?.uniforms.uScarActive?.value as number) >= 0.5;
       case "heatOverlay":
@@ -690,9 +690,9 @@ export class GlobeView {
       "multiplex",
       this.painVizMode === "multiplex-v0",
     );
-    this.emotionalWordsGroup.visible = this.resolveDebugLayerVisibility(
+    this.textLayerGroup.visible = this.resolveDebugLayerVisibility(
       "wordCloud",
-      this.wordCloudEnabled && this.emotionalWordsGroup.children.length > 0,
+      this.wordCloudEnabled && this.textLayerGroup.children.length > 0,
     );
     if (this.bordersOutlines) {
       const coastAuto = Boolean(this.bordersOutlines);
@@ -1332,6 +1332,11 @@ export class GlobeView {
   /**
    * Select active layer for tinting and word-cloud eligibility.
    *
+   * TODO: rename `setLayerTexture` — this no longer maps a layer canvas onto the globe mesh.
+   * It updates layer metadata (`currentLayerMeta`, color, lexicon, word-cloud eligibility)
+   * and refreshes tint / procedural cache / word clouds. Consider `updateLayerVisuals()` or
+   * `refreshLayerDisplay()`.
+   *
    * @param meta — display fields from main.ts (`applyGlobeLayer`: color, text, lexicon bucket).
    */
   setLayerTexture(
@@ -1469,7 +1474,7 @@ export class GlobeView {
     this.earthContent.rotation.y = this.globeSpinY;
     this.markersGroup.rotation.y = this.globeSpinY;
     this.multiplexGroup.rotation.y = this.globeSpinY;
-    this.emotionalWordsGroup.rotation.y = this.globeSpinY;
+    this.textLayerGroup.rotation.y = this.globeSpinY;
     if (this.bordersOutlines) {
       this.bordersOutlines.group.rotation.y = this.globeSpinY;
     }
@@ -1510,7 +1515,7 @@ export class GlobeView {
       const dir = latLngToVector3(p.lat, p.lng, 1).normalize();
       const radius = RADIUS * (1.11 + 0.08 * p.intensity);
       sprite.position.copy(dir.clone().multiplyScalar(radius));
-      this.emotionalWordsGroup.add(sprite);
+      this.textLayerGroup.add(sprite);
       this.wordCloudItems.push({
         dir,
         sprite,
@@ -1529,8 +1534,8 @@ export class GlobeView {
       mat.dispose();
     }
     this.wordCloudItems = [];
-    while (this.emotionalWordsGroup.children.length) {
-      this.emotionalWordsGroup.remove(this.emotionalWordsGroup.children[0]!);
+    while (this.textLayerGroup.children.length) {
+      this.textLayerGroup.remove(this.textLayerGroup.children[0]!);
     }
   }
 
@@ -1707,7 +1712,7 @@ export class GlobeView {
   private tickWordCloud(): void {
     if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return;
     const camDir = this.camera.position.clone().normalize();
-    const q = this.emotionalWordsGroup.quaternion;
+    const q = this.textLayerGroup.quaternion;
     for (const item of this.wordCloudItems) {
       const worldDir = item.dir.clone().applyQuaternion(q);
       const facing = worldDir.dot(camDir);
@@ -1728,7 +1733,7 @@ export class GlobeView {
       -(((clientY - rect.top) / rect.height) * 2 - 1),
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    const hits = this.raycaster.intersectObjects(this.emotionalWordsGroup.children, false);
+    const hits = this.raycaster.intersectObjects(this.textLayerGroup.children, false);
     for (const hit of hits) {
       const obj = hit.object;
       if (obj instanceof THREE.Sprite && obj.userData.wordCloudHover) {
