@@ -191,6 +191,14 @@ export type WordCloudHoverInfo = {
   fullText: string;
   intensity: number;
 };
+/** Debug-only marker hover payload (points viz, InstancedMesh pick). */
+export type MarkerHoverInfo = {
+  layerId: string;
+  intensity: number;
+  lat: number;
+  lng: number;
+  datatype: string;
+};
 type MultiplexNodeHover = {
   kind: "node";
   type: string;
@@ -1998,6 +2006,48 @@ export class GlobeView {
       if (obj instanceof THREE.Sprite && obj.userData.wordCloudHover) {
         return obj.userData.wordCloudHover as WordCloudHoverInfo;
       }
+    }
+    return null;
+  }
+
+  /**
+   * Raycast the pain-marker InstancedMesh (points viz only).
+   * Debug UI calls this from `main.ts` when globe debug is opt-in.
+   * `instanceId` indexes {@link lastPainPoints} (same order as matrix rebuild).
+   */
+  pickMarkerHover(clientX: number, clientY: number): MarkerHoverInfo | null {
+    if (this.painVizMode !== "points") return null;
+    const mesh = this.painMarkersInstanced;
+    if (!mesh || mesh.count === 0 || this.lastPainPoints.length === 0) {
+      return null;
+    }
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hits = this.raycaster.intersectObject(mesh, false);
+    for (const hit of hits) {
+      if (hit.object !== mesh) continue;
+      const instanceId = hit.instanceId;
+      if (
+        instanceId == null ||
+        instanceId < 0 ||
+        mesh.count <= instanceId ||
+        this.lastPainPoints.length <= instanceId
+      ) {
+        continue;
+      }
+      const p = this.lastPainPoints[instanceId]!;
+      return {
+        layerId: p.uiLayer,
+        intensity: p.intensity,
+        lat: p.lat,
+        lng: p.lng,
+        datatype: p.datatype ?? "—",
+      };
     }
     return null;
   }

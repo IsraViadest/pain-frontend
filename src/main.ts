@@ -17,6 +17,7 @@ import type { MapLayer } from "./types/api";
 import {
   GlobeView,
   type GlobeLayerDisplayMeta,
+  type MarkerHoverInfo,
   type MultiplexHoverInfo,
   type PainVisualizationMode,
   type WordCloudHoverInfo,
@@ -252,6 +253,11 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
   return `<strong>Cluster beacon</strong><br/>${info.count} nearby points<br/>Avg intensity ${info.avgIntensity.toFixed(2)}`;
 }
 
+/** HTML for the floating tooltip when hovering a pain marker (debug-only). */
+function renderMarkerHover(info: MarkerHoverInfo): string {
+  return `<strong>${info.layerId}</strong><br/>Intensity ${info.intensity.toFixed(3)}<br/>Lat ${info.lat.toFixed(2)}, Lng ${info.lng.toFixed(2)}<br/>${info.datatype}`;
+}
+
 /** HTML for the floating tooltip when hovering a text-layer word-cloud sprite. */
 function renderWordCloudHover(info: WordCloudHoverInfo): string {
   const msg = info.fullText.length > 220
@@ -261,13 +267,23 @@ function renderWordCloudHover(info: WordCloudHoverInfo): string {
 }
 
 canvas.addEventListener("pointermove", (ev) => {
+  const offsetX = 14;
+  const offsetY = 12;
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
     const w = globe.pickWordCloudHover(ev.clientX, ev.clientY);
     if (w) {
       hoverModal.hidden = false;
       hoverModal.innerHTML = renderWordCloudHover(w);
-      const offsetX = 14;
-      const offsetY = 12;
+      hoverModal.style.left = `${ev.clientX + offsetX}px`;
+      hoverModal.style.top = `${ev.clientY + offsetY}px`;
+      return;
+    }
+  }
+  if (shouldShowGlobeDebugPanel() && readPainVizMode() === "points") {
+    const marker = globe.pickMarkerHover(ev.clientX, ev.clientY);
+    if (marker) {
+      hoverModal.hidden = false;
+      hoverModal.innerHTML = renderMarkerHover(marker);
       hoverModal.style.left = `${ev.clientX + offsetX}px`;
       hoverModal.style.top = `${ev.clientY + offsetY}px`;
       return;
@@ -284,8 +300,6 @@ canvas.addEventListener("pointermove", (ev) => {
   }
   hoverModal.hidden = false;
   hoverModal.innerHTML = renderMultiplexHover(info);
-  const offsetX = 14;
-  const offsetY = 12;
   hoverModal.style.left = `${ev.clientX + offsetX}px`;
   hoverModal.style.top = `${ev.clientY + offsetY}px`;
 });
