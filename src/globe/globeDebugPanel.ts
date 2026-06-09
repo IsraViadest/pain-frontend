@@ -8,6 +8,7 @@ import {
   type GlobeDebugLayerId,
   type GlobeDebugLayerState,
   type GlobeDebugTune,
+  type GlobeMarkerTune,
   type GlobeView,
 } from "./GlobeView";
 
@@ -203,6 +204,63 @@ const TUNE_SECTIONS: {
   },
 ];
 
+type MarkerTuneSliderSpec = {
+  key: keyof GlobeMarkerTune;
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+  decimals?: number;
+};
+
+const MARKER_TUNE_SLIDERS: MarkerTuneSliderSpec[] = [
+  {
+    key: "radius",
+    label: "Marker radius",
+    hint: "Instance scale × unit sphere geometry (0.018); default radius 0.006.",
+    min: 0.005,
+    max: 0.05,
+    step: 0.001,
+  },
+  {
+    key: "roughness",
+    label: "Roughness",
+    hint: "MeshStandardMaterial roughness.",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    decimals: 2,
+  },
+  {
+    key: "metalness",
+    label: "Metalness",
+    hint: "MeshStandardMaterial metalness.",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    decimals: 2,
+  },
+  {
+    key: "opacity",
+    label: "Opacity",
+    hint: "Material opacity; < 1 enables transparent.",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    decimals: 2,
+  },
+  {
+    key: "emissiveBase",
+    label: "Emissive intensity",
+    hint: "Base emissive scale before intensity × per-point factor.",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    decimals: 2,
+  },
+];
+
 /** Sliders flattened for sync (`Scar …` section checkbox lives separately). */
 const ALL_TUNING_SLIDER_SPECS = TUNE_SECTIONS.flatMap((s) => s.sliders);
 
@@ -371,6 +429,63 @@ export function mountGlobeDebugPanel(
     host.appendChild(block.el);
   }
 
+  const markerTuneBlock = makeDetails("Markers", true);
+  const markerTuneIntro = document.createElement("p");
+  markerTuneIntro.className =
+    "globe-debug-panel__intro globe-debug-panel__intro--nested";
+  markerTuneIntro.textContent =
+    "Pain marker InstancedMesh — material updates live; radius rebuilds instance matrices.";
+  markerTuneBlock.body.appendChild(markerTuneIntro);
+
+  const markerTuneInputs: Partial<
+    Record<keyof GlobeMarkerTune, HTMLInputElement>
+  > = {};
+
+  for (const spec of MARKER_TUNE_SLIDERS) {
+    const row = document.createElement("label");
+    row.className = "globe-debug-panel__tune-row";
+
+    const head = document.createElement("span");
+    head.className = "globe-debug-panel__tune-head";
+    const valSpan = document.createElement("output");
+    valSpan.className = "globe-debug-panel__tune-val";
+
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = String(spec.min);
+    range.max = String(spec.max);
+    range.step = String(spec.step);
+
+    const hint = document.createElement("span");
+    hint.className = "globe-debug-panel__tune-hint";
+    hint.textContent = spec.hint;
+
+    head.textContent = `${spec.label} `;
+    head.append(valSpan);
+    row.append(head, range, hint);
+    markerTuneBlock.body.appendChild(row);
+    markerTuneInputs[spec.key] = range;
+
+    const decimals = spec.decimals ?? 3;
+
+    range.addEventListener("input", () => {
+      const v = Number(range.value);
+      valSpan.textContent = formatTuneValue(v, decimals);
+      globe.setMarkerTune({ [spec.key]: v });
+    });
+  }
+
+  const resetMarkerTuneBtn = document.createElement("button");
+  resetMarkerTuneBtn.type = "button";
+  resetMarkerTuneBtn.className = "globe-debug-panel__action";
+  resetMarkerTuneBtn.textContent = "Reset markers";
+  resetMarkerTuneBtn.addEventListener("click", () => {
+    globe.resetMarkerTune();
+    syncMarkerTuneSliders();
+  });
+  markerTuneBlock.body.appendChild(resetMarkerTuneBtn);
+  host.appendChild(markerTuneBlock.el);
+
   function syncTuneSliders(): void {
     const t = globe.getDebugTune();
     for (const spec of ALL_TUNING_SLIDER_SPECS) {
@@ -384,6 +499,19 @@ export function mountGlobeDebugPanel(
     }
     if (landOnlyCheckboxRef)
       landOnlyCheckboxRef.checked = t.scarLandOnly >= 0.5;
+  }
+
+  function syncMarkerTuneSliders(): void {
+    const t = globe.getMarkerTune();
+    for (const spec of MARKER_TUNE_SLIDERS) {
+      const range = markerTuneInputs[spec.key];
+      if (!range) continue;
+      range.value = String(t[spec.key]);
+      const out = range.parentElement?.querySelector("output");
+      const decimals = spec.decimals ?? 3;
+      if (out)
+        out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
+    }
   }
 
   const buttonWrap = document.createElement("div");
@@ -410,6 +538,7 @@ export function mountGlobeDebugPanel(
   logTuneBtn.textContent = "Log tuning";
   logTuneBtn.addEventListener("click", () => {
     console.info("[globe debug tune]", globe.getDebugTune());
+    console.log("[markerTune]", globe.getMarkerTune());
   });
 
   const syncBtn = document.createElement("button");
@@ -420,6 +549,7 @@ export function mountGlobeDebugPanel(
   buttonWrap.append(resetBtn, resetTuneBtn, logTuneBtn, syncBtn);
   host.appendChild(buttonWrap);
   syncTuneSliders();
+  syncMarkerTuneSliders();
 
   if (
     scarPreviewCanvas &&
@@ -457,6 +587,7 @@ export function mountGlobeDebugPanel(
       applyState(state);
     }
     syncTuneSliders();
+    syncMarkerTuneSliders();
   }
 
   refresh();
