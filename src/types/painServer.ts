@@ -13,8 +13,8 @@ export interface PainServerRow {
 }
 
 /**
- * One layer entry from pain-server GET /init/ (layer metadata list).
- * Field names match the API exactly — see deployed pain-server GET /init/.
+ * One layer entry from pain-server GET /init (layer metadata list).
+ * Field names match the API exactly — see deployed pain-server GET /init.
  */
 export interface PainServerLayerRow {
   id: string;

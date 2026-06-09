@@ -3,7 +3,7 @@ import * as THREE from "three";
 const W = 1024;
 const H = 512;
 
-/** Neutral sRGB when GET /init/ `color` is missing or invalid (dark theme). */
+/** Neutral sRGB when GET /init `color` is missing or invalid (dark theme). */
 const NEUTRAL_FALLBACK_SRGB: [number, number, number] = [80, 80, 90];
 
 /** Neutral sRGB fallback for blue theme. */
@@ -24,7 +24,7 @@ function parseHexColorSrgb255(hex: string): [number, number, number] | null {
 }
 
 /**
- * Layer accent in 0–1 from GET /init/ `color` hex (shared by canvas texture and stipple tint).
+ * Layer accent in 0–1 from GET /init `color` hex (shared by canvas texture and stipple tint).
  * Applies the same blue-theme multipliers as the legacy mock palettes.
  */
 export function getLayerBaseColorLinear(
@@ -55,7 +55,7 @@ export function getLayerBaseColorLinear(
  * Each layer gets a distinct hue + noise so you can verify swapping works.
  *
  * This is **not** a PNG/JPG: it is drawn at runtime on a 2D canvas (`CanvasTexture`),
- * using procedural noise + the layer hex color from GET /init/.
+ * using procedural noise + the layer hex color from GET /init.
  */
 export function createLayerCanvasTexture(
   colorHex: string | null | undefined,

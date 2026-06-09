@@ -2,11 +2,11 @@
  * Single API facade for the UI.
  *
  * Production (`npm run build`, VITE_USE_MOCK_API unset/false):
- *   fetchLayers → painServer.fetchInitLayerList → GET /init/
- *   fetchPoints → painServer.fetchInitLayer → GET /init/:layer → adapter
+ *   fetchLayers → painServer.fetchLayerInfo → GET /init
+ *   fetchPoints → painServer.fetchLayerDataPoints → GET /init/:layer → adapter
  *
  * Dev mock (`npm run dev`):
- *   fetchLayers → loadMockMapLayers (dynamic import of mock/layers.ts)
+ *   fetchLayers → mock/loadMapLayers (dynamic import)
  *   fetchPoints → mockClient (local Express + CSV; not shipped in dist)
  */
 import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
@@ -14,7 +14,7 @@ import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
 import { mapInitLayerListToMapLayers } from "./initLayerList";
 import { isLayerCacheEmpty, setCachedMapLayers } from "./layers";
-import { fetchInitLayer, fetchInitLayerList } from "./painServer";
+import { fetchLayerDataPoints, fetchLayerInfo } from "./painServer";
 
 type MockApiModule = {
   fetchPointsMock: (layerId?: string) => Promise<PainPoint[]>;
@@ -37,75 +37,39 @@ async function getMockApiModule(): Promise<MockApiModule> {
   return mockApiModulePromise;
 }
 
-/**
- * Dev mock layer list via dynamic import of `mock/layers.ts`.
- *
- * Separate from {@link getMockApiModule} — this loads mock **layer metadata**;
- * `getMockApiModule` loads mock **API handlers** (`fetchPointsMock`, etc.). Do not consolidate.
- *
- * `useMockApi` is resolved once when `config.ts` loads and does not change at runtime
- * (mock ↔ pain-server requires a full page reload).
- */
-let mockMapLayersPromise: Promise<MapLayer[]> | null = null;
-
-function mapMockLayersToMapLayers(
-  mockLayers: readonly {
-    id: string;
-    label: string;
-    desc: string;
-    color: string;
-    geospatial: boolean;
-    text: boolean;
-  }[],
-): MapLayer[] {
-  return mockLayers.map(({ id, label, desc, color, geospatial, text }) => ({
-    id,
-    label,
-    desc,
-    color,
-    geospatial,
-    text,
-  }));
-}
-
-/** Load HUD layer list for dev mock mode — not used when `useMockApi` is false. */
-function loadMockMapLayers(): Promise<MapLayer[]> {
-  if (!useMockApi) {
-    return Promise.resolve([]);
+/** Load dev-only mock layer list on demand (see `mock/loadMapLayers.ts`). */
+async function getMockMapLayers(): Promise<MapLayer[]> {
+  if (!import.meta.env.DEV) {
+    throw new Error(
+      "Mock layer list is dev-only. Use pain-server mode for production builds.",
+    );
   }
-  if (mockMapLayersPromise == null) {
-    mockMapLayersPromise = import("../../mock/layers")
-      .then(({ MOCK_LAYERS }) => mapMockLayersToMapLayers(MOCK_LAYERS))
-      .catch((err: unknown) => {
-        console.error("[client] Failed to load mock layer fixture:", err);
-        return [];
-      });
-  }
-  return mockMapLayersPromise;
+  const { loadMockMapLayers } = await import(/* @vite-ignore */ "../../mock/loadMapLayers");
+  return loadMockMapLayers();
 }
 
 /**
- * Layer list for the HUD — GET /init/ in production; dynamic mock import in dev mock mode.
+ * Layer list for the HUD — GET /init in production; dynamic mock import in dev mock mode.
  *
  * **Call order:** The UI must call `fetchLayers` before `fetchPoints` so
- * {@link setCachedMapLayers} runs first. Unknown row `painorigin` values fall back to the
- * first cached layer id (see {@link ./layers.ts painOriginToUiLayerId}).
+ * {@link setCachedMapLayers} runs first (HUD labels, colors, and adapter `metadata.layerLabel`).
  */
 export async function fetchLayers(): Promise<MapLayer[]> {
   if (useMockApi) {
-    const layers = await loadMockMapLayers();
+    const layers = await getMockMapLayers();
+    setCachedMapLayers(layers);
+    return layers;
+  } else {
+    const rows = await fetchLayerInfo();
+    const layers = mapInitLayerListToMapLayers(rows);
     setCachedMapLayers(layers);
     return layers;
   }
-  const rows = await fetchInitLayerList();
-  const layers = mapInitLayerListToMapLayers(rows);
-  setCachedMapLayers(layers);
-  return layers;
 }
 
 /**
  * Load pain points for the selected layer id.
- * Production: GET /init/:layerId via {@link fetchInitLayer}.
+ * Production: GET /init/:layerId via {@link fetchLayerDataPoints}.
  */
 export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
   if (useMockApi) {
@@ -119,12 +83,12 @@ export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
     return [];
   }
   if (isLayerCacheEmpty()) {
-    console.warn(
-      "[client] fetchPoints before fetchLayers — layer cache empty; painorigin fallbacks may use wrong defaults. Call fetchLayers first.",
+    throw new Error(
+      "[client] fetchPoints called before fetchLayers — layer cache is empty. Call fetchLayers first.",
     );
   }
-  const raw = await fetchInitLayer(layerId);
-  return mapInitResponseToPainPoints(raw);
+  const initLayerRows = await fetchLayerDataPoints(layerId);
+  return mapInitResponseToPainPoints(initLayerRows, layerId);
 }
 
 /** Dev mock only until pain-server exposes a submission endpoint. */

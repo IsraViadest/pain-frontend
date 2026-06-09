@@ -1,5 +1,5 @@
 /**
- * Normalizes pain-server GET /init/ (layer metadata list) into {@link MapLayer}s.
+ * Normalizes pain-server GET /init (layer metadata list) into {@link MapLayer}s.
  */
 import type { MapLayer } from "../types/api";
 import type { PainServerLayerRow } from "../types/painServer";
@@ -18,9 +18,10 @@ function pickBoolean(row: Record<string, unknown>, key: string): boolean | null 
 }
 
 /**
- * Parse one object from GET /init/, or null if required fields are missing or invalid.
+ * Validate and normalize one layer metadata object from GET /init.
  *
  * @param initLayerRow — single JSON object from the layer list response.
+ * @returns A {@link PainServerLayerRow} when required fields are present; `null` if the shape or any required field is invalid.
  */
 function normalizeInitLayerRow(initLayerRow: unknown): PainServerLayerRow | null {
   if (initLayerRow == null || typeof initLayerRow !== "object") return null;
@@ -40,9 +41,9 @@ function normalizeInitLayerRow(initLayerRow: unknown): PainServerLayerRow | null
 }
 
 /**
- * Map validated GET /init/ rows to HUD {@link MapLayer}s (field order matches API).
+ * Map validated GET /init rows to HUD {@link MapLayer}s (field order matches API).
  *
- * @param initLayerRows — parsed response body from {@link fetchInitLayerList}.
+ * @param initLayerRows — parsed response body from {@link fetchLayerInfo}.
  */
 export function mapInitLayerListToMapLayers(initLayerRows: PainServerLayerRow[]): MapLayer[] {
   const layers: MapLayer[] = [];
@@ -61,9 +62,9 @@ export function mapInitLayerListToMapLayers(initLayerRows: PainServerLayerRow[])
 }
 
 /**
- * Validate each row from GET /init/; skip invalid entries with a warning.
+ * Validate each row from GET /init; skip invalid entries with a warning.
  *
- * @param initLayerListRows — raw JSON array from pain-server GET /init/.
+ * @param initLayerListRows — raw JSON array from pain-server GET /init.
  */
 export function parseInitLayerListResponse(initLayerListRows: unknown[]): PainServerLayerRow[] {
   const rows: PainServerLayerRow[] = [];

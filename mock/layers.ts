@@ -1,15 +1,12 @@
 /**
  * Shared mock layer metadata for dev only (`npm run dev` + Express `server/`).
  *
- * Imported by `src/api/layers.ts` (HUD mock layer list) and `server/index.ts`
- * (`GET /api/map/layers`). Production uses pain-server GET /init/ instead.
- *
- * Frontend-only fields or copy overrides belong in `src/api/layers.ts` — extend or
- * map over {@link MOCK_LAYERS} there; do not add UI-only properties to this file.
+ * Imported by `mock/loadMapLayers.ts` (HUD mock layer list), `server/index.ts`
+ * (`GET /api/map/layers`). Production uses pain-server GET /init instead.
  */
 
-/** Mock layer row shape (matches pain-server GET /init/ and {@link ../src/types/api.ts MapLayer}). */
-type MockLayerFixture = {
+/** Mock layer row shape (matches pain-server GET /init and {@link ../src/types/api.ts MapLayer}). */
+export type MockLayerFixture = {
   id: string;
   label: string;
   desc: string;

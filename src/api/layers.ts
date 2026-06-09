@@ -1,52 +1,39 @@
 import type { MapLayer } from "../types/api";
 
-// Layer ids: production HUD uses Env / Emo / … (GET /init/); dev mock uses environmental / emotional / … — see LAYER_ID_TO_LEXICON_BUCKET and docs/BACKEND_CONTRACT.md.
-
-// --- Row painorigin → layer id (production point rows) ---
+// Production HUD layer ids from GET /init. Mock mode uses different ids — see docs/BACKEND_CONTRACT.md.
 
 /**
- * painorigin column values on point rows — maps to production layer ids from GET /init/.
- * Row painorigin (e.g. EnvNat) differs from layer list id (e.g. Env).
- * @see http://178.63.65.178:3000/init/Env (painorigin on rows)
+ * Production layer id → semantic word-list bucket for word-cloud fallbacks.
+ *
+ * Placeholder until GET /init provides `lexicon_bucket` per layer.
+ * TODO: Remove when pain-server exposes lexicon_bucket on layer metadata.
+ *
+ * Mock mode layer ids (e.g. `environmental`) are not in this map — fallbacks use "generic".
  */
-const PAIN_ORIGIN_TO_LAYER_ID: Record<string, string> = {
-  EnvNat: "Env",
-  Emo: "Emo",
-  Phys: "Phys",
-  Socioeco: "Socioeco",
-};
-
-// --- Lexicon bucket (mock + prod layer ids → semantic word-list key) ---
-
-/** Maps layer list id (Env, Emo, …) or mock id (environmental, …) → semantic fallback word bucket. */
 const LAYER_ID_TO_LEXICON_BUCKET: Record<string, string> = {
   Env: "environmental",
-  environmental: "environmental",
   Phys: "physical",
-  physical: "physical",
   Emo: "emotional",
-  emotional: "emotional",
   Socioeco: "socioeconomic",
-  socioeconomic: "socioeconomic",
 };
 
 /**
  * Resolve a layer id to a semantic lexicon bucket for word-cloud fallback words.
  *
- * @param layerId — e.g. `Emo` or mock `emotional`
+ * @param layerId — layer id from GET /init (actual value defined by the API)
  */
 export function resolveLayerLexiconBucket(layerId: string): string {
   const bucket = LAYER_ID_TO_LEXICON_BUCKET[layerId.trim()];
   if (bucket) return bucket;
   console.warn(
-    `[layers] Unknown layer id for lexicon bucket "${layerId}" — using "generic".`,
+    `[layers] No lexicon bucket for layer id "${layerId}" — using "generic". Mock mode? Prod ids only in LAYER_ID_TO_LEXICON_BUCKET.`,
   );
   return "generic";
 }
 
 // --- Runtime layer cache (populated by client.fetchLayers) ---
 
-/** Last layer list from {@link ../client.ts fetchLayers} — used for unknown painorigin fallback. */
+/** Last layer list from {@link ../client.ts fetchLayers} — HUD lookup via {@link getMapLayerById}. */
 let cachedMapLayers: MapLayer[] = [];
 
 /** Store the layer list after a successful {@link ../client.ts fetchLayers} call. */
@@ -66,29 +53,4 @@ export function isLayerCacheEmpty(): boolean {
 /** Lookup a layer from the cache populated by {@link setCachedMapLayers} / {@link ../client.ts fetchLayers}. */
 export function getMapLayerById(id: string): MapLayer | undefined {
   return cachedMapLayers.find((layer) => layer.id === id);
-}
-
-/** First cached layer id, or `"Env"` when the cache is empty (e.g. fetchPoints before fetchLayers). */
-function getDefaultLayerId(): string {
-  const first = cachedMapLayers[0];
-  if (first?.id) return first.id;
-  return "Env";
-}
-
-/**
- * Map pain-server row `painorigin` to layer id (markers / styling).
- *
- * @param painorigin — e.g. `EnvNat` → `Env`
- */
-export function painOriginToUiLayerId(painorigin: string): string {
-  const key = painorigin.trim();
-  const layerId = PAIN_ORIGIN_TO_LAYER_ID[key];
-  if (layerId) return layerId;
-
-  const fallbackId = getDefaultLayerId();
-  const expected = Object.keys(PAIN_ORIGIN_TO_LAYER_ID).join(", ");
-  console.warn(
-    `[layers] Unknown painorigin "${painorigin}" — expected one of: ${expected}. Using "${fallbackId}".`,
-  );
-  return fallbackId;
 }
