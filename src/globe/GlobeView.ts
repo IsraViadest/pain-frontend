@@ -106,14 +106,34 @@ const GLOW_RADIUS = RADIUS * 1.09;
 const MARKER_BASE_RADIUS = 0.018;
 const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
 const MARKER_SPHERE_HEIGHT_SEGMENTS = 8;
-const MARKER_ROUGHNESS = 0.4;
-const MARKER_METALNESS = 0.2;
+const MARKER_ROUGHNESS = 1.0;
+const MARKER_METALNESS = 0.0;
 /** Legacy per-marker emissiveIntensity = BASE + SCALE × intensity (see updateMarkerInstanceColors). */
-const MARKER_EMISSIVE_BASE = 0.35;
+const MARKER_EMISSIVE_BASE = 0.67;
+const MARKER_DEFAULT_OPACITY = 0.27;
+const MARKER_DEFAULT_RADIUS = 0.006;
 const MARKER_EMISSIVE_INTENSITY_SCALE = 0.5;
 /** Grow instanced buffer when point count exceeds capacity. */
 const MARKER_INSTANCE_CAPACITY_GROWTH = 1.25;
 const MARKER_INSTANCE_INITIAL_CAPACITY = 256;
+
+/** Default pain-marker look (debug panel Markers section; geometry uses {@link MARKER_BASE_RADIUS} as unit scale). */
+const GLOBE_MARKER_TUNE_DEFAULTS = {
+  radius: MARKER_DEFAULT_RADIUS,
+  roughness: MARKER_ROUGHNESS,
+  metalness: MARKER_METALNESS,
+  opacity: MARKER_DEFAULT_OPACITY,
+  emissiveBase: MARKER_EMISSIVE_BASE,
+} as const;
+
+export type GlobeMarkerTune = {
+  radius: number;
+  roughness: number;
+  metalness: number;
+  opacity: number;
+  emissiveBase: number;
+};
+
 const GLOW_VS = /* glsl */ `
 varying float vGlow;
 void main() {
@@ -335,6 +355,8 @@ export class GlobeView {
   private readonly debugLayerOverrides = new Map<GlobeDebugLayerId, boolean>();
   /** Live tuning (debug panel sliders) — see GLOBE_DEBUG_TUNE_DEFAULTS. */
   private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
+  /** Pain marker material / size (debug panel Markers section). */
+  private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -520,6 +542,33 @@ export class GlobeView {
       this.painVizMode === "multiplex-v0"
     ) {
       this.scheduleScarFieldRebuild();
+    }
+  }
+
+  /** Current pain-marker tuning (debug panel Markers section). */
+  getMarkerTune(): GlobeMarkerTune {
+    return { ...this.markerTune };
+  }
+
+  /** Adjust pain-marker tuning (debug panel). Material updates live; radius rebuilds instance matrices. */
+  setMarkerTune(partial: Partial<GlobeMarkerTune>): void {
+    const radiusChanged =
+      partial.radius !== undefined && partial.radius !== this.markerTune.radius;
+    this.markerTune = { ...this.markerTune, ...partial };
+    this.applyMarkerMaterialTune();
+    if (radiusChanged && this.painVizMode === "points") {
+      this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
+    } else if (partial.emissiveBase !== undefined && this.lastPainPoints.length > 0) {
+      this.updateMarkerInstanceColors(this.lastPainPoints);
+    }
+  }
+
+  /** Restore {@link GLOBE_MARKER_TUNE_DEFAULTS} and re-apply marker look. */
+  resetMarkerTune(): void {
+    this.markerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+    this.applyMarkerMaterialTune();
+    if (this.painVizMode === "points" && this.lastPainPoints.length > 0) {
+      this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     }
   }
 
@@ -1434,14 +1483,31 @@ export class GlobeView {
   private createMarkerMaterial(): THREE.MeshStandardMaterial {
     const mat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: MARKER_ROUGHNESS,
-      metalness: MARKER_METALNESS,
+      roughness: this.markerTune.roughness,
+      metalness: this.markerTune.metalness,
+      opacity: this.markerTune.opacity,
+      transparent: this.markerTune.opacity < 1,
     });
     const mClip = mat as unknown as MaterialWithClipping;
     mClip.clipping = true;
     mClip.clipIntersection = false;
     mClip.clippingPlanes = this.clipPlanesFront;
     return mat;
+  }
+
+  /** Live marker material from {@link markerTune} (roughness, metalness, opacity). */
+  private applyMarkerMaterialTune(): void {
+    if (!this.markerMaterial) return;
+    this.markerMaterial.roughness = this.markerTune.roughness;
+    this.markerMaterial.metalness = this.markerTune.metalness;
+    this.markerMaterial.opacity = this.markerTune.opacity;
+    this.markerMaterial.transparent = this.markerTune.opacity < 1;
+    this.markerMaterial.needsUpdate = true;
+  }
+
+  /** Unit geometry is {@link MARKER_BASE_RADIUS}; tune radius scales each instance matrix at its surface position. */
+  private markerInstanceScaleFactor(): number {
+    return this.markerTune.radius / MARKER_BASE_RADIUS;
   }
 
   private disposePainMarkersInstanced(): void {
@@ -1525,7 +1591,7 @@ export class GlobeView {
     if (this.markerMaterial) {
       this.markerMaterial.color.set(0xffffff);
       this.markerMaterial.emissive.copy(base);
-      this.markerMaterial.emissiveIntensity = MARKER_EMISSIVE_BASE;
+      this.markerMaterial.emissiveIntensity = this.markerTune.emissiveBase;
       this.markerMaterial.needsUpdate = true;
     }
 
@@ -1536,7 +1602,8 @@ export class GlobeView {
     for (let i = 0; i < points.length; i++) {
       const intensity = points[i]!.intensity;
       const scale =
-        MARKER_EMISSIVE_BASE + MARKER_EMISSIVE_INTENSITY_SCALE * intensity;
+        this.markerTune.emissiveBase +
+        MARKER_EMISSIVE_INTENSITY_SCALE * intensity;
       this.markerTempColor.copy(base).multiplyScalar(scale);
       mesh.setColorAt(i, this.markerTempColor);
     }
@@ -1556,6 +1623,8 @@ export class GlobeView {
     }
 
     const mesh = this.ensurePainMarkersInstanced(points.length);
+    const scale = this.markerInstanceScaleFactor();
+    this.markerTempScale.set(scale, scale, scale);
     for (let i = 0; i < points.length; i++) {
       const p = points[i]!;
       this.markerTempPosition.copy(latLngToVector3(p.lat, p.lng, RADIUS));
