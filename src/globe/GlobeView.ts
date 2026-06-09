@@ -108,11 +108,16 @@ const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
 const MARKER_SPHERE_HEIGHT_SEGMENTS = 8;
 const MARKER_ROUGHNESS = 1.0;
 const MARKER_METALNESS = 0.0;
-/** Legacy per-marker emissiveIntensity = BASE + SCALE × intensity (see updateMarkerInstanceColors). */
+/** Per-instance emissive scale = effectiveBase + INTENSITY_SCALE × intensity (see markerEmissiveScale). */
 const MARKER_EMISSIVE_BASE = 0.67;
+/** Minimum emissive floor when tuning emissiveBase down (low-intensity markers stay visible). */
+const MARKER_EMISSIVE_BASE_MIN = 0.25;
 const MARKER_DEFAULT_OPACITY = 0.27;
 const MARKER_DEFAULT_RADIUS = 0.006;
 const MARKER_EMISSIVE_INTENSITY_SCALE = 0.5;
+/** Instance radius multiplier at intensity 0 (scales up by MARKER_RADIUS_INTENSITY_SPAN toward 1). */
+const MARKER_RADIUS_INTENSITY_MIN = 0.7;
+const MARKER_RADIUS_INTENSITY_SPAN = 0.6;
 /** Grow instanced buffer when point count exceeds capacity. */
 const MARKER_INSTANCE_CAPACITY_GROWTH = 1.25;
 const MARKER_INSTANCE_INITIAL_CAPACITY = 256;
@@ -554,7 +559,14 @@ export class GlobeView {
   setMarkerTune(partial: Partial<GlobeMarkerTune>): void {
     const radiusChanged =
       partial.radius !== undefined && partial.radius !== this.markerTune.radius;
-    this.markerTune = { ...this.markerTune, ...partial };
+    const merged = { ...this.markerTune, ...partial };
+    if (partial.emissiveBase !== undefined) {
+      merged.emissiveBase = Math.max(
+        MARKER_EMISSIVE_BASE_MIN,
+        partial.emissiveBase,
+      );
+    }
+    this.markerTune = merged;
     this.applyMarkerMaterialTune();
     if (radiusChanged && this.painVizMode === "points") {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
@@ -1505,9 +1517,30 @@ export class GlobeView {
     this.markerMaterial.needsUpdate = true;
   }
 
-  /** Unit geometry is {@link MARKER_BASE_RADIUS}; tune radius scales each instance matrix at its surface position. */
-  private markerInstanceScaleFactor(): number {
-    return this.markerTune.radius / MARKER_BASE_RADIUS;
+  /** Clamped {@link markerTune.emissiveBase} — floor ensures low-intensity markers stay visible. */
+  private markerEmissiveBaseEffective(): number {
+    return Math.max(MARKER_EMISSIVE_BASE_MIN, this.markerTune.emissiveBase);
+  }
+
+  /** Per-instance emissive multiplier from stored intensity (colors only; no matrix rebuild). */
+  private markerEmissiveScale(intensity: number): number {
+    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    const clampedIntensity = Math.min(1, Math.max(0, intensity));
+    return (
+      this.markerEmissiveBaseEffective() +
+      MARKER_EMISSIVE_INTENSITY_SCALE * clampedIntensity
+    );
+  }
+
+  /** Instance matrix scale from base tune radius × intensity (baked per point in rebuild). */
+  private markerInstanceScaleForPoint(intensity: number): number {
+    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    const clampedIntensity = Math.min(1, Math.max(0, intensity));
+    const worldRadius =
+      this.markerTune.radius *
+      (MARKER_RADIUS_INTENSITY_MIN +
+        MARKER_RADIUS_INTENSITY_SPAN * clampedIntensity);
+    return worldRadius / MARKER_BASE_RADIUS;
   }
 
   private disposePainMarkersInstanced(): void {
@@ -1582,16 +1615,17 @@ export class GlobeView {
     performance.clearMarks("pain-markers-rebuild-end");
   }
 
-  /** Per-instance tint from layer color × intensity; does not touch instance matrices. */
+  /** Per-instance tint from layer color × emissive scale; does not touch instance matrices. */
   private updateMarkerInstanceColors(points: PainPoint[]): void {
     const mesh = this.painMarkersInstanced;
     if (!mesh || points.length === 0) return;
 
     const base = this.markerColorForActiveLayer();
+    const effectiveBase = this.markerEmissiveBaseEffective();
     if (this.markerMaterial) {
       this.markerMaterial.color.set(0xffffff);
       this.markerMaterial.emissive.copy(base);
-      this.markerMaterial.emissiveIntensity = this.markerTune.emissiveBase;
+      this.markerMaterial.emissiveIntensity = effectiveBase;
       this.markerMaterial.needsUpdate = true;
     }
 
@@ -1600,10 +1634,7 @@ export class GlobeView {
     }
 
     for (let i = 0; i < points.length; i++) {
-      const intensity = points[i]!.intensity;
-      const scale =
-        this.markerTune.emissiveBase +
-        MARKER_EMISSIVE_INTENSITY_SCALE * intensity;
+      const scale = this.markerEmissiveScale(points[i]!.intensity);
       this.markerTempColor.copy(base).multiplyScalar(scale);
       mesh.setColorAt(i, this.markerTempColor);
     }
@@ -1623,10 +1654,10 @@ export class GlobeView {
     }
 
     const mesh = this.ensurePainMarkersInstanced(points.length);
-    const scale = this.markerInstanceScaleFactor();
-    this.markerTempScale.set(scale, scale, scale);
     for (let i = 0; i < points.length; i++) {
       const p = points[i]!;
+      const scale = this.markerInstanceScaleForPoint(p.intensity);
+      this.markerTempScale.set(scale, scale, scale);
       this.markerTempPosition.copy(latLngToVector3(p.lat, p.lng, RADIUS));
       this.markerTempMatrix.compose(
         this.markerTempPosition,

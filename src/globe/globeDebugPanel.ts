@@ -253,8 +253,8 @@ const MARKER_TUNE_SLIDERS: MarkerTuneSliderSpec[] = [
   {
     key: "emissiveBase",
     label: "Emissive intensity",
-    hint: "Base emissive scale before intensity × per-point factor.",
-    min: 0,
+    hint: "Emissive floor (min 0.25 — ensures low-intensity points stay visible)",
+    min: 0.25,
     max: 1,
     step: 0.01,
     decimals: 2,
