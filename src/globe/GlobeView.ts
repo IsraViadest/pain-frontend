@@ -148,9 +148,9 @@ export type GlobeHeatTune = HeatMapBuildParams & {
 };
 
 const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
-  peakPower: 2,
-  peakFloor: 0,
-  heatStrength: HEAT_MAP_STRENGTH_DEFAULT,
+  peakPower: 0.7,
+  peakFloor: 0.02,
+  heatStrength: 2.3,
 };
 
 const GLOW_VS = /* glsl */ `
