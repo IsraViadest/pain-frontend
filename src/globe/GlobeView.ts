@@ -15,7 +15,10 @@ import {
   type VisualTheme,
 } from "./layerTextures";
 import { latLngToVector3 } from "./latLng";
-import { createPainHeatTexture } from "./painHeatField";
+import {
+  createPainHeatTexture,
+  type HeatMapBuildParams,
+} from "./painHeatField";
 import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
@@ -83,8 +86,8 @@ const SCAR_HEIGHT_MAP_TUNE_KEYS: readonly (keyof GlobeDebugTune)[] = [
 ];
 
 const STIPPLE_FACING_CULL_OFF = -0.5;
-/** Land stipple heat-map tint strength (0–1). */
-const SCAR_HEAT_STRENGTH = 2.82;
+/** Default stipple heat-map mix strength (debug panel Heat map section). */
+const HEAT_MAP_STRENGTH_DEFAULT = 2.82;
 /** Runtime Three.js supports clipping on materials; some @types/three versions omit it. */
 type MaterialWithClipping = THREE.Material & {
   clipping: boolean;
@@ -137,6 +140,17 @@ export type GlobeMarkerTune = {
   metalness: number;
   opacity: number;
   emissiveBase: number;
+};
+
+/** Heat texture stamp curve + stipple mix strength (debug panel Heat map section). */
+export type GlobeHeatTune = HeatMapBuildParams & {
+  heatStrength: number;
+};
+
+const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
+  peakPower: 2,
+  peakFloor: 0,
+  heatStrength: HEAT_MAP_STRENGTH_DEFAULT,
 };
 
 const GLOW_VS = /* glsl */ `
@@ -370,6 +384,7 @@ export class GlobeView {
   private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
   /** Pain marker material / size (debug panel Markers section). */
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+  private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -589,6 +604,36 @@ export class GlobeView {
     this.applyMarkerMaterialTune();
     if (this.painVizMode === "points" && this.lastPainPoints.length > 0) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
+    }
+  }
+
+  /** Current heat-map build + stipple mix tuning (debug panel Heat map section). */
+  getHeatTune(): GlobeHeatTune {
+    return { ...this.heatTune };
+  }
+
+  /** Adjust heat stamp curve and/or stipple mix; peak params rebuild the heat texture. */
+  setHeatTune(partial: Partial<GlobeHeatTune>): void {
+    const peakChanged =
+      (partial.peakPower !== undefined &&
+        partial.peakPower !== this.heatTune.peakPower) ||
+      (partial.peakFloor !== undefined &&
+        partial.peakFloor !== this.heatTune.peakFloor);
+    this.heatTune = { ...this.heatTune, ...partial };
+    if (peakChanged && this.lastPainPoints.length > 0) {
+      this.rebuildPainHeatMap();
+    } else {
+      this.applyStippleHeatUniforms();
+    }
+  }
+
+  /** Restore {@link GLOBE_HEAT_TUNE_DEFAULTS}, rebuild heat texture, reapply uniforms. */
+  resetHeatTune(): void {
+    this.heatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
+    if (this.lastPainPoints.length > 0) {
+      this.rebuildPainHeatMap();
+    } else {
+      this.applyStippleHeatUniforms();
     }
   }
 
@@ -1110,6 +1155,21 @@ export class GlobeView {
     drawScarMapPreview(this.scarMapPreviewCanvas, this.scarDisplacementMap);
   }
 
+  /** Rebuild CPU heat texture from {@link lastPainPoints} and current {@link heatTune} peak curve. */
+  private rebuildPainHeatMap(): void {
+    if (this.painHeatMap) {
+      this.painHeatMap.dispose();
+      this.painHeatMap = null;
+    }
+    if (this.lastPainPoints.length > 0) {
+      this.painHeatMap = createPainHeatTexture(this.lastPainPoints, {
+        peakPower: this.heatTune.peakPower,
+        peakFloor: this.heatTune.peakFloor,
+      });
+    }
+    this.applyStippleHeatUniforms();
+  }
+
   /** Build scar height map off the hot path (full layers are ~20k rows). */
   private scheduleScarFieldRebuild(): void {
     const generation = ++this.scarBuildGeneration;
@@ -1149,7 +1209,10 @@ export class GlobeView {
           blurPass2Radius: this.debugTune.scarBlurPass2Radius,
         },
       );
-      this.painHeatMap = createPainHeatTexture(points);
+      this.painHeatMap = createPainHeatTexture(points, {
+        peakPower: this.heatTune.peakPower,
+        peakFloor: this.heatTune.peakFloor,
+      });
       this.updateScarMapPreview();
       void this.ensureStipple().then(() => {
         if (generation !== this.scarBuildGeneration) return;
@@ -1289,7 +1352,7 @@ export class GlobeView {
       scars && Boolean(this.painHeatMap),
     );
     u.uHeatActive.value = heatOn ? 1 : 0;
-    u.uHeatStrength.value = SCAR_HEAT_STRENGTH;
+    u.uHeatStrength.value = this.heatTune.heatStrength;
     if (heatOn && this.painHeatMap) {
       this.painHeatMap.needsUpdate = true;
       u.uHeatMap.value = this.painHeatMap;

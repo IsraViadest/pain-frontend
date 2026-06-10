@@ -56,11 +56,42 @@ function makeHeatDataTexture(bytes: Uint8Array): THREE.DataTexture {
   return tex;
 }
 
+/** Stamp peak curve for {@link createPainHeatTexture} (debug panel Heat map section). */
+export type HeatMapBuildParams = {
+  /** Exponent on clamped intensity; 2 = quadratic (low values contribute much less). */
+  peakPower: number;
+  /** Minimum stamp peak at intensity 0; blends up to 1.0 at intensity 1. */
+  peakFloor: number;
+};
+
+const DEFAULT_HEAT_MAP_BUILD: HeatMapBuildParams = {
+  peakPower: 2,
+  peakFloor: 0,
+};
+
+/**
+ * Stamp peak from intensity: floor + (1 − floor) × intensity^power.
+ * At floor 0, power 2 → intensity² (quadratic contrast).
+ */
+function heatStampPeak(
+  intensity: number,
+  { peakPower, peakFloor }: HeatMapBuildParams,
+): number {
+  // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+  const clampedIntensity = THREE.MathUtils.clamp(intensity, 0, 1);
+  return (
+    peakFloor + (1 - peakFloor) * clampedIntensity ** peakPower
+  );
+}
+
 /**
  * Accumulated pain intensity (0–1) per texel; wider stamps + blur than scar dents.
  * Sample on land stipple for a heat-map tint (cool → hot).
  */
-export function createPainHeatTexture(points: PainPoint[]): THREE.DataTexture {
+export function createPainHeatTexture(
+  points: PainPoint[],
+  buildParams: HeatMapBuildParams = DEFAULT_HEAT_MAP_BUILD,
+): THREE.DataTexture {
   const heatAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
 
   for (const p of points) {
@@ -68,7 +99,7 @@ export function createPainHeatTexture(points: PainPoint[]): THREE.DataTexture {
     // Rendering-only clamp: does not modify PainPoint.intensity (Pattern 19 — adapter stores API value as-is).
     const inten = THREE.MathUtils.clamp(p.intensity, 0, 1);
     const radiusPx = Math.round(10 + 28 * (0.25 + 0.75 * inten));
-    const peak = 0.25 + 0.75 * inten;
+    const peak = heatStampPeak(inten, buildParams);
 
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
       const iy = cy + dy;
