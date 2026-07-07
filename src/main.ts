@@ -266,16 +266,18 @@ function renderWordCloudHover(info: WordCloudHoverInfo): string {
   return `<strong>${info.country}</strong><br/>${info.shortLabel}<br/>${msg}`;
 }
 
+/** Pixel offset from cursor when positioning the floating hover tooltip (avoids covering the pointer). */
+const HOVER_TOOLTIP_OFFSET_X = 14;
+const HOVER_TOOLTIP_OFFSET_Y = 12;
+
 canvas.addEventListener("pointermove", (ev) => {
-  const offsetX = 14;
-  const offsetY = 12;
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
     const w = globe.pickWordCloudHover(ev.clientX, ev.clientY);
     if (w) {
       hoverModal.hidden = false;
       hoverModal.innerHTML = renderWordCloudHover(w);
-      hoverModal.style.left = `${ev.clientX + offsetX}px`;
-      hoverModal.style.top = `${ev.clientY + offsetY}px`;
+      hoverModal.style.left = `${ev.clientX + HOVER_TOOLTIP_OFFSET_X}px`;
+      hoverModal.style.top = `${ev.clientY + HOVER_TOOLTIP_OFFSET_Y}px`;
       return;
     }
   }
@@ -284,8 +286,8 @@ canvas.addEventListener("pointermove", (ev) => {
     if (marker) {
       hoverModal.hidden = false;
       hoverModal.innerHTML = renderMarkerHover(marker);
-      hoverModal.style.left = `${ev.clientX + offsetX}px`;
-      hoverModal.style.top = `${ev.clientY + offsetY}px`;
+      hoverModal.style.left = `${ev.clientX + HOVER_TOOLTIP_OFFSET_X}px`;
+      hoverModal.style.top = `${ev.clientY + HOVER_TOOLTIP_OFFSET_Y}px`;
       return;
     }
   }
@@ -300,8 +302,8 @@ canvas.addEventListener("pointermove", (ev) => {
   }
   hoverModal.hidden = false;
   hoverModal.innerHTML = renderMultiplexHover(info);
-  hoverModal.style.left = `${ev.clientX + offsetX}px`;
-  hoverModal.style.top = `${ev.clientY + offsetY}px`;
+  hoverModal.style.left = `${ev.clientX + HOVER_TOOLTIP_OFFSET_X}px`;
+  hoverModal.style.top = `${ev.clientY + HOVER_TOOLTIP_OFFSET_Y}px`;
 });
 
 canvas.addEventListener("pointerleave", () => {

@@ -1557,10 +1557,18 @@ export class GlobeView {
 
   /**
    * Quick capability probe: InstancedMesh.setColorAt + instanceColor with MeshStandardMaterial (Three r170).
-   * Falls back to uniform marker color when unavailable.
+   * When unavailable, markers use uniform layer emissive (no per-instance tint); intensity-based color
+   * variation is lost on that path, but intensity-based radius (instance matrices) still applies.
    */
   private static probeMarkerInstanceColorSupport(): boolean {
-    return typeof THREE.InstancedMesh.prototype.setColorAt === "function";
+    const supported =
+      typeof THREE.InstancedMesh.prototype.setColorAt === "function";
+    if (!supported) {
+      console.warn(
+        "[GlobeView] InstancedMesh.setColorAt unavailable — uniform layer emissive only (no per-instance tint); intensity-based radius unchanged.",
+      );
+    }
+    return supported;
   }
 
   private createMarkerMaterial(): THREE.MeshStandardMaterial {
@@ -1701,6 +1709,9 @@ export class GlobeView {
     }
 
     if (!this.markerUseInstanceColor || !mesh.instanceColor) {
+      console.warn(
+        "[GlobeView] Skipping per-instance marker tint — uniform layer emissive only (no per-instance tint); intensity-based radius unchanged.",
+      );
       return;
     }
 
