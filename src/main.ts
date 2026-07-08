@@ -58,6 +58,17 @@ if (
 const painVizEl = painVizSelect;
 painVizEl.value = PAIN_VIZ_MODE.scars;
 
+const hudRow = document.querySelector<HTMLDivElement>("#hud .row");
+if (!hudRow) throw new Error("Missing HUD button row");
+const sharePainBtn = document.createElement("button");
+sharePainBtn.type = "button";
+sharePainBtn.id = "share-pain";
+sharePainBtn.textContent = "Share your pain";
+hudRow.appendChild(sharePainBtn);
+sharePainBtn.addEventListener("click", () => {
+  console.log("survey open");
+});
+
 function readPainVizMode(): PainVisualizationMode {
   if (painVizEl.value === PAIN_VIZ_MODE.scars) return PAIN_VIZ_MODE.scars;
   if (painVizEl.value === PAIN_VIZ_MODE.multiplexV0) {
