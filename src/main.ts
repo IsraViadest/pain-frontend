@@ -29,6 +29,7 @@ import {
   mountGlobeDebugPanel,
   shouldShowGlobeDebugPanel,
 } from "./globe/globeDebugPanel";
+import { SurveyModal } from "./survey/SurveyModal";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -65,8 +66,12 @@ sharePainBtn.type = "button";
 sharePainBtn.id = "share-pain";
 sharePainBtn.textContent = "Share your pain";
 hudRow.appendChild(sharePainBtn);
+
+const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
+if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
+const surveyModal = new SurveyModal(surveyModalHost);
 sharePainBtn.addEventListener("click", () => {
-  console.log("survey open");
+  surveyModal.open();
 });
 
 function readPainVizMode(): PainVisualizationMode {
