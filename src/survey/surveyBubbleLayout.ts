@@ -102,7 +102,11 @@ function separatePair(
     const shift = overlapX / 2;
     const sign =
       dx === 0
-        ? tieBreakSign(a.anchor.dataset.word)
+        ? tieBreakSign(
+            a.anchor.dataset.word ??
+              a.anchor.dataset.relation ??
+              a.anchor.dataset.option,
+          )
         : Math.sign(dx);
     a.cx -= shift * sign;
     b.cx += shift * sign;
@@ -110,7 +114,11 @@ function separatePair(
     const shift = overlapY / 2;
     const sign =
       dy === 0
-        ? tieBreakSign(b.anchor.dataset.word)
+        ? tieBreakSign(
+            b.anchor.dataset.word ??
+              b.anchor.dataset.relation ??
+              b.anchor.dataset.option,
+          )
         : Math.sign(dy);
     a.cy -= shift * sign;
     b.cy += shift * sign;

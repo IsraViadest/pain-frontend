@@ -402,3 +402,50 @@
   outline: 2px solid rgba(255, 255, 255, 0.7);
   outline-offset: 2px;
 }
+
+/* Screen 3 — temporality selection */
+
+.survey-screen--3 {
+  padding-bottom: 72px;
+}
+
+.survey-screen__temporality-field {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 8px 4px 12px;
+}
+
+.survey-screen__temporality-field .survey-bubble-anchor {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(var(--bubble-rotate, 0deg))
+    scale(var(--bubble-scale, 1));
+  transition: transform 0.2s ease;
+}
+
+.survey-screen__temporality-field .survey-bubble-anchor:hover {
+  transform: translate(-50%, -50%) rotate(var(--bubble-rotate, 0deg))
+    scale(calc(var(--bubble-scale, 1) * 1.04));
+}
+
+.survey-screen--3 .survey-bubble {
+  padding: 1.4rem 2rem;
+}
+
+.survey-screen--3 .survey-bubble__label {
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+}
+
+/* Screen 4 — relations selection */
+
+.survey-screen--4 {
+  padding-bottom: 72px;
+}
+
+.survey-screen--4 .survey-bubble {
+  padding: 1.4rem 2rem;
+}
+
+.survey-screen--4 .survey-bubble__label {
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+}

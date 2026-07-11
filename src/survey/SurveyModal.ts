@@ -1,6 +1,8 @@
 import "./survey.css";
 import { mountSurveyScreen1 } from "./SurveyScreen1";
 import { mountSurveyScreen2 } from "./SurveyScreen2";
+import { mountSurveyScreen3 } from "./SurveyScreen3";
+import { mountSurveyScreen4 } from "./SurveyScreen4";
 import { SURVEY_FADE_MS, type SurveySessionState } from "./surveyData";
 
 type ActiveScreen = {
@@ -20,6 +22,8 @@ export class SurveyModal {
   private state: SurveySessionState = {
     selectedWords: new Set(),
     placements: [],
+    temporality: [],
+    relations: [],
   };
   private activeScreen: ActiveScreen | null = null;
   private currentScreen = 0;
@@ -63,7 +67,12 @@ export class SurveyModal {
   open(): void {
     if (this.isOpen) return;
     this.isOpen = true;
-    this.state = { selectedWords: new Set(), placements: [] };
+    this.state = {
+      selectedWords: new Set(),
+      placements: [],
+      temporality: [],
+      relations: [],
+    };
     this.host.setAttribute("aria-hidden", "false");
     this.host.classList.remove("survey-modal--closing");
 
@@ -143,6 +152,30 @@ export class SurveyModal {
     });
   }
 
+  private mountScreen3(): void {
+    this.activeScreen = mountSurveyScreen3(this.screenHost, {
+      state: this.state,
+      onBack: () => {
+        void this.goToScreen(2);
+      },
+      onAdvance: () => {
+        void this.goToScreen(4);
+      },
+    });
+  }
+
+  private mountScreen4(): void {
+    this.activeScreen = mountSurveyScreen4(this.screenHost, {
+      state: this.state,
+      onBack: () => {
+        void this.goToScreen(3);
+      },
+      onAdvance: () => {
+        void this.goToScreen(5);
+      },
+    });
+  }
+
   private async goToScreen(screen: number): Promise<void> {
     if (screen === this.currentScreen && this.activeScreen) return;
 
@@ -160,8 +193,14 @@ export class SurveyModal {
       this.mountScreen2();
       this.currentScreen = 2;
     } else if (screen === 3) {
-      console.log("screen 3");
+      this.mountScreen3();
       this.currentScreen = 3;
+    } else if (screen === 4) {
+      this.mountScreen4();
+      this.currentScreen = 4;
+    } else if (screen === 5) {
+      console.log("screen 5");
+      this.currentScreen = 5;
     } else {
       console.warn(`[SurveyModal] Screen ${screen} is not implemented yet.`);
       this.currentScreen = screen;

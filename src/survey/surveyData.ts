@@ -29,7 +29,62 @@ export type SurveyWordPlacement = {
 export type SurveySessionState = {
   selectedWords: Set<string>;
   placements: SurveyWordPlacement[];
+  temporality: string[];
+  relations: string[];
 };
+
+/** Screen 3 — how long the user has felt their pain (multi-select labels). */
+export const SURVEY_TEMPORALITY_OPTIONS = [
+  "days",
+  "weeks",
+  "months",
+  "years",
+  "my whole life",
+  "many generations",
+] as const;
+
+type SurveyTemporalityOption = (typeof SURVEY_TEMPORALITY_OPTIONS)[number];
+
+/** Fixed panel positions (% of field) — six options, no runtime layout needed. */
+export const SURVEY_TEMPORALITY_LAYOUT: Record<
+  SurveyTemporalityOption,
+  { left: number; top: number }
+> = {
+  days: { left: 32, top: 28 },
+  weeks: { left: 58, top: 35 },
+  months: { left: 42, top: 48 },
+  years: { left: 68, top: 42 },
+  "my whole life": { left: 52, top: 62 },
+  "many generations": { left: 28, top: 65 },
+};
+
+/** Screen 4 — who the user carries their pain with (multi-select labels). */
+export const SURVEY_RELATIONS_OPTIONS = [
+  "my mother",
+  "my father",
+  "my children",
+  "my grandparents",
+  "my family members",
+  "my extended family",
+  "my workplace",
+  "my community",
+  "my network",
+  "my garden",
+  "my microbes",
+  "my plants",
+  "my pets",
+  "the trees",
+  "the animals",
+  "the ocean",
+  "the sky",
+  "the river",
+  "the mountain",
+  "the forest",
+  "the nature",
+  "my ancestors",
+  "the stars",
+  "the moon",
+] as const;
 
 /** MIME type for HTML5 drag-and-drop word payloads between tray, map, and pins. */
 export const SURVEY_DRAG_WORD_MIME = "application/x-survey-word";
@@ -230,7 +285,9 @@ function cellInitOffset(word: string, axis: "x" | "y"): number {
 
 /** Grid-seeded starting center (% of field) with hash jitter — separation pass refines from here. */
 export function surveyInitialPosition(word: string): { left: number; top: number } {
-  const cellIndex = SURVEY_INIT_CELL_BY_WORD.get(word) ?? 0;
+  const cellIndex =
+    SURVEY_INIT_CELL_BY_WORD.get(word) ??
+    hashSurveyString(word) % (SURVEY_INIT_GRID_COLS * SURVEY_INIT_GRID_ROWS);
   const col = cellIndex % SURVEY_INIT_GRID_COLS;
   const row = Math.floor(cellIndex / SURVEY_INIT_GRID_COLS);
 
