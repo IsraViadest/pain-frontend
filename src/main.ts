@@ -30,6 +30,20 @@ import {
   shouldShowGlobeDebugPanel,
 } from "./globe/globeDebugPanel";
 import { SurveyModal } from "./survey/SurveyModal";
+import { flyGlobeToLatLng } from "./survey/globeFlyTo";
+import {
+  hideSurveyLoadingOverlay,
+  showSurveyLoadingOverlay,
+} from "./survey/surveyLoadingOverlay";
+import {
+  hideSurveyResultModal,
+  showSurveyResultModal,
+} from "./survey/surveyResultModal";
+import {
+  SURVEY_RESULT_DUMMY_LAT,
+  SURVEY_RESULT_DUMMY_LNG,
+  SURVEY_SUBMIT_DUMMY_DELAY_MS,
+} from "./survey/surveyData";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -69,10 +83,6 @@ hudRow.appendChild(sharePainBtn);
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
-const surveyModal = new SurveyModal(surveyModalHost);
-sharePainBtn.addEventListener("click", () => {
-  surveyModal.open();
-});
 
 function readPainVizMode(): PainVisualizationMode {
   if (painVizEl.value === PAIN_VIZ_MODE.scars) return PAIN_VIZ_MODE.scars;
@@ -139,6 +149,58 @@ const globeDebugHost = document.querySelector<HTMLElement>("#globe-debug-panel")
 const globeDebugToggle = document.querySelector<HTMLButtonElement>(
   "#globe-debug-toggle",
 );
+
+let postSubmitRunning = false;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function runPostSubmitSequence(): Promise<void> {
+  if (postSubmitRunning) return;
+  postSubmitRunning = true;
+  const overlayHost = appRoot;
+  if (!overlayHost) return;
+  try {
+    showSurveyLoadingOverlay(overlayHost);
+    await sleep(SURVEY_SUBMIT_DUMMY_DELAY_MS);
+    await hideSurveyLoadingOverlay();
+    globe.setAutoSpinEnabled(false);
+    const resultLat = SURVEY_RESULT_DUMMY_LAT;
+    const resultLng = SURVEY_RESULT_DUMMY_LNG;
+    await flyGlobeToLatLng(
+      globe.camera,
+      globe.controls,
+      resultLat,
+      resultLng,
+      globe.earthContent,
+    );
+    const removeSurfaceMarker = globe.addSurfaceMarker(resultLat, resultLng);
+    showSurveyResultModal(overlayHost, {
+      lat: resultLat,
+      lng: resultLng,
+      onClose: () => {
+        removeSurfaceMarker();
+        hideSurveyResultModal();
+        globe.setAutoSpinEnabled(true);
+      },
+    });
+  } finally {
+    postSubmitRunning = false;
+  }
+}
+
+const surveyModal = new SurveyModal(surveyModalHost, {
+  onSurveySubmitted: () => {
+    void runPostSubmitSequence();
+  },
+});
+
+sharePainBtn.addEventListener("click", () => {
+  surveyModal.open();
+});
 
 const showGlobeDebugEntry = shouldShowGlobeDebugPanel();
 let globeDebugMounted = false;

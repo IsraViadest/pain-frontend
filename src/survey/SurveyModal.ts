@@ -3,10 +3,15 @@ import { mountSurveyScreen1 } from "./SurveyScreen1";
 import { mountSurveyScreen2 } from "./SurveyScreen2";
 import { mountSurveyScreen3 } from "./SurveyScreen3";
 import { mountSurveyScreen4 } from "./SurveyScreen4";
+import { mountSurveyScreen5 } from "./SurveyScreen5";
 import { SURVEY_FADE_MS, type SurveySessionState } from "./surveyData";
 
 type ActiveScreen = {
   unmount: () => void;
+};
+
+type SurveyModalOptions = {
+  onSurveySubmitted?: () => void;
 };
 
 /**
@@ -19,11 +24,13 @@ export class SurveyModal {
   private readonly panel: HTMLElement;
   private readonly screenHost: HTMLElement;
   private readonly closeBtn: HTMLButtonElement;
+  private readonly onSurveySubmitted?: () => void;
   private state: SurveySessionState = {
     selectedWords: new Set(),
     placements: [],
     temporality: [],
     relations: [],
+    painText: "",
   };
   private activeScreen: ActiveScreen | null = null;
   private currentScreen = 0;
@@ -32,7 +39,8 @@ export class SurveyModal {
     this.finishClose();
   };
 
-  constructor(host: HTMLElement) {
+  constructor(host: HTMLElement, options: SurveyModalOptions = {}) {
+    this.onSurveySubmitted = options.onSurveySubmitted;
     this.host = host;
     this.host.classList.add("survey-modal");
     this.host.setAttribute("aria-hidden", "true");
@@ -72,6 +80,7 @@ export class SurveyModal {
       placements: [],
       temporality: [],
       relations: [],
+      painText: "",
     };
     this.host.setAttribute("aria-hidden", "false");
     this.host.classList.remove("survey-modal--closing");
@@ -176,6 +185,26 @@ export class SurveyModal {
     });
   }
 
+  private mountScreen5(): void {
+    this.activeScreen = mountSurveyScreen5(this.screenHost, {
+      state: this.state,
+      onBack: () => {
+        void this.goToScreen(4);
+      },
+      onSubmit: () => {
+        this.handleSurveySubmit();
+      },
+    });
+  }
+
+  private handleSurveySubmit(): void {
+    this.close();
+    if (!this.onSurveySubmitted) return;
+    window.setTimeout(() => {
+      this.onSurveySubmitted?.();
+    }, SURVEY_FADE_MS);
+  }
+
   private async goToScreen(screen: number): Promise<void> {
     if (screen === this.currentScreen && this.activeScreen) return;
 
@@ -199,7 +228,7 @@ export class SurveyModal {
       this.mountScreen4();
       this.currentScreen = 4;
     } else if (screen === 5) {
-      console.log("screen 5");
+      this.mountScreen5();
       this.currentScreen = 5;
     } else {
       console.warn(`[SurveyModal] Screen ${screen} is not implemented yet.`);

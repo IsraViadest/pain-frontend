@@ -449,3 +449,147 @@
 .survey-screen--4 .survey-bubble__label {
   font-size: clamp(1.1rem, 2vw, 1.4rem);
 }
+
+/* Screen 5 — pain description and submit */
+
+.survey-screen--5 {
+  padding-bottom: 72px;
+}
+
+.survey-screen__pain-text {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 8px auto 12px;
+  padding: 16px 18px;
+  box-sizing: border-box;
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+  line-height: 1.45;
+  color: #07153b;
+  resize: none;
+  outline: none;
+}
+
+.survey-screen__pain-text::placeholder {
+  color: rgba(7, 21, 59, 0.45);
+}
+
+.survey-screen__pain-text:focus,
+.survey-screen__pain-text:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Post-submit loading overlay */
+
+.survey-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  background: rgba(7, 21, 59, 0.42);
+  transition: opacity 300ms ease;
+}
+
+.survey-loading-overlay--visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.survey-loading-overlay__text {
+  margin: 0;
+  padding: 0 24px;
+  text-align: center;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(1rem, 2.2vw, 1.35rem);
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  animation: survey-loading-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes survey-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Post-submit result modal */
+
+.survey-result-modal {
+  position: fixed;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.survey-result-modal--visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.survey-result-modal__panel {
+  position: relative;
+  width: min(420px, calc(100vw - 48px));
+  padding: 16px 32px;
+  border-radius: 24px;
+  background: rgba(171, 172, 192, 0.95);
+  box-shadow:
+    0 0 48px rgba(59, 105, 204, 0.28),
+    0 18px 50px rgba(7, 21, 59, 0.12);
+  text-align: center;
+}
+
+.survey-result-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  color: #07153b;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.survey-result-modal__close:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.survey-result-modal__title {
+  margin: 0 0 12px;
+  font-family: "Atelier", serif;
+  font-size: clamp(1.2rem, 2.4vw, 1.55rem);
+  font-weight: normal;
+  letter-spacing: 0.08em;
+  color: #07153b;
+}
+
+.survey-result-modal__coords {
+  margin: 0;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.9rem, 1.8vw, 1.05rem);
+  color: #07153b;
+}
