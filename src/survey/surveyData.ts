@@ -18,10 +18,21 @@ type SurveyBlobDef = {
   paths: [string, string, string];
 };
 
+/** One word placed on the world map (Screen 2). */
+export type SurveyWordPlacement = {
+  word: string;
+  lat: number;
+  lng: number;
+};
+
 /** Shared session state owned by {@link SurveyModal}. */
 export type SurveySessionState = {
   selectedWords: Set<string>;
+  placements: SurveyWordPlacement[];
 };
+
+/** MIME type for HTML5 drag-and-drop word payloads between tray, map, and pins. */
+export const SURVEY_DRAG_WORD_MIME = "application/x-survey-word";
 
 /** Modal + screen fade duration (ms) — matches survey.css transitions. */
 export const SURVEY_FADE_MS = 300;

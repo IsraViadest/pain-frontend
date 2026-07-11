@@ -1,5 +1,6 @@
 import "./survey.css";
 import { mountSurveyScreen1 } from "./SurveyScreen1";
+import { mountSurveyScreen2 } from "./SurveyScreen2";
 import { SURVEY_FADE_MS, type SurveySessionState } from "./surveyData";
 
 type ActiveScreen = {
@@ -16,7 +17,10 @@ export class SurveyModal {
   private readonly panel: HTMLElement;
   private readonly screenHost: HTMLElement;
   private readonly closeBtn: HTMLButtonElement;
-  private state: SurveySessionState = { selectedWords: new Set() };
+  private state: SurveySessionState = {
+    selectedWords: new Set(),
+    placements: [],
+  };
   private activeScreen: ActiveScreen | null = null;
   private currentScreen = 0;
   private isOpen = false;
@@ -59,7 +63,7 @@ export class SurveyModal {
   open(): void {
     if (this.isOpen) return;
     this.isOpen = true;
-    this.state = { selectedWords: new Set() };
+    this.state = { selectedWords: new Set(), placements: [] };
     this.host.setAttribute("aria-hidden", "false");
     this.host.classList.remove("survey-modal--closing");
 
@@ -127,6 +131,18 @@ export class SurveyModal {
     });
   }
 
+  private mountScreen2(): void {
+    this.activeScreen = mountSurveyScreen2(this.screenHost, {
+      state: this.state,
+      onBack: () => {
+        void this.goToScreen(1);
+      },
+      onAdvance: () => {
+        void this.goToScreen(3);
+      },
+    });
+  }
+
   private async goToScreen(screen: number): Promise<void> {
     if (screen === this.currentScreen && this.activeScreen) return;
 
@@ -141,8 +157,11 @@ export class SurveyModal {
       this.mountScreen1();
       this.currentScreen = 1;
     } else if (screen === 2) {
-      console.log("screen 2");
+      this.mountScreen2();
       this.currentScreen = 2;
+    } else if (screen === 3) {
+      console.log("screen 3");
+      this.currentScreen = 3;
     } else {
       console.warn(`[SurveyModal] Screen ${screen} is not implemented yet.`);
       this.currentScreen = screen;

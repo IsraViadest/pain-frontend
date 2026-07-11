@@ -245,3 +245,160 @@
   outline: 2px solid rgba(255, 255, 255, 0.7);
   outline-offset: 2px;
 }
+
+/* Screen 2 — world map placement */
+
+.survey-screen--2 {
+  padding-bottom: 72px;
+}
+
+.survey-screen__map-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px 8px;
+}
+
+.survey-screen__map {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: invert(1);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.survey-screen__pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.survey-map-pin {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Anchor dot center (10px dot) on left/top, not the label stack bottom. */
+  transform: translate(-50%, calc(-100% + 5px));
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.survey-map-pin:active {
+  cursor: grabbing;
+}
+
+.survey-map-pin__label {
+  margin-bottom: 4px;
+  padding: 0 4px;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.65rem, 1.1vw, 0.8rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: #07153b;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.survey-map-pin__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #07153b;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.survey-screen__tray {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  max-height: 72px;
+  margin: 0 56px 4px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.survey-screen__tray-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+}
+
+.survey-screen__tray-empty-message {
+  margin: 0;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  color: #07153b;
+}
+
+.survey-tray-bubble {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  background: none !important;
+  background-color: transparent !important;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.survey-tray-bubble:active {
+  cursor: grabbing;
+}
+
+.survey-tray-bubble .survey-bubble__label {
+  font-size: clamp(0.72rem, 1.2vw, 0.88rem);
+  white-space: nowrap;
+}
+
+.survey-screen__back {
+  position: absolute;
+  left: 8px;
+  bottom: 4px;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(7, 21, 59, 0.88);
+  color: #ffffff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(7, 21, 59, 0.22);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.survey-screen__back:hover {
+  transform: translateX(-2px);
+  background: #07153b;
+}
+
+.survey-screen__back:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
