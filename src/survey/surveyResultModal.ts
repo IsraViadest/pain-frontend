@@ -41,7 +41,7 @@ export function showSurveyResultModal(
   closeBtn.type = "button";
   closeBtn.className = "survey-result-modal__close";
   closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.textContent = "×";
+  closeBtn.textContent = "CLOSE";
 
   const title = document.createElement("h2");
   title.className = "survey-result-modal__title";
@@ -52,13 +52,14 @@ export function showSurveyResultModal(
   coords.textContent = formatCoordinates(lat, lng);
 
   const handleClose = (): void => {
+    const cb = closeHandler;
     hideSurveyResultModal();
-    closeHandler?.();
+    cb?.();
   };
 
   closeBtn.addEventListener("click", handleClose);
-  panel.append(closeBtn, title, coords);
-  modalEl.appendChild(panel);
+  panel.append(title, coords);
+  modalEl.append(panel, closeBtn);
   host.appendChild(modalEl);
 }
 
