@@ -19,6 +19,7 @@ import {
   type GlobeLayerDisplayMeta,
   type MarkerHoverInfo,
   type MultiplexHoverInfo,
+  PAIN_VIZ_MODE,
   type PainVisualizationMode,
   type WordCloudHoverInfo,
 } from "./globe/GlobeView";
@@ -55,12 +56,14 @@ if (
 }
 
 const painVizEl = painVizSelect;
-painVizEl.value = "scars";
+painVizEl.value = PAIN_VIZ_MODE.scars;
 
 function readPainVizMode(): PainVisualizationMode {
-  if (painVizEl.value === "scars") return "scars";
-  if (painVizEl.value === "multiplex-v0") return "multiplex-v0";
-  return "points";
+  if (painVizEl.value === PAIN_VIZ_MODE.scars) return PAIN_VIZ_MODE.scars;
+  if (painVizEl.value === PAIN_VIZ_MODE.multiplexV0) {
+    return PAIN_VIZ_MODE.multiplexV0;
+  }
+  return PAIN_VIZ_MODE.points;
 }
 
 const hudStatus = statusEl;
@@ -281,7 +284,10 @@ canvas.addEventListener("pointermove", (ev) => {
       return;
     }
   }
-  if (shouldShowGlobeDebugPanel() && readPainVizMode() === "points") {
+  if (
+    shouldShowGlobeDebugPanel() &&
+    readPainVizMode() === PAIN_VIZ_MODE.points
+  ) {
     const marker = globe.pickMarkerHover(ev.clientX, ev.clientY);
     if (marker) {
       hoverModal.hidden = false;
@@ -291,7 +297,7 @@ canvas.addEventListener("pointermove", (ev) => {
       return;
     }
   }
-  if (readPainVizMode() !== "multiplex-v0") {
+  if (readPainVizMode() !== PAIN_VIZ_MODE.multiplexV0) {
     hoverModal.hidden = true;
     return;
   }
