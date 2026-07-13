@@ -30,6 +30,7 @@ import {
   shouldShowGlobeDebugPanel,
 } from "./globe/globeDebugPanel";
 import { SurveyModal } from "./survey/SurveyModal";
+import { mountSurveyLayoutDebug } from "./survey/surveyLayoutDebug";
 import { flyGlobeToLatLng } from "./survey/globeFlyTo";
 import {
   hideSurveyLoadingOverlay,
@@ -197,6 +198,11 @@ const surveyModal = new SurveyModal(surveyModalHost, {
     void runPostSubmitSequence();
   },
 });
+
+const surveyLayoutDebugCleanup = mountSurveyLayoutDebug();
+if (surveyLayoutDebugCleanup) {
+  window.addEventListener("unload", surveyLayoutDebugCleanup, { once: true });
+}
 
 sharePainBtn.addEventListener("click", () => {
   surveyModal.open();

@@ -1,3 +1,5 @@
+import { surveyLayoutOverrides } from "./surveyLayoutOverrides";
+
 /** Survey word category ids (pain-server layer families). */
 type SurveyWordCategory =
   | "emotional"
@@ -106,14 +108,18 @@ export const SURVEY_FLY_TO_CAMERA_RADIUS = 2.2;
 /** Post-submit globe fly-to animation length (ms). */
 export const SURVEY_FLY_TO_DURATION_MS = 2500;
 
+// Empirically tuned via surveyDebug panel — tested on Screen 1 (46 blobs) and Screen 4 (24 blobs)
 /** Minimum gap between bubble edges after runtime layout (px). */
-export const SURVEY_BUBBLE_GAP_PX = 12;
+export const SURVEY_BUBBLE_GAP_PX = 19;
 
 /** Max overlap-resolution iterations before logging a warning. */
-export const SURVEY_LAYOUT_MAX_ITERATIONS = 60;
+export const SURVEY_LAYOUT_MAX_ITERATIONS = 50;
 
 /** Fractional inset from bubble-field edges when clamping bubble centers. */
-export const SURVEY_FIELD_INSET_FRAC = 0.06;
+export const SURVEY_FIELD_INSET_FRAC = 0.03;
+
+/** Max hash jitter from cell center, as a fraction of cell width/height. */
+export const SURVEY_INIT_CELL_OFFSET_FRAC = 0.2;
 
 const SURVEY_WORD_CATEGORIES: Record<SurveyWordCategory, readonly string[]> =
   {
@@ -341,8 +347,6 @@ const SURVEY_WORD_SCALE_HASH_STEP = 0.01;
 // Loose starting grid — one unique cell per word before runtime separation.
 const SURVEY_INIT_GRID_COLS = 8;
 const SURVEY_INIT_GRID_ROWS = 6;
-// Max hash jitter from cell center, as a fraction of cell width/height.
-const SURVEY_INIT_CELL_OFFSET_FRAC = 0.3;
 
 const SURVEY_INIT_CELL_BY_WORD = new Map(
   [...SURVEY_WORDS]
@@ -355,10 +359,12 @@ const SURVEY_INIT_CELL_BY_WORD = new Map(
 );
 
 function cellInitOffset(word: string, axis: "x" | "y"): number {
+  const cellOffsetFrac =
+    surveyLayoutOverrides.initCellOffsetFrac ?? SURVEY_INIT_CELL_OFFSET_FRAC;
   const h = hashSurveyString(`${word}|init${axis}`) % 10000;
   const r01 = h / 10000; // 0..1
   const centered = r01 - 0.5; // -0.5..0.5
-  return centered * 2 * SURVEY_INIT_CELL_OFFSET_FRAC;
+  return centered * 2 * cellOffsetFrac;
 }
 
 /** Grid-seeded starting center (% of field) with hash jitter — separation pass refines from here. */
@@ -369,7 +375,7 @@ export function surveyInitialPosition(word: string): { left: number; top: number
   const col = cellIndex % SURVEY_INIT_GRID_COLS;
   const row = Math.floor(cellIndex / SURVEY_INIT_GRID_COLS);
 
-  const inset = SURVEY_FIELD_INSET_FRAC;
+  const inset = surveyLayoutOverrides.fieldInsetFrac ?? SURVEY_FIELD_INSET_FRAC;
   const fieldW = 1 - 2 * inset;
   const fieldH = 1 - 2 * inset;
   const cellW = fieldW / SURVEY_INIT_GRID_COLS;
