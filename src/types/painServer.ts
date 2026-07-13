@@ -24,3 +24,12 @@ export interface PainServerLayerRow {
   geospatial: boolean;
   text: boolean;
 }
+
+/**
+ * Envelope from pain-server GET /init (session user id + layer metadata list).
+ * Field names match the API exactly.
+ */
+export interface PainServerInitResponse {
+  userId: string;
+  layerInfo: PainServerLayerRow[];
+}

@@ -1,7 +1,14 @@
 /** pain-server HTTP client — production data path (no /server, no CSV). */
-import type { PainServerLayerRow, PainServerRow } from "../types/painServer";
+import type {
+  PainServerInitResponse,
+  PainServerLayerRow,
+  PainServerRow,
+} from "../types/painServer";
 import { apiUrl } from "./config";
 import { parseInitLayerListResponse } from "./initLayerList";
+import { clearPainServerUserId, setPainServerUserId } from "./session";
+
+const INIT_ENVELOPE_ERROR = "expected { userId, layerInfo } from GET /init";
 
 /** Read `fetch` body as JSON; throw with status + body text if the HTTP response failed. */
 async function parseJson<T>(res: Response): Promise<T> {
@@ -13,20 +20,37 @@ async function parseJson<T>(res: Response): Promise<T> {
 }
 
 /**
- * Layer metadata from pain-server GET /init (id, label, desc, color, geospatial, text).
+ * Layer metadata from pain-server GET /init (`userId` + `layerInfo` envelope).
+ * Caches `userId` via {@link setPainServerUserId}; returns validated `layerInfo` rows.
  * @see http://178.63.65.178:3000/init
  */
 export async function fetchLayerInfo(): Promise<PainServerLayerRow[]> {
+  clearPainServerUserId();
   const res = await fetch(apiUrl("/init"));
-  const body = await parseJson<PainServerLayerRow[]>(res);
-  if (!Array.isArray(body)) {
-    throw new Error("Expected JSON array from GET /init");
+  const body = await parseJson<unknown>(res);
+  if (body == null || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error(INIT_ENVELOPE_ERROR);
   }
-  const rows = parseInitLayerListResponse(body);
-  if (rows.length === 0) {
+  const envelope = body as Record<string, unknown>;
+  const rawUserId = envelope.userId;
+  const rawLayerInfo = envelope.layerInfo;
+  if (typeof rawUserId !== "string") {
+    throw new Error(INIT_ENVELOPE_ERROR);
+  }
+  if (!Array.isArray(rawLayerInfo)) {
+    throw new Error(INIT_ENVELOPE_ERROR);
+  }
+  const userId = rawUserId.trim();
+  if (userId.length === 0) {
+    console.warn("[painServer] GET /init returned empty userId after trim");
+  }
+  const layerInfo = parseInitLayerListResponse(rawLayerInfo);
+  if (layerInfo.length === 0) {
     throw new Error("GET /init returned no valid layer rows");
   }
-  return rows;
+  const initResponse: PainServerInitResponse = { userId, layerInfo };
+  setPainServerUserId(initResponse.userId);
+  return initResponse.layerInfo;
 }
 
 /**
