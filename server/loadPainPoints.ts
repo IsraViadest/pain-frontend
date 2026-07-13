@@ -36,9 +36,9 @@ function readCsv(file: string): Record<string, string>[] {
 function toPoint(
   id: string,
   country: Country,
-  type: string,
+  uiLayer: string,
   intensity: number,
-  element: string | undefined,
+  datatype: string | undefined,
   text: string | undefined,
   metadata?: PainPoint["metadata"],
 ): PainPoint {
@@ -47,9 +47,9 @@ function toPoint(
     id,
     lat,
     lng,
-    type,
     intensity: clamp01(intensity),
-    element,
+    datatype,
+    uiLayer,
     text,
     metadata,
     createdAt: "1970-01-01T00:00:00.000Z",

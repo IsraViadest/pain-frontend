@@ -1,22 +1,39 @@
+/**
+ * Scar height map (DataTexture) — not a visible shell.
+ * Fed into stipple vertex shader + CPU border warp; optional globe CPU warp when visible.
+ * Built by GlobeView.scheduleScarFieldRebuild() from API pain points.
+ */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { latLngToVector3 } from "./latLng";
+import { isDebugScarVisual } from "./debugScarVisual";
 
-/** Equirect resolution; must align with sphere UVs (same convention as stipple globe). */
-const MAP_W = 1024;
-const MAP_H = 512;
-const NEUTRAL_DEPTH = 128;
+/** Internal scar height-map resolution (rendering only; not the API data contract). */
+export const SCAR_MAP_WIDTH = 1000;
+export const SCAR_MAP_HEIGHT = 482;
+/** Flat surface in the scar height map (byte 0–255). 128 = neutral with displacement bias. */
+const SCAR_NEUTRAL_DEPTH = 128;
+const SCAR_MIN_DEPTH = 0;
 
-function latLngToEquirectUV(lat: number, lng: number): { u: number; v: number } {
-  return unitDirectionToGlobeEquirectUV(latLngToVector3(lat, lng, 1));
+/** WGS84 lat/lng → scar height-map texel (same equirect frame as stipple shader). */
+export function painPointToFieldTexel(p: PainPoint): { cx: number; cy: number } {
+  const maxCol = SCAR_MAP_WIDTH - 1;
+  const maxRow = SCAR_MAP_HEIGHT - 1;
+  const { u, v } = unitDirectionToGlobeEquirectUV(
+    latLngToVector3(p.lat, p.lng, 1),
+  );
+  return {
+    cx: Math.floor(((u % 1) + 1) % 1 * maxCol),
+    cy: Math.floor(THREE.MathUtils.clamp(v, 0, 1) * maxRow),
+  };
 }
 
 function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
   const tex = new THREE.DataTexture(
     bytes as unknown as ArrayBufferView<ArrayBuffer>,
-    MAP_W,
-    MAP_H,
+    SCAR_MAP_WIDTH,
+    SCAR_MAP_HEIGHT,
     THREE.RedFormat,
     THREE.UnsignedByteType,
   );
@@ -26,49 +43,207 @@ function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
   tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = false;
   tex.colorSpace = THREE.NoColorSpace;
+  tex.flipY = false;
   tex.needsUpdate = true;
   return tex;
 }
 
+type ScarMapBuildStats = {
+  layerId: string;
+  pointCount: number;
+  pointsConsidered: number;
+};
+
+/** CPU-side knobs for stamping + blurring before the scar DataTexture uploads to GPU. */
+type ScarHeightMapBuildParams = {
+  /** Floor on stamp radius in texture pixels (after intensity-based size). */
+  stampRadiusMin: number;
+  /** Scales footprint; large values merge sites and flatten detail. */
+  stampRadiusMul: number;
+  /** Scales dent depth in the texture (GPU scar displacement scale still applies). */
+  stampPeakMul: number;
+  /** Gaussian shoulder `exp(-t² × σ)`; higher = tighter, more peaked bumps. */
+  falloffSigma: number;
+  /** Box-blur radius in pixels after stamps; 0 skips. Larger = smoother field. */
+  blurPass1Radius: number;
+  blurPass2Radius: number;
+};
+
+const DEFAULT_SCAR_HEIGHT_MAP_BUILD: ScarHeightMapBuildParams = {
+  stampRadiusMin: 5,
+  stampRadiusMul: 1,
+  stampPeakMul: 1,
+  falloffSigma: 2.75,
+  blurPass1Radius: 3,
+  blurPass2Radius: 2,
+};
+
 /**
- * Single-channel height texture for MeshStandardMaterial.displacementMap and for the
- * stipple globe vertex shader. Mid grey = neutral; lower values = inward dents.
+ * Per-point stamp size/depth from normalized intensity (before debug overrides).
+ * radiusPx ≈ BASE + SPAN × (FLOOR + WEIGHT × √intensity); peak uses the same blend shape.
+ */
+const SCAR_STAMP_RADIUS_BASE_PX = 8;
+const SCAR_STAMP_RADIUS_INTENSITY_SPAN_PX = 24;
+/** Minimum radius blend at intensity 0 (keeps faint points visible). */
+const SCAR_STAMP_RADIUS_INTENSITY_FLOOR = 0.2;
+/** How much intensity scales radius above the floor. */
+const SCAR_STAMP_RADIUS_INTENSITY_WEIGHT = 0.8;
+
+const SCAR_STAMP_PEAK_BASE = 60;
+const SCAR_STAMP_PEAK_INTENSITY_SPAN = 110;
+const SCAR_STAMP_PEAK_INTENSITY_FLOOR = 0.15;
+const SCAR_STAMP_PEAK_INTENSITY_WEIGHT = 0.85;
+
+function scarStampIntensityBlend(intensity01: number): number {
+  const t = Math.sqrt(THREE.MathUtils.clamp(intensity01, 0, 1));
+  return SCAR_STAMP_RADIUS_INTENSITY_FLOOR + SCAR_STAMP_RADIUS_INTENSITY_WEIGHT * t;
+}
+
+function scarStampPeakIntensityBlend(intensity01: number): number {
+  const t = Math.sqrt(THREE.MathUtils.clamp(intensity01, 0, 1));
+  return SCAR_STAMP_PEAK_INTENSITY_FLOOR + SCAR_STAMP_PEAK_INTENSITY_WEIGHT * t;
+}
+
+/**
+ * Box blur on float scar depth (neutral = {@link SCAR_NEUTRAL_DEPTH}).
+ * Smooths the height field so coastlines / stipple follow broad dents instead of pixel spikes.
+ */
+function boxBlurScarDepth(
+  src: Float32Array,
+  width: number,
+  height: number,
+  radius: number,
+): Float32Array {
+  const out = new Float32Array(src.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      let count = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const iy = y + dy;
+        if (iy < 0 || iy >= height) continue;
+        for (let dx = -radius; dx <= radius; dx++) {
+          const ix = x + dx;
+          if (ix < 0 || ix >= width) continue;
+          sum += src[iy * width + ix]!;
+          count++;
+        }
+      }
+      out[y * width + x] = sum / count;
+    }
+  }
+  return out;
+}
+
+/**
+ * Scar height map from pain lat/lng. Same field warps stipple (GPU) and coastlines (CPU).
+ *
+ * Stamps are intentionally **wider and smoother** than the earliest scar build: tiny
+ * high-frequency dents read as jagged “spikes” when the same field warps long polylines.
+ * Broader Gaussian-ish falloff + light blur → dents that flow like lines drawn on a curved surface.
+ * Live tuning passes `Partial<ScarHeightMapBuildParams>` from the globe debug sliders.
  */
 export function createPainScarDisplacementTexture(
   points: PainPoint[],
+  layerId = "unknown",
+  buildOverrides: Partial<ScarHeightMapBuildParams> = {},
 ): THREE.DataTexture {
-  const depthAcc = new Float32Array(MAP_W * MAP_H);
-  depthAcc.fill(NEUTRAL_DEPTH);
+  const cfg: ScarHeightMapBuildParams = {
+    ...DEFAULT_SCAR_HEIGHT_MAP_BUILD,
+    ...buildOverrides,
+  };
+  const blur1 = Math.max(0, Math.round(cfg.blurPass1Radius));
+  const blur2 = Math.max(0, Math.round(cfg.blurPass2Radius));
+  const t0 = isDebugScarVisual() ? performance.now() : 0;
+  const depthAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
+  depthAcc.fill(SCAR_NEUTRAL_DEPTH);
+
+  const stats: ScarMapBuildStats = {
+    layerId,
+    pointCount: points.length,
+    pointsConsidered: points.length,
+  };
 
   for (const p of points) {
-    const { u, v } = latLngToEquirectUV(p.lat, p.lng);
-    const cx = Math.floor(((u % 1) + 1) % 1 * (MAP_W - 1));
-    const cy = Math.floor(THREE.MathUtils.clamp(v, 0, 1) * (MAP_H - 1));
-    const inten = THREE.MathUtils.clamp(p.intensity, 0, 1);
-    const radiusPx = Math.round(20 + 52 * (0.25 + 0.75 * inten));
-    const peakDent = 52 + 105 * (0.2 + 0.8 * inten);
+    const { cx, cy } = painPointToFieldTexel(p);
+    const radiusBlend = scarStampIntensityBlend(p.intensity);
+    const baseRadius = Math.round(
+      (SCAR_STAMP_RADIUS_BASE_PX +
+        SCAR_STAMP_RADIUS_INTENSITY_SPAN_PX * radiusBlend) *
+        cfg.stampRadiusMul,
+    );
+    const radiusPx = Math.max(1, Math.max(cfg.stampRadiusMin, baseRadius));
+    const peakDent =
+      (SCAR_STAMP_PEAK_BASE +
+        SCAR_STAMP_PEAK_INTENSITY_SPAN * scarStampPeakIntensityBlend(p.intensity)) *
+      cfg.stampPeakMul;
 
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
       const iy = cy + dy;
-      if (iy < 0 || iy >= MAP_H) continue;
+      if (iy < 0 || iy >= SCAR_MAP_HEIGHT) continue;
       for (let dx = -radiusPx; dx <= radiusPx; dx++) {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > radiusPx) continue;
         let ix = cx + dx;
-        ix = ((ix % MAP_W) + MAP_W) % MAP_W;
-        const idx = iy * MAP_W + ix;
+        ix = ((ix % SCAR_MAP_WIDTH) + SCAR_MAP_WIDTH) % SCAR_MAP_WIDTH;
+        const idx = iy * SCAR_MAP_WIDTH + ix;
         const t = dist / radiusPx;
-        const falloffDepth = (1 - t) * (1 - t) * (1 - t);
+        // Smooth shoulder (vs (1−t)^3 + tiny support) removes high-frequency jigglies on outlines.
+        const falloffDepth = Math.exp(-(t * t) * cfg.falloffSigma);
         const sub = peakDent * falloffDepth;
-        depthAcc[idx] = Math.max(4, depthAcc[idx]! - sub);
+        depthAcc[idx] = Math.max(SCAR_MIN_DEPTH, depthAcc[idx]! - sub);
       }
     }
   }
 
-  const depthBytes = new Uint8Array(MAP_W * MAP_H);
-  for (let i = 0; i < depthAcc.length; i++) {
-    depthBytes[i] = Math.round(THREE.MathUtils.clamp(depthAcc[i]!, 0, 255));
+  let smoothed: Float32Array = depthAcc;
+  if (blur1 > 0) {
+    smoothed = boxBlurScarDepth(smoothed, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, blur1);
+  }
+  if (blur2 > 0) {
+    smoothed = boxBlurScarDepth(smoothed, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, blur2);
+  }
+
+  if (isDebugScarVisual()) {
+    console.info("[scar map] built", {
+      ...stats,
+      buildMs: Math.round(performance.now() - t0),
+    });
+  }
+
+  const depthBytes = new Uint8Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
+  for (let i = 0; i < smoothed.length; i++) {
+    depthBytes[i] = Math.round(THREE.MathUtils.clamp(smoothed[i]!, 0, 255));
   }
 
   return makeRedDataTexture(depthBytes);
+}
+
+export function drawScarMapPreview(
+  canvas: HTMLCanvasElement,
+  tex: THREE.DataTexture,
+): void {
+  const image = tex.image as { data?: Uint8Array; width?: number; height?: number };
+  const data = image.data;
+  const w = image.width ?? SCAR_MAP_WIDTH;
+  const h = image.height ?? SCAR_MAP_HEIGHT;
+  if (!data) return;
+
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const imgData = ctx.createImageData(w, h);
+  for (let row = 0; row < h; row++) {
+    for (let col = 0; col < w; col++) {
+      const g = data[row * w + col] ?? SCAR_NEUTRAL_DEPTH;
+      const o = (row * w + col) * 4;
+      imgData.data[o] = g;
+      imgData.data[o + 1] = g;
+      imgData.data[o + 2] = g;
+      imgData.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
 }

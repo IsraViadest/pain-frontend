@@ -18,15 +18,18 @@ export interface PainPoint {
   id: string;
   lat: number;
   lng: number;
-  type: string;
   intensity: number;
-  element?: string;
+  /** pain-server row `datatype` (metric / category label from API). */
+  datatype?: string;
+  /** HUD layer id derived from pain-server `painorigin` (see {@link ../api/layers.ts painOriginToUiLayerId}). */
+  uiLayer: PainLayerId | string;
   text?: string;
+  /** Hover / multiplex display fields only. */
   metadata?: PainPointMetadata;
   createdAt: string;
 }
 
-export interface PainPointMetadata {
+interface PainPointMetadata {
   country: string;
   layerLabel: string;
   metricLabel: string;
@@ -40,18 +43,7 @@ export interface PainSubmission {
   lng: number;
   type: string;
   intensity?: number;
-  element?: string;
+  /** pain-server `datatype` for the submission payload. */
+  datatype?: string;
   text?: string;
-}
-
-export interface LayersResponse {
-  layers: MapLayer[];
-}
-
-export interface PointsResponse {
-  points: PainPoint[];
-}
-
-export interface SubmissionResponse {
-  point: PainPoint;
 }

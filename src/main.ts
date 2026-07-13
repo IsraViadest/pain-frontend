@@ -1,13 +1,29 @@
+/**
+ * App entry — wires HUD controls to GlobeView and pain-server (or dev mock).
+ *
+ * Data flow (production):
+ *   layer select → fetchPoints(layer) → api/client → GET /init/:layer → adapter → globe.setMarkers()
+ *
+ * Dev:
+ *   npm run dev              — mock CSV API (Vite /api proxy)
+ *   npm run dev:pain-server  — real backend on :3000 (Vite /init proxy)
+ *
+ * Globe debug UI is opt-in only (?globeDebug=1 or localStorage pain-globe-debug=1).
+ */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
 import {
   GlobeView,
-  type GlobeDisplayMode,
   type MultiplexHoverInfo,
   type PainVisualizationMode,
   type WordCloudHoverInfo,
 } from "./globe/GlobeView";
 import type { VisualTheme } from "./globe/layerTextures";
+import { isDebugScarVisual } from "./globe/debugScarVisual";
+import {
+  mountGlobeDebugPanel,
+  shouldShowGlobeDebugPanel,
+} from "./globe/globeDebugPanel";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -18,8 +34,6 @@ const refreshBtn = document.querySelector<HTMLButtonElement>("#refresh-points");
 const testPostBtn = document.querySelector<HTMLButtonElement>("#test-post");
 const wordCloudToggle = document.querySelector<HTMLButtonElement>("#word-cloud-toggle");
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
-const globeModeSelect =
-  document.querySelector<HTMLSelectElement>("#globe-render-mode");
 const painVizSelect =
   document.querySelector<HTMLSelectElement>("#pain-viz-mode");
 
@@ -31,7 +45,6 @@ if (
   !testPostBtn ||
   !wordCloudToggle ||
   !themeToggle ||
-  !globeModeSelect ||
   !painVizSelect
 ) {
   throw new Error("Missing DOM nodes");
@@ -52,6 +65,7 @@ const wordCloudBtn = wordCloudToggle;
 const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
 if (!appRoot) throw new Error("Missing app root");
+// Floating tooltip for multiplex / word-cloud hovers (not in index.html).
 const hoverModal = document.createElement("div");
 hoverModal.id = "multiplex-hover";
 hoverModal.className = "multiplex-hover";
@@ -89,13 +103,77 @@ function persistTheme(theme: VisualTheme): void {
 const initialTheme = getInitialTheme();
 document.documentElement.dataset.theme = initialTheme;
 
+if (isDebugScarVisual()) {
+  document.documentElement.dataset.scarDebug = "true";
+}
+
+// --- Globe + optional debug panel (outside HUD — see index.html) ---
 const globe = new GlobeView(canvas);
+const scarMapPreview = document.querySelector<HTMLCanvasElement>(
+  "#scar-map-preview",
+);
+const globeDebugHost = document.querySelector<HTMLElement>("#globe-debug-panel");
+const globeDebugToggle = document.querySelector<HTMLButtonElement>(
+  "#globe-debug-toggle",
+);
+
+const showGlobeDebugEntry = shouldShowGlobeDebugPanel();
+let globeDebugMounted = false;
+
+function setGlobeDebugPanelOpen(open: boolean): void {
+  if (!globeDebugHost || !globeDebugToggle) return;
+  if (open) {
+    globeDebugHost.hidden = false;
+    if (scarMapPreview) scarMapPreview.hidden = false;
+    if (!globeDebugMounted) {
+      mountGlobeDebugPanel(globe, globeDebugHost, scarMapPreview);
+      globeDebugMounted = true;
+    }
+    globeDebugToggle.setAttribute("aria-expanded", "true");
+  } else {
+    globeDebugHost.hidden = true;
+    if (scarMapPreview) scarMapPreview.hidden = true;
+    globeDebugToggle.setAttribute("aria-expanded", "false");
+  }
+}
+
+function isGlobeDebugHotkey(ev: KeyboardEvent): boolean {
+  if (!ev.shiftKey || ev.code !== "KeyG") return false;
+  // Mac: Option+Shift+G; also Cmd+Shift+G (common expectation on macOS).
+  return ev.altKey || ev.metaKey;
+}
+
+function globeDebugHotkeyTargetIgnoresShortcut(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (target.closest("[contenteditable=true]")) return true;
+  return false;
+}
+
+if (globeDebugToggle && globeDebugHost && showGlobeDebugEntry) {
+  globeDebugToggle.hidden = false;
+  globeDebugToggle.title =
+    "Toggle globe debug (Option+Shift+G or Cmd+Shift+G on Mac)";
+  globeDebugToggle.addEventListener("click", () => {
+    setGlobeDebugPanelOpen(globeDebugHost.hidden);
+  });
+  window.addEventListener("keydown", (ev) => {
+    if (!isGlobeDebugHotkey(ev)) return;
+    if (globeDebugHotkeyTargetIgnoresShortcut(ev.target)) return;
+    ev.preventDefault();
+    setGlobeDebugPanelOpen(globeDebugHost.hidden);
+  });
+} else if (!showGlobeDebugEntry && isDebugScarVisual() && scarMapPreview) {
+  globe.setScarMapPreviewCanvas(scarMapPreview);
+}
 globe.setVisualTheme(initialTheme);
 globe.setGlobeDisplayMode("points");
 globe.setPainVisualizationMode(readPainVizMode());
 let wordCloudEnabled = false;
 globe.setWordCloudEnabled(wordCloudEnabled);
 
+// --- HUD event handlers ---
 function syncThemeToggle(): void {
   const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
   themeBtn.textContent = t === "blue" ? "Dark mode" : "Blue mode";
@@ -122,12 +200,6 @@ themeBtn.addEventListener("click", () => {
   syncThemeToggle();
 });
 
-globeModeSelect.addEventListener("change", () => {
-  const mode: GlobeDisplayMode =
-    globeModeSelect.value === "points" ? "points" : "texture";
-  globe.setGlobeDisplayMode(mode);
-});
-
 painVizEl.addEventListener("change", () => {
   globe.setPainVisualizationMode(readPainVizMode());
   hoverModal.hidden = true;
@@ -139,6 +211,7 @@ wordCloudBtn.addEventListener("click", () => {
   syncWordCloudToggle();
 });
 
+/** HTML for the floating tooltip when hovering a multiplex node or cluster. */
 function renderMultiplexHover(info: MultiplexHoverInfo): string {
   if (info.kind === "node") {
     if (info.metadata) {
@@ -146,15 +219,17 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
       const source = info.metadata.sourceUrl.length > 42
         ? `${info.metadata.sourceUrl.slice(0, 39)}...`
         : info.metadata.sourceUrl;
-      return `${info.metadata.country} · ${info.metadata.layerLabel} · ${info.metadata.metricLabel} ${info.metadata.rawValue.toFixed(3)}${year} · source ${source}`;
+      return `${info.metadata.country} · ${info.metadata.layerLabel} · ${info.metadata.metricLabel} ${info.metadata.rawValue.toFixed(1)}${year} · normalized ${info.intensity.toFixed(2)} · source ${source}`;
     }
     const fallbackLabel =
+      // MultiplexNodeHover.type is a hover tooltip field, not a PainPoint property. Kept separate from the uiLayer rename intentionally.
       info.type[0]?.toUpperCase() + info.type.slice(1).toLowerCase();
-    return `${fallbackLabel} · value ${info.intensity.toFixed(3)} · source user submission`;
+    return `${fallbackLabel} · normalized ${info.intensity.toFixed(2)} · source user submission`;
   }
   return `<strong>Cluster beacon</strong><br/>${info.count} nearby points<br/>Avg intensity ${info.avgIntensity.toFixed(2)}`;
 }
 
+/** HTML for the floating tooltip when hovering an emotional word-cloud sprite. */
 function renderWordCloudHover(info: WordCloudHoverInfo): string {
   const msg = info.fullText.length > 220
     ? `${info.fullText.slice(0, 217)}...`
@@ -200,8 +275,9 @@ function setStatus(msg: string): void {
   hudStatus.textContent = msg;
 }
 
+// --- pain-server / mock: populate layer list and load points for current layer ---
 async function loadLayersIntoSelect(): Promise<void> {
-  const { layers } = await fetchLayers();
+  const layers = await fetchLayers();
   layerPicker.innerHTML = "";
   for (const layer of layers) {
     const opt = document.createElement("option");
@@ -216,9 +292,11 @@ async function loadLayersIntoSelect(): Promise<void> {
 
 async function loadPoints(): Promise<void> {
   const layer = layerPicker.value;
-  const { points } = await fetchPoints(layer);
+  const points = await fetchPoints(layer);
   globe.setMarkers(points);
-  setStatus(`${points.length} point(s) for “${layer}”`);
+  setStatus(
+    `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
+  );
 }
 
 layerPicker.addEventListener("change", () => {
@@ -251,7 +329,7 @@ testPostBtn.addEventListener("click", async () => {
       lng: Number(lng),
       type,
       intensity: Math.random(),
-      element: "water",
+      datatype: "water",
       text: "Dev test submission",
     });
     await loadPoints();
@@ -262,6 +340,7 @@ testPostBtn.addEventListener("click", async () => {
   }
 });
 
+// --- render loop + initial API bootstrap ---
 function loop(): void {
   globe.tick();
   requestAnimationFrame(loop);
@@ -275,7 +354,7 @@ function loop(): void {
     setStatus(
       e instanceof Error
         ? e.message
-        : "API unreachable — run `npm run dev` (starts mock API + Vite).",
+        : "API unreachable — mock: `npm run dev`; pain-server: run backend on :3000 then `npm run dev:pain-server`.",
     );
   }
   requestAnimationFrame(loop);

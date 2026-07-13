@@ -1,12 +1,9 @@
 import * as THREE from "three";
 
 /**
- * Equirectangular UV for a unit direction, aligned with Three.js default
- * {@link THREE.SphereGeometry} (phiLength 2π, thetaLength π). Use this for
- * displacement maps, stipple land sampling, and scar sampling so data lines
- * up with the mesh and with GeoJSON built from the same `latLngToVector3`.
- *
- * (The common mistake `atan2(z, x) + 0.5` shifts longitude vs this sphere.)
+ * Plate-carrée equirect UV for a unit direction (v = 0 at north pole).
+ * Same equirect frame as GeoJSON land masks and the scar height map (1000×482).
+ * For Three.js {@link THREE.SphereGeometry} displacement, set `DataTexture.flipY = true`.
  */
 export function unitDirectionToGlobeEquirectUV(dir: THREE.Vector3): {
   u: number;

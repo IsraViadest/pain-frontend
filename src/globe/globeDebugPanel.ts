@@ -1,0 +1,490 @@
+/**
+ * Opt-in dev HUD: layer visibility toggles + tuning sliders for GlobeView.
+ * Mounted from main.ts when ?globeDebug=1 or localStorage pain-globe-debug=1.
+ * Not shown in production builds unless that opt-in is enabled.
+ */
+import {
+  GLOBE_DEBUG_TUNE_DEFAULTS,
+  type GlobeDebugLayerId,
+  type GlobeDebugLayerState,
+  type GlobeDebugTune,
+  type GlobeView,
+} from "./GlobeView";
+
+const LAYER_UI: {
+  id: GlobeDebugLayerId;
+  label: string;
+  hint?: string;
+}[] = [
+  { id: "glow", label: "Rim glow (sphere)", hint: "glow · larger additive shell" },
+  { id: "globe", label: "Solid globe mesh", hint: "globe · MeshStandardMaterial" },
+  { id: "stipple", label: "Stipple (all points)", hint: "pointsStipple" },
+  {
+    id: "stippleLand",
+    label: "Stipple — land only",
+    hint: "shader uShowLand · dents inward in scar mode",
+  },
+  {
+    id: "stippleOcean",
+    label: "Stipple — ocean only",
+    hint: "shader uShowOcean · stays at base radius",
+  },
+  { id: "coastlines", label: "Coast outlines", hint: "bordersOutlines coast" },
+  {
+    id: "countryBorders",
+    label: "Country borders",
+    hint: "bordersOutlines inner",
+  },
+  { id: "markers", label: "Pain markers", hint: "markersGroup · points mode" },
+  { id: "multiplex", label: "Multiplex graph", hint: "multiplexGroup" },
+  { id: "wordCloud", label: "Word cloud sprites", hint: "emotionalWordsGroup" },
+  {
+    id: "scarDisplacement",
+    label: "Scar dents (GPU)",
+    hint: "uScarActive · not a mesh",
+  },
+  {
+    id: "heatOverlay",
+    label: "Heat tint (GPU)",
+    hint: "uHeatActive · land stipple only",
+  },
+  {
+    id: "hemisphereClip",
+    label: "Hemisphere cull",
+    hint: "stipple: facing shader · borders/markers: clip plane",
+  },
+  { id: "lights", label: "Lights (all)", hint: "ambient + key + fill" },
+];
+
+function layerLabel(meta: (typeof LAYER_UI)[number]): string {
+  return meta.label;
+}
+
+type TuneSliderSpec = {
+  key: keyof GlobeDebugTune;
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+  /** Display decimals (blur radii → 0). */
+  decimals?: number;
+};
+
+const TUNE_SECTIONS: {
+  summary: string;
+  defaultOpen: boolean;
+  sliders: TuneSliderSpec[];
+}[] = [
+  {
+    summary: "Clip & rim glow",
+    defaultOpen: true,
+    sliders: [
+      {
+        key: "facingCullMin",
+        label: "Facing cull min",
+        hint: "Stipple limb discard. Negative keeps more rim dots.",
+        min: -0.2,
+        max: 0.35,
+        step: 0.005,
+      },
+      {
+        key: "hemisphereClipBias",
+        label: "Hemisphere clip bias",
+        hint: "Clip plane offset (world units along view); more negative = harder limb cut.",
+        min: -0.5,
+        max: 0.2,
+        step: 0.005,
+      },
+      {
+        key: "glowIntensity",
+        label: "Rim glow intensity",
+        hint: "uGlowIntensity on rim sphere.",
+        min: 0,
+        max: 0.6,
+        step: 0.01,
+      },
+    ],
+  },
+  {
+    summary: "Stipple & GPU scar",
+    defaultOpen: true,
+    sliders: [
+      {
+        key: "scarDispScale",
+        label: "Scar dent scale (GPU)",
+        hint: "Radial depth from height map.",
+        min: 0,
+        max: 0.2,
+        step: 0.002,
+      },
+      {
+        key: "scarDispBias",
+        label: "Scar dent bias (GPU)",
+        hint: "Adds constant radial offset.",
+        min: -0.1,
+        max: 0.02,
+        step: 0.002,
+      },
+      {
+        key: "oceanAlphaBoost",
+        label: "Ocean alpha boost",
+        hint: "Ocean stipple sprite opacity multiplier.",
+        min: 0.2,
+        max: 8,
+        step: 0.05,
+      },
+      {
+        key: "oceanAlphaMin",
+        label: "Ocean alpha min",
+        hint: "Floor opacity for ocean dots.",
+        min: 0,
+        max: 1,
+        step: 0.01,
+      },
+    ],
+  },
+  {
+    summary: "Scar height map (CPU stamp)",
+    defaultOpen: true,
+    sliders: [
+      {
+        key: "scarStampRadiusMin",
+        label: "Stamp radius min (px)",
+        hint: "Floor footprint on 1000×482 texture.",
+        min: 1,
+        max: 32,
+        step: 1,
+        decimals: 0,
+      },
+      {
+        key: "scarStampRadiusMul",
+        label: "Stamp footprint scale",
+        hint: ">1 widens bumps (smoother, less sharp detail); <1 sharper / spikier.",
+        min: 0.15,
+        max: 4,
+        step: 0.05,
+      },
+      {
+        key: "scarStampPeakMul",
+        label: "Stamp depth mul",
+        hint: "Brightness of each dent before GPU scale (detail vs strength).",
+        min: 0.2,
+        max: 2.5,
+        step: 0.05,
+      },
+      {
+        key: "scarFalloffSigma",
+        label: "Stamp falloff σ",
+        hint: "Gaussian shoulder exp(−t²σ); ↑ sharper peak, ↓ softer dish.",
+        min: 0.5,
+        max: 12,
+        step: 0.05,
+      },
+      {
+        key: "scarBlurPass1Radius",
+        label: "Blur pass 1 (px)",
+        hint: "0 = off. Wider smoothing (flattens, merges bumps).",
+        min: 0,
+        max: 12,
+        step: 1,
+        decimals: 0,
+      },
+      {
+        key: "scarBlurPass2Radius",
+        label: "Blur pass 2 (px)",
+        hint: "Second box blur after pass 1; 0 = off.",
+        min: 0,
+        max: 12,
+        step: 1,
+        decimals: 0,
+      },
+    ],
+  },
+];
+
+/** Sliders flattened for sync (`Scar …` section checkbox lives separately). */
+const ALL_TUNING_SLIDER_SPECS = TUNE_SECTIONS.flatMap((s) => s.sliders);
+
+function formatTuneValue(value: number, decimals: number): string {
+  if (decimals <= 0) return String(Math.round(value));
+  return value.toFixed(decimals);
+}
+
+function makeDetails(summaryText: string, defaultOpen: boolean): {
+  el: HTMLDetailsElement;
+  body: HTMLElement;
+} {
+  const details = document.createElement("details");
+  details.className = "globe-debug-panel__details";
+  details.open = defaultOpen;
+  const summary = document.createElement("summary");
+  summary.className = "globe-debug-panel__details-summary";
+  summary.textContent = summaryText;
+  const body = document.createElement("div");
+  body.className = "globe-debug-panel__details-body";
+  details.append(summary, body);
+  return { el: details, body };
+}
+
+/**
+ * Full globe layer / tuning UI. Mount once; show/hide via `#globe-debug-toggle` in `main.ts`.
+ */
+export function mountGlobeDebugPanel(
+  globe: GlobeView,
+  host: HTMLElement,
+  scarPreviewCanvas?: HTMLCanvasElement | null,
+): () => void {
+  host.classList.add("globe-debug-panel");
+  host.innerHTML = "";
+
+  const title = document.createElement("h2");
+  title.className = "globe-debug-panel__title";
+  title.textContent = "Globe debug";
+  host.appendChild(title);
+
+  const layersBlock = makeDetails("Layer visibility", true);
+  const layerIntro = document.createElement("p");
+  layerIntro.className = "globe-debug-panel__intro";
+  layerIntro.textContent =
+    "Toggle visibility. Italic = manual override (Reset overrides restores app defaults).";
+  layersBlock.body.appendChild(layerIntro);
+
+  const list = document.createElement("ul");
+  list.className = "globe-debug-panel__list";
+
+  const rowById = new Map<GlobeDebugLayerId, HTMLLabelElement>();
+
+  for (const meta of LAYER_UI) {
+    const li = document.createElement("li");
+    li.className = "globe-debug-panel__item";
+
+    const label = document.createElement("label");
+    label.className = "globe-debug-panel__row";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.dataset.layerId = meta.id;
+
+    const text = document.createElement("span");
+    text.className = "globe-debug-panel__label";
+    text.textContent = layerLabel(meta);
+
+    const code = document.createElement("code");
+    code.className = "globe-debug-panel__code";
+    code.textContent = meta.hint ?? meta.id;
+
+    label.append(cb, text);
+    li.append(label, code);
+    list.appendChild(li);
+    rowById.set(meta.id, label);
+
+    cb.addEventListener("change", () => {
+      globe.setDebugLayerVisible(meta.id, cb.checked);
+      refresh();
+    });
+  }
+
+  layersBlock.body.appendChild(list);
+  host.appendChild(layersBlock.el);
+
+  const tuningIntro = document.createElement("p");
+  tuningIntro.className = "globe-debug-panel__intro globe-debug-panel__intro--below-layers";
+  tuningIntro.textContent =
+    "Tuning grouped below. Changing scar height-map values rebuilds the CPU texture (scar / multiplex mode).";
+  host.appendChild(tuningIntro);
+
+  const tuneInputs: Partial<
+    Record<keyof GlobeDebugTune, HTMLInputElement>
+  > = {};
+
+  let landOnlyCheckboxRef: HTMLInputElement | null = null;
+
+  for (const section of TUNE_SECTIONS) {
+    const block = makeDetails(section.summary, section.defaultOpen);
+
+    if (section.summary === "Stipple & GPU scar") {
+      const landOnlyRow = document.createElement("label");
+      landOnlyRow.className =
+        "globe-debug-panel__tune-row globe-debug-panel__tune-row--check";
+      const landOnlyCb = document.createElement("input");
+      landOnlyCb.type = "checkbox";
+      landOnlyCb.checked =
+        GLOBE_DEBUG_TUNE_DEFAULTS.scarLandOnly >= 0.5;
+      landOnlyCb.title =
+        "Land dents only — off = land+ocean move together (reduces inner sphere)";
+      const landOnlyText = document.createElement("span");
+      landOnlyText.textContent =
+        "Scar dents on land only (off = ocean + land together)";
+      landOnlyRow.append(landOnlyCb, landOnlyText);
+      block.body.appendChild(landOnlyRow);
+      landOnlyCheckboxRef = landOnlyCb;
+      landOnlyCb.addEventListener("change", () => {
+        globe.setDebugTune({ scarLandOnly: landOnlyCb.checked ? 1 : 0 });
+      });
+    }
+
+    for (const spec of section.sliders) {
+      const row = document.createElement("label");
+      row.className = "globe-debug-panel__tune-row";
+
+      const head = document.createElement("span");
+      head.className = "globe-debug-panel__tune-head";
+      const valSpan = document.createElement("output");
+      valSpan.className = "globe-debug-panel__tune-val";
+
+      const range = document.createElement("input");
+      range.type = "range";
+      range.min = String(spec.min);
+      range.max = String(spec.max);
+      range.step = String(spec.step);
+
+      const hint = document.createElement("span");
+      hint.className = "globe-debug-panel__tune-hint";
+      hint.textContent = spec.hint;
+
+      head.textContent = `${spec.label} `;
+      head.append(valSpan);
+      row.append(head, range, hint);
+      block.body.appendChild(row);
+      tuneInputs[spec.key] = range;
+
+      const decimals = spec.decimals ?? 3;
+
+      range.addEventListener("input", () => {
+        const v = Number(range.value);
+        valSpan.textContent = formatTuneValue(v, decimals);
+        globe.setDebugTune({ [spec.key]: v });
+      });
+    }
+
+    if (section.summary === "Scar height map (CPU stamp)" && scarPreviewCanvas) {
+      const scarHint = document.createElement("p");
+      scarHint.className = "globe-debug-panel__hint globe-debug-panel__hint--nested";
+      scarHint.textContent = "Preview (128 = flat)";
+      block.body.appendChild(scarHint);
+      scarPreviewCanvas.classList.add("scar-map-preview");
+      block.body.appendChild(scarPreviewCanvas);
+      globe.setScarMapPreviewCanvas(scarPreviewCanvas);
+    }
+
+    host.appendChild(block.el);
+  }
+
+  function syncTuneSliders(): void {
+    const t = globe.getDebugTune();
+    for (const spec of ALL_TUNING_SLIDER_SPECS) {
+      const range = tuneInputs[spec.key];
+      if (!range) continue;
+      range.value = String(t[spec.key]);
+      const out = range.parentElement?.querySelector("output");
+      const decimals = spec.decimals ?? 3;
+      if (out)
+        out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
+    }
+    if (landOnlyCheckboxRef)
+      landOnlyCheckboxRef.checked = t.scarLandOnly >= 0.5;
+  }
+
+  const buttonWrap = document.createElement("div");
+  buttonWrap.className = "globe-debug-panel__actions";
+
+  const resetBtn = document.createElement("button");
+  resetBtn.type = "button";
+  resetBtn.textContent = "Reset overrides";
+  resetBtn.addEventListener("click", () => {
+    globe.resetDebugLayerOverrides();
+    refresh();
+  });
+
+  const resetTuneBtn = document.createElement("button");
+  resetTuneBtn.type = "button";
+  resetTuneBtn.textContent = "Reset tuning";
+  resetTuneBtn.addEventListener("click", () => {
+    globe.resetDebugTune();
+    syncTuneSliders();
+  });
+
+  const logTuneBtn = document.createElement("button");
+  logTuneBtn.type = "button";
+  logTuneBtn.textContent = "Log tuning";
+  logTuneBtn.addEventListener("click", () => {
+    console.info("[globe debug tune]", globe.getDebugTune());
+  });
+
+  const syncBtn = document.createElement("button");
+  syncBtn.type = "button";
+  syncBtn.textContent = "Refresh state";
+  syncBtn.addEventListener("click", () => refresh());
+
+  buttonWrap.append(resetBtn, resetTuneBtn, logTuneBtn, syncBtn);
+  host.appendChild(buttonWrap);
+  syncTuneSliders();
+
+  if (
+    scarPreviewCanvas &&
+    !host.querySelector("canvas.scar-map-preview")
+  ) {
+    const hint = document.createElement("p");
+    hint.className = "globe-debug-panel__hint";
+    hint.textContent = "Scar height map (128 = flat):";
+    host.appendChild(hint);
+    scarPreviewCanvas.classList.add("scar-map-preview");
+    host.appendChild(scarPreviewCanvas);
+    globe.setScarMapPreviewCanvas(scarPreviewCanvas);
+  }
+
+  function applyState(state: GlobeDebugLayerState): void {
+    const label = rowById.get(state.id);
+    if (!label) return;
+    const cb = label.querySelector<HTMLInputElement>("input[type=checkbox]");
+    if (!cb) return;
+    cb.checked = state.visible;
+    cb.disabled = !state.available;
+    label.classList.toggle("globe-debug-panel__row--override", state.overridden);
+    label.classList.toggle("globe-debug-panel__row--unavailable", !state.available);
+    const code = label.parentElement?.querySelector(".globe-debug-panel__code");
+    if (code) {
+      const auto = state.available
+        ? `auto: ${state.autoVisible ? "on" : "off"}`
+        : "not loaded";
+      code.textContent = `${LAYER_UI.find((m) => m.id === state.id)?.hint ?? state.id} · ${auto}`;
+    }
+  }
+
+  function refresh(): void {
+    for (const state of globe.getDebugLayerStates()) {
+      applyState(state);
+    }
+    syncTuneSliders();
+  }
+
+  refresh();
+  const interval = window.setInterval(refresh, 800);
+
+  return () => {
+    window.clearInterval(interval);
+    host.innerHTML = "";
+    host.classList.remove("globe-debug-panel");
+  };
+}
+
+const GLOBE_DEBUG_LS_KEY = "pain-globe-debug";
+
+/**
+ * Opt-in: show bottom-right Debug control (does not mount the panel until opened).
+ * Enable with `?globeDebug=1` or `localStorage.setItem("pain-globe-debug", "1")` then reload.
+ */
+export function shouldShowGlobeDebugPanel(): boolean {
+  try {
+    if (localStorage.getItem(GLOBE_DEBUG_LS_KEY) === "1") return true;
+  } catch {
+    /* private mode / quota */
+  }
+  try {
+    const v = new URLSearchParams(window.location.search).get("globeDebug");
+    return v === "1" || v === "true";
+  } catch {
+    return false;
+  }
+}

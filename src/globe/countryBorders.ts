@@ -1,10 +1,19 @@
+/**
+ * SHELL: coastlines + country borders (fat LineSegments2 in a THREE.Group).
+ * Loaded by GlobeView.loadCountryOutlines() → loadGlobeBorderOutlines().
+ * Scar mode: CPU-warped positions via scarDisplacement.ts (same field as stipple dents).
+ */
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import type { VisualTheme } from "./layerTextures";
-import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { latLngToVector3 } from "./latLng";
+import {
+  applyScarToSpherePositions,
+  SCAR_OVERLAY_SURFACE_BIAS,
+} from "./scarDisplacement";
+import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 
 type LineStringGeom = { type: "LineString"; coordinates: number[][] };
 type MultiLineStringGeom = { type: "MultiLineString"; coordinates: number[][][] };
@@ -18,8 +27,15 @@ interface FeatureCollection {
 }
 
 /** World-space half-width of fat lines on the unit-ish globe (LineMaterial + worldUnits). */
-const COAST_LINEWIDTH = 0.0029;
+const COAST_LINEWIDTH = 0.0036;
 const INNER_BORDER_LINEWIDTH = 0.00085;
+
+/**
+ * Fraction of fat-line world linewidth added to {@link SCAR_OVERLAY_SURFACE_BIAS}
+ * when CPU-warping border strokes onto the scar field. ~0.5–0.6 keeps coast/inner lines
+ * on the deformed shell and reduces z-fighting with stipple; shared by coast and inner.
+ */
+const LINE_BIAS_FRACTION = 0.55;
 
 function appendOpenLineString(
   coords: number[][],
@@ -85,12 +101,14 @@ function makeFatLine(
   });
   const line = new LineSegments2(geom, mat);
   line.computeLineDistances();
-  line.renderOrder = 1;
+  line.renderOrder = 4;
   return line;
 }
 
 export interface GlobeBorderOutlines {
   readonly group: THREE.Group;
+  setCoastVisible(visible: boolean): void;
+  setInnerBordersVisible(visible: boolean): void;
   setResolution(width: number, height: number): void;
   /** Clip to camera-facing hemisphere (same plane object can be updated per frame). */
   setClippingPlanes(planes: THREE.Plane[]): void;
@@ -102,69 +120,6 @@ export interface GlobeBorderOutlines {
   ): void;
   syncAppearance(theme: VisualTheme): void;
   dispose(): void;
-}
-
-function sampleRedBilinear(
-  data: ArrayLike<number>,
-  w: number,
-  h: number,
-  u: number,
-  v: number,
-): number {
-  const uu = ((u % 1) + 1) % 1;
-  const vv = THREE.MathUtils.clamp(v, 0, 1);
-  const x = uu * (w - 1);
-  const y = vv * (h - 1);
-  const x0 = Math.floor(x);
-  const y0 = Math.floor(y);
-  const x1 = Math.min(x0 + 1, w - 1);
-  const y1 = Math.min(y0 + 1, h - 1);
-  const tx = x - x0;
-  const ty = y - y0;
-  const i = (ix: number, iy: number) => data[iy * w + ix] ?? 0;
-  const r00 = i(x0, y0);
-  const r10 = i(x1, y0);
-  const r01 = i(x0, y1);
-  const r11 = i(x1, y1);
-  const a = THREE.MathUtils.lerp(r00, r10, tx);
-  const b = THREE.MathUtils.lerp(r01, r11, tx);
-  return THREE.MathUtils.lerp(a, b, ty) / 255;
-}
-
-function applyScarToLinePositions(
-  base: Float32Array,
-  out: Float32Array,
-  map: THREE.DataTexture,
-  displacementScale: number,
-  displacementBias: number,
-): void {
-  const image = map.image as { data?: ArrayLike<number>; width?: number; height?: number };
-  const data = image.data;
-  const w = image.width ?? 0;
-  const h = image.height ?? 0;
-  if (!data || w < 1 || h < 1) {
-    out.set(base);
-    return;
-  }
-
-  for (let i = 0; i < base.length; i += 3) {
-    const x = base[i]!;
-    const y = base[i + 1]!;
-    const z = base[i + 2]!;
-    const dir = new THREE.Vector3(x, y, z).normalize();
-    const baseRadius = Math.sqrt(x * x + y * y + z * z);
-    const { u, v } = unitDirectionToGlobeEquirectUV(dir);
-    const red = sampleRedBilinear(data, w, h, u, v);
-    const radial = red * displacementScale + displacementBias;
-    /**
-     * Preserve the original border shell radius, then apply scar radial offset.
-     * Keep a tiny outward lift so lines remain visible over textured globe shading.
-     */
-    const s = Math.max(0.0001, baseRadius + radial + 0.0011);
-    out[i] = dir.x * s;
-    out[i + 1] = dir.y * s;
-    out[i + 2] = dir.z * s;
-  }
 }
 
 /**
@@ -218,6 +173,12 @@ export async function loadGlobeBorderOutlines(
 
   return {
     group,
+    setCoastVisible(visible: boolean): void {
+      coastLine.visible = visible;
+    },
+    setInnerBordersVisible(visible: boolean): void {
+      innerLine.visible = visible;
+    },
     setResolution(width: number, height: number): void {
       resolution.set(width, height);
       coastMat.resolution.copy(resolution);
@@ -226,6 +187,9 @@ export async function loadGlobeBorderOutlines(
       innerMat.needsUpdate = true;
     },
     setClippingPlanes(planes: THREE.Plane[]): void {
+      const enabled = planes.length > 0;
+      coastMat.clipping = enabled;
+      innerMat.clipping = enabled;
       coastMat.clippingPlanes = planes;
       innerMat.clippingPlanes = planes;
     },
@@ -234,23 +198,40 @@ export async function loadGlobeBorderOutlines(
       displacementScale: number,
       displacementBias: number,
     ): void {
+      const scarActive = Boolean(map);
+      // Write depth in scar mode so fat lines win over transparent stipple sprites.
+      coastMat.depthWrite = true;
+      innerMat.depthWrite = true;
+      coastMat.polygonOffset = scarActive;
+      coastMat.polygonOffsetFactor = scarActive ? -2 : 0;
+      coastMat.polygonOffsetUnits = scarActive ? -2 : 0;
+      innerMat.polygonOffset = scarActive;
+      innerMat.polygonOffsetFactor = scarActive ? -2 : 0;
+      innerMat.polygonOffsetUnits = scarActive ? -2 : 0;
+
       if (!map) {
         coastWarpPos.set(coastBasePos);
         innerWarpPos.set(innerBasePos);
       } else {
-        applyScarToLinePositions(
+        const coastBias =
+          SCAR_OVERLAY_SURFACE_BIAS + COAST_LINEWIDTH * LINE_BIAS_FRACTION;
+        const innerBias =
+          SCAR_OVERLAY_SURFACE_BIAS + INNER_BORDER_LINEWIDTH * LINE_BIAS_FRACTION;
+        applyScarToSpherePositions(
           coastBasePos,
           coastWarpPos,
           map,
           displacementScale,
           displacementBias,
+          coastBias,
         );
-        applyScarToLinePositions(
+        applyScarToSpherePositions(
           innerBasePos,
           innerWarpPos,
           map,
           displacementScale,
           displacementBias,
+          innerBias,
         );
       }
 
@@ -262,17 +243,28 @@ export async function loadGlobeBorderOutlines(
       innerLine.computeLineDistances();
     },
     syncAppearance(theme: VisualTheme): void {
-      if (theme === "blue") {
+      if (isDebugScarVisual()) {
+        coastMat.color.setHex(DEBUG_SCAR_VISUAL.coastOutlineHex);
+        innerMat.color.setHex(DEBUG_SCAR_VISUAL.innerBorderHex);
+        coastMat.linewidth = DEBUG_SCAR_VISUAL.coastLineWidth;
+        innerMat.linewidth = DEBUG_SCAR_VISUAL.innerBorderLineWidth;
+      } else if (theme === "blue") {
         coastMat.color.setHex(0x8ab8dd);
         innerMat.color.setHex(0x6a92b0);
+        coastMat.linewidth = COAST_LINEWIDTH;
+        innerMat.linewidth = INNER_BORDER_LINEWIDTH;
       } else {
         coastMat.color.setHex(0x6a7588);
         innerMat.color.setHex(0x5a6270);
+        coastMat.linewidth = COAST_LINEWIDTH;
+        innerMat.linewidth = INNER_BORDER_LINEWIDTH;
       }
       coastMat.opacity = 1;
       innerMat.opacity = 1;
       coastMat.transparent = false;
       innerMat.transparent = false;
+      coastMat.needsUpdate = true;
+      innerMat.needsUpdate = true;
     },
     dispose(): void {
       coastLine.geometry.dispose();

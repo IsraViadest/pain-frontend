@@ -1,16 +1,38 @@
-import { defineConfig } from "vite";
+/**
+ * Vite dev proxies only — production `dist/` is static; the host must serve
+ * GET /init/:layer (same origin) or set VITE_PAIN_API_BASE at build time.
+ *
+ * - VITE_USE_MOCK_API true (default in dev): proxy /api → local mock (:3847)
+ * - VITE_USE_MOCK_API false: proxy /init → pain-server (:3000), use dev:pain-server
+ */
+import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 
-const API_PORT = Number(process.env.PAIN_API_PORT ?? 3947);
-const WEB_PORT = Number(process.env.PAIN_WEB_PORT ?? 5174);
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const useMockApi =
+    env.VITE_USE_MOCK_API !== "false" && env.VITE_USE_MOCK_API !== "0";
 
-export default defineConfig({
-  server: {
-    port: WEB_PORT,
-    proxy: {
-      "/api": {
-        target: `http://127.0.0.1:${API_PORT}`,
-        changeOrigin: true,
-      },
+  const mockPort = Number(env.PAIN_API_PORT ?? 3847);
+  const painServerPort = Number(env.PAIN_SERVER_PORT ?? 3000);
+
+  const proxy: Record<string, ProxyOptions> = useMockApi
+    ? {
+        "/api": {
+          target: `http://127.0.0.1:${mockPort}`,
+          changeOrigin: true,
+        },
+      }
+    : {
+        "/init": {
+          target: `http://127.0.0.1:${painServerPort}`,
+          changeOrigin: true,
+        },
+      };
+
+  return {
+    server: {
+      port: 5173,
+      proxy,
     },
-  },
+  };
 });
