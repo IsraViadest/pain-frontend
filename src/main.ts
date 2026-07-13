@@ -44,6 +44,7 @@ import {
   type SurveySubmissionPayload,
 } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
+import { mountSurveyTestPanel } from "./dev/surveyTestPanel";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -105,6 +106,10 @@ hoverModal.id = "multiplex-hover";
 hoverModal.className = "multiplex-hover";
 hoverModal.hidden = true;
 appRoot.appendChild(hoverModal);
+
+if (import.meta.env.DEV) {
+  mountSurveyTestPanel(appRoot);
+}
 
 function readStoredTheme(): VisualTheme {
   try {
