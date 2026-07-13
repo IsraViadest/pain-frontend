@@ -15,6 +15,7 @@ import { useMockApi } from "./config";
 import { mapInitLayerListToMapLayers } from "./initLayerList";
 import { isLayerCacheEmpty, setCachedMapLayers } from "./layers";
 import { fetchLayerDataPoints, fetchLayerInfo } from "./painServer";
+import { getPainServerUserId } from "./session";
 
 type MockApiModule = {
   fetchPointsMock: (layerId?: string) => Promise<PainPoint[]>;
@@ -85,6 +86,11 @@ export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
   if (isLayerCacheEmpty()) {
     throw new Error(
       "[client] fetchPoints called before fetchLayers — layer cache is empty. Call fetchLayers first.",
+    );
+  }
+  if (getPainServerUserId().length === 0) {
+    console.warn(
+      "[client] fetchPoints without a cached pain-server userId — call fetchLayers first.",
     );
   }
   const initLayerRows = await fetchLayerDataPoints(layerId);
