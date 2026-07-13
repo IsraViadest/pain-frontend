@@ -65,6 +65,7 @@ export function createPainHeatTexture(points: PainPoint[]): THREE.DataTexture {
 
   for (const p of points) {
     const { cx, cy } = painPointToFieldTexel(p);
+    // Rendering-only clamp: does not modify PainPoint.intensity (Pattern 19 — adapter stores API value as-is).
     const inten = THREE.MathUtils.clamp(p.intensity, 0, 1);
     const radiusPx = Math.round(10 + 28 * (0.25 + 0.75 * inten));
     const peak = 0.25 + 0.75 * inten;

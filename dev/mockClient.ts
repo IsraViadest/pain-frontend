@@ -1,4 +1,4 @@
-import type { MapLayer, PainPoint, PainSubmission } from "../src/types/api";
+import type { PainPoint, PainSubmission } from "../src/types/api";
 import { apiUrl } from "../src/api/config";
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -7,13 +7,6 @@ async function parseJson<T>(res: Response): Promise<T> {
     throw new Error(`${res.status} ${res.statusText}: ${text}`);
   }
   return res.json() as Promise<T>;
-}
-
-/** Dev-only: local Express mock (server/) via Vite /api proxy. */
-export async function fetchLayersMock(): Promise<MapLayer[]> {
-  const res = await fetch(apiUrl("/api/map/layers"));
-  const body = await parseJson<{ layers: MapLayer[] }>(res);
-  return body.layers;
 }
 
 /** Dev-only points from local mock server (`server/` + Vite `/api` proxy). */

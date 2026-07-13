@@ -1,20 +1,19 @@
 import type { PainPoint } from "../types/api";
 import type { PainServerRow } from "../types/painServer";
 import { resolvePainServerCoordinates } from "./coordinates";
-import { painOriginToUiLayerId } from "./layers";
+import { getMapLayerById } from "./layers";
 import { normalizePainServerRow } from "./painServerRow";
-
-/** Clamp a numeric intensity to 0…1 for globe shaders and marker sizing. */
-function clamp01(n: number): number {
-  return Math.min(1, Math.max(0, n));
-}
 
 /**
  * Maps the JSON body of pain-server `GET /init/:layer` to globe-ready {@link PainPoint}s.
  *
  * @param initLayerRows — parsed array from pain-server GET /init/:layer (HTTP client validates shape).
+ * @param layerId — layer id from GET /init, passed to `GET /init/:layer`; stored on each point as {@link PainPoint.uiLayer}.
  */
-export function mapInitResponseToPainPoints(initLayerRows: PainServerRow[]): PainPoint[] {
+export function mapInitResponseToPainPoints(
+  initLayerRows: PainServerRow[],
+  layerId: string,
+): PainPoint[] {
   const points: PainPoint[] = [];
   let skipped = 0;
   for (let i = 0; i < initLayerRows.length; i++) {
@@ -25,7 +24,7 @@ export function mapInitResponseToPainPoints(initLayerRows: PainServerRow[]): Pai
       skipped++;
       continue;
     }
-    const point = mapRow(row, i);
+    const point = mapRow(row, layerId, i);
     if (point) points.push(point);
     else skipped++;
   }
@@ -40,9 +39,13 @@ export function mapInitResponseToPainPoints(initLayerRows: PainServerRow[]): Pai
 /**
  * Turn one validated API row into a {@link PainPoint} (lat/lng, uiLayer, intensity).
  * Returns null when coordinates cannot be resolved (row is skipped).
+ *
+ * `metadata.layerLabel` uses {@link getMapLayerById} — requires {@link ../client.ts fetchLayers}
+ * before {@link ../client.ts fetchPoints} so the layer cache is populated.
  */
 function mapRow(
   row: NonNullable<ReturnType<typeof normalizePainServerRow>>,
+  layerId: string,
   index: number,
 ): PainPoint | null {
   const coords = resolvePainServerCoordinates(row);
@@ -55,20 +58,33 @@ function mapRow(
     return null;
   }
 
-  const { id, value, datatype, painorigin } = row;
-  const uiLayer = painOriginToUiLayerId(painorigin);
+  const { id, value, datatype } = row;
+
+  if (value < 0 || 1 < value) {
+    console.warn(
+      "[adapter] pain-server `value` outside 0…1 — storing as-is (backend should normalize).",
+      id,
+      value,
+    );
+  }
 
   return {
     id: String(id ?? `pain-server-${index}`),
     lat: coords.lat,
     lng: coords.lng,
-    intensity: clamp01(value),
+    intensity: value,
     datatype,
-    uiLayer,
-    text: `${datatype} · ${painorigin}`,
+    uiLayer: layerId,
+    // Frontend-only placeholder — API has no text field yet (Pattern 20).
+    // TODO: Replace with real text field from API when available.
+    // Only `datatype` is used; row `painorigin` is omitted (redundant with request `layerId` / uiLayer).
+    // Currently used for word clouds until real data exists.
+    text: datatype,
     metadata: {
+      // Frontend-only placeholder — API has no country field (Pattern 20).
+      // TODO: populate from API or reverse geocoding when available.
       country: "PPP map record",
-      layerLabel: uiLayer,
+      layerLabel: getMapLayerById(layerId)?.label ?? layerId,
       metricLabel: datatype,
       rawValue: value,
       sourceUrl: "",

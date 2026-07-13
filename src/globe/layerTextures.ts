@@ -3,6 +3,12 @@ import * as THREE from "three";
 const W = 1024;
 const H = 512;
 
+/** Neutral sRGB when GET /init `color` is missing or invalid (dark theme). */
+const NEUTRAL_FALLBACK_SRGB: [number, number, number] = [80, 80, 90];
+
+/** Neutral sRGB fallback for blue theme. */
+const NEUTRAL_BLUE_SRGB: [number, number, number] = [45, 95, 140];
+
 function hash01(n: number): number {
   const x = Math.sin(n * 127.1) * 43758.5453;
   return x - Math.floor(x);
@@ -10,29 +16,29 @@ function hash01(n: number): number {
 
 export type VisualTheme = "dark" | "blue";
 
-const PALETTES_DARK: Record<string, [number, number, number]> = {
-  environmental: [34, 120, 95],
-  physical: [160, 70, 110],
-  emotional: [90, 110, 200],
-  socioeconomic: [190, 130, 40],
-};
+function parseHexColorSrgb255(hex: string): [number, number, number] | null {
+  const match = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!match) return null;
+  const value = Number.parseInt(match[1]!, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
 
-const PALETTES_BLUE: Record<string, [number, number, number]> = {
-  environmental: [30, 110, 140],
-  physical: [100, 75, 165],
-  emotional: [70, 130, 220],
-  socioeconomic: [45, 140, 175],
-};
-
-/** Layer accent in 0–1 (shared by canvas “data texture” and point-globe tint). */
+/**
+ * Layer accent in 0–1 from GET /init `color` hex (shared by canvas texture and stipple tint).
+ * Applies the same blue-theme multipliers as the legacy mock palettes.
+ */
 export function getLayerBaseColorLinear(
-  layerId: string,
+  colorHex: string | null | undefined,
   visualTheme: VisualTheme = "dark",
 ): [number, number, number] {
-  const palettes = visualTheme === "blue" ? PALETTES_BLUE : PALETTES_DARK;
-  const base =
-    palettes[layerId] ??
-    (visualTheme === "blue" ? [45, 95, 140] : [80, 80, 90]);
+  let base = colorHex ? parseHexColorSrgb255(colorHex) : null;
+  if (!base) {
+    console.warn(
+      "[layerTextures] Invalid or missing layer color — using neutral fallback.",
+      colorHex ?? "(none)",
+    );
+    base = visualTheme === "blue" ? NEUTRAL_BLUE_SRGB : NEUTRAL_FALLBACK_SRGB;
+  }
   let r = base[0] / 255;
   let g = base[1] / 255;
   let b = base[2] / 255;
@@ -49,11 +55,12 @@ export function getLayerBaseColorLinear(
  * Each layer gets a distinct hue + noise so you can verify swapping works.
  *
  * This is **not** a PNG/JPG: it is drawn at runtime on a 2D canvas (`CanvasTexture`),
- * using procedural noise + the palette above so layer changes are obvious before real pipeline textures exist.
+ * using procedural noise + the layer hex color from GET /init.
  */
 export function createLayerCanvasTexture(
-  layerId: string,
+  colorHex: string | null | undefined,
   visualTheme: VisualTheme = "dark",
+  noiseSeed = "layer",
 ): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -63,7 +70,7 @@ export function createLayerCanvasTexture(
     throw new Error("2D canvas unsupported");
   }
 
-  const [br, bg, bb] = getLayerBaseColorLinear(layerId, visualTheme);
+  const [br, bg, bb] = getLayerBaseColorLinear(colorHex, visualTheme);
   const base: [number, number, number] = [
     br * 255,
     bg * 255,
@@ -77,7 +84,7 @@ export function createLayerCanvasTexture(
       const u = x / W;
       const v = y / H;
       const n =
-        hash01(u * 73.2 + v * 19.7 + layerId.length * 0.01) * 0.35 +
+        hash01(u * 73.2 + v * 19.7 + noiseSeed.length * 0.01) * 0.35 +
         hash01(u * 13.1 + v * 91.3) * 0.25;
       const band = 0.15 * Math.sin((u + v) * Math.PI * 4);
       const r = Math.min(255, base[0] * (0.45 + n + band));

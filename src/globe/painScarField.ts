@@ -79,7 +79,7 @@ const DEFAULT_SCAR_HEIGHT_MAP_BUILD: ScarHeightMapBuildParams = {
 };
 
 /**
- * Per-point stamp size/depth from normalized intensity (before debug overrides).
+ * Per-point stamp size/depth from intensity (before debug overrides).
  * radiusPx ≈ BASE + SPAN × (FLOOR + WEIGHT × √intensity); peak uses the same blend shape.
  */
 const SCAR_STAMP_RADIUS_BASE_PX = 8;

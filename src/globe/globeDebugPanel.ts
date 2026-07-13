@@ -37,7 +37,7 @@ const LAYER_UI: {
   },
   { id: "markers", label: "Pain markers", hint: "markersGroup · points mode" },
   { id: "multiplex", label: "Multiplex graph", hint: "multiplexGroup" },
-  { id: "wordCloud", label: "Word cloud sprites", hint: "emotionalWordsGroup" },
+  { id: "wordCloud", label: "Word cloud sprites", hint: "textLayerGroup" },
   {
     id: "scarDisplacement",
     label: "Scar dents (GPU)",

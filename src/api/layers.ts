@@ -1,97 +1,56 @@
-import type { MapLayer, PainLayerId } from "../types/api";
+import type { MapLayer } from "../types/api";
+
+// Production HUD layer ids from GET /init. Mock mode uses different ids — see docs/BACKEND_CONTRACT.md.
 
 /**
- * painorigin column values — canonical set from Mike's deployed pain-server.
- * @see http://178.63.65.178:3000/init/env (and /init/phys, /emo, /socioeco)
- */
-const LAYER_REGISTRY = [
-  {
-    uiLayerId: "environmental",
-    apiLayer: "env",
-    painOrigin: "EnvNat",
-    label: "Environmental",
-    description: "Natural and anthropogenic environmental pain (API layer: env).",
-  },
-  {
-    uiLayerId: "physical",
-    apiLayer: "phys",
-    painOrigin: "Phys",
-    label: "Physical / Physiological",
-    description: "Physical pain layer (API layer: phys).",
-  },
-  {
-    uiLayerId: "emotional",
-    apiLayer: "emo",
-    painOrigin: "Emo",
-    label: "Emotional",
-    description: "Emotional pain layer (API layer: emo).",
-  },
-  {
-    uiLayerId: "socioeconomic",
-    apiLayer: "socioeco",
-    painOrigin: "Socioeco",
-    label: "Socio-economic",
-    description: "Socio-economic pain layer (API layer: socioeco).",
-  },
-] as const satisfies readonly {
-  uiLayerId: PainLayerId;
-  apiLayer: string;
-  painOrigin: string;
-  label: string;
-  description: string;
-}[];
-
-/**
- * UI layer list (labels, descriptions) — owned by the frontend per backend contract.
- * pain-server only provides data via GET /init/:layer; it does not serve this metadata.
- */
-export const UI_MAP_LAYERS: MapLayer[] = LAYER_REGISTRY.map(
-  ({ uiLayerId, label, description }) => ({
-    id: uiLayerId,
-    label,
-    description,
-  }),
-);
-
-/** Map UI select value → pain-server :layer param (input-validator.ts). */
-const UI_TO_API_LAYER: Record<PainLayerId, string> = Object.fromEntries(
-  LAYER_REGISTRY.map(({ uiLayerId, apiLayer }) => [uiLayerId, apiLayer]),
-) as Record<PainLayerId, string>;
-
-/** painorigin → HUD layer id (exact match on {@link LAYER_REGISTRY} painOrigin values). */
-const PAIN_ORIGIN_TO_UI_LAYER: Record<string, PainLayerId> = Object.fromEntries(
-  LAYER_REGISTRY.map(({ painOrigin, uiLayerId }) => [painOrigin, uiLayerId]),
-) as Record<string, PainLayerId>;
-
-/**
- * Map HUD layer id to pain-server `:layer` path segment (see input-validator.ts).
+ * Production layer id → semantic word-list bucket for word-cloud fallbacks.
  *
- * @param uiLayerId — e.g. `environmental` → `env`
+ * Placeholder until GET /init provides `lexicon_bucket` per layer.
+ * TODO: Remove when pain-server exposes lexicon_bucket on layer metadata.
+ *
+ * Mock mode layer ids (e.g. `environmental`) are not in this map — fallbacks use "generic".
  */
-export function uiLayerIdToApiLayer(uiLayerId: string): string {
-  if (!(uiLayerId in UI_TO_API_LAYER)) {
-    console.warn(
-      `[layers] Unknown UI layer id "${uiLayerId}" — using it verbatim for GET /init/:layer. If intentional, add it to UI_TO_API_LAYER (input-validator).`,
-    );
-    return uiLayerId;
-  }
-  return UI_TO_API_LAYER[uiLayerId as PainLayerId];
+const LAYER_ID_TO_LEXICON_BUCKET: Record<string, string> = {
+  Env: "environmental",
+  Phys: "physical",
+  Emo: "emotional",
+  Socioeco: "socioeconomic",
+};
+
+/**
+ * Resolve a layer id to a semantic lexicon bucket for word-cloud fallback words.
+ *
+ * @param layerId — layer id from GET /init (actual value defined by the API)
+ */
+export function resolveLayerLexiconBucket(layerId: string): string {
+  const bucket = LAYER_ID_TO_LEXICON_BUCKET[layerId.trim()];
+  if (bucket) return bucket;
+  console.warn(
+    `[layers] No lexicon bucket for layer id "${layerId}" — using "generic". Mock mode? Prod ids only in LAYER_ID_TO_LEXICON_BUCKET.`,
+  );
+  return "generic";
+}
+
+// --- Runtime layer cache (populated by client.fetchLayers) ---
+
+/** Last layer list from {@link ../client.ts fetchLayers} — HUD lookup via {@link getMapLayerById}. */
+let cachedMapLayers: MapLayer[] = [];
+
+/** Store the layer list after a successful {@link ../client.ts fetchLayers} call. */
+export function setCachedMapLayers(layers: MapLayer[]): void {
+  cachedMapLayers = layers;
 }
 
 /**
- * Map pain-server row `painorigin` to HUD layer id (markers / styling).
- * Counterpart to {@link uiLayerIdToApiLayer}.
- *
- * @param painorigin — e.g. `EnvNat` → `environmental`
+ * Returns true if the layer cache is empty.
+ * Used by client.ts to warn when fetchPoints is called before fetchLayers.
+ * @internal
  */
-export function painOriginToUiLayerId(painorigin: string): PainLayerId {
-  const key = painorigin.trim();
-  const uiLayerId = PAIN_ORIGIN_TO_UI_LAYER[key];
-  if (uiLayerId) return uiLayerId;
+export function isLayerCacheEmpty(): boolean {
+  return cachedMapLayers.length === 0;
+}
 
-  const expected = LAYER_REGISTRY.map((entry) => entry.painOrigin).join(", ");
-  console.warn(
-    `[layers] Unknown painorigin "${painorigin}" — expected one of: ${expected}. Using "environmental".`,
-  );
-  return "environmental";
+/** Lookup a layer from the cache populated by {@link setCachedMapLayers} / {@link ../client.ts fetchLayers}. */
+export function getMapLayerById(id: string): MapLayer | undefined {
+  return cachedMapLayers.find((layer) => layer.id === id);
 }
