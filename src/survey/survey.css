@@ -448,6 +448,7 @@
 
 .survey-screen--4 .survey-bubble__label {
   font-size: clamp(1.1rem, 2vw, 1.4rem);
+  white-space: nowrap;
 }
 
 /* Screen 5 — pain description and submit */
