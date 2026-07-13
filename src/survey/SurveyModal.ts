@@ -5,6 +5,7 @@ import { mountSurveyScreen3 } from "./SurveyScreen3";
 import { mountSurveyScreen4 } from "./SurveyScreen4";
 import { mountSurveyScreen5 } from "./SurveyScreen5";
 import { SURVEY_FADE_MS, type SurveySessionState } from "./surveyData";
+import { trackSurveyStep } from "../api/metricsApi";
 
 type ActiveScreen = {
   unmount: () => void;
@@ -93,6 +94,7 @@ export class SurveyModal {
     this.unmountActiveScreen();
     this.mountScreen1();
     this.currentScreen = 1;
+    trackSurveyStep(0);
   }
 
   /** Close the survey modal with a fade-out. */
@@ -144,6 +146,7 @@ export class SurveyModal {
     this.activeScreen = mountSurveyScreen1(this.screenHost, {
       state: this.state,
       onAdvance: () => {
+        trackSurveyStep(1);
         void this.goToScreen(2);
       },
     });
@@ -156,6 +159,7 @@ export class SurveyModal {
         void this.goToScreen(1);
       },
       onAdvance: () => {
+        trackSurveyStep(2);
         void this.goToScreen(3);
       },
     });
@@ -168,6 +172,7 @@ export class SurveyModal {
         void this.goToScreen(2);
       },
       onAdvance: () => {
+        trackSurveyStep(3);
         void this.goToScreen(4);
       },
     });
@@ -180,6 +185,7 @@ export class SurveyModal {
         void this.goToScreen(3);
       },
       onAdvance: () => {
+        trackSurveyStep(4);
         void this.goToScreen(5);
       },
     });
@@ -192,6 +198,7 @@ export class SurveyModal {
         void this.goToScreen(4);
       },
       onSubmit: () => {
+        trackSurveyStep(5);
         this.handleSurveySubmit();
       },
     });

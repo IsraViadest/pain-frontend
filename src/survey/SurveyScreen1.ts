@@ -1,4 +1,5 @@
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
+import { trackToggle } from "../api/metricsApi";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_WORDS,
@@ -97,6 +98,7 @@ export function mountSurveyScreen1(
       } else {
         state.selectedWords.delete(word);
       }
+      trackToggle("word", word, selected);
     });
 
     field.appendChild(anchor);

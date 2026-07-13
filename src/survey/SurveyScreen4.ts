@@ -1,4 +1,5 @@
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
+import { trackToggle } from "../api/metricsApi";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_RELATIONS_OPTIONS,
@@ -117,6 +118,7 @@ export function mountSurveyScreen4(
       const selected = toggleRelation(state, relation);
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));
+      trackToggle("relation", relation, selected);
     });
 
     field.appendChild(anchor);

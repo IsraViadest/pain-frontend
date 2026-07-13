@@ -12,6 +12,7 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
+import { trackToggle, trackVizMode } from "./api/metricsApi";
 import { getMapLayerById, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer } from "./types/api";
 import {
@@ -94,6 +95,7 @@ function readPainVizMode(): PainVisualizationMode {
 
 const hudStatus = statusEl;
 const layerPicker = layerSelect;
+let lastLayerId = "";
 const wordCloudBtn = wordCloudToggle;
 const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
@@ -306,7 +308,9 @@ themeBtn.addEventListener("click", () => {
 });
 
 painVizEl.addEventListener("change", () => {
-  globe.setPainVisualizationMode(readPainVizMode());
+  const mode = readPainVizMode();
+  globe.setPainVisualizationMode(mode);
+  trackVizMode(mode);
   hoverModal.hidden = true;
 });
 
@@ -421,7 +425,10 @@ async function loadLayersIntoSelect(): Promise<void> {
     layerPicker.appendChild(opt);
   }
   if (layers[0]) {
-    applyGlobeLayer(String(layers[0].id));
+    const layerId = String(layers[0].id);
+    applyGlobeLayer(layerId);
+    trackToggle("layer", layerId, true);
+    lastLayerId = layerId;
   }
   syncWordCloudForCurrentLayer();
 }
@@ -436,8 +443,15 @@ async function loadPoints(): Promise<void> {
 }
 
 layerPicker.addEventListener("change", () => {
+  const prevLayerId = lastLayerId;
+  const nextLayerId = layerPicker.value;
+  if (prevLayerId && prevLayerId !== nextLayerId) {
+    trackToggle("layer", prevLayerId, false);
+  }
+  trackToggle("layer", nextLayerId, true);
+  lastLayerId = nextLayerId;
   syncWordCloudForCurrentLayer();
-  applyGlobeLayer(layerPicker.value);
+  applyGlobeLayer(nextLayerId);
   void loadPoints().catch((e) =>
     setStatus(e instanceof Error ? e.message : String(e)),
   );
