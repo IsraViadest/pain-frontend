@@ -93,13 +93,6 @@ export const SURVEY_DRAG_WORD_MIME = "application/x-survey-word";
 /** Modal + screen fade duration (ms) — matches survey.css transitions. */
 export const SURVEY_FADE_MS = 300;
 
-/** Placeholder API wait after submit — replace with Mike's POST round-trip. */
-export const SURVEY_SUBMIT_DUMMY_DELAY_MS = 3000;
-
-/** Placeholder response coordinates (Vienna) until pain-server returns placement. */
-export const SURVEY_RESULT_DUMMY_LAT = 48.2;
-export const SURVEY_RESULT_DUMMY_LNG = 16.37;
-
 /** Camera distance from origin during post-submit fly-to (~outside RADIUS=1 globe). */
 export const SURVEY_FLY_TO_CAMERA_RADIUS = 2.2;
 
@@ -185,67 +178,30 @@ export const SURVEY_WORDS: SurveyWord[] = (
   ][]
 ).flatMap(([category, words]) => words.map((word) => ({ word, category })));
 
-/** Selected words grouped for survey submission (Mike API-facing category keys). */
-type SurveyWordsByCategory = {
-  emotional: string[];
-  environmental: string[];
-  socioeconomical: string[];
-  physical: string[];
-};
-
-/** Full survey payload logged on Screen 5 submit — API wiring comes later. */
-type SurveySubmissionPayload = {
-  words: SurveyWordsByCategory;
-  placements: SurveyWordPlacement[];
+/**
+ * Survey submission payload sent to pain-server via `POST /survey`.
+ *
+ * Assumption: pain-server expects the exact field names in this shape; any renames
+ * must be coordinated with the backend contract.
+ */
+export type SurveySubmissionPayload = {
+  wordBubbles: string[];
+  wordBody: SurveyWordPlacement[];
   temporality: string[];
   relations: string[];
-  painText: string;
+  painDescription: string;
 };
-
-const SURVEY_WORD_CATEGORY_BY_WORD = new Map(
-  SURVEY_WORDS.map(({ word, category }) => [word, category] as const),
-);
-
-/**
- * Group selected Screen 1 words by pain category for submission.
- * Maps internal `socioeconomic` to API key `socioeconomical`.
- */
-function groupWordsByCategory(
-  selectedWords: Set<string>,
-): SurveyWordsByCategory {
-  const grouped: SurveyWordsByCategory = {
-    emotional: [],
-    environmental: [],
-    socioeconomical: [],
-    physical: [],
-  };
-
-  for (const word of selectedWords) {
-    const category = SURVEY_WORD_CATEGORY_BY_WORD.get(word);
-    if (!category) {
-      console.warn(`[surveyData] Unknown survey word: ${word}`);
-      continue;
-    }
-    if (category === "socioeconomic") {
-      grouped.socioeconomical.push(word);
-    } else {
-      grouped[category].push(word);
-    }
-  }
-
-  return grouped;
-}
 
 /** Build the JSON payload logged when the user submits the survey on Screen 5. */
 export function buildSurveySubmissionPayload(
   state: SurveySessionState,
 ): SurveySubmissionPayload {
   return {
-    words: groupWordsByCategory(state.selectedWords),
-    placements: state.placements,
+    wordBubbles: [...state.selectedWords],
+    wordBody: state.placements,
     temporality: state.temporality,
     relations: state.relations,
-    painText: state.painText,
+    painDescription: state.painText,
   };
 }
 

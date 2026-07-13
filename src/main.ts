@@ -41,10 +41,9 @@ import {
   showSurveyResultModal,
 } from "./survey/surveyResultModal";
 import {
-  SURVEY_RESULT_DUMMY_LAT,
-  SURVEY_RESULT_DUMMY_LNG,
-  SURVEY_SUBMIT_DUMMY_DELAY_MS,
+  type SurveySubmissionPayload,
 } from "./survey/surveyData";
+import { submitSurvey } from "./survey/surveyApi";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -154,24 +153,23 @@ const globeDebugToggle = document.querySelector<HTMLButtonElement>(
 
 let postSubmitRunning = false;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
-}
-
-async function runPostSubmitSequence(): Promise<void> {
+async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<void> {
   if (postSubmitRunning) return;
   postSubmitRunning = true;
   const overlayHost = appRoot;
   if (!overlayHost) return;
   try {
     showSurveyLoadingOverlay(overlayHost);
-    await sleep(SURVEY_SUBMIT_DUMMY_DELAY_MS);
+    const res = await submitSurvey(payload);
     await hideSurveyLoadingOverlay();
+    if (!res) {
+      console.warn("[main] Survey submission failed; skipping post-submit fly-to.");
+      return;
+    }
     globe.setAutoSpinEnabled(false);
-    const resultLat = SURVEY_RESULT_DUMMY_LAT;
-    const resultLng = SURVEY_RESULT_DUMMY_LNG;
+    // Assumption: `submitSurvey` returns pain-server coordinates as `{ lat, lng }` (see surveyApi.ts).
+    const resultLat = res.lat;
+    const resultLng = res.lng;
     await flyGlobeToLatLng(
       globe.camera,
       globe.controls,
@@ -195,8 +193,8 @@ async function runPostSubmitSequence(): Promise<void> {
 }
 
 const surveyModal = new SurveyModal(surveyModalHost, {
-  onSurveySubmitted: () => {
-    void runPostSubmitSequence();
+  onSurveySubmitted: (payload) => {
+    void runPostSubmitSequence(payload);
   },
 });
 

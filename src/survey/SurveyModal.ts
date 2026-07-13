@@ -4,7 +4,12 @@ import { mountSurveyScreen2 } from "./SurveyScreen2";
 import { mountSurveyScreen3 } from "./SurveyScreen3";
 import { mountSurveyScreen4 } from "./SurveyScreen4";
 import { mountSurveyScreen5 } from "./SurveyScreen5";
-import { SURVEY_FADE_MS, type SurveySessionState } from "./surveyData";
+import {
+  SURVEY_FADE_MS,
+  buildSurveySubmissionPayload,
+  type SurveySessionState,
+  type SurveySubmissionPayload,
+} from "./surveyData";
 import { trackSurveyStep } from "../api/metricsApi";
 
 type ActiveScreen = {
@@ -12,7 +17,7 @@ type ActiveScreen = {
 };
 
 type SurveyModalOptions = {
-  onSurveySubmitted?: () => void;
+  onSurveySubmitted?: (payload: SurveySubmissionPayload) => void;
 };
 
 /**
@@ -25,7 +30,7 @@ export class SurveyModal {
   private readonly panel: HTMLElement;
   private readonly screenHost: HTMLElement;
   private readonly closeBtn: HTMLButtonElement;
-  private readonly onSurveySubmitted?: () => void;
+  private readonly onSurveySubmitted?: (payload: SurveySubmissionPayload) => void;
   private state: SurveySessionState = {
     selectedWords: new Set(),
     placements: [],
@@ -207,8 +212,9 @@ export class SurveyModal {
   private handleSurveySubmit(): void {
     this.close();
     if (!this.onSurveySubmitted) return;
+    const payload = buildSurveySubmissionPayload(this.state);
     window.setTimeout(() => {
-      this.onSurveySubmitted?.();
+      this.onSurveySubmitted?.(payload);
     }, SURVEY_FADE_MS);
   }
 
