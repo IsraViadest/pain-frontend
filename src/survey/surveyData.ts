@@ -1,5 +1,3 @@
-import { surveyLayoutOverrides } from "./surveyLayoutOverrides";
-
 /** Survey word category ids (pain-server layer families). */
 type SurveyWordCategory =
   | "emotional"
@@ -119,7 +117,7 @@ export const SURVEY_LAYOUT_MAX_ITERATIONS = 50;
 export const SURVEY_FIELD_INSET_FRAC = 0.03;
 
 /** Max hash jitter from cell center, as a fraction of cell width/height. */
-export const SURVEY_INIT_CELL_OFFSET_FRAC = 0.2;
+const SURVEY_INIT_CELL_OFFSET_FRAC = 0.2;
 
 const SURVEY_WORD_CATEGORIES: Record<SurveyWordCategory, readonly string[]> =
   {
@@ -359,12 +357,10 @@ const SURVEY_INIT_CELL_BY_WORD = new Map(
 );
 
 function cellInitOffset(word: string, axis: "x" | "y"): number {
-  const cellOffsetFrac =
-    surveyLayoutOverrides.initCellOffsetFrac ?? SURVEY_INIT_CELL_OFFSET_FRAC;
   const h = hashSurveyString(`${word}|init${axis}`) % 10000;
   const r01 = h / 10000; // 0..1
   const centered = r01 - 0.5; // -0.5..0.5
-  return centered * 2 * cellOffsetFrac;
+  return centered * 2 * SURVEY_INIT_CELL_OFFSET_FRAC;
 }
 
 /** Grid-seeded starting center (% of field) with hash jitter — separation pass refines from here. */
@@ -375,7 +371,7 @@ export function surveyInitialPosition(word: string): { left: number; top: number
   const col = cellIndex % SURVEY_INIT_GRID_COLS;
   const row = Math.floor(cellIndex / SURVEY_INIT_GRID_COLS);
 
-  const inset = surveyLayoutOverrides.fieldInsetFrac ?? SURVEY_FIELD_INSET_FRAC;
+  const inset = SURVEY_FIELD_INSET_FRAC;
   const fieldW = 1 - 2 * inset;
   const fieldH = 1 - 2 * inset;
   const cellW = fieldW / SURVEY_INIT_GRID_COLS;
