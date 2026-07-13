@@ -17,7 +17,9 @@ import type { MapLayer } from "./types/api";
 import {
   GlobeView,
   type GlobeLayerDisplayMeta,
+  type MarkerHoverInfo,
   type MultiplexHoverInfo,
+  PAIN_VIZ_MODE,
   type PainVisualizationMode,
   type WordCloudHoverInfo,
 } from "./globe/GlobeView";
@@ -54,12 +56,14 @@ if (
 }
 
 const painVizEl = painVizSelect;
-painVizEl.value = "scars";
+painVizEl.value = PAIN_VIZ_MODE.scars;
 
 function readPainVizMode(): PainVisualizationMode {
-  if (painVizEl.value === "scars") return "scars";
-  if (painVizEl.value === "multiplex-v0") return "multiplex-v0";
-  return "points";
+  if (painVizEl.value === PAIN_VIZ_MODE.scars) return PAIN_VIZ_MODE.scars;
+  if (painVizEl.value === PAIN_VIZ_MODE.multiplexV0) {
+    return PAIN_VIZ_MODE.multiplexV0;
+  }
+  return PAIN_VIZ_MODE.points;
 }
 
 const hudStatus = statusEl;
@@ -252,6 +256,11 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
   return `<strong>Cluster beacon</strong><br/>${info.count} nearby points<br/>Avg intensity ${info.avgIntensity.toFixed(2)}`;
 }
 
+/** HTML for the floating tooltip when hovering a pain marker (debug-only). */
+function renderMarkerHover(info: MarkerHoverInfo): string {
+  return `<strong>${info.layerId}</strong><br/>Intensity ${info.intensity.toFixed(3)}<br/>Lat ${info.lat.toFixed(2)}, Lng ${info.lng.toFixed(2)}<br/>${info.datatype}`;
+}
+
 /** HTML for the floating tooltip when hovering a text-layer word-cloud sprite. */
 function renderWordCloudHover(info: WordCloudHoverInfo): string {
   const msg = info.fullText.length > 220
@@ -260,20 +269,35 @@ function renderWordCloudHover(info: WordCloudHoverInfo): string {
   return `<strong>${info.country}</strong><br/>${info.shortLabel}<br/>${msg}`;
 }
 
+/** Pixel offset from cursor when positioning the floating hover tooltip (avoids covering the pointer). */
+const HOVER_TOOLTIP_OFFSET_X = 14;
+const HOVER_TOOLTIP_OFFSET_Y = 12;
+
 canvas.addEventListener("pointermove", (ev) => {
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
     const w = globe.pickWordCloudHover(ev.clientX, ev.clientY);
     if (w) {
       hoverModal.hidden = false;
       hoverModal.innerHTML = renderWordCloudHover(w);
-      const offsetX = 14;
-      const offsetY = 12;
-      hoverModal.style.left = `${ev.clientX + offsetX}px`;
-      hoverModal.style.top = `${ev.clientY + offsetY}px`;
+      hoverModal.style.left = `${ev.clientX + HOVER_TOOLTIP_OFFSET_X}px`;
+      hoverModal.style.top = `${ev.clientY + HOVER_TOOLTIP_OFFSET_Y}px`;
       return;
     }
   }
-  if (readPainVizMode() !== "multiplex-v0") {
+  if (
+    shouldShowGlobeDebugPanel() &&
+    readPainVizMode() === PAIN_VIZ_MODE.points
+  ) {
+    const marker = globe.pickMarkerHover(ev.clientX, ev.clientY);
+    if (marker) {
+      hoverModal.hidden = false;
+      hoverModal.innerHTML = renderMarkerHover(marker);
+      hoverModal.style.left = `${ev.clientX + HOVER_TOOLTIP_OFFSET_X}px`;
+      hoverModal.style.top = `${ev.clientY + HOVER_TOOLTIP_OFFSET_Y}px`;
+      return;
+    }
+  }
+  if (readPainVizMode() !== PAIN_VIZ_MODE.multiplexV0) {
     hoverModal.hidden = true;
     return;
   }
@@ -284,10 +308,8 @@ canvas.addEventListener("pointermove", (ev) => {
   }
   hoverModal.hidden = false;
   hoverModal.innerHTML = renderMultiplexHover(info);
-  const offsetX = 14;
-  const offsetY = 12;
-  hoverModal.style.left = `${ev.clientX + offsetX}px`;
-  hoverModal.style.top = `${ev.clientY + offsetY}px`;
+  hoverModal.style.left = `${ev.clientX + HOVER_TOOLTIP_OFFSET_X}px`;
+  hoverModal.style.top = `${ev.clientY + HOVER_TOOLTIP_OFFSET_Y}px`;
 });
 
 canvas.addEventListener("pointerleave", () => {

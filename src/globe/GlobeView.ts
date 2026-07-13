@@ -15,7 +15,10 @@ import {
   type VisualTheme,
 } from "./layerTextures";
 import { latLngToVector3 } from "./latLng";
-import { createPainHeatTexture } from "./painHeatField";
+import {
+  createPainHeatTexture,
+  type HeatMapBuildParams,
+} from "./painHeatField";
 import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
@@ -83,8 +86,8 @@ const SCAR_HEIGHT_MAP_TUNE_KEYS: readonly (keyof GlobeDebugTune)[] = [
 ];
 
 const STIPPLE_FACING_CULL_OFF = -0.5;
-/** Land stipple heat-map tint strength (0–1). */
-const SCAR_HEAT_STRENGTH = 2.82;
+/** Default stipple heat-map mix strength (debug panel Heat map section). */
+const HEAT_MAP_STRENGTH_DEFAULT = 2.82;
 /** Runtime Three.js supports clipping on materials; some @types/three versions omit it. */
 type MaterialWithClipping = THREE.Material & {
   clipping: boolean;
@@ -102,6 +105,50 @@ const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
 const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 160;
 const GLOW_RADIUS = RADIUS * 1.09;
+/** Pain “points” mode marker sphere radius on the globe surface. */
+const MARKER_BASE_RADIUS = 0.018;
+const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
+const MARKER_SPHERE_HEIGHT_SEGMENTS = 8;
+/** Minimum emissive floor when tuning emissiveBase down (low-intensity markers stay visible). */
+const MARKER_EMISSIVE_BASE_MIN = 0.25;
+const MARKER_EMISSIVE_INTENSITY_SCALE = 0.5;
+/** Instance radius multiplier at intensity 0 (scales up by MARKER_RADIUS_INTENSITY_SPAN toward 1). */
+const MARKER_RADIUS_INTENSITY_MIN = 0.7;
+const MARKER_RADIUS_INTENSITY_SPAN = 0.6;
+/** Grow instanced buffer when point count exceeds capacity. */
+const MARKER_INSTANCE_CAPACITY_GROWTH = 1.25;
+const MARKER_INSTANCE_INITIAL_CAPACITY = 256;
+/** Base marker color before per-instance layer tint is applied (instanceColor × emissive). */
+const MARKER_COLOR_WHITE = 0xffffff;
+
+export type GlobeMarkerTune = {
+  radius: number;
+  roughness: number;
+  metalness: number;
+  opacity: number;
+  emissiveBase: number;
+};
+
+/** Default pain-marker look (debug panel Markers section; geometry uses {@link MARKER_BASE_RADIUS} as unit scale). */
+const GLOBE_MARKER_TUNE_DEFAULTS: GlobeMarkerTune = {
+  radius: 0.006,
+  roughness: 1.0,
+  metalness: 0.0,
+  opacity: 0.27,
+  emissiveBase: 0.67,
+};
+
+/** Heat texture stamp curve + stipple mix strength (debug panel Heat map section). */
+export type GlobeHeatTune = HeatMapBuildParams & {
+  heatStrength: number;
+};
+
+const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
+  peakPower: 0.7,
+  peakFloor: 0.02,
+  heatStrength: 2.3,
+};
+
 const GLOW_VS = /* glsl */ `
 varying float vGlow;
 void main() {
@@ -154,6 +201,14 @@ export type WordCloudHoverInfo = {
   fullText: string;
   intensity: number;
 };
+/** Debug-only marker hover payload (points viz, InstancedMesh pick). */
+export type MarkerHoverInfo = {
+  layerId: string;
+  intensity: number;
+  lat: number;
+  lng: number;
+  datatype: string;
+};
 type MultiplexNodeHover = {
   kind: "node";
   type: string;
@@ -173,7 +228,13 @@ type MultiplexClusterHover = {
 export type MultiplexHoverInfo = MultiplexNodeHover | MultiplexClusterHover;
 type GlobeDisplayMode = "texture" | "points";
 /** How pain submissions are drawn: floating markers vs. inward dents on the sphere. */
-export type PainVisualizationMode = "points" | "scars" | "multiplex-v0";
+export const PAIN_VIZ_MODE = {
+  points: "points",
+  scars: "scars",
+  multiplexV0: "multiplex-v0",
+} as const;
+export type PainVisualizationMode =
+  (typeof PAIN_VIZ_MODE)[keyof typeof PAIN_VIZ_MODE];
 
 /** Toggle targets for the temporary globe debug panel (`globeDebugPanel.ts`). */
 export type GlobeDebugLayerId =
@@ -262,10 +323,20 @@ export class GlobeView {
   >;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
-  /** SHELL markers — “points” viz mode only (rebuildPainGeometryAndTexture). */
+  /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
   private readonly markersGroup = new THREE.Group();
   private readonly multiplexGroup = new THREE.Group();
   private readonly markerGeometry: THREE.SphereGeometry;
+  /** Single draw call for all pain markers; marker picking is out of scope (no per-instance userData). */
+  private painMarkersInstanced: THREE.InstancedMesh | null = null;
+  private markerMaterial: THREE.MeshStandardMaterial | null = null;
+  private markerInstanceCapacity = 0;
+  private markerUseInstanceColor = true;
+  private readonly markerTempMatrix = new THREE.Matrix4();
+  private readonly markerTempPosition = new THREE.Vector3();
+  private readonly markerTempScale = new THREE.Vector3(1, 1, 1);
+  private readonly markerTempQuaternion = new THREE.Quaternion();
+  private readonly markerTempColor = new THREE.Color();
   private readonly textLayerGroup = new THREE.Group();
   private readonly textureCache = new Map<string, THREE.CanvasTexture>();
   /** SHELL coast + borders — LineSegments2 group (loadCountryOutlines). */
@@ -281,7 +352,7 @@ export class GlobeView {
   /** Unwarped globe sphere; scar mode warps vertices (same path as stipple + borders). */
   private readonly globeBasePositions: Float32Array;
   private displayMode: GlobeDisplayMode = "texture";
-  private painVizMode: PainVisualizationMode = "points";
+  private painVizMode: PainVisualizationMode = PAIN_VIZ_MODE.points;
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private painHeatMap: THREE.DataTexture | null = null;
@@ -313,6 +384,9 @@ export class GlobeView {
   private readonly debugLayerOverrides = new Map<GlobeDebugLayerId, boolean>();
   /** Live tuning (debug panel sliders) — see GLOBE_DEBUG_TUNE_DEFAULTS. */
   private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
+  /** Pain marker material / size (debug panel Markers section). */
+  private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+  private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -399,7 +473,12 @@ export class GlobeView {
     this.scene.add(this.multiplexGroup);
     this.textLayerGroup.renderOrder = 4;
     this.scene.add(this.textLayerGroup);
-    this.markerGeometry = new THREE.SphereGeometry(0.018, 16, 16);
+    this.markerGeometry = new THREE.SphereGeometry(
+      MARKER_BASE_RADIUS,
+      MARKER_SPHERE_WIDTH_SEGMENTS,
+      MARKER_SPHERE_HEIGHT_SEGMENTS,
+    );
+    this.markerUseInstanceColor = GlobeView.probeMarkerInstanceColorSupport();
 
     // Neutral tint until main.ts applyGlobeLayer runs after fetchLayers.
     this.setLayerTexture("");
@@ -417,15 +496,15 @@ export class GlobeView {
     void this.ensureStipple().then(() => {
       this.syncGlobeSurfaceVisibility();
       if (
-        this.painVizMode === "scars" ||
-        this.painVizMode === "multiplex-v0"
+        this.painVizMode === PAIN_VIZ_MODE.scars ||
+        this.painVizMode === PAIN_VIZ_MODE.multiplexV0
       ) {
         this.syncScarVisualization();
       }
     });
     if (
-      this.painVizMode === "scars" ||
-      this.painVizMode === "multiplex-v0"
+      this.painVizMode === PAIN_VIZ_MODE.scars ||
+      this.painVizMode === PAIN_VIZ_MODE.multiplexV0
     ) {
       this.syncScarVisualization();
     }
@@ -476,7 +555,7 @@ export class GlobeView {
     }
     if (
       SCAR_HEIGHT_MAP_TUNE_KEYS.some((k) => partial[k] !== undefined) &&
-      (this.painVizMode === "scars" || this.painVizMode === "multiplex-v0")
+      (this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0)
     ) {
       this.scheduleScarFieldRebuild();
     }
@@ -489,10 +568,74 @@ export class GlobeView {
     this.applyStippleScarUniforms();
     this.refreshCpuScarDisplacementFromTune();
     if (
-      this.painVizMode === "scars" ||
-      this.painVizMode === "multiplex-v0"
+      this.painVizMode === PAIN_VIZ_MODE.scars ||
+      this.painVizMode === PAIN_VIZ_MODE.multiplexV0
     ) {
       this.scheduleScarFieldRebuild();
+    }
+  }
+
+  /** Current pain-marker tuning (debug panel Markers section). */
+  getMarkerTune(): GlobeMarkerTune {
+    return { ...this.markerTune };
+  }
+
+  /** Adjust pain-marker tuning (debug panel). Material updates live; radius rebuilds instance matrices. */
+  setMarkerTune(partial: Partial<GlobeMarkerTune>): void {
+    const radiusChanged =
+      partial.radius !== undefined && partial.radius !== this.markerTune.radius;
+    const merged = { ...this.markerTune, ...partial };
+    if (partial.emissiveBase !== undefined) {
+      merged.emissiveBase = Math.max(
+        MARKER_EMISSIVE_BASE_MIN,
+        partial.emissiveBase,
+      );
+    }
+    this.markerTune = merged;
+    this.applyMarkerMaterialTune();
+    if (radiusChanged && this.painVizMode === PAIN_VIZ_MODE.points) {
+      this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
+    } else if (partial.emissiveBase !== undefined && this.lastPainPoints.length > 0) {
+      this.updateMarkerInstanceColors(this.lastPainPoints);
+    }
+  }
+
+  /** Restore {@link GLOBE_MARKER_TUNE_DEFAULTS} and re-apply marker look. */
+  resetMarkerTune(): void {
+    this.markerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+    this.applyMarkerMaterialTune();
+    if (this.painVizMode === PAIN_VIZ_MODE.points && this.lastPainPoints.length > 0) {
+      this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
+    }
+  }
+
+  /** Current heat-map build + stipple mix tuning (debug panel Heat map section). */
+  getHeatTune(): GlobeHeatTune {
+    return { ...this.heatTune };
+  }
+
+  /** Adjust heat stamp curve and/or stipple mix; peak params rebuild the heat texture. */
+  setHeatTune(partial: Partial<GlobeHeatTune>): void {
+    const peakChanged =
+      (partial.peakPower !== undefined &&
+        partial.peakPower !== this.heatTune.peakPower) ||
+      (partial.peakFloor !== undefined &&
+        partial.peakFloor !== this.heatTune.peakFloor);
+    this.heatTune = { ...this.heatTune, ...partial };
+    if (peakChanged && this.lastPainPoints.length > 0) {
+      this.rebuildPainHeatMap();
+    } else {
+      this.applyStippleHeatUniforms();
+    }
+  }
+
+  /** Restore {@link GLOBE_HEAT_TUNE_DEFAULTS}, rebuild heat texture, reapply uniforms. */
+  resetHeatTune(): void {
+    this.heatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
+    if (this.lastPainPoints.length > 0) {
+      this.rebuildPainHeatMap();
+    } else {
+      this.applyStippleHeatUniforms();
     }
   }
 
@@ -544,7 +687,7 @@ export class GlobeView {
 
   private getAutoGlobeVisible(): boolean {
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
       return (
         GLOBE_SHELL_VISIBLE_IN_SCAR_MODE ||
@@ -557,20 +700,20 @@ export class GlobeView {
   private getAutoStippleVisible(): boolean {
     return (
       this.displayMode === "points" ||
-      this.painVizMode === "scars" ||
-      this.painVizMode === "multiplex-v0"
+      this.painVizMode === PAIN_VIZ_MODE.scars ||
+      this.painVizMode === PAIN_VIZ_MODE.multiplexV0
     );
   }
 
   private getAutoScarDisplacementActive(): boolean {
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     return scars && Boolean(this.scarDisplacementMap);
   }
 
   private getAutoHeatOverlayActive(): boolean {
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     return scars && Boolean(this.painHeatMap);
   }
 
@@ -607,9 +750,9 @@ export class GlobeView {
       case "countryBorders":
         return Boolean(this.bordersOutlines);
       case "markers":
-        return this.painVizMode === "points";
+        return this.painVizMode === PAIN_VIZ_MODE.points;
       case "multiplex":
-        return this.painVizMode === "multiplex-v0";
+        return this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
       case "wordCloud":
         return this.wordCloudEnabled && this.textLayerGroup.children.length > 0;
       case "scarDisplacement":
@@ -684,11 +827,11 @@ export class GlobeView {
     );
     this.markersGroup.visible = this.resolveDebugLayerVisibility(
       "markers",
-      this.painVizMode === "points",
+      this.painVizMode === PAIN_VIZ_MODE.points,
     );
     this.multiplexGroup.visible = this.resolveDebugLayerVisibility(
       "multiplex",
-      this.painVizMode === "multiplex-v0",
+      this.painVizMode === PAIN_VIZ_MODE.multiplexV0,
     );
     this.textLayerGroup.visible = this.resolveDebugLayerVisibility(
       "wordCloud",
@@ -747,7 +890,7 @@ export class GlobeView {
     this.bordersOutlines?.setClippingPlanes(planes);
 
     for (const ch of this.markersGroup.children) {
-      if (ch instanceof THREE.Mesh) {
+      if (ch instanceof THREE.InstancedMesh) {
         const m = ch.material as unknown as MaterialWithClipping;
         m.clipping = enabled;
         m.clippingPlanes = planes;
@@ -793,7 +936,7 @@ export class GlobeView {
   /** Neutral base color for the displaced globe under stipple (no canvas layer map). */
   private applyGlobeScarShellMaterial(): void {
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (!scars || this.displayMode !== "points") return;
     if (isDebugScarVisual()) {
       this.applyDebugGlobeMaterial();
@@ -895,7 +1038,7 @@ export class GlobeView {
    */
   private refreshCpuScarDisplacementFromTune(): void {
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const map = this.scarDisplacementMap;
     if (!scars || !map) return;
 
@@ -916,7 +1059,7 @@ export class GlobeView {
    */
   private syncScarVisualization(): void {
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const mat = this.globe.material as THREE.MeshStandardMaterial;
 
     if (this.pointsStipple && !this.stippleBasePositions) {
@@ -1014,6 +1157,21 @@ export class GlobeView {
     drawScarMapPreview(this.scarMapPreviewCanvas, this.scarDisplacementMap);
   }
 
+  /** Rebuild CPU heat texture from {@link lastPainPoints} and current {@link heatTune} peak curve. */
+  private rebuildPainHeatMap(): void {
+    if (this.painHeatMap) {
+      this.painHeatMap.dispose();
+      this.painHeatMap = null;
+    }
+    if (this.lastPainPoints.length > 0) {
+      this.painHeatMap = createPainHeatTexture(this.lastPainPoints, {
+        peakPower: this.heatTune.peakPower,
+        peakFloor: this.heatTune.peakFloor,
+      });
+    }
+    this.applyStippleHeatUniforms();
+  }
+
   /** Build scar height map off the hot path (full layers are ~20k rows). */
   private scheduleScarFieldRebuild(): void {
     const generation = ++this.scarBuildGeneration;
@@ -1028,7 +1186,7 @@ export class GlobeView {
     }
 
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (!scars) {
       const mat = this.globe.material as THREE.MeshStandardMaterial;
       mat.emissiveMap = null;
@@ -1053,7 +1211,10 @@ export class GlobeView {
           blurPass2Radius: this.debugTune.scarBlurPass2Radius,
         },
       );
-      this.painHeatMap = createPainHeatTexture(points);
+      this.painHeatMap = createPainHeatTexture(points, {
+        peakPower: this.heatTune.peakPower,
+        peakFloor: this.heatTune.peakFloor,
+      });
       this.updateScarMapPreview();
       void this.ensureStipple().then(() => {
         if (generation !== this.scarBuildGeneration) return;
@@ -1162,7 +1323,7 @@ export class GlobeView {
 
   private applyStippleScarUniforms(): void {
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const scarOn = this.resolveDebugLayerVisibility(
       "scarDisplacement",
       scars && Boolean(this.scarDisplacementMap),
@@ -1187,13 +1348,13 @@ export class GlobeView {
     if (!this.pointsMaterial) return;
     const u = this.pointsMaterial.uniforms;
     const scars =
-      this.painVizMode === "scars" || this.painVizMode === "multiplex-v0";
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const heatOn = this.resolveDebugLayerVisibility(
       "heatOverlay",
       scars && Boolean(this.painHeatMap),
     );
     u.uHeatActive.value = heatOn ? 1 : 0;
-    u.uHeatStrength.value = SCAR_HEAT_STRENGTH;
+    u.uHeatStrength.value = this.heatTune.heatStrength;
     if (heatOn && this.painHeatMap) {
       this.painHeatMap.needsUpdate = true;
       u.uHeatMap.value = this.painHeatMap;
@@ -1307,7 +1468,7 @@ export class GlobeView {
 
   dispose(): void {
     window.removeEventListener("resize", this.onResize);
-    this.painVizMode = "points";
+    this.painVizMode = PAIN_VIZ_MODE.points;
     this.lastPainPoints = [];
     this.rebuildPainGeometryAndTexture();
     this.disposeStipple();
@@ -1323,6 +1484,11 @@ export class GlobeView {
     this.glow.geometry.dispose();
     this.glow.material.dispose();
     this.markerGeometry.dispose();
+    this.disposePainMarkersInstanced();
+    if (this.markerMaterial) {
+      this.markerMaterial.dispose();
+      this.markerMaterial = null;
+    }
     this.clearWordCloud();
     this.disposeMultiplexObjects();
     for (const t of this.textureCache.values()) t.dispose();
@@ -1375,6 +1541,7 @@ export class GlobeView {
     m.needsUpdate = true;
     this.applyPointsTint();
     this.applyGlobeScarShellMaterial();
+    this.updateMarkerInstanceColors(this.lastPainPoints);
     this.refreshWordCloud();
   }
 
@@ -1391,52 +1558,228 @@ export class GlobeView {
   }
 
   /**
+   * Quick capability probe: InstancedMesh.setColorAt + instanceColor with MeshStandardMaterial (Three r170).
+   * When unavailable, markers use uniform layer emissive (no per-instance tint); intensity-based color
+   * variation is lost on that path, but intensity-based radius (instance matrices) still applies.
+   */
+  private static probeMarkerInstanceColorSupport(): boolean {
+    const supported =
+      typeof THREE.InstancedMesh.prototype.setColorAt === "function";
+    if (!supported) {
+      console.warn(
+        "[GlobeView] InstancedMesh.setColorAt unavailable — uniform layer emissive only (no per-instance tint); intensity-based radius unchanged.",
+      );
+    }
+    return supported;
+  }
+
+  private createMarkerMaterial(): THREE.MeshStandardMaterial {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: this.markerTune.roughness,
+      metalness: this.markerTune.metalness,
+      opacity: this.markerTune.opacity,
+      transparent: this.markerTune.opacity < 1,
+    });
+    const mClip = mat as unknown as MaterialWithClipping;
+    mClip.clipping = true;
+    mClip.clipIntersection = false;
+    mClip.clippingPlanes = this.clipPlanesFront;
+    return mat;
+  }
+
+  /** Live marker material from {@link markerTune} (roughness, metalness, opacity). */
+  private applyMarkerMaterialTune(): void {
+    if (!this.markerMaterial) return;
+    this.markerMaterial.roughness = this.markerTune.roughness;
+    this.markerMaterial.metalness = this.markerTune.metalness;
+    this.markerMaterial.opacity = this.markerTune.opacity;
+    this.markerMaterial.transparent = this.markerTune.opacity < 1;
+    this.markerMaterial.needsUpdate = true;
+  }
+
+  /** Clamped {@link markerTune.emissiveBase} — floor ensures low-intensity markers stay visible. */
+  private markerEmissiveBaseEffective(): number {
+    return Math.max(MARKER_EMISSIVE_BASE_MIN, this.markerTune.emissiveBase);
+  }
+
+  /** Per-instance emissive multiplier from stored intensity (colors only; no matrix rebuild). */
+  private markerEmissiveScale(intensity: number): number {
+    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    const clampedIntensity = Math.min(Math.max(0, intensity), 1);
+    return (
+      this.markerEmissiveBaseEffective() +
+      MARKER_EMISSIVE_INTENSITY_SCALE * clampedIntensity
+    );
+  }
+
+  /** Instance matrix scale from base tune radius × intensity (baked per point in rebuild). */
+  private markerInstanceScaleForPoint(intensity: number): number {
+    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    const clampedIntensity = Math.min(Math.max(0, intensity), 1);
+    const worldRadius =
+      this.markerTune.radius *
+      (MARKER_RADIUS_INTENSITY_MIN +
+        MARKER_RADIUS_INTENSITY_SPAN * clampedIntensity);
+    return worldRadius / MARKER_BASE_RADIUS;
+  }
+
+  private disposePainMarkersInstanced(): void {
+    if (!this.painMarkersInstanced) return;
+    this.painMarkersInstanced.dispose();
+    (
+      this.painMarkersInstanced.instanceMatrix as unknown as {
+        dispose?: () => void;
+      }
+    ).dispose?.();
+    (
+      this.painMarkersInstanced.instanceColor as unknown as {
+        dispose?: () => void;
+      }
+    )?.dispose?.();
+    this.markersGroup.remove(this.painMarkersInstanced);
+    this.painMarkersInstanced = null;
+    this.markerInstanceCapacity = 0;
+  }
+
+  private ensurePainMarkersInstanced(requiredCount: number): THREE.InstancedMesh {
+    if (
+      this.painMarkersInstanced &&
+      this.markerInstanceCapacity >= requiredCount
+    ) {
+      return this.painMarkersInstanced;
+    }
+    this.disposePainMarkersInstanced();
+    const capacity = Math.max(
+      requiredCount,
+      this.markerInstanceCapacity > 0
+        ? Math.ceil(this.markerInstanceCapacity * MARKER_INSTANCE_CAPACITY_GROWTH)
+        : MARKER_INSTANCE_INITIAL_CAPACITY,
+    );
+    if (!this.markerMaterial) {
+      this.markerMaterial = this.createMarkerMaterial();
+    }
+    const mesh = new THREE.InstancedMesh(
+      this.markerGeometry,
+      this.markerMaterial,
+      capacity,
+    );
+    mesh.frustumCulled = false;
+    if (this.markerUseInstanceColor) {
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(
+        new Float32Array(capacity * 3),
+        3,
+      );
+    }
+    this.markersGroup.add(mesh);
+    this.painMarkersInstanced = mesh;
+    this.markerInstanceCapacity = capacity;
+    return mesh;
+  }
+
+  private logMarkerRebuildMeasure(pointCount: number): void {
+    performance.mark("pain-markers-rebuild-end");
+    performance.measure(
+      "pain-markers-rebuild",
+      "pain-markers-rebuild-start",
+      "pain-markers-rebuild-end",
+    );
+    const entries = performance.getEntriesByName("pain-markers-rebuild");
+    const last = entries[entries.length - 1];
+    if (last) {
+      console.info(
+        `[GlobeView perf] pain-markers-rebuild: ${last.duration.toFixed(2)} ms (${pointCount} points)`,
+      );
+    }
+    performance.clearMeasures("pain-markers-rebuild");
+    performance.clearMarks("pain-markers-rebuild-start");
+    performance.clearMarks("pain-markers-rebuild-end");
+  }
+
+  /** Per-instance tint from layer color × emissive scale; does not touch instance matrices. */
+  private updateMarkerInstanceColors(points: PainPoint[]): void {
+    const mesh = this.painMarkersInstanced;
+    if (!mesh || points.length === 0) return;
+
+    const base = this.markerColorForActiveLayer();
+    const effectiveBase = this.markerEmissiveBaseEffective();
+    if (this.markerMaterial) {
+      this.markerMaterial.color.set(MARKER_COLOR_WHITE);
+      this.markerMaterial.emissive.copy(base);
+      this.markerMaterial.emissiveIntensity = effectiveBase;
+      this.markerMaterial.needsUpdate = true;
+    }
+
+    if (!this.markerUseInstanceColor || !mesh.instanceColor) {
+      console.warn(
+        "[GlobeView] Skipping per-instance marker tint — uniform layer emissive only (no per-instance tint); intensity-based radius unchanged.",
+      );
+      return;
+    }
+
+    for (let i = 0; i < points.length; i++) {
+      const scale = this.markerEmissiveScale(points[i]!.intensity);
+      this.markerTempColor.copy(base).multiplyScalar(scale);
+      mesh.setColorAt(i, this.markerTempColor);
+    }
+    mesh.instanceColor.needsUpdate = true;
+  }
+
+  /** Rebuild marker instance matrices when point data changes (setMarkers / viz mode). */
+  private rebuildMarkerInstanceMatrices(points: PainPoint[]): void {
+    performance.mark("pain-markers-rebuild-start");
+
+    if (points.length === 0) {
+      if (this.painMarkersInstanced) {
+        this.painMarkersInstanced.count = 0;
+      }
+      this.logMarkerRebuildMeasure(0);
+      return;
+    }
+
+    const mesh = this.ensurePainMarkersInstanced(points.length);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i]!;
+      const scale = this.markerInstanceScaleForPoint(p.intensity);
+      this.markerTempScale.set(scale, scale, scale);
+      this.markerTempPosition.copy(latLngToVector3(p.lat, p.lng, RADIUS));
+      this.markerTempMatrix.compose(
+        this.markerTempPosition,
+        this.markerTempQuaternion,
+        this.markerTempScale,
+      );
+      mesh.setMatrixAt(i, this.markerTempMatrix);
+    }
+    mesh.count = points.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    this.updateMarkerInstanceColors(points);
+    this.logMarkerRebuildMeasure(points.length);
+  }
+
+  private syncPainMarkersForVizMode(): void {
+    if (this.painVizMode === PAIN_VIZ_MODE.points) {
+      this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
+    } else {
+      this.disposePainMarkersInstanced();
+    }
+  }
+
+  /**
    * Rebuild markers, multiplex graph, and scar field from `lastPainPoints`
    * (called after `setMarkers`, viz-mode changes, and layer updates).
    */
   private rebuildPainGeometryAndTexture(): void {
     if (
-      this.painVizMode === "scars" ||
-      this.painVizMode === "multiplex-v0"
+      this.painVizMode === PAIN_VIZ_MODE.scars ||
+      this.painVizMode === PAIN_VIZ_MODE.multiplexV0
     ) {
       void this.ensureStipple();
     }
-    while (this.markersGroup.children.length) {
-      const ch = this.markersGroup.children[0]!;
-      this.markersGroup.remove(ch);
-      if (ch instanceof THREE.Mesh) {
-        if (Array.isArray(ch.material)) {
-          for (const m of ch.material) m.dispose();
-        } else {
-          ch.material.dispose();
-        }
-      }
-    }
 
-    if (this.painVizMode === "points") {
-      for (const p of this.lastPainPoints) {
-        const pos = latLngToVector3(p.lat, p.lng, RADIUS);
-        const col = this.markerColorForActiveLayer();
-        const mat = new THREE.MeshStandardMaterial({
-          color: col,
-          emissive: col,
-          emissiveIntensity: 0.35 + 0.5 * p.intensity,
-          roughness: 0.4,
-          metalness: 0.2,
-        });
-        const mClip = mat as unknown as MaterialWithClipping;
-        mClip.clipping = true;
-        mClip.clipIntersection = false;
-        mClip.clippingPlanes = this.clipPlanesFront;
-        const mesh = new THREE.Mesh(this.markerGeometry, mat);
-        mesh.position.copy(pos);
-        mesh.userData.painPoint = p;
-        this.markersGroup.add(mesh);
-      }
-    }
+    this.syncPainMarkersForVizMode();
 
     this.applyDebugLayerVisibility();
-    if (this.painVizMode === "multiplex-v0") {
+    if (this.painVizMode === PAIN_VIZ_MODE.multiplexV0) {
       this.rebuildMultiplexVisualization(this.lastPainPoints);
     } else {
       this.disposeMultiplexObjects();
@@ -1743,6 +2086,49 @@ export class GlobeView {
     return null;
   }
 
+  /**
+   * Raycast the pain-marker InstancedMesh (points viz only).
+   * Debug UI calls this from `main.ts` when globe debug is opt-in.
+   * `instanceId` indexes {@link lastPainPoints} (same order as matrix rebuild).
+   */
+  pickMarkerHover(clientX: number, clientY: number): MarkerHoverInfo | null {
+    if (this.painVizMode !== PAIN_VIZ_MODE.points) return null;
+    const mesh = this.painMarkersInstanced;
+    if (!mesh || mesh.count === 0 || this.lastPainPoints.length === 0) {
+      return null;
+    }
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    // Canvas-normalized [0,1] → NDC [-1,1] for Three.js Raycaster (* 2 - 1 per axis).
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hits = this.raycaster.intersectObject(mesh, false);
+    for (const hit of hits) {
+      if (hit.object !== mesh) continue;
+      const instanceId = hit.instanceId;
+      if (
+        instanceId == null ||
+        instanceId < 0 ||
+        mesh.count <= instanceId ||
+        this.lastPainPoints.length <= instanceId
+      ) {
+        continue;
+      }
+      const p = this.lastPainPoints[instanceId]!;
+      return {
+        layerId: p.uiLayer,
+        intensity: p.intensity,
+        lat: p.lat,
+        lng: p.lng,
+        datatype: p.datatype ?? "—",
+      };
+    }
+    return null;
+  }
+
   /** Multiplex node tint for the active layer (per-type colors deferred to step 4b). */
   private painTypeColor(_type: string): THREE.Color {
     const [r, g, b] = this.getActiveLayerColorLinear();
@@ -1965,7 +2351,7 @@ export class GlobeView {
   }
 
   pickMultiplexHover(clientX: number, clientY: number): MultiplexHoverInfo | null {
-    if (this.painVizMode !== "multiplex-v0") return null;
+    if (this.painVizMode !== PAIN_VIZ_MODE.multiplexV0) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
     this.pointerNdc.set(
@@ -2011,7 +2397,7 @@ export class GlobeView {
 
   /** Per-frame animation update for multiplex nodes, links, and cluster beacons. */
   private tickMultiplex(dt: number): void {
-    if (this.painVizMode !== "multiplex-v0") return;
+    if (this.painVizMode !== PAIN_VIZ_MODE.multiplexV0) return;
     this.multiplexTime += dt;
     const pulse = 0.5 + 0.5 * Math.sin(this.multiplexTime * 0.55);
     for (const ch of this.multiplexGroup.children) {
