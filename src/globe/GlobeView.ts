@@ -1362,9 +1362,9 @@ export class GlobeView {
       u.uHeatMap.value = this.stippleNeutralHeatTexture;
     }
 
-    // High-contrast ramp (independent of stipple grey/cyan so heat stays visible).
     u.uHeatCool.value.set(0.04, 0.07, 0.18);
-    u.uHeatHot.value.set(1.0, 0.28, 0.06);
+    const [heatR, heatG, heatB] = this.getActiveLayerColorLinear();
+    u.uHeatHot.value.set(heatR, heatG, heatB); // hot end — active layer color
   }
 
   /** SHELL coast + borders — loads GeoJSON, adds `bordersOutlines.group` to scene. */
