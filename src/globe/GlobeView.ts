@@ -304,7 +304,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  *   not glow/globe (those are separate). Clip plane can add a flat dark cut at the limb.
  */
 
-/** Layer metadata passed from main.ts into {@link GlobeView.setLayerTexture} (not raw API shape). */
+/** Layer metadata passed from main.ts into {@link GlobeView.updateLayerVisuals} (not raw API shape). */
 export type GlobeLayerDisplayMeta = Pick<MapLayer, "color" | "text"> & {
   lexiconBucket: string;
 };
@@ -481,7 +481,7 @@ export class GlobeView {
     this.markerUseInstanceColor = GlobeView.probeMarkerInstanceColorSupport();
 
     // Neutral tint until main.ts applyGlobeLayer runs after fetchLayers.
-    this.setLayerTexture("");
+    this.updateLayerVisuals("");
     void this.loadCountryOutlines();
     window.addEventListener("resize", this.onResize);
     this.onResize();
@@ -508,7 +508,7 @@ export class GlobeView {
     ) {
       this.syncScarVisualization();
     }
-    this.setLayerTexture(this.currentLayerId, this.currentLayerMeta);
+    this.updateLayerVisuals(this.currentLayerId, this.currentLayerMeta);
   }
 
   /** Markers on the surface vs. displacement “scars” (dents) from the same dataset. */
@@ -1409,7 +1409,7 @@ export class GlobeView {
       tex.dispose();
     }
     this.textureCache.clear();
-    this.setLayerTexture(this.currentLayerId, this.currentLayerMeta);
+    this.updateLayerVisuals(this.currentLayerId, this.currentLayerMeta);
     this.applyGlobeScarShellMaterial();
     this.syncScarVisualization();
   }
@@ -1496,16 +1496,15 @@ export class GlobeView {
   }
 
   /**
-   * Select active layer for tinting and word-cloud eligibility.
+   * Select active layer and refresh layer-driven visuals.
    *
-   * TODO: rename `setLayerTexture` — this no longer maps a layer canvas onto the globe mesh.
-   * It updates layer metadata (`currentLayerMeta`, color, lexicon, word-cloud eligibility)
-   * and refreshes tint / procedural cache / word clouds. Consider `updateLayerVisuals()` or
-   * `refreshLayerDisplay()`.
+   * Stores layer id and display metadata (color, text flag, lexicon bucket), caches a
+   * procedural layer canvas texture, then reapplies globe shell tint, stipple tint,
+   * scar shell material, marker colors, and the word cloud.
    *
    * @param meta — display fields from main.ts (`applyGlobeLayer`: color, text, lexicon bucket).
    */
-  setLayerTexture(
+  updateLayerVisuals(
     layerId: string,
     meta?: GlobeLayerDisplayMeta,
   ): void {
@@ -1894,7 +1893,7 @@ export class GlobeView {
   /**
    * Marker tint in points viz mode.
    *
-   * Uses {@link currentLayerColorHex} (selected layer from setLayerTexture), not `p.uiLayer`:
+   * Uses {@link currentLayerColorHex} (selected layer from updateLayerVisuals), not `p.uiLayer`:
    * (1) All visible points are fetched for the selected layer id.
    * (2) Multi-layer views will need per-point / per-uiLayer colors — revisit with deferred
    *     multiplex per-uiLayer tinting (`painTypeColor` multi-layer work).
@@ -1966,7 +1965,7 @@ export class GlobeView {
   /**
    * Procedural word-cloud labels when `extractCloudWords` finds nothing useful.
    *
-   * Uses {@link currentLayerLexiconBucket} (from main.ts via setLayerTexture), not `p.uiLayer`:
+   * Uses {@link currentLayerLexiconBucket} (from main.ts via updateLayerVisuals), not `p.uiLayer`:
    * (1) All visible points belong to the selected layer.
    * (2) Multi-layer views will need per-point buckets — revisit with deferred multiplex
    *     per-uiLayer tinting (`painTypeColor` multi-layer work).

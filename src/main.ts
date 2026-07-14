@@ -329,7 +329,7 @@ function applyGlobeLayer(layerId: string): void {
         lexiconBucket: resolveLayerLexiconBucket(layerId),
       }
     : undefined;
-  globe.setLayerTexture(layerId, meta);
+  globe.updateLayerVisuals(layerId, meta);
 }
 
 // --- pain-server / mock: populate layer list and load points for current layer ---
