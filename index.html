@@ -8,45 +8,21 @@
   </head>
   <body>
     <div id="app">
-      <div class="theme-bar">
-        <button
-          type="button"
-          id="theme-toggle"
-          class="theme-toggle"
-          aria-pressed="false"
-          title="Switch color theme"
-        >
-          Blue mode
-        </button>
-      </div>
       <canvas id="globe"></canvas>
-      <aside id="hud" aria-label="Controls">
-        <h1>P.A.I.N.</h1>
-        <label>
-          Layer
-          <select id="layer-select"></select>
-        </label>
-        <label>
-          Pain data
-          <select
-            id="pain-viz-mode"
-            title="Markers, stipple surface scars, or multiplex graph on the stipple globe"
-          >
-            <option value="points">Point markers</option>
-            <option value="scars" selected>Scar dents (topology)</option>
-            <option value="multiplex-v0">Multiplex v0 (experimental)</option>
-          </select>
-        </label>
-        <p class="hint">Drag to orbit · scroll to zoom</p>
-        <div class="row">
-          <button type="button" id="refresh-points">Refresh points</button>
-          <button type="button" id="test-post">Test POST</button>
-          <button type="button" id="word-cloud-toggle" class="word-cloud-toggle">
-            Word clouds: Off
-          </button>
-        </div>
-        <p id="status" class="status"></p>
-      </aside>
+      <div id="ui-title"></div>
+      <div id="ui-layer-stack"></div>
+      <div id="ui-top-right"></div>
+      <div id="ui-share-pain"></div>
+      <div id="ui-bottom-left"></div>
+      <p id="status" class="status" aria-live="polite" hidden></p>
+      <button type="button" id="word-cloud-toggle" class="word-cloud-toggle" hidden></button>
+      <button
+        type="button"
+        id="theme-toggle"
+        class="theme-toggle"
+        aria-pressed="false"
+        hidden
+      ></button>
       <div id="survey-modal"></div>
       <button
         type="button"
