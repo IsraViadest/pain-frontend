@@ -107,9 +107,7 @@ hoverModal.className = "multiplex-hover";
 hoverModal.hidden = true;
 appRoot.appendChild(hoverModal);
 
-if (import.meta.env.DEV) {
-  mountSurveyTestPanel(appRoot);
-}
+mountSurveyTestPanel(appRoot);
 
 function readStoredTheme(): VisualTheme {
   try {
