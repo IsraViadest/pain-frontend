@@ -14,7 +14,7 @@
 .ui-title__heading {
   margin: 0;
   font-family: "Atelier", serif;
-  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  font-size: clamp(3.6rem, 7.2vw, 6.3rem);
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--text-primary, #e8eaef);
@@ -23,11 +23,11 @@
 .ui-title__subtitle {
   margin: 0;
   font-family: "Hypodermic", sans-serif;
-  font-size: clamp(0.55rem, 1vw, 0.68rem);
+  font-size: clamp(0.85rem, 1.33vw, 1.03rem);
   font-weight: normal;
   letter-spacing: 0.04em;
   color: var(--text-muted, #b4bac8);
-  max-width: 220px;
+  white-space: nowrap;
   line-height: 1.35;
 }
 
@@ -40,7 +40,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   pointer-events: auto;
 }
 
@@ -108,10 +108,6 @@
 
 .blob-button {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
   padding: 0;
   margin: 0;
   border: none;
@@ -119,7 +115,11 @@
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
-  transition: opacity 0.2s ease;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.blob-button:hover {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
 }
 
 .blob-button:focus-visible {
@@ -131,32 +131,40 @@
 .blob-button__svg {
   display: block;
   width: auto;
-  height: clamp(48px, 8vw, 72px);
-  max-width: 140px;
+  height: clamp(58px, 9.6vw, 86px);
+  max-width: 168px;
 }
 
 #ui-share-pain .blob-button__svg {
-  height: clamp(56px, 9vw, 84px);
-  max-width: 180px;
+  height: clamp(67px, 10.8vw, 101px);
+  max-width: 216px;
 }
 
 .blob-button__label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
   font-family: "Hypodermic", sans-serif;
-  font-size: clamp(0.6rem, 1.1vw, 0.72rem);
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
   letter-spacing: 0.03em;
-  color: var(--text-primary, #e8eaef);
+  color: #ffffff !important;
   text-align: center;
-  max-width: 120px;
+  pointer-events: none;
+  max-width: 75%;
   line-height: 1.25;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 #ui-share-pain .blob-button__label {
-  font-size: clamp(0.65rem, 1.2vw, 0.78rem);
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
   text-transform: lowercase;
 }
 
-.blob-button--inactive {
-  opacity: 0.5;
+.blob-button--inactive .blob-button__svg {
+  opacity: 0.4;
 }
 
 .blob-button--active {
