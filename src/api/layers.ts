@@ -25,7 +25,7 @@ const LAYER_ID_TO_LEXICON_BUCKET: Record<string, string> = {
  */
 const LAYER_ID_TO_BLOB_SVG: Record<string, string> = {
   emopain: "emotional.svg",
-  envpain: "environ.svg",
+  envpain: "blob4.svg",
   physpain: "physical.svg",
   socioecopain: "socio_pol.svg",
 };
