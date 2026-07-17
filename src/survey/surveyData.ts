@@ -5,11 +5,6 @@ type SurveyWordCategory =
   | "socioeconomic"
   | "physical";
 
-type SurveyWord = {
-  word: string;
-  category: SurveyWordCategory;
-};
-
 type SurveyBlobId = "blob1" | "blob2" | "blob3" | "blob4" | "blob5";
 
 type SurveyBlobDef = {
@@ -44,7 +39,8 @@ export const SURVEY_TEMPORALITY_OPTIONS = [
   "many generations",
 ] as const;
 
-type SurveyTemporalityOption = (typeof SURVEY_TEMPORALITY_OPTIONS)[number];
+/** Screen 3 temporality label — derived from {@link SURVEY_TEMPORALITY_OPTIONS}. */
+export type SurveyTemporalityOption = (typeof SURVEY_TEMPORALITY_OPTIONS)[number];
 
 /** Fixed panel positions (% of field) — six options, no runtime layout needed. */
 export const SURVEY_TEMPORALITY_LAYOUT: Record<
@@ -87,6 +83,9 @@ export const SURVEY_RELATIONS_OPTIONS = [
   "the moon",
 ] as const;
 
+/** Screen 4 relation label — derived from {@link SURVEY_RELATIONS_OPTIONS}. */
+export type SurveyRelationOption = (typeof SURVEY_RELATIONS_OPTIONS)[number];
+
 /** MIME type for HTML5 drag-and-drop word payloads between tray, map, and pins. */
 export const SURVEY_DRAG_WORD_MIME = "application/x-survey-word";
 
@@ -112,71 +111,78 @@ export const SURVEY_FIELD_INSET_FRAC = 0.03;
 /** Max hash jitter from cell center, as a fraction of cell width/height. */
 const SURVEY_INIT_CELL_OFFSET_FRAC = 0.2;
 
-const SURVEY_WORD_CATEGORIES: Record<SurveyWordCategory, readonly string[]> =
-  {
-    emotional: [
-      "grief",
-      "solastalgia",
-      "depression",
-      "sadness",
-      "anger",
-      "apathy",
-      "frustration",
-      "confusion",
-      "uncertainty",
-      "panic",
-      "fear",
-      "mistrust",
-    ],
-    environmental: [
-      "floods",
-      "fires",
-      "deforestation",
-      "eruption",
-      "toxicity",
-      "heavy metals",
-      "smog",
-      "plastic pollution",
-      "earthquake",
-      "tsunami",
-      "species extinction",
-      "habitat loss",
-    ],
-    socioeconomic: [
-      "corporate greed",
-      "income inequality",
-      "racism",
-      "poverty",
-      "discrimination",
-      "capitalism",
-      "patriarchy",
-      "corruption",
-      "consumerism",
-      "surveillance",
-    ],
-    physical: [
-      "asthma",
-      "chronic pain",
-      "suffering",
-      "headache",
-      "indigestion",
-      "cancer",
-      "muscle tension",
-      "fatigue",
-      "burnout",
-      "arthritis",
-      "aching",
-      "numbing",
-    ],
-  };
+export const SURVEY_WORD_CATEGORIES = {
+  emotional: [
+    "grief",
+    "solastalgia",
+    "depression",
+    "sadness",
+    "anger",
+    "apathy",
+    "frustration",
+    "confusion",
+    "uncertainty",
+    "panic",
+    "fear",
+    "mistrust",
+  ],
+  environmental: [
+    "floods",
+    "fires",
+    "deforestation",
+    "eruption",
+    "toxicity",
+    "heavy metals",
+    "smog",
+    "plastic pollution",
+    "earthquake",
+    "tsunami",
+    "species extinction",
+    "habitat loss",
+  ],
+  socioeconomic: [
+    "corporate greed",
+    "income inequality",
+    "racism",
+    "poverty",
+    "discrimination",
+    "capitalism",
+    "patriarchy",
+    "corruption",
+    "consumerism",
+    "surveillance",
+  ],
+  physical: [
+    "asthma",
+    "chronic pain",
+    "suffering",
+    "headache",
+    "indigestion",
+    "cancer",
+    "muscle tension",
+    "fatigue",
+    "burnout",
+    "arthritis",
+    "aching",
+    "numbing",
+  ],
+} as const;
+
+/** Flat union of every Screen 1 word label across all categories. */
+export type SurveyWordOption =
+  (typeof SURVEY_WORD_CATEGORIES)[keyof typeof SURVEY_WORD_CATEGORIES][number];
+
+type SurveyWord = {
+  word: SurveyWordOption;
+  category: SurveyWordCategory;
+};
 
 /** Flat word list with category preserved for later screens and metrics. */
 export const SURVEY_WORDS: SurveyWord[] = (
-  Object.entries(SURVEY_WORD_CATEGORIES) as [
-    SurveyWordCategory,
-    readonly string[],
-  ][]
-).flatMap(([category, words]) => words.map((word) => ({ word, category })));
+  Object.keys(SURVEY_WORD_CATEGORIES) as SurveyWordCategory[]
+).flatMap((category) =>
+  SURVEY_WORD_CATEGORIES[category].map((word) => ({ word, category })),
+);
 
 /**
  * Survey submission payload sent to pain-server via `POST /survey`.
@@ -302,7 +308,7 @@ const SURVEY_WORD_SCALE_HASH_STEP = 0.01;
 const SURVEY_INIT_GRID_COLS = 8;
 const SURVEY_INIT_GRID_ROWS = 6;
 
-const SURVEY_INIT_CELL_BY_WORD = new Map(
+const SURVEY_INIT_CELL_BY_WORD = new Map<string, number>(
   [...SURVEY_WORDS]
     .sort((a, b) => {
       const ha = hashSurveyString(a.word);

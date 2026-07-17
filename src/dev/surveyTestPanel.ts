@@ -1,11 +1,17 @@
 import {
+  METRICS_LAYER_IDS,
   trackSurveyStep,
   trackToggle,
   trackVizMode,
 } from "../api/metricsApi";
 import { PAIN_VIZ_MODE } from "../globe/GlobeView";
 import { submitSurvey } from "../survey/surveyApi";
-import type { SurveySubmissionPayload } from "../survey/surveyData";
+import {
+  SURVEY_RELATIONS_OPTIONS,
+  SURVEY_TEMPORALITY_OPTIONS,
+  SURVEY_WORD_CATEGORIES,
+  type SurveySubmissionPayload,
+} from "../survey/surveyData";
 
 /** Hardcoded payload for pain-server `POST /survey` smoke tests. */
 function testSurveyPayload(): SurveySubmissionPayload {
@@ -28,12 +34,29 @@ async function onTestSurveyPayloadClick(): Promise<void> {
   console.log("[surveyTestPanel] Survey test response:", res);
 }
 
-/** Fire one event to each metrics endpoint and log confirmation. */
+/**
+ * Fire one `/metrics/toggle` for every known kind/element, plus vizmode + surveystep.
+ * TEMP: remove once Mike confirms database setup.
+ */
 function onTestMetricsPayloadClick(): void {
-  trackToggle("layer", "envpain", true);
+  // TEMP: remove once Mike confirms database setup
+  for (const layerId of METRICS_LAYER_IDS) {
+    trackToggle("layer", layerId, true);
+  }
+  for (const words of Object.values(SURVEY_WORD_CATEGORIES)) {
+    for (const word of words) {
+      trackToggle("word", word, true);
+    }
+  }
+  for (const option of SURVEY_TEMPORALITY_OPTIONS) {
+    trackToggle("temporality", option, true);
+  }
+  for (const relation of SURVEY_RELATIONS_OPTIONS) {
+    trackToggle("relation", relation, true);
+  }
   trackVizMode(PAIN_VIZ_MODE.scars);
   trackSurveyStep(1);
-  console.log("[surveyTestPanel] Metrics test fired");
+  console.log("[surveyTestPanel] Metrics test fired — all elements");
 }
 
 /**
@@ -70,9 +93,7 @@ export function mountSurveyTestPanel(host: HTMLElement): void {
   surveyBtn.type = "button";
   surveyBtn.textContent = "Test Survey Payload";
   // TEMP: remove once Mike confirms database setup
-  surveyBtn.addEventListener("click", () => {
-    void onTestSurveyPayloadClick();
-  });
+  surveyBtn.addEventListener("click", onTestSurveyPayloadClick);
 
   const metricsBtn = document.createElement("button");
   metricsBtn.type = "button";
