@@ -1,9 +1,4 @@
 import type { PainVisualizationMode } from "../globe/GlobeView";
-import type {
-  SurveyRelationOption,
-  SurveyTemporalityOption,
-  SurveyWordOption,
-} from "../survey/surveyData";
 import { apiUrl, useMockApi } from "./config";
 import { getPainServerUserId } from "./session";
 
@@ -16,33 +11,10 @@ type MetricsToggleKind =
 
 type MetricsSurveyStep = 0 | 1 | 2 | 3 | 4 | 5;
 
-/** Layer ids from pain-server GET /init (`id` field). */
-type MetricsLayerId = "emopain" | "envpain" | "physpain" | "socioecopain";
-
-const METRICS_LAYER_IDS: readonly MetricsLayerId[] = [
-  "emopain",
-  "envpain",
-  "physpain",
-  "socioecopain",
-];
-
-/** Production layer ids for `/metrics/toggle` (`kind: "layer"`). */
-export { METRICS_LAYER_IDS };
-
-/** True when `id` is a known production layer id for `/metrics/toggle`. */
-export function isMetricsLayerId(id: string): id is MetricsLayerId {
-  return (METRICS_LAYER_IDS as readonly string[]).includes(id);
-}
-type MetricsToggleElement =
-  | MetricsLayerId
-  | SurveyWordOption
-  | SurveyTemporalityOption
-  | SurveyRelationOption;
-
 type MetricsToggleBody = {
   userId: string;
   kind: MetricsToggleKind;
-  element: MetricsToggleElement;
+  element: string;
   enabled: boolean;
 };
 
@@ -60,6 +32,10 @@ type MetricsPostBody =
   | Omit<MetricsToggleBody, "userId">
   | Omit<MetricsVizModeBody, "userId">
   | Omit<MetricsSurveyStepBody, "userId">;
+
+const METRICS_PATH_TOGGLE = "/toggle";
+const METRICS_PATH_VIZMODE = "/vizmode";
+const METRICS_PATH_SURVEYSTEP = "/surveystep";
 
 /** POST under `/metrics` — `path` is the suffix only (e.g. `/toggle`). */
 function postMetrics(path: string, body: MetricsPostBody): void {
@@ -81,24 +57,32 @@ function postMetrics(path: string, body: MetricsPostBody): void {
   });
 }
 
-/** POST `/metrics/toggle` — fire-and-forget; mock-mode no-op; never throws. */
+/**
+ * POST `/metrics/toggle` — fire-and-forget; mock-mode no-op; never throws.
+ *
+ * @param kind — toggle category (`layer`, `word`, `temporality`, `relation`, `category`).
+ * @param element — not an arbitrary string: layer ids from GET `/init`, survey words from
+ *   `SURVEY_WORD_CATEGORIES`, temporality from `SURVEY_TEMPORALITY_OPTIONS`, relations from
+ *   `SURVEY_RELATIONS_OPTIONS`.
+ * @param enabled — whether the element is toggled on or off.
+ */
 export function trackToggle(
   kind: MetricsToggleKind,
-  element: MetricsToggleElement,
+  element: string,
   enabled: boolean,
 ): void {
   const body: Omit<MetricsToggleBody, "userId"> = { kind, element, enabled };
-  postMetrics("/toggle", body);
+  postMetrics(METRICS_PATH_TOGGLE, body);
 }
 
 /** POST `/metrics/vizmode` — fire-and-forget; mock-mode no-op; never throws. */
 export function trackVizMode(mode: PainVisualizationMode): void {
   const body: Omit<MetricsVizModeBody, "userId"> = { mode };
-  postMetrics("/vizmode", body);
+  postMetrics(METRICS_PATH_VIZMODE, body);
 }
 
 /** POST `/metrics/surveystep` — fire-and-forget; mock-mode no-op; never throws. */
 export function trackSurveyStep(step: MetricsSurveyStep): void {
   const body: Omit<MetricsSurveyStepBody, "userId"> = { step };
-  postMetrics("/surveystep", body);
+  postMetrics(METRICS_PATH_SURVEYSTEP, body);
 }

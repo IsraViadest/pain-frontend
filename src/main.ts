@@ -12,7 +12,7 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
-import { isMetricsLayerId, trackToggle, trackVizMode } from "./api/metricsApi";
+import { trackToggle, trackVizMode } from "./api/metricsApi";
 import { getMapLayerById, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer } from "./types/api";
 import {
@@ -428,14 +428,7 @@ async function loadLayersIntoSelect(): Promise<void> {
   if (layers[0]) {
     const layerId = String(layers[0].id);
     applyGlobeLayer(layerId);
-    if (isMetricsLayerId(layerId)) {
-      trackToggle("layer", layerId, true);
-    } else {
-      console.warn(
-        "[main] Skipping metrics layer toggle — unknown layer id from GET /init:",
-        layerId,
-      );
-    }
+    trackToggle("layer", layerId, true);
     lastLayerId = layerId;
   }
   syncWordCloudForCurrentLayer();
@@ -454,23 +447,9 @@ layerPicker.addEventListener("change", () => {
   const prevLayerId = lastLayerId;
   const nextLayerId = layerPicker.value;
   if (prevLayerId && prevLayerId !== nextLayerId) {
-    if (isMetricsLayerId(prevLayerId)) {
-      trackToggle("layer", prevLayerId, false);
-    } else {
-      console.warn(
-        "[main] Skipping metrics layer toggle — unknown previous layer id:",
-        prevLayerId,
-      );
-    }
+    trackToggle("layer", prevLayerId, false);
   }
-  if (isMetricsLayerId(nextLayerId)) {
-    trackToggle("layer", nextLayerId, true);
-  } else {
-    console.warn(
-      "[main] Skipping metrics layer toggle — unknown layer id:",
-      nextLayerId,
-    );
-  }
+  trackToggle("layer", nextLayerId, true);
   lastLayerId = nextLayerId;
   syncWordCloudForCurrentLayer();
   applyGlobeLayer(nextLayerId);

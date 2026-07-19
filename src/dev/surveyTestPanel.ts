@@ -1,5 +1,4 @@
 import {
-  METRICS_LAYER_IDS,
   trackSurveyStep,
   trackToggle,
   trackVizMode,
@@ -35,14 +34,13 @@ async function onTestSurveyPayloadClick(): Promise<void> {
 }
 
 /**
- * Fire one `/metrics/toggle` for every known kind/element, plus vizmode + surveystep.
+ * Fire `/metrics/toggle` for survey elements plus vizmode + surveystep.
  * TEMP: remove once Mike confirms database setup.
  */
 function onTestMetricsPayloadClick(): void {
   // TEMP: remove once Mike confirms database setup
-  for (const layerId of METRICS_LAYER_IDS) {
-    trackToggle("layer", layerId, true);
-  }
+  trackToggle("layer", "envpain", true);
+  trackToggle("relation", "the moon", false);
   for (const words of Object.values(SURVEY_WORD_CATEGORIES)) {
     for (const word of words) {
       trackToggle("word", word, true);

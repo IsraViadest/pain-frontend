@@ -40,7 +40,7 @@ export const SURVEY_TEMPORALITY_OPTIONS = [
 ] as const;
 
 /** Screen 3 temporality label — derived from {@link SURVEY_TEMPORALITY_OPTIONS}. */
-export type SurveyTemporalityOption = (typeof SURVEY_TEMPORALITY_OPTIONS)[number];
+type SurveyTemporalityOption = (typeof SURVEY_TEMPORALITY_OPTIONS)[number];
 
 /** Fixed panel positions (% of field) — six options, no runtime layout needed. */
 export const SURVEY_TEMPORALITY_LAYOUT: Record<
@@ -82,9 +82,6 @@ export const SURVEY_RELATIONS_OPTIONS = [
   "the stars",
   "the moon",
 ] as const;
-
-/** Screen 4 relation label — derived from {@link SURVEY_RELATIONS_OPTIONS}. */
-export type SurveyRelationOption = (typeof SURVEY_RELATIONS_OPTIONS)[number];
 
 /** MIME type for HTML5 drag-and-drop word payloads between tray, map, and pins. */
 export const SURVEY_DRAG_WORD_MIME = "application/x-survey-word";
@@ -169,7 +166,7 @@ export const SURVEY_WORD_CATEGORIES = {
 } as const;
 
 /** Flat union of every Screen 1 word label across all categories. */
-export type SurveyWordOption =
+type SurveyWordOption =
   (typeof SURVEY_WORD_CATEGORIES)[keyof typeof SURVEY_WORD_CATEGORIES][number];
 
 type SurveyWord = {
