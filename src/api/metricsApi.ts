@@ -68,7 +68,7 @@ function postMetrics(path: string, body: MetricsPostBody): void {
  *
  * @param kind — toggle category ({@link METRICS_KIND_LAYER}, {@link METRICS_KIND_WORD}, etc.).
  * @param element — not an arbitrary string: layer ids from GET `/init`, survey words from
- *   `SURVEY_WORD_CATEGORIES`, temporality from `SURVEY_TEMPORALITY_OPTIONS`, relations from
+ *   `SURVEY_WORDS`, temporality from `SURVEY_TEMPORALITY_OPTIONS`, relations from
  *   `SURVEY_RELATIONS_OPTIONS`.
  * @param enabled — whether the element is toggled on or off.
  */

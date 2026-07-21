@@ -12,7 +12,7 @@ import { submitSurvey } from "../survey/surveyApi";
 import {
   SURVEY_RELATIONS_OPTIONS,
   SURVEY_TEMPORALITY_OPTIONS,
-  SURVEY_WORD_CATEGORIES,
+  SURVEY_WORDS,
   type SurveySubmissionPayload,
 } from "../survey/surveyData";
 
@@ -45,10 +45,8 @@ function onTestMetricsPayloadClick(): void {
   // TEMP: remove once Mike confirms database setup
   trackToggle(METRICS_KIND_LAYER, "envpain", true);
   trackToggle(METRICS_KIND_RELATION, "the moon", false);
-  for (const words of Object.values(SURVEY_WORD_CATEGORIES)) {
-    for (const word of words) {
-      trackToggle(METRICS_KIND_WORD, word, true);
-    }
+  for (const word of SURVEY_WORDS) {
+    trackToggle(METRICS_KIND_WORD, word, true);
   }
   for (const option of SURVEY_TEMPORALITY_OPTIONS) {
     trackToggle(METRICS_KIND_TEMPORALITY, option, true);

@@ -42,16 +42,12 @@ export function mountSurveyScreen1(
   field.setAttribute("role", "group");
   field.setAttribute("aria-label", "Pain descriptor words");
 
-  const categoryByWord = new Map(
-    SURVEY_WORDS.map((entry) => [entry.word, entry.category]),
-  );
   const anchors: HTMLElement[] = [];
 
-  for (const { word } of SURVEY_WORDS) {
+  for (const word of SURVEY_WORDS) {
     const seed = surveyInitialPosition(word);
     const blobId = assignBlobId(word);
     const blob = SURVEY_BLOB_DEFS[blobId];
-    const category = categoryByWord.get(word) ?? "emotional";
 
     const anchor = document.createElement("div");
     anchor.className = "survey-bubble-anchor";
@@ -69,7 +65,6 @@ export function mountSurveyScreen1(
     button.type = "button";
     button.className = `survey-bubble survey-bubble--${blobId}`;
     button.dataset.word = word;
-    button.dataset.category = category;
     button.setAttribute("aria-pressed", "false");
 
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
