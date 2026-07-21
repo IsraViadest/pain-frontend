@@ -12,7 +12,11 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
-import { trackToggle, trackVizMode } from "./api/metricsApi";
+import {
+  METRICS_KIND_LAYER,
+  trackToggle,
+  trackVizMode,
+} from "./api/metricsApi";
 import { getMapLayerById, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer } from "./types/api";
 import {
@@ -428,7 +432,7 @@ async function loadLayersIntoSelect(): Promise<void> {
   if (layers[0]) {
     const layerId = String(layers[0].id);
     applyGlobeLayer(layerId);
-    trackToggle("layer", layerId, true);
+    trackToggle(METRICS_KIND_LAYER, layerId, true);
     lastLayerId = layerId;
   }
   syncWordCloudForCurrentLayer();
@@ -447,9 +451,9 @@ layerPicker.addEventListener("change", () => {
   const prevLayerId = lastLayerId;
   const nextLayerId = layerPicker.value;
   if (prevLayerId && prevLayerId !== nextLayerId) {
-    trackToggle("layer", prevLayerId, false);
+    trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
   }
-  trackToggle("layer", nextLayerId, true);
+  trackToggle(METRICS_KIND_LAYER, nextLayerId, true);
   lastLayerId = nextLayerId;
   syncWordCloudForCurrentLayer();
   applyGlobeLayer(nextLayerId);

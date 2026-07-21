@@ -1,4 +1,8 @@
 import {
+  METRICS_KIND_LAYER,
+  METRICS_KIND_RELATION,
+  METRICS_KIND_TEMPORALITY,
+  METRICS_KIND_WORD,
   trackSurveyStep,
   trackToggle,
   trackVizMode,
@@ -39,18 +43,18 @@ async function onTestSurveyPayloadClick(): Promise<void> {
  */
 function onTestMetricsPayloadClick(): void {
   // TEMP: remove once Mike confirms database setup
-  trackToggle("layer", "envpain", true);
-  trackToggle("relation", "the moon", false);
+  trackToggle(METRICS_KIND_LAYER, "envpain", true);
+  trackToggle(METRICS_KIND_RELATION, "the moon", false);
   for (const words of Object.values(SURVEY_WORD_CATEGORIES)) {
     for (const word of words) {
-      trackToggle("word", word, true);
+      trackToggle(METRICS_KIND_WORD, word, true);
     }
   }
   for (const option of SURVEY_TEMPORALITY_OPTIONS) {
-    trackToggle("temporality", option, true);
+    trackToggle(METRICS_KIND_TEMPORALITY, option, true);
   }
   for (const relation of SURVEY_RELATIONS_OPTIONS) {
-    trackToggle("relation", relation, true);
+    trackToggle(METRICS_KIND_RELATION, relation, true);
   }
   trackVizMode(PAIN_VIZ_MODE.scars);
   trackSurveyStep(1);

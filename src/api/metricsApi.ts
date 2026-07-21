@@ -2,12 +2,18 @@ import type { PainVisualizationMode } from "../globe/GlobeView";
 import { apiUrl, useMockApi } from "./config";
 import { getPainServerUserId } from "./session";
 
+export const METRICS_KIND_LAYER = "layer" as const;
+export const METRICS_KIND_WORD = "word" as const;
+export const METRICS_KIND_TEMPORALITY = "temporality" as const;
+export const METRICS_KIND_RELATION = "relation" as const;
+const METRICS_KIND_CATEGORY = "category" as const;
+
 type MetricsToggleKind =
-  | "layer"
-  | "word"
-  | "temporality"
-  | "relation"
-  | "category";
+  | typeof METRICS_KIND_LAYER
+  | typeof METRICS_KIND_WORD
+  | typeof METRICS_KIND_TEMPORALITY
+  | typeof METRICS_KIND_RELATION
+  | typeof METRICS_KIND_CATEGORY;
 
 type MetricsSurveyStep = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -60,7 +66,7 @@ function postMetrics(path: string, body: MetricsPostBody): void {
 /**
  * POST `/metrics/toggle` — fire-and-forget; mock-mode no-op; never throws.
  *
- * @param kind — toggle category (`layer`, `word`, `temporality`, `relation`, `category`).
+ * @param kind — toggle category ({@link METRICS_KIND_LAYER}, {@link METRICS_KIND_WORD}, etc.).
  * @param element — not an arbitrary string: layer ids from GET `/init`, survey words from
  *   `SURVEY_WORD_CATEGORIES`, temporality from `SURVEY_TEMPORALITY_OPTIONS`, relations from
  *   `SURVEY_RELATIONS_OPTIONS`.

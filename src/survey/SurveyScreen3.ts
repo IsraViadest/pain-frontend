@@ -9,7 +9,7 @@ import {
   surveyWordScale,
   type SurveySessionState,
 } from "./surveyData";
-import { trackToggle } from "../api/metricsApi";
+import { METRICS_KIND_TEMPORALITY, trackToggle } from "../api/metricsApi";
 
 type SurveyScreen3Context = {
   state: SurveySessionState;
@@ -115,7 +115,7 @@ export function mountSurveyScreen3(
       const selected = toggleTemporality(state, option);
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));
-      trackToggle("temporality", option, selected);
+      trackToggle(METRICS_KIND_TEMPORALITY, option, selected);
     });
 
     field.appendChild(anchor);
