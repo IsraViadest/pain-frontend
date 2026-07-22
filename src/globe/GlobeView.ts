@@ -14,7 +14,7 @@ import {
   getLayerBaseColorLinear,
   type VisualTheme,
 } from "./layerTextures";
-import { latLngToVector3 } from "./latLng";
+import { latLngToVector3, vector3ToLatLng } from "./latLng";
 import {
   createPainHeatTexture,
   type HeatMapBuildParams,
@@ -96,6 +96,26 @@ type MaterialWithClipping = THREE.Material & {
 };
 
 const RADIUS = 1;
+/** Max angular distance (°) between a surface click and nearest pain point before pick returns null. */
+const MAX_CLICK_SOUND_RADIUS_DEG = 15;
+
+/** Spherical law of cosines — central angle between two WGS84 positions, in degrees. */
+function greatCircleDistanceDeg(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const φ1 = THREE.MathUtils.degToRad(lat1);
+  const φ2 = THREE.MathUtils.degToRad(lat2);
+  const Δλ = THREE.MathUtils.degToRad(lng2 - lng1);
+  const cosC =
+    Math.sin(φ1) * Math.sin(φ2) + Math.cos(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return THREE.MathUtils.radToDeg(
+    Math.acos(THREE.MathUtils.clamp(cosC, -1, 1)),
+  );
+}
+
 /** Rim sphere (`glow`) additive shell. */
 const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
 /** Solid globe shell tint (map cleared when applied — solid color). */
@@ -2127,6 +2147,49 @@ export class GlobeView {
       };
     }
     return null;
+  }
+
+  /**
+   * Raycast the globe surface and return the nearest pain point within
+   * {@link MAX_CLICK_SOUND_RADIUS_DEG} (all viz modes).
+   *
+   * @param clientX — pointer X in viewport CSS pixels.
+   * @param clientY — pointer Y in viewport CSS pixels.
+   * @returns {@link MarkerHoverInfo} for the nearest point, or `null` if no hit / too far / no data.
+   */
+  pickNearestPainPoint(clientX: number, clientY: number): MarkerHoverInfo | null {
+    if (this.lastPainPoints.length === 0) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    // Canvas-normalized [0,1] → NDC [-1,1] for Three.js Raycaster (* 2 - 1 per axis).
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hits = this.raycaster.intersectObject(this.globe, false);
+    const hit = hits[0];
+    if (!hit) return null;
+
+    const click = vector3ToLatLng(hit.point);
+    let nearest: PainPoint | null = null;
+    let nearestDeg = Infinity;
+    for (const p of this.lastPainPoints) {
+      const deg = greatCircleDistanceDeg(click.lat, click.lng, p.lat, p.lng);
+      if (deg < nearestDeg) {
+        nearestDeg = deg;
+        nearest = p;
+      }
+    }
+    if (!nearest || nearestDeg > MAX_CLICK_SOUND_RADIUS_DEG) return null;
+
+    return {
+      layerId: nearest.uiLayer,
+      intensity: nearest.intensity,
+      lat: nearest.lat,
+      lng: nearest.lng,
+      datatype: nearest.datatype ?? "—",
+    };
   }
 
   /** Multiplex node tint for the active layer (per-type colors deferred to step 4b). */
