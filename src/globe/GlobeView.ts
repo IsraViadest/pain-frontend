@@ -23,8 +23,10 @@ import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
 } from "./painScarField";
+import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import {
   applyScarToSpherePositions,
+  sampleScarHeight01,
   SCAR_OVERLAY_SURFACE_BIAS,
 } from "./scarDisplacement";
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
@@ -2190,6 +2192,34 @@ export class GlobeView {
       lng: nearest.lng,
       datatype: nearest.datatype ?? "—",
     };
+  }
+
+  /**
+   * Sample scar dent strength at a pointer click on the globe sphere.
+   *
+   * @param clientX — pointer X in viewport CSS pixels.
+   * @param clientY — pointer Y in viewport CSS pixels.
+   * @returns 0 = no pain, 1 = maximum scar dent; `null` if no scar map or no ray hit.
+   */
+  sampleScarAtClick(clientX: number, clientY: number): number | null {
+    if (!this.scarDisplacementMap) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    // Canvas-normalized [0,1] → NDC [-1,1] for Three.js Raycaster (* 2 - 1 per axis).
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hits = this.raycaster.intersectObject(this.globe, false);
+    const hit = hits[0];
+    if (!hit) return null;
+
+    const dir = hit.point.clone().normalize();
+    const { u, v } = unitDirectionToGlobeEquirectUV(dir);
+    const h = sampleScarHeight01(this.scarDisplacementMap, u, v);
+    // Neutral scar height is ~0.5; dents go below 0.5, so intensity rises as h falls.
+    return THREE.MathUtils.clamp((0.5 - h) * 2, 0, 1);
   }
 
   /** Multiplex node tint for the active layer (per-type colors deferred to step 4b). */

@@ -19,8 +19,11 @@ function scarRadialOffset(
  */
 export const SCAR_OVERLAY_SURFACE_BIAS = 0.0008;
 
-/** Read red-channel scar height (0–1) from a CPU-side {@link THREE.DataTexture}. */
-function sampleScarHeight01(
+/**
+ * Read red-channel scar height from a CPU-side {@link THREE.DataTexture}.
+ * Returns 0–1 where neutral (no dent) is ~0.5 (byte 128 / 255).
+ */
+export function sampleScarHeight01(
   map: THREE.DataTexture,
   u: number,
   v: number,

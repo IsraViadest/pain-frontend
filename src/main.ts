@@ -275,8 +275,6 @@ const HOVER_TOOLTIP_OFFSET_X = 14;
 const HOVER_TOOLTIP_OFFSET_Y = 12;
 /** Max pointer travel (px) between down and up to count as a click rather than an orbit drag. */
 const CLICK_MAX_MOVE_PX = 5;
-/** Min intensity for ambient globe sound in non-points modes (scars / multiplex). */
-const SCAR_SOUND_MIN_INTENSITY = 0.5;
 
 canvas.addEventListener("pointermove", (ev) => {
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
@@ -330,9 +328,9 @@ canvas.addEventListener("pointerdown", (ev) => {
 });
 
 /**
- * Click-in-place on the globe: play a soft bell for a nearby / hit pain point.
- * Points mode uses exact marker pick; scars/multiplex use nearest-point pick and only
- * play when intensity ≥ {@link SCAR_SOUND_MIN_INTENSITY}.
+ * Click-in-place on the globe: play a soft bell for pain at the pointer.
+ * Points mode uses exact marker pick (any hit); scars/multiplex sample scar
+ * dent strength and only play when a pain point is nearby.
  * Ignores orbit drags (pointer moved more than {@link CLICK_MAX_MOVE_PX}).
  */
 canvas.addEventListener("pointerup", (ev) => {
@@ -341,15 +339,20 @@ canvas.addEventListener("pointerup", (ev) => {
   const dy = Math.abs(ev.clientY - pointerDownPos.y);
   pointerDownPos = null;
   if (dx > CLICK_MAX_MOVE_PX || dy > CLICK_MAX_MOVE_PX) return;
-
-  const pointsMode = readPainVizMode() === PAIN_VIZ_MODE.points;
-  const hit = pointsMode
-    ? globe.pickMarkerHover(ev.clientX, ev.clientY)
-    : globe.pickNearestPainPoint(ev.clientX, ev.clientY);
-  if (!hit) return;
-  if (!pointsMode && hit.intensity < SCAR_SOUND_MIN_INTENSITY) return;
   if (Date.now() - lastSoundTime < 300) return;
-  playPainSound(hit.intensity, hit.layerId);
+
+  if (readPainVizMode() === PAIN_VIZ_MODE.points) {
+    const hit = globe.pickMarkerHover(ev.clientX, ev.clientY);
+    if (!hit) return;
+    playPainSound(hit.intensity, hit.layerId);
+    lastSoundTime = Date.now();
+    return;
+  }
+
+  const scarIntensity = globe.sampleScarAtClick(ev.clientX, ev.clientY);
+  if (scarIntensity === null) return;
+  if (!globe.pickNearestPainPoint(ev.clientX, ev.clientY)) return;
+  playPainSound(scarIntensity, layerPicker.value);
   lastSoundTime = Date.now();
 });
 
