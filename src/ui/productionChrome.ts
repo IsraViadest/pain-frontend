@@ -35,6 +35,41 @@ function requireChild(host: HTMLElement, id: string): HTMLElement {
   return el;
 }
 
+/** Same `/blobs/` URL pattern as blobButton — for assets that skip fill/gradient. */
+function blobAssetUrl(svgName: string): string {
+  const file = svgName.endsWith(".svg") ? svgName : `${svgName}.svg`;
+  const base = import.meta.env.BASE_URL;
+  return `${base}blobs/${file}`;
+}
+
+/**
+ * Fetch menu_btn.svg and build a stroke-only hamburger control (no fill swap).
+ */
+async function createHamburgerButton(): Promise<HTMLButtonElement> {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ui-hamburger";
+  button.setAttribute("aria-label", "Toggle menu");
+  button.setAttribute("aria-expanded", "false");
+
+  const res = await fetch(blobAssetUrl("menu_btn.svg"));
+  if (!res.ok) {
+    throw new Error(
+      `[productionChrome] Failed to load menu_btn.svg: HTTP ${res.status}`,
+    );
+  }
+
+  const svgText = await res.text();
+  const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  const svg = doc.querySelector("svg");
+  if (!svg) {
+    throw new Error("[productionChrome] Invalid menu_btn.svg");
+  }
+
+  button.appendChild(document.importNode(svg, true));
+  return button;
+}
+
 /**
  * Mount production UI chrome into the fixed overlay slots in index.html.
  *
@@ -50,8 +85,10 @@ export async function mountProductionChrome(
   callbacks: ProductionChromeCallbacks,
 ): Promise<ProductionChrome> {
   const titleHost = requireChild(appRoot, "ui-title");
+  const titleControlsHost = requireChild(appRoot, "ui-title-controls");
   const layerStackHost = requireChild(appRoot, "ui-layer-stack");
   const topRightHost = requireChild(appRoot, "ui-top-right");
+  const hamburgerHost = requireChild(appRoot, "ui-hamburger");
   const sharePainHost = requireChild(appRoot, "ui-share-pain");
   const bottomLeftHost = requireChild(appRoot, "ui-bottom-left");
 
@@ -64,6 +101,18 @@ export async function mountProductionChrome(
   subtitle.textContent = "Personal And Interconnected with Nature";
 
   titleHost.append(heading, subtitle);
+
+  const hamburgerBtn = await createHamburgerButton();
+  const closeMobileMenu = (): void => {
+    appRoot.classList.remove("mobile-menu-open");
+    hamburgerBtn.setAttribute("aria-expanded", "false");
+  };
+
+  hamburgerBtn.addEventListener("click", () => {
+    const open = appRoot.classList.toggle("mobile-menu-open");
+    hamburgerBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  hamburgerHost.appendChild(hamburgerBtn);
 
   const layerButtons = new Map<string, HTMLButtonElement>();
   let activeLayerId = layers[0]?.id ?? "";
@@ -83,6 +132,7 @@ export async function mountProductionChrome(
       onClick: () => {
         applyActiveLayer(layer.id);
         callbacks.onLayerChange(layer.id);
+        closeMobileMenu();
       },
     });
     layerButtons.set(layer.id, btn);
@@ -98,7 +148,6 @@ export async function mountProductionChrome(
     throw new Error("[productionChrome] Missing #theme-toggle");
   }
   themeToggle.hidden = false;
-  topRightHost.appendChild(themeToggle);
 
   const vizCycleBtn = document.createElement("button");
   vizCycleBtn.type = "button";
@@ -106,7 +155,11 @@ export async function mountProductionChrome(
   vizCycleBtn.addEventListener("click", () => {
     callbacks.onVizCycle();
   });
-  topRightHost.appendChild(vizCycleBtn);
+
+  const controlsHost = window.matchMedia("(max-width: 768px)").matches
+    ? titleControlsHost
+    : topRightHost;
+  controlsHost.append(themeToggle, vizCycleBtn);
 
   const sharePainBtn = await createBlobButton({
     svgName: "share_pain.svg",
