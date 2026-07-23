@@ -48,7 +48,6 @@ import {
   type SurveySubmissionPayload,
 } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
-import { mountSurveyTestPanel } from "./dev/surveyTestPanel";
 import {
   mountProductionChrome,
   type ProductionChrome,
@@ -123,8 +122,6 @@ hoverModal.id = "multiplex-hover";
 hoverModal.className = "multiplex-hover";
 hoverModal.hidden = true;
 appRootEl.appendChild(hoverModal);
-
-mountSurveyTestPanel(appRoot);
 
 function readStoredTheme(): VisualTheme {
   try {
