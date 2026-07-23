@@ -53,6 +53,7 @@ import {
   mountProductionChrome,
   type ProductionChrome,
 } from "./ui/productionChrome";
+import { playPainSound } from "./sound/soundEngine";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -368,6 +369,8 @@ function renderWordCloudHover(info: WordCloudHoverInfo): string {
 /** Pixel offset from cursor when positioning the floating hover tooltip (avoids covering the pointer). */
 const HOVER_TOOLTIP_OFFSET_X = 14;
 const HOVER_TOOLTIP_OFFSET_Y = 12;
+/** Max pointer travel (px) between down and up to count as a click rather than an orbit drag. */
+const CLICK_MAX_MOVE_PX = 5;
 
 canvas.addEventListener("pointermove", (ev) => {
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
@@ -410,6 +413,44 @@ canvas.addEventListener("pointermove", (ev) => {
 
 canvas.addEventListener("pointerleave", () => {
   hoverModal.hidden = true;
+});
+
+/** Pointer down position for click-vs-drag detection on the globe canvas. */
+let pointerDownPos: { x: number; y: number } | null = null;
+let lastSoundTime = 0;
+
+canvas.addEventListener("pointerdown", (ev) => {
+  pointerDownPos = { x: ev.clientX, y: ev.clientY };
+});
+
+/**
+ * Click-in-place on the globe: play a soft bell for pain at the pointer.
+ * Points mode uses exact marker pick (any hit); scars/multiplex sample scar
+ * dent strength and only play when a pain point is nearby.
+ * Ignores orbit drags (pointer moved more than {@link CLICK_MAX_MOVE_PX}).
+ */
+canvas.addEventListener("pointerup", (ev) => {
+  if (!pointerDownPos) return;
+  const dx = Math.abs(ev.clientX - pointerDownPos.x);
+  const dy = Math.abs(ev.clientY - pointerDownPos.y);
+  pointerDownPos = null;
+  if (dx > CLICK_MAX_MOVE_PX || dy > CLICK_MAX_MOVE_PX) return;
+  if (Date.now() - lastSoundTime < 300) return;
+
+  if (readPainVizMode() === PAIN_VIZ_MODE.points) {
+    const hit = globe.pickMarkerHover(ev.clientX, ev.clientY);
+    if (!hit) return;
+    playPainSound(hit.intensity, hit.layerId);
+    lastSoundTime = Date.now();
+    return;
+  }
+
+  const scarIntensity = globe.sampleScarAtClick(ev.clientX, ev.clientY);
+  if (scarIntensity === null) return;
+  if (!globe.pickNearestPainPoint(ev.clientX, ev.clientY)) return;
+  if (!lastLayerId) return;
+  playPainSound(scarIntensity, lastLayerId);
+  lastSoundTime = Date.now();
 });
 
 function setStatus(msg: string): void {
