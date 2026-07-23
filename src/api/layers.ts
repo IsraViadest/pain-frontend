@@ -18,6 +18,34 @@ const LAYER_ID_TO_LEXICON_BUCKET: Record<string, string> = {
 };
 
 /**
+ * Production layer id → blob SVG filename under `public/blobs/`.
+ *
+ * Ids come from pain-server GET /init (`id` field), not from `label`.
+ * Mock-mode layer ids are intentionally omitted (Pattern 23) — callers fall back to `blob1.svg`.
+ */
+const LAYER_ID_TO_BLOB_SVG: Record<string, string> = {
+  emopain: "emotional.svg",
+  envpain: "blob4.svg",
+  physpain: "physical.svg",
+  socioecopain: "socio_pol.svg",
+};
+
+/**
+ * Resolve a production layer id to its blob button SVG asset.
+ *
+ * @param layerId — `id` from GET /init (not the human-readable `label`).
+ * @returns Filename under `public/blobs/` (e.g. `emotional.svg`, or `blob1.svg` when unknown).
+ */
+export function resolveLayerBlobSvg(layerId: string): string {
+  const file = LAYER_ID_TO_BLOB_SVG[layerId.trim()];
+  if (file) return file;
+  console.warn(
+    `[layers] No blob SVG for layer id "${layerId}" — using blob1.svg. Prod ids only in LAYER_ID_TO_BLOB_SVG.`,
+  );
+  return "blob1.svg";
+}
+
+/**
  * Resolve a layer id to a semantic lexicon bucket for word-cloud fallback words.
  *
  * @param layerId — layer id from GET /init (actual value defined by the API)
