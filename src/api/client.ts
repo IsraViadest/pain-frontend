@@ -12,6 +12,7 @@
 import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
+import { ensureCountryCentroidsLoaded } from "./countryCentroids";
 import { isLayerCacheEmpty, setCachedMapLayers } from "./layers";
 import { fetchLayerDataPoints, fetchLayerInfo } from "./painServer";
 import { getPainServerUserId } from "./session";
@@ -92,6 +93,8 @@ export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
     );
   }
   const initLayerRows = await fetchLayerDataPoints(layerId);
+  // Preload NE label points so country-only rows can resolve ISO_A3 → lat/lng in the adapter.
+  await ensureCountryCentroidsLoaded();
   return mapInitResponseToPainPoints(initLayerRows, layerId);
 }
 
