@@ -258,7 +258,7 @@ function renderMultiplexHover(info: MultiplexHoverInfo): string {
 
 /** HTML for the floating tooltip when hovering a pain marker (debug-only). */
 function renderMarkerHover(info: MarkerHoverInfo): string {
-  return `<strong>${info.layerId}</strong><br/>Intensity ${info.intensity.toFixed(3)}<br/>Lat ${info.lat.toFixed(2)}, Lng ${info.lng.toFixed(2)}<br/>${info.datatype}`;
+  return `<strong>${info.layerId}</strong><br/>Intensity ${info.intensity.toFixed(3)}<br/>Lat ${info.lat.toFixed(2)}, Lng ${info.lng.toFixed(2)}<br/>${info.category}`;
 }
 
 /** HTML for the floating tooltip when hovering a text-layer word-cloud sprite. */
