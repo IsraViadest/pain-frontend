@@ -13,8 +13,12 @@ export interface PainPoint {
   lat: number;
   lng: number;
   intensity: number;
-  /** pain-server row `datatype` (metric / category label from API). */
-  datatype?: string;
+  /** pain-server row `category` (metric / category label from API). */
+  category?: string;
+  /** pain-server row `country` when present (country-layer rows). */
+  country?: string;
+  /** pain-server row `word` when present (emotional layer). */
+  word?: string;
   /** HUD layer id from the `fetchPoints(layerId)` request (GET /init/:layer path segment). */
   uiLayer: string;
   text?: string;
