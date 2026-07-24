@@ -3,8 +3,7 @@
  *
  * Data always comes from the API (never from frontend CSV). JSON keys on each row
  * match the configured pain-server schema — see {@link PainServerDbConfig}.
- * “DummyPain / db_data.csv” is only the legacy name of that schema, not a file we
- * load in production.
+ * Accepts lat/lng rows and country-only rows (lat/lng stored as null).
  */
 import { PainServerDbConfig } from "./painServerDbConfig";
 import type { PainServerRow } from "../types/painServer";
@@ -34,15 +33,20 @@ function pickString(
 /** Normalized row after applying {@link PainServerDbConfig} column names. */
 export interface NormalizedPainServerRow {
   id: number;
-  lat: number;
-  lng: number;
+  aggrid: string | null;
   value: number;
-  datatype: string;
-  painorigin: string;
+  category: string;
+  lat: number | null;
+  lng: number | null;
+  country: string | null;
+  word: string | null;
 }
 
 /**
  * Parse one `/init/:layer` array element into a typed row, or null if required fields are missing.
+ *
+ * Lat/lng rows need both coordinates. Country rows need `country` and may omit lat/lng.
+ * Empty `category` defaults to `"unknown"` (with a console warning).
  *
  * @param initLayerRow — single JSON object from the layer init response (not yet validated).
  */
@@ -55,24 +59,39 @@ export function normalizePainServerRow(
   const id = asNumber(r[PainServerDbConfig.TABLE_COLUMN_ID]);
   if (id === null) return null;
 
-  const lat = asNumber(r[PainServerDbConfig.TABLE_COLUMN_LAT]);
-  const lng = asNumber(r[PainServerDbConfig.TABLE_COLUMN_LNG]);
-  if (lat === null || lng === null) return null;
+  const aggrid = pickString(r, [PainServerDbConfig.TABLE_COLUMN_AGGRID]);
 
   const value = asNumber(r[PainServerDbConfig.TABLE_COLUMN_VALUE]);
   if (value === null) return null;
 
-  const datatype =
-    pickString(r, [PainServerDbConfig.TABLE_COLUMN_DATATYPE]) ?? "unknown";
-  const painorigin =
-    pickString(r, [PainServerDbConfig.TABLE_COLUMN_PAINORIGIN]) ?? "unknown";
+  let category = pickString(r, [PainServerDbConfig.TABLE_COLUMN_CATEGORY]);
+  if (category === null) {
+    console.warn(
+      "[painServerRow] Empty category — defaulting to \"unknown\"",
+      id,
+    );
+    category = "unknown";
+  }
+
+  const lat = asNumber(r[PainServerDbConfig.TABLE_COLUMN_LAT]);
+  const lng = asNumber(r[PainServerDbConfig.TABLE_COLUMN_LNG]);
+  // One coordinate without the other is invalid.
+  if ((lat === null) !== (lng === null)) return null;
+
+  const country = pickString(r, [PainServerDbConfig.TABLE_COLUMN_COUNTRY]);
+  const word = pickString(r, [PainServerDbConfig.TABLE_COLUMN_WORD]);
+
+  const hasCoords = lat !== null && lng !== null;
+  if (!hasCoords && country === null) return null;
 
   return {
     id,
+    aggrid,
+    value,
+    category,
     lat,
     lng,
-    value,
-    datatype,
-    painorigin,
+    country,
+    word,
   };
 }

@@ -207,7 +207,7 @@ export type MarkerHoverInfo = {
   intensity: number;
   lat: number;
   lng: number;
-  datatype: string;
+  category: string;
 };
 type MultiplexNodeHover = {
   kind: "node";
@@ -2230,7 +2230,7 @@ export class GlobeView {
         intensity: p.intensity,
         lat: p.lat,
         lng: p.lng,
-        datatype: p.datatype ?? "—",
+        category: p.category ?? "—",
       };
     }
     return null;

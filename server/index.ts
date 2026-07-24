@@ -60,7 +60,7 @@ app.post("/api/pain-submission", (req, res) => {
         ? 0.5
         : Math.min(1, Math.max(0, Number(body.intensity))),
     uiLayer: type,
-    datatype:
+    category:
       typeof body.datatype === "string"
         ? body.datatype
         : typeof body.element === "string"
