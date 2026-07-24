@@ -1,3 +1,5 @@
+import type { MapLayer } from "./api";
+
 /**
  * Raw JSON row from pain-server GET /init/:layer.
  * Field names match {@link ../api/painServerDbConfig.ts PainServerDbConfig} / db-config.env.
@@ -13,23 +15,10 @@ export interface PainServerRow {
 }
 
 /**
- * One layer entry from pain-server GET /init (layer metadata list).
- * Field names match the API exactly — see deployed pain-server GET /init.
- */
-export interface PainServerLayerRow {
-  id: string;
-  label: string;
-  desc: string;
-  color: string;
-  geospatial: boolean;
-  text: boolean;
-}
-
-/**
  * Envelope from pain-server GET /init (session user id + layer metadata list).
- * Field names match the API exactly.
+ * `layerInfo` is validated into HUD {@link MapLayer}s (see {@link ../api/initLayerList.ts parseInitLayerListResponse}).
  */
 export interface PainServerInitResponse {
   userId: string;
-  layerInfo: PainServerLayerRow[];
+  layerInfo: MapLayer[];
 }

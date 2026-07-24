@@ -43,7 +43,7 @@ Returns a JSON **array** of layer objects (HUD tabs, tint color, word-cloud flag
 | `geospatial` | boolean | Layer has map points (all current layers: `true`) |
 | `text` | boolean | Layer supports word-cloud HUD (`true` for `Emo` only today) |
 
-**Frontend types:** raw row → `PainServerLayerRow` (`src/types/painServer.ts`); normalized UI shape → `MapLayer` (`src/types/api.ts`). Parser: `src/api/initLayerList.ts` → `mapInitLayerListToMapLayers`. HTTP: `fetchLayerInfo` in `src/api/painServer.ts`.
+**Frontend types:** GET `/init` `layerInfo` → validated `MapLayer` (`src/types/api.ts`) via `parseInitLayerListResponse` in `src/api/initLayerList.ts`. HTTP: `fetchLayerInfo` in `src/api/painServer.ts` returns `MapLayer[]`.
 
 Example (truncated): `http://178.63.65.178:3000/init`
 
