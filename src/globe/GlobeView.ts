@@ -155,6 +155,11 @@ const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
   heatStrength: 2.3,
 };
 
+/** Uniform scale on `bordersOutlines.group` (debug panel Borders section). */
+const BORDER_SHELL_SCALE_DEFAULT = 0.9999;
+const BORDER_SHELL_SCALE_MIN = 0.99;
+const BORDER_SHELL_SCALE_MAX = 1.01;
+
 const GLOW_VS = /* glsl */ `
 varying float vGlow;
 void main() {
@@ -398,6 +403,8 @@ export class GlobeView {
   /** Pain marker material / size (debug panel Markers section). */
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
   private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
+  /** Uniform scale for coast/border line shell (`bordersOutlines.group`). */
+  private borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -648,6 +655,31 @@ export class GlobeView {
     } else {
       this.applyStippleHeatUniforms();
     }
+  }
+
+  /** Current border shell uniform scale (debug panel Borders section). */
+  getBorderShellScale(): number {
+    return this.borderShellScale;
+  }
+
+  /** Scale coast/border group uniformly (`bordersOutlines.group.scale.setScalar`). */
+  setBorderShellScale(scale: number): void {
+    this.borderShellScale = THREE.MathUtils.clamp(
+      scale,
+      BORDER_SHELL_SCALE_MIN,
+      BORDER_SHELL_SCALE_MAX,
+    );
+    this.applyBorderShellScale();
+  }
+
+  /** Restore {@link BORDER_SHELL_SCALE_DEFAULT} and re-apply. */
+  resetBorderShellScale(): void {
+    this.borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
+    this.applyBorderShellScale();
+  }
+
+  private applyBorderShellScale(): void {
+    this.bordersOutlines?.group.scale.setScalar(this.borderShellScale);
   }
 
   private applyStippleTuneUniforms(): void {
@@ -1060,6 +1092,17 @@ export class GlobeView {
     this.syncStippleVisibility();
     this.applyDebugLayerVisibility();
     this.syncStippleBackdropClearColor();
+    this.syncBorderOutlinesRenderOrder();
+  }
+
+  /**
+   * Keep coast/border lines above the choropleth globe mesh (renderOrder 0).
+   * Restores the usual border stack order when choropleth is off.
+   */
+  private syncBorderOutlinesRenderOrder(): void {
+    if (!this.bordersOutlines) return;
+    // Choropleth: above globe (0). Otherwise: documented default from loadCountryOutlines.
+    this.bordersOutlines.group.renderOrder = this.isChoroplethLayerActive() ? 2 : 3;
   }
 
   /** Keep canvas clear transparent — CSS theme shows outside the globe (never fill whole viewport). */
@@ -1482,7 +1525,8 @@ export class GlobeView {
       this.syncScarVisualization();
       this.scene.remove(this.markersGroup);
       // Coast + country border lines (countryBorders.ts); scar-warped in syncScarVisualization
-      this.bordersOutlines.group.renderOrder = 3;
+      this.syncBorderOutlinesRenderOrder();
+      this.applyBorderShellScale();
       this.scene.add(this.bordersOutlines.group);
       this.scene.add(this.markersGroup);
       this.syncWorldRotation();
@@ -1890,6 +1934,7 @@ export class GlobeView {
         this.painHeatMap.dispose();
         this.painHeatMap = null;
       }
+      this.bordersOutlines?.setScarDisplacementMap(null, 0, 0);
       this.scheduleChoroplethRebuild();
       this.syncGlobeSurfaceVisibility();
       this.refreshWordCloud();

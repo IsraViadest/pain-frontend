@@ -1,12 +1,15 @@
 /**
  * Country choropleth as an equirectangular RGBA DataTexture (Canvas 2D fill).
- * Same plate-carrée frame as {@link landMaskRaster.ts} / scar maps (1000×482).
+ * Same plate-carrée projection as {@link landMaskRaster.ts} / scar maps; resolution 2048×1024.
  *
  * Used when a layer is country-based (`geospatial: false` && `text: false`).
  */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
-import { SCAR_MAP_HEIGHT, SCAR_MAP_WIDTH } from "./painScarField";
+
+/** Equirectangular choropleth texture resolution (higher than scar/heat 1000×482). */
+const CHOROPLETH_MAP_WIDTH = 2048;
+const CHOROPLETH_MAP_HEIGHT = 1024;
 
 /** ISO_A3 (or ADM0_A3 fallback) → fill intensity in [0, 1] (or wider; alpha clamps). */
 interface ChoroplethCountryValue {
@@ -222,7 +225,7 @@ function parseHexRgb(
 }
 
 /**
- * Paint country polygons into an RGBA DataTexture (scar-map resolution).
+ * Paint country polygons into an RGBA DataTexture (2048×1024).
  * Countries with data: layer RGB + alpha ∝ intensity. No data: transparent.
  *
  * @param values — ISO_A3 → intensity (from {@link aggregateChoroplethValues})
@@ -232,8 +235,8 @@ export function createChoroplethTexture(
   values: ChoroplethCountryValue[],
   colorHex: string | null | undefined,
 ): THREE.DataTexture {
-  const w = SCAR_MAP_WIDTH;
-  const h = SCAR_MAP_HEIGHT;
+  const w = CHOROPLETH_MAP_WIDTH;
+  const h = CHOROPLETH_MAP_HEIGHT;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
