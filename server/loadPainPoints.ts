@@ -38,7 +38,7 @@ function toPoint(
   country: Country,
   uiLayer: string,
   intensity: number,
-  datatype: string | undefined,
+  category: string | undefined,
   text: string | undefined,
   metadata?: PainPoint["metadata"],
 ): PainPoint {
@@ -48,7 +48,7 @@ function toPoint(
     lat,
     lng,
     intensity: clamp01(intensity),
-    datatype,
+    category,
     uiLayer,
     text,
     metadata,

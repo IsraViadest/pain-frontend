@@ -2,7 +2,10 @@ import type { PainPoint } from "../types/api";
 import type { PainServerRow } from "../types/painServer";
 import { resolvePainServerCoordinates } from "./coordinates";
 import { getMapLayerById } from "./layers";
-import { normalizePainServerRow } from "./painServerRow";
+import {
+  normalizePainServerRow,
+  type NormalizedPainServerRow,
+} from "./painServerRow";
 
 /**
  * Maps the JSON body of pain-server `GET /init/:layer` to globe-ready {@link PainPoint}s.
@@ -30,7 +33,7 @@ export function mapInitResponseToPainPoints(
   }
   if (skipped > 0) {
     console.warn(
-      `[adapter] Skipped ${skipped} row(s) (invalid shape or coordinates outside WGS84)`,
+      `[adapter] Skipped ${skipped} row(s) (invalid shape, country-only, or coordinates outside WGS84)`,
     );
   }
   return points;
@@ -38,16 +41,25 @@ export function mapInitResponseToPainPoints(
 
 /**
  * Turn one validated API row into a {@link PainPoint} (lat/lng, uiLayer, intensity).
- * Returns null when coordinates cannot be resolved (row is skipped).
+ * Returns null when coordinates cannot be resolved (country-only rows or invalid WGS84).
  *
  * `metadata.layerLabel` uses {@link getMapLayerById} — requires {@link ../client.ts fetchLayers}
  * before {@link ../client.ts fetchPoints} so the layer cache is populated.
  */
 function mapRow(
-  row: NonNullable<ReturnType<typeof normalizePainServerRow>>,
+  row: NormalizedPainServerRow,
   layerId: string,
   index: number,
 ): PainPoint | null {
+  if (row.lat === null || row.lng === null) {
+    console.warn(
+      "[adapter] Skipping country row (no lat/lng for globe plot)",
+      row.id,
+      { country: row.country, word: row.word },
+    );
+    return null;
+  }
+
   const coords = resolvePainServerCoordinates(row);
   if (coords == null) {
     console.warn(
@@ -58,7 +70,7 @@ function mapRow(
     return null;
   }
 
-  const { id, value, datatype } = row;
+  const { id, value, category, country, word } = row;
 
   if (value < 0 || 1 < value) {
     console.warn(
@@ -73,19 +85,16 @@ function mapRow(
     lat: coords.lat,
     lng: coords.lng,
     intensity: value,
-    datatype,
+    category,
+    country: country ?? undefined,
+    word: word ?? undefined,
     uiLayer: layerId,
-    // Frontend-only placeholder — API has no text field yet (Pattern 20).
-    // TODO: Replace with real text field from API when available.
-    // Only `datatype` is used; row `painorigin` is omitted (redundant with request `layerId` / uiLayer).
-    // Currently used for word clouds until real data exists.
-    text: datatype,
+    // Prefer API `word` for word clouds; fall back to category label.
+    text: word ?? category,
     metadata: {
-      // Frontend-only placeholder — API has no country field (Pattern 20).
-      // TODO: populate from API or reverse geocoding when available.
-      country: "PPP map record",
+      country: country ?? "Unknown",
       layerLabel: getMapLayerById(layerId)?.label ?? layerId,
-      metricLabel: datatype,
+      metricLabel: category,
       rawValue: value,
       sourceUrl: "",
     },
