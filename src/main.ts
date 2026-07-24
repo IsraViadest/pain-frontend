@@ -326,6 +326,7 @@ function applyGlobeLayer(layerId: string): void {
     ? {
         color: layer.color,
         text: layer.text,
+        geospatial: layer.geospatial,
         lexiconBucket: resolveLayerLexiconBucket(layerId),
       }
     : undefined;

@@ -1,10 +1,16 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { MapLayer, PainPoint } from "../types/api";
+import { isChoroplethMapLayer } from "../api/layers";
 import {
   loadGlobeBorderOutlines,
   type GlobeBorderOutlines,
 } from "./countryBorders";
+import {
+  aggregateChoroplethValues,
+  createChoroplethTexture,
+  ensureChoroplethCountriesLoaded,
+} from "./choroplethField";
 import {
   createEarthStippleGlobe,
   STIPPLE_LAND_MASK_GEOJSON_URL,
@@ -305,7 +311,10 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  */
 
 /** Layer metadata passed from main.ts into {@link GlobeView.updateLayerVisuals} (not raw API shape). */
-export type GlobeLayerDisplayMeta = Pick<MapLayer, "color" | "text"> & {
+export type GlobeLayerDisplayMeta = Pick<
+  MapLayer,
+  "color" | "text" | "geospatial"
+> & {
   lexiconBucket: string;
 };
 
@@ -356,8 +365,10 @@ export class GlobeView {
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private painHeatMap: THREE.DataTexture | null = null;
+  private choroplethMap: THREE.DataTexture | null = null;
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
   private scarBuildGeneration = 0;
+  private choroplethBuildGeneration = 0;
   private stippleNeutralScarTexture: THREE.DataTexture | null = null;
   private stippleNeutralHeatTexture: THREE.DataTexture | null = null;
   private readonly ambLight: THREE.AmbientLight;
@@ -686,6 +697,7 @@ export class GlobeView {
   }
 
   private getAutoGlobeVisible(): boolean {
+    if (this.isChoroplethLayerActive()) return true;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
@@ -706,12 +718,14 @@ export class GlobeView {
   }
 
   private getAutoScarDisplacementActive(): boolean {
+    if (this.isChoroplethLayerActive()) return false;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     return scars && Boolean(this.scarDisplacementMap);
   }
 
   private getAutoHeatOverlayActive(): boolean {
+    if (this.isChoroplethLayerActive()) return false;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     return scars && Boolean(this.painHeatMap);
@@ -750,9 +764,15 @@ export class GlobeView {
       case "countryBorders":
         return Boolean(this.bordersOutlines);
       case "markers":
-        return this.painVizMode === PAIN_VIZ_MODE.points;
+        return (
+          !this.isChoroplethLayerActive() &&
+          this.painVizMode === PAIN_VIZ_MODE.points
+        );
       case "multiplex":
-        return this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
+        return (
+          !this.isChoroplethLayerActive() &&
+          this.painVizMode === PAIN_VIZ_MODE.multiplexV0
+        );
       case "wordCloud":
         return this.wordCloudEnabled && this.textLayerGroup.children.length > 0;
       case "scarDisplacement":
@@ -827,11 +847,13 @@ export class GlobeView {
     );
     this.markersGroup.visible = this.resolveDebugLayerVisibility(
       "markers",
-      this.painVizMode === PAIN_VIZ_MODE.points,
+      !this.isChoroplethLayerActive() &&
+        this.painVizMode === PAIN_VIZ_MODE.points,
     );
     this.multiplexGroup.visible = this.resolveDebugLayerVisibility(
       "multiplex",
-      this.painVizMode === PAIN_VIZ_MODE.multiplexV0,
+      !this.isChoroplethLayerActive() &&
+        this.painVizMode === PAIN_VIZ_MODE.multiplexV0,
     );
     this.textLayerGroup.visible = this.resolveDebugLayerVisibility(
       "wordCloud",
@@ -925,6 +947,10 @@ export class GlobeView {
 
   /** Solid globe shell: full opacity, no layer map. */
   private applyGlobeShellColor(): void {
+    if (this.isChoroplethLayerActive() && this.choroplethMap) {
+      this.applyChoroplethMaterial();
+      return;
+    }
     const mat = this.globe.material as THREE.MeshStandardMaterial;
     mat.map = null;
     mat.color.setHex(GLOBE_SHELL_COLOR);
@@ -933,8 +959,76 @@ export class GlobeView {
     mat.needsUpdate = true;
   }
 
+  /** Whether the active layer should use country choropleth (not scars/markers/stipple). */
+  private isChoroplethLayerActive(): boolean {
+    const meta = this.currentLayerMeta;
+    if (!meta) return false;
+    return isChoroplethMapLayer(meta);
+  }
+
+  private disposeChoroplethMap(): void {
+    const mat = this.globe.material as THREE.MeshStandardMaterial;
+    const wasChoroplethMap = mat.map === this.choroplethMap && this.choroplethMap != null;
+    if (mat.map === this.choroplethMap) {
+      mat.map = null;
+    }
+    if (this.choroplethMap) {
+      this.choroplethMap.dispose();
+      this.choroplethMap = null;
+    }
+    if (wasChoroplethMap && !this.isChoroplethLayerActive()) {
+      mat.color.setHex(GLOBE_SHELL_COLOR);
+      mat.transparent = false;
+      mat.opacity = 1;
+      mat.needsUpdate = true;
+    }
+  }
+
+  /** Map choropleth RGBA texture onto the solid globe (transparent where no country data). */
+  private applyChoroplethMaterial(): void {
+    const mat = this.globe.material as THREE.MeshStandardMaterial;
+    if (!this.choroplethMap) {
+      mat.map = null;
+      mat.color.setHex(GLOBE_SHELL_COLOR);
+      mat.transparent = false;
+      mat.opacity = 1;
+      mat.needsUpdate = true;
+      return;
+    }
+    this.choroplethMap.needsUpdate = true;
+    mat.map = this.choroplethMap;
+    // White multiply so texture RGB (layer yellow) is unchanged.
+    mat.color.setHex(0xffffff);
+    mat.transparent = true;
+    mat.opacity = 1;
+    mat.needsUpdate = true;
+  }
+
+  /** Rebuild country choropleth texture when layer is geospatial:false && text:false. */
+  private scheduleChoroplethRebuild(): void {
+    const points = this.lastPainPoints;
+    const generation = ++this.choroplethBuildGeneration;
+    this.disposeChoroplethMap();
+    if (!this.isChoroplethLayerActive()) {
+      this.applyGlobeShellColor();
+      return;
+    }
+
+    const colorHex = this.currentLayerColorHex;
+    void (async () => {
+      await ensureChoroplethCountriesLoaded();
+      if (generation !== this.choroplethBuildGeneration) return;
+      if (!this.isChoroplethLayerActive()) return;
+      const values = aggregateChoroplethValues(points);
+      this.choroplethMap = createChoroplethTexture(values, colorHex);
+      this.applyChoroplethMaterial();
+      this.syncGlobeSurfaceVisibility();
+    })();
+  }
+
   /** Neutral base color for the displaced globe under stipple (no canvas layer map). */
   private applyGlobeScarShellMaterial(): void {
+    if (this.isChoroplethLayerActive()) return;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (!scars || this.displayMode !== "points") return;
@@ -1058,6 +1152,7 @@ export class GlobeView {
    * Does not add meshes; updates existing shells. See painScarField.ts, painHeatField.ts.
    */
   private syncScarVisualization(): void {
+    if (this.isChoroplethLayerActive()) return;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const mat = this.globe.material as THREE.MeshStandardMaterial;
@@ -1183,6 +1278,10 @@ export class GlobeView {
     if (this.painHeatMap) {
       this.painHeatMap.dispose();
       this.painHeatMap = null;
+    }
+
+    if (this.isChoroplethLayerActive()) {
+      return;
     }
 
     const scars =
@@ -1491,6 +1590,8 @@ export class GlobeView {
     }
     this.clearWordCloud();
     this.disposeMultiplexObjects();
+    this.choroplethBuildGeneration++;
+    this.disposeChoroplethMap();
     for (const t of this.textureCache.values()) t.dispose();
     this.textureCache.clear();
   }
@@ -1498,11 +1599,12 @@ export class GlobeView {
   /**
    * Select active layer and refresh layer-driven visuals.
    *
-   * Stores layer id and display metadata (color, text flag, lexicon bucket), caches a
+   * Stores layer id and display metadata (color, text, geospatial, lexicon bucket), caches a
    * procedural layer canvas texture, then reapplies globe shell tint, stipple tint,
-   * scar shell material, marker colors, and the word cloud.
+   * scar shell material, marker colors, and the word cloud. Country choropleth layers
+   * (`geospatial: false` && `text: false`) get an equirect fill instead of scars/markers.
    *
-   * @param meta — display fields from main.ts (`applyGlobeLayer`: color, text, lexicon bucket).
+   * @param meta — display fields from main.ts (`applyGlobeLayer`: color, text, geospatial, lexicon bucket).
    */
   updateLayerVisuals(
     layerId: string,
@@ -1532,8 +1634,13 @@ export class GlobeView {
       );
       this.textureCache.set(cacheKey, tex);
     }
-    // Solid shell (GLOBE_SHELL_COLOR); layer canvas stays cached but is not mapped onto the mesh.
-    this.applyGlobeShellColor();
+    if (this.isChoroplethLayerActive()) {
+      // Texture built in rebuildPainGeometryAndTexture (choropleth path).
+    } else {
+      this.disposeChoroplethMap();
+      // Solid shell (GLOBE_SHELL_COLOR); layer canvas stays cached but is not mapped onto the mesh.
+      this.applyGlobeShellColor();
+    }
     const m = this.globe.material as THREE.MeshStandardMaterial;
     m.roughness = 0.78;
     m.metalness = 0.06;
@@ -1542,6 +1649,7 @@ export class GlobeView {
     this.applyGlobeScarShellMaterial();
     this.updateMarkerInstanceColors(this.lastPainPoints);
     this.refreshWordCloud();
+    this.rebuildPainGeometryAndTexture();
   }
 
   /** Entry from main.ts after fetchPoints — drives markers, scars, multiplex, word cloud. */
@@ -1766,8 +1874,30 @@ export class GlobeView {
   /**
    * Rebuild markers, multiplex graph, and scar field from `lastPainPoints`
    * (called after `setMarkers`, viz-mode changes, and layer updates).
+   * Choropleth layers skip scars/markers/stipple and paint a country fill instead.
    */
   private rebuildPainGeometryAndTexture(): void {
+    if (this.isChoroplethLayerActive()) {
+      this.disposePainMarkersInstanced();
+      this.disposeMultiplexObjects();
+      // Invalidate any in-flight scar rebuild so it cannot re-apply scars over choropleth.
+      this.scarBuildGeneration++;
+      if (this.scarDisplacementMap) {
+        this.scarDisplacementMap.dispose();
+        this.scarDisplacementMap = null;
+      }
+      if (this.painHeatMap) {
+        this.painHeatMap.dispose();
+        this.painHeatMap = null;
+      }
+      this.scheduleChoroplethRebuild();
+      this.syncGlobeSurfaceVisibility();
+      this.refreshWordCloud();
+      return;
+    }
+
+    this.disposeChoroplethMap();
+
     if (
       this.painVizMode === PAIN_VIZ_MODE.scars ||
       this.painVizMode === PAIN_VIZ_MODE.multiplexV0
