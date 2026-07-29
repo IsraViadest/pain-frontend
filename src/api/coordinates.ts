@@ -20,7 +20,8 @@ function isWgs84Degrees(latVal: number, lngVal: number): boolean {
 }
 
 /**
- * API → globe. Accepts WGS84 degrees only; invalid rows return null (adapter warns and skips).
+ * API → globe. Accepts WGS84 degrees only; invalid or missing coords return null.
+ * Country-only rows (`lat`/`lng` null) return null — adapter skips globe plotting.
  * Grid indices or other non-degree values are not converted — backend must send real lat/lng.
  */
 export function resolvePainServerCoordinates(
@@ -28,6 +29,7 @@ export function resolvePainServerCoordinates(
 ): GeoCoordinates | null {
   const latVal = row.lat;
   const lngVal = row.lng;
+  if (latVal === null || lngVal === null) return null;
 
   if (isWgs84Degrees(latVal, lngVal)) {
     return { lat: latVal, lng: lngVal };
