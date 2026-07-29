@@ -12,6 +12,11 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints, submitPain } from "./api/client";
+import {
+  METRICS_KIND_LAYER,
+  trackToggle,
+  trackVizMode,
+} from "./api/metricsApi";
 import { getMapLayerById, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer } from "./types/api";
 import {
@@ -29,6 +34,21 @@ import {
   mountGlobeDebugPanel,
   shouldShowGlobeDebugPanel,
 } from "./globe/globeDebugPanel";
+import { SurveyModal } from "./survey/SurveyModal";
+import { flyGlobeToLatLng } from "./survey/globeFlyTo";
+import {
+  hideSurveyLoadingOverlay,
+  showSurveyLoadingOverlay,
+} from "./survey/surveyLoadingOverlay";
+import {
+  hideSurveyResultModal,
+  showSurveyResultModal,
+} from "./survey/surveyResultModal";
+import {
+  type SurveySubmissionPayload,
+} from "./survey/surveyData";
+import { submitSurvey } from "./survey/surveyApi";
+import { mountSurveyTestPanel } from "./dev/surveyTestPanel";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -58,6 +78,17 @@ if (
 const painVizEl = painVizSelect;
 painVizEl.value = PAIN_VIZ_MODE.scars;
 
+const hudRow = document.querySelector<HTMLDivElement>("#hud .row");
+if (!hudRow) throw new Error("Missing HUD button row");
+const sharePainBtn = document.createElement("button");
+sharePainBtn.type = "button";
+sharePainBtn.id = "share-pain";
+sharePainBtn.textContent = "Share your pain";
+hudRow.appendChild(sharePainBtn);
+
+const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
+if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
+
 function readPainVizMode(): PainVisualizationMode {
   if (painVizEl.value === PAIN_VIZ_MODE.scars) return PAIN_VIZ_MODE.scars;
   if (painVizEl.value === PAIN_VIZ_MODE.multiplexV0) {
@@ -68,6 +99,7 @@ function readPainVizMode(): PainVisualizationMode {
 
 const hudStatus = statusEl;
 const layerPicker = layerSelect;
+let lastLayerId = "";
 const wordCloudBtn = wordCloudToggle;
 const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
@@ -78,6 +110,8 @@ hoverModal.id = "multiplex-hover";
 hoverModal.className = "multiplex-hover";
 hoverModal.hidden = true;
 appRoot.appendChild(hoverModal);
+
+mountSurveyTestPanel(appRoot);
 
 function readStoredTheme(): VisualTheme {
   try {
@@ -123,6 +157,57 @@ const globeDebugHost = document.querySelector<HTMLElement>("#globe-debug-panel")
 const globeDebugToggle = document.querySelector<HTMLButtonElement>(
   "#globe-debug-toggle",
 );
+
+let postSubmitRunning = false;
+
+async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<void> {
+  if (postSubmitRunning) return;
+  postSubmitRunning = true;
+  const overlayHost = appRoot;
+  if (!overlayHost) return;
+  try {
+    showSurveyLoadingOverlay(overlayHost);
+    const res = await submitSurvey(payload);
+    await hideSurveyLoadingOverlay();
+    if (!res) {
+      console.warn("[main] Survey submission failed; skipping post-submit fly-to.");
+      return;
+    }
+    globe.setAutoSpinEnabled(false);
+    // Assumption: `submitSurvey` returns pain-server coordinates as `{ lat, lng }` (see surveyApi.ts).
+    const resultLat = res.lat;
+    const resultLng = res.lng;
+    await flyGlobeToLatLng(
+      globe.camera,
+      globe.controls,
+      resultLat,
+      resultLng,
+      globe.earthContent,
+    );
+    const removeSurfaceMarker = globe.addSurfaceMarker(resultLat, resultLng);
+    showSurveyResultModal(overlayHost, {
+      lat: resultLat,
+      lng: resultLng,
+      onClose: () => {
+        removeSurfaceMarker();
+        hideSurveyResultModal();
+        globe.setAutoSpinEnabled(true);
+      },
+    });
+  } finally {
+    postSubmitRunning = false;
+  }
+}
+
+const surveyModal = new SurveyModal(surveyModalHost, {
+  onSurveySubmitted: (payload) => {
+    void runPostSubmitSequence(payload);
+  },
+});
+
+sharePainBtn.addEventListener("click", () => {
+  surveyModal.open();
+});
 
 const showGlobeDebugEntry = shouldShowGlobeDebugPanel();
 let globeDebugMounted = false;
@@ -228,7 +313,9 @@ themeBtn.addEventListener("click", () => {
 });
 
 painVizEl.addEventListener("change", () => {
-  globe.setPainVisualizationMode(readPainVizMode());
+  const mode = readPainVizMode();
+  globe.setPainVisualizationMode(mode);
+  trackVizMode(mode);
   hoverModal.hidden = true;
 });
 
@@ -343,7 +430,10 @@ async function loadLayersIntoSelect(): Promise<void> {
     layerPicker.appendChild(opt);
   }
   if (layers[0]) {
-    applyGlobeLayer(String(layers[0].id));
+    const layerId = String(layers[0].id);
+    applyGlobeLayer(layerId);
+    trackToggle(METRICS_KIND_LAYER, layerId, true);
+    lastLayerId = layerId;
   }
   syncWordCloudForCurrentLayer();
 }
@@ -358,8 +448,15 @@ async function loadPoints(): Promise<void> {
 }
 
 layerPicker.addEventListener("change", () => {
+  const prevLayerId = lastLayerId;
+  const nextLayerId = layerPicker.value;
+  if (prevLayerId && prevLayerId !== nextLayerId) {
+    trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
+  }
+  trackToggle(METRICS_KIND_LAYER, nextLayerId, true);
+  lastLayerId = nextLayerId;
   syncWordCloudForCurrentLayer();
-  applyGlobeLayer(layerPicker.value);
+  applyGlobeLayer(nextLayerId);
   void loadPoints().catch((e) =>
     setStatus(e instanceof Error ? e.message : String(e)),
   );

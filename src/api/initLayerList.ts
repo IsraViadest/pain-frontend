@@ -2,7 +2,6 @@
  * Normalizes pain-server GET /init (layer metadata list) into {@link MapLayer}s.
  */
 import type { MapLayer } from "../types/api";
-import type { PainServerLayerRow } from "../types/painServer";
 
 function pickString(row: Record<string, unknown>, key: string): string | null {
   const v = row[key];
@@ -21,9 +20,9 @@ function pickBoolean(row: Record<string, unknown>, key: string): boolean | null 
  * Validate and normalize one layer metadata object from GET /init.
  *
  * @param initLayerRow — single JSON object from the layer list response.
- * @returns A {@link PainServerLayerRow} when required fields are present; `null` if the shape or any required field is invalid.
+ * @returns A {@link MapLayer} when required fields are present; `null` if the shape or any required field is invalid.
  */
-function normalizeInitLayerRow(initLayerRow: unknown): PainServerLayerRow | null {
+function normalizeInitLayerRow(initLayerRow: unknown): MapLayer | null {
   if (initLayerRow == null || typeof initLayerRow !== "object") return null;
   const row = initLayerRow as Record<string, unknown>;
 
@@ -41,40 +40,20 @@ function normalizeInitLayerRow(initLayerRow: unknown): PainServerLayerRow | null
 }
 
 /**
- * Map validated GET /init rows to HUD {@link MapLayer}s (field order matches API).
- *
- * @param initLayerRows — parsed response body from {@link fetchLayerInfo}.
- */
-export function mapInitLayerListToMapLayers(initLayerRows: PainServerLayerRow[]): MapLayer[] {
-  const layers: MapLayer[] = [];
-  for (let i = 0; i < initLayerRows.length; i++) {
-    const initLayerRow = initLayerRows[i];
-    layers.push({
-      id: initLayerRow.id,
-      label: initLayerRow.label,
-      desc: initLayerRow.desc,
-      color: initLayerRow.color,
-      geospatial: initLayerRow.geospatial,
-      text: initLayerRow.text,
-    });
-  }
-  return layers;
-}
-
-/**
  * Validate each row from GET /init; skip invalid entries with a warning.
  *
- * @param initLayerListRows — raw JSON array from pain-server GET /init.
+ * @param initLayerListRows — raw `layerInfo` array from pain-server GET /init.
+ * @returns Validated {@link MapLayer} list for the HUD / layer cache.
  */
-export function parseInitLayerListResponse(initLayerListRows: unknown[]): PainServerLayerRow[] {
-  const rows: PainServerLayerRow[] = [];
+export function parseInitLayerListResponse(initLayerListRows: unknown[]): MapLayer[] {
+  const layers: MapLayer[] = [];
   for (let i = 0; i < initLayerListRows.length; i++) {
-    const row = normalizeInitLayerRow(initLayerListRows[i]);
-    if (row) {
-      rows.push(row);
+    const layer = normalizeInitLayerRow(initLayerListRows[i]);
+    if (layer) {
+      layers.push(layer);
     } else {
       console.warn("[initLayerList] Skipping invalid layer row at index", i, initLayerListRows[i]);
     }
   }
-  return rows;
+  return layers;
 }

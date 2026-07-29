@@ -1,3 +1,23 @@
+@font-face {
+  font-family: "Atelier";
+  src:
+    url("/fonts/Atelier.otf") format("opentype"),
+    url("/fonts/Atelier.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hypodermic";
+  src:
+    url("/fonts/Hypodermic.otf") format("opentype"),
+    url("/fonts/Hypodermic.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 *,
 *::before,
 *::after {
@@ -171,6 +191,7 @@ body {
 
 #hud h1 {
   margin: 0 0 12px;
+  font-family: "Atelier", serif;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.02em;

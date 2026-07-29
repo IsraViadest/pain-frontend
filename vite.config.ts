@@ -28,6 +28,14 @@ export default defineConfig(({ mode }) => {
           target: `http://${painServerHost}:${painServerPort}`,
           changeOrigin: true,
         },
+        "/metrics": {
+          target: `http://${painServerHost}:${painServerPort}`,
+          changeOrigin: true,
+        },
+        "/survey": {
+          target: `http://${painServerHost}:${painServerPort}`,
+          changeOrigin: true,
+        },
       };
 
   return {

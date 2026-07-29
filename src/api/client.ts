@@ -12,7 +12,6 @@
 import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
-import { mapInitLayerListToMapLayers } from "./initLayerList";
 import { isLayerCacheEmpty, setCachedMapLayers } from "./layers";
 import { fetchLayerDataPoints, fetchLayerInfo } from "./painServer";
 import { getPainServerUserId } from "./session";
@@ -61,8 +60,7 @@ export async function fetchLayers(): Promise<MapLayer[]> {
     setCachedMapLayers(layers);
     return layers;
   } else {
-    const rows = await fetchLayerInfo();
-    const layers = mapInitLayerListToMapLayers(rows);
+    const layers = await fetchLayerInfo();
     setCachedMapLayers(layers);
     return layers;
   }

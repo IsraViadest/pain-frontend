@@ -315,7 +315,7 @@ export class GlobeView {
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
   /** Rotating group: solid globe shell + rim glow (spins with globeSpinY). */
-  private readonly earthContent = new THREE.Group();
+  readonly earthContent = new THREE.Group();
   /** SHELL 0 — Solid sphere (MeshStandardMaterial). See syncBaseGlobeVisibility(). */
   private readonly globe: THREE.Mesh<
     THREE.SphereGeometry,
@@ -376,6 +376,11 @@ export class GlobeView {
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointerNdc = new THREE.Vector2();
   private globeSpinY = 0;
+  private autoSpinEnabled = true;
+  private surfaceMarkerRings: {
+    mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+    elapsed: number;
+  }[] = [];
   private multiplexTime = 0;
   private multiplexRuntime: MultiplexRuntime | null = null;
   private wordCloudEnabled = false;
@@ -1789,14 +1794,117 @@ export class GlobeView {
     this.refreshWordCloud();
   }
 
+  /**
+   * Pause or resume ambient globe spin around the Y axis.
+   * Used to freeze the globe during the post-submit fly-to animation.
+   */
+  setAutoSpinEnabled(enabled: boolean): void {
+    this.autoSpinEnabled = enabled;
+  }
+
+  /** Circle geometry radius for post-submit surface marker. */
+  private static readonly SURFACE_MARKER_RADIUS = 0.035;
+  /** Circle geometry segment count for post-submit surface marker. */
+  private static readonly SURFACE_MARKER_SEGMENTS = 32;
+  /** Matches survey result panel color (#abacc0). */
+  private static readonly SURFACE_MARKER_COLOR = 0xabacc0;
+  private static readonly SURFACE_MARKER_EMISSIVE_INTENSITY = 0.3;
+  private static readonly SURFACE_MARKER_OPACITY = 0.25;
+  /** Offset above globe surface (RADIUS = 1). */
+  private static readonly SURFACE_MARKER_OFFSET = 0.02;
+  /** Expanding ring outer radius at full scale. */
+  private static readonly SURFACE_MARKER_RING_MAX_RADIUS = 0.06;
+  private static readonly SURFACE_MARKER_RING_CYCLE_SEC = 2;
+  private static readonly SURFACE_MARKER_RING_OPACITY = 0.4;
+  private static readonly SURFACE_MARKER_RING_COLOR = 0x7eb8d4;
+
+  /** Semi-transparent disc on the globe at lat/lng; returns cleanup. */
+  addSurfaceMarker(lat: number, lng: number): () => void {
+    const geometry = new THREE.CircleGeometry(
+      GlobeView.SURFACE_MARKER_RADIUS,
+      GlobeView.SURFACE_MARKER_SEGMENTS,
+    );
+    const material = new THREE.MeshStandardMaterial({
+      color: GlobeView.SURFACE_MARKER_COLOR,
+      emissive: GlobeView.SURFACE_MARKER_COLOR,
+      emissiveIntensity: GlobeView.SURFACE_MARKER_EMISSIVE_INTENSITY,
+      transparent: true,
+      opacity: GlobeView.SURFACE_MARKER_OPACITY,
+      depthWrite: false,
+      depthTest: false,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    const ringGeometry = new THREE.RingGeometry(
+      0,
+      GlobeView.SURFACE_MARKER_RING_MAX_RADIUS,
+      GlobeView.SURFACE_MARKER_SEGMENTS,
+    );
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color: GlobeView.SURFACE_MARKER_RING_COLOR,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+    const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
+    const position = latLngToVector3(
+      lat,
+      lng,
+      RADIUS + GlobeView.SURFACE_MARKER_OFFSET,
+    );
+    const outward = position.clone().normalize();
+    // World Y rotation — frozen globeSpinY at marker placement
+    const globeRotation = new THREE.Euler(0, this.globeSpinY, 0);
+    position.applyEuler(globeRotation);
+    outward.applyEuler(globeRotation);
+    mesh.position.copy(position);
+    ringMesh.position.copy(position);
+    // CircleGeometry default normal is +Z (face outward from sphere center)
+    const surfaceQuat = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1),
+      outward,
+    );
+    mesh.quaternion.copy(surfaceQuat);
+    ringMesh.quaternion.copy(surfaceQuat);
+    const ringEntry = { mesh: ringMesh, elapsed: 0 };
+    this.surfaceMarkerRings.push(ringEntry);
+    this.scene.add(mesh, ringMesh);
+    return () => {
+      this.scene.remove(mesh, ringMesh);
+      geometry.dispose();
+      material.dispose();
+      ringGeometry.dispose();
+      ringMaterial.dispose();
+      const idx = this.surfaceMarkerRings.indexOf(ringEntry);
+      if (idx >= 0) this.surfaceMarkerRings.splice(idx, 1);
+    };
+  }
+
+  private tickSurfaceMarkerRings(dt: number): void {
+    const cycle = GlobeView.SURFACE_MARKER_RING_CYCLE_SEC;
+    const maxOpacity = GlobeView.SURFACE_MARKER_RING_OPACITY;
+    for (const ring of this.surfaceMarkerRings) {
+      ring.elapsed += dt;
+      const progress = Math.min(1, (ring.elapsed % cycle) / cycle);
+      const scale = Math.max(0.01, progress);
+      ring.mesh.scale.setScalar(scale);
+      ring.mesh.material.opacity =
+        maxOpacity * Math.sin(Math.PI * progress);
+    }
+  }
+
   /** Per-frame update: spin, controls, hemisphere clip, multiplex / word-cloud animation. */
   tick(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
-    this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;
+    if (this.autoSpinEnabled) {
+      this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;
+    }
     this.syncWorldRotation();
     this.controls.update();
     this.tickMultiplex(dt);
     this.tickWordCloud();
+    this.tickSurfaceMarkerRings(dt);
     const cp = this.camera.position;
     if (cp.lengthSq() > 1e-10) {
       this.hemisphereClipPlane.normal.copy(cp).normalize();
