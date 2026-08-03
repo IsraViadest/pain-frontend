@@ -408,6 +408,11 @@ function setStatus(msg: string): void {
 }
 
 function applyGlobeLayer(layerId: string): void {
+  const vizMode =
+    layerId === "physpain" ? PAIN_VIZ_MODE.scars : PAIN_VIZ_MODE.points;
+  painVizEl.value = vizMode;
+  globe.setPainVisualizationMode(vizMode);
+
   const layer = getMapLayerById(layerId);
   const meta: GlobeLayerDisplayMeta | undefined = layer
     ? {

@@ -59,7 +59,7 @@ Returns a JSON **array** of point rows. Field names match pain-server `db-config
 |-------|------|---------|
 | `id` | number \| string | `PainPoint.id` (coerced to string) |
 | `aggrid` | number \| string \| null | Normalized only (not on `PainPoint`) |
-| `value` | number \| string | **`PainPoint.intensity` as-is** (see Pattern 19 below) |
+| `value` | number \| string | **`PainPoint.intensity` as-is** (see intensity rule below) |
 | `category` | string | `PainPoint.category` (empty → `"unknown"` + warn) |
 | `lat` | number \| string | `PainPoint.lat` (WGS84; invalid → row skipped) |
 | `lng` | number \| string | `PainPoint.lng` (WGS84) |
@@ -81,7 +81,7 @@ Country-only rows are **normalized** but **skipped for globe plotting** (no lat/
 
 `PainPoint.uiLayer` is the **`layerId` from the request** (`GET /init/:layer`), not a row field.
 
-#### Pattern 19 — do not mutate API `value`
+#### Do not mutate API `value`
 
 The frontend stores `value` in `PainPoint.intensity` **without clamping, rounding, or rescaling**. If `value` is outside `0…1`, the adapter logs `console.warn` and still stores it as-is. Rendering may clamp for display safety in `src/globe/` only; the stored model must reflect the API.
 
