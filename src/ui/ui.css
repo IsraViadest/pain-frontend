@@ -1,5 +1,27 @@
 /* Production UI chrome — fixed overlays above the globe (z-index 2). */
 
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 #ui-title {
   position: fixed;
   top: 20px;
@@ -22,9 +44,9 @@
 
 .ui-title__subtitle {
   margin: 0;
-  font-family: "Hypodermic", sans-serif;
+  font-family: "Apercu Pro", sans-serif;
   font-size: clamp(0.85rem, 1.33vw, 1.03rem);
-  font-weight: normal;
+  font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text-muted, #b4bac8);
   white-space: nowrap;
@@ -84,7 +106,7 @@
   border: 1px solid var(--theme-btn-border, rgba(255, 255, 255, 0.12));
   background: var(--theme-btn-bg, rgba(28, 34, 48, 0.92));
   color: var(--text-primary, #e8eaef);
-  font-family: "Hypodermic", sans-serif;
+  font-family: "Apercu Pro", sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   backdrop-filter: blur(10px);
@@ -146,8 +168,9 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
-  font-family: "Hypodermic", sans-serif;
+  font-family: "Apercu Pro", sans-serif;
   font-size: clamp(0.8rem, 1.4vw, 1rem);
+  font-weight: 700;
   letter-spacing: 0.03em;
   color: #ffffff !important;
   text-align: center;
@@ -221,7 +244,7 @@
 .info-modal__close {
   position: relative;
   z-index: 1;
-  font-family: "Hypodermic", sans-serif;
+  font-family: "Apercu Pro", sans-serif;
   font-size: 1rem;
   background: none !important;
   border: none !important;
@@ -252,7 +275,7 @@
 
 .info-modal__body {
   margin: 0;
-  font-family: "Hypodermic", sans-serif;
+  font-family: "Apercu Pro", sans-serif;
   font-size: clamp(0.85rem, 1.6vw, 1rem);
   line-height: 1.5;
   color: #07153b;

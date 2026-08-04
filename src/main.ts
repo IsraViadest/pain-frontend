@@ -44,9 +44,7 @@ import {
   hideSurveyResultModal,
   showSurveyResultModal,
 } from "./survey/surveyResultModal";
-import {
-  type SurveySubmissionPayload,
-} from "./survey/surveyData";
+import { type SurveySubmissionPayload } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
 import {
   mountProductionChrome,
@@ -80,37 +78,27 @@ function nextVizMode(current: PainVisualizationMode): PainVisualizationMode {
 }
 
 const canvas = document.querySelector<HTMLCanvasElement>("#globe");
-const layerSelect = document.querySelector<HTMLSelectElement>("#layer-select");
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
 const wordCloudToggle = document.querySelector<HTMLButtonElement>("#word-cloud-toggle");
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
-const painVizSelect =
-  document.querySelector<HTMLSelectElement>("#pain-viz-mode");
 
 if (!canvas || !statusEl || !wordCloudToggle || !themeToggle) {
   throw new Error("Missing DOM nodes");
 }
 
-const painVizEl = painVizSelect;
-if (painVizEl) painVizEl.value = PAIN_VIZ_MODE.scars;
+const hudStatus = statusEl;
+let lastLayerId = "";
+let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
+let chrome: ProductionChrome | null = null;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
 
+/** Current pain viz mode (production chrome cycles this; no HUD select). */
 function readPainVizMode(): PainVisualizationMode {
-  if (!painVizEl) return currentPainVizMode;
-  if (painVizEl.value === PAIN_VIZ_MODE.scars) return PAIN_VIZ_MODE.scars;
-  if (painVizEl.value === PAIN_VIZ_MODE.multiplexV0) {
-    return PAIN_VIZ_MODE.multiplexV0;
-  }
-  return PAIN_VIZ_MODE.points;
+  return currentPainVizMode;
 }
 
-const hudStatus = statusEl;
-const layerPicker = layerSelect;
-let lastLayerId = "";
-let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
-let chrome: ProductionChrome | null = null;
 const wordCloudBtn = wordCloudToggle;
 const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
@@ -173,8 +161,7 @@ let postSubmitRunning = false;
 async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<void> {
   if (postSubmitRunning) return;
   postSubmitRunning = true;
-  const overlayHost = appRoot;
-  if (!overlayHost) return;
+  const overlayHost = appRootEl;
   try {
     showSurveyLoadingOverlay(overlayHost);
     const res = await submitSurvey(payload);
@@ -318,14 +305,6 @@ themeBtn.addEventListener("click", () => {
   syncThemeToggle();
 });
 
-painVizEl?.addEventListener("change", () => {
-  const mode = readPainVizMode();
-  currentPainVizMode = mode;
-  globe.setPainVisualizationMode(mode);
-  trackVizMode(mode);
-  hoverModal.hidden = true;
-});
-
 wordCloudBtn.addEventListener("click", () => {
   wordCloudEnabled = !wordCloudEnabled;
   globe.setWordCloudEnabled(wordCloudEnabled);
@@ -382,7 +361,7 @@ canvas.addEventListener("pointermove", (ev) => {
   }
   if (
     shouldShowGlobeDebugPanel() &&
-    currentPainVizMode === PAIN_VIZ_MODE.points
+    readPainVizMode() === PAIN_VIZ_MODE.points
   ) {
     const marker = globe.pickMarkerHover(ev.clientX, ev.clientY);
     if (marker) {
@@ -393,7 +372,7 @@ canvas.addEventListener("pointermove", (ev) => {
       return;
     }
   }
-  if (currentPainVizMode !== PAIN_VIZ_MODE.multiplexV0) {
+  if (readPainVizMode() !== PAIN_VIZ_MODE.multiplexV0) {
     hoverModal.hidden = true;
     return;
   }
@@ -454,11 +433,16 @@ function setStatus(msg: string): void {
   hudStatus.textContent = msg;
 }
 
+/**
+ * Apply layer visuals and auto-switch pain viz mode:
+ * physpain → scars; all other / unknown ids → points.
+ */
 function applyGlobeLayer(layerId: string): void {
   const vizMode =
     layerId === "physpain" ? PAIN_VIZ_MODE.scars : PAIN_VIZ_MODE.points;
-  painVizEl && (painVizEl.value = vizMode);
+  currentPainVizMode = vizMode;
   globe.setPainVisualizationMode(vizMode);
+  chrome?.setVizModeLabel(vizModeLabel(vizMode));
 
   const layer = getMapLayerById(layerId);
   const meta: GlobeLayerDisplayMeta | undefined = layer
@@ -472,27 +456,12 @@ function applyGlobeLayer(layerId: string): void {
   globe.updateLayerVisuals(layerId, meta);
 }
 
-// --- pain-server / mock: populate layer list and load points for current layer ---
-async function loadLayersIntoSelect(): Promise<void> {
-  if (!layerPicker) return;
-  const layers = await fetchLayers();
-  layerPicker.innerHTML = "";
-  for (const layer of layers) {
-    const opt = document.createElement("option");
-    opt.value = layer.id;
-    opt.textContent = layer.label;
-    layerPicker.appendChild(opt);
-  }
-  if (layers[0]) {
-    const layerId = String(layers[0].id);
-    applyGlobeLayer(layerId);
-    trackToggle(METRICS_KIND_LAYER, layerId, true);
-    lastLayerId = layerId;
-  }
-  syncWordCloudForCurrentLayer();
-}
-
 function handleLayerChange(layerId: string): void {
+  const prevLayerId = lastLayerId;
+  if (prevLayerId && prevLayerId !== layerId) {
+    trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
+  }
+  trackToggle(METRICS_KIND_LAYER, layerId, true);
   lastLayerId = layerId;
   applyGlobeLayer(layerId);
   syncWordCloudForCurrentLayer();
@@ -505,6 +474,7 @@ function handleLayerChange(layerId: string): void {
 function handleVizCycle(): void {
   currentPainVizMode = nextVizMode(currentPainVizMode);
   globe.setPainVisualizationMode(currentPainVizMode);
+  trackVizMode(currentPainVizMode);
   chrome?.setVizModeLabel(vizModeLabel(currentPainVizMode));
   hoverModal.hidden = true;
 }
@@ -523,6 +493,7 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
     const layerId = layers[0].id;
     lastLayerId = layerId;
     applyGlobeLayer(layerId);
+    trackToggle(METRICS_KIND_LAYER, layerId, true);
     syncWordCloudForCurrentLayer();
     chrome.setActiveLayer(layerId);
   }
@@ -539,21 +510,6 @@ async function loadPoints(): Promise<void> {
     `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
   );
 }
-
-layerPicker?.addEventListener("change", () => {
-  const prevLayerId = lastLayerId;
-  const nextLayerId = layerPicker.value;
-  if (prevLayerId && prevLayerId !== nextLayerId) {
-    trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
-  }
-  trackToggle(METRICS_KIND_LAYER, nextLayerId, true);
-  lastLayerId = nextLayerId;
-  syncWordCloudForCurrentLayer();
-  applyGlobeLayer(nextLayerId);
-  void loadPoints().catch((e) =>
-    setStatus(e instanceof Error ? e.message : String(e)),
-  );
-});
 
 // --- render loop + initial API bootstrap ---
 function loop(): void {
