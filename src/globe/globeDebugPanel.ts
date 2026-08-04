@@ -708,6 +708,51 @@ export function mountGlobeDebugPanel(
   markerTuneBlock.body.appendChild(resetMarkerTuneBtn);
   host.appendChild(markerTuneBlock.el);
 
+  const borderTuneBlock = makeDetails("Borders", false);
+  const borderTuneIntro = document.createElement("p");
+  borderTuneIntro.className =
+    "globe-debug-panel__intro globe-debug-panel__intro--nested";
+  borderTuneIntro.textContent =
+    "Coast/country line shell — uniform group scale (slightly above unit globe to reduce z-fighting).";
+  borderTuneBlock.body.appendChild(borderTuneIntro);
+
+  const borderScaleRow = document.createElement("label");
+  borderScaleRow.className = "globe-debug-panel__tune-row";
+  const borderScaleHead = document.createElement("span");
+  borderScaleHead.className = "globe-debug-panel__tune-head";
+  const borderScaleVal = document.createElement("output");
+  borderScaleVal.className = "globe-debug-panel__tune-val";
+  const borderScaleRange = document.createElement("input");
+  borderScaleRange.type = "range";
+  borderScaleRange.min = "0.99";
+  borderScaleRange.max = "1.01";
+  borderScaleRange.step = "0.0001";
+  const borderScaleHint = document.createElement("span");
+  borderScaleHint.className = "globe-debug-panel__tune-hint";
+  borderScaleHint.textContent =
+    "bordersOutlines.group.scale.setScalar — default 0.99.";
+  borderScaleHead.textContent = "Shell scale ";
+  borderScaleHead.append(borderScaleVal);
+  borderScaleRow.append(borderScaleHead, borderScaleRange, borderScaleHint);
+  borderTuneBlock.body.appendChild(borderScaleRow);
+
+  borderScaleRange.addEventListener("input", () => {
+    const v = Number(borderScaleRange.value);
+    borderScaleVal.textContent = formatTuneValue(v, 4);
+    globe.setBorderShellScale(v);
+  });
+
+  const resetBorderTuneBtn = document.createElement("button");
+  resetBorderTuneBtn.type = "button";
+  resetBorderTuneBtn.className = "globe-debug-panel__action";
+  resetBorderTuneBtn.textContent = "Reset borders";
+  resetBorderTuneBtn.addEventListener("click", () => {
+    globe.resetBorderShellScale();
+    syncBorderTuneSliders();
+  });
+  borderTuneBlock.body.appendChild(resetBorderTuneBtn);
+  host.appendChild(borderTuneBlock.el);
+
   function syncTuneSliders(): void {
     const t = globe.getDebugTune();
     for (const spec of ALL_TUNING_SLIDER_SPECS) {
@@ -734,6 +779,12 @@ export function mountGlobeDebugPanel(
       if (out)
         out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
     }
+  }
+
+  function syncBorderTuneSliders(): void {
+    const v = globe.getBorderShellScale();
+    borderScaleRange.value = String(v);
+    borderScaleVal.textContent = formatTuneValue(v, 4);
   }
 
   function syncHeatTuneSliders(): void {
@@ -789,6 +840,7 @@ export function mountGlobeDebugPanel(
     console.log("[markerTune]", globe.getMarkerTune());
     console.log("[heatTune]", globe.getHeatTune());
     console.log("[co2HazeTune]", globe.getCo2HazeTune());
+    console.log("[borderShellScale]", globe.getBorderShellScale());
   });
 
   const syncBtn = document.createElement("button");
@@ -800,6 +852,7 @@ export function mountGlobeDebugPanel(
   host.appendChild(buttonWrap);
   syncTuneSliders();
   syncMarkerTuneSliders();
+  syncBorderTuneSliders();
   syncHeatTuneSliders();
   syncCo2HazeTuneSliders();
 
@@ -840,6 +893,7 @@ export function mountGlobeDebugPanel(
     }
     syncTuneSliders();
     syncMarkerTuneSliders();
+    syncBorderTuneSliders();
   }
 
   refresh();

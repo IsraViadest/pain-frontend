@@ -82,3 +82,13 @@ export function isLayerCacheEmpty(): boolean {
 export function getMapLayerById(id: string): MapLayer | undefined {
   return cachedMapLayers.find((layer) => layer.id === id);
 }
+
+/**
+ * Country choropleth layers: non-geospatial and non-text (e.g. socio-economic).
+ * Emotional / word-cloud layers are `geospatial: false` && `text: true` — not choropleth.
+ */
+export function isChoroplethMapLayer(
+  layer: Pick<MapLayer, "geospatial" | "text">,
+): boolean {
+  return layer.geospatial === false && layer.text === false;
+}
