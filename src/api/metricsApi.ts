@@ -6,6 +6,7 @@ export const METRICS_KIND_LAYER = "layer" as const;
 export const METRICS_KIND_WORD = "word" as const;
 export const METRICS_KIND_TEMPORALITY = "temporality" as const;
 export const METRICS_KIND_RELATION = "relation" as const;
+// Defined but not exported yet — no call sites. Export once subcategory tracking is implemented.
 const METRICS_KIND_CATEGORY = "category" as const;
 
 type MetricsToggleKind =

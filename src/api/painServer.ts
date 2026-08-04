@@ -1,7 +1,7 @@
 /** pain-server HTTP client — production data path (no /server, no CSV). */
+import type { MapLayer } from "../types/api";
 import type {
   PainServerInitResponse,
-  PainServerLayerRow,
   PainServerRow,
 } from "../types/painServer";
 import { apiUrl } from "./config";
@@ -21,10 +21,10 @@ async function parseJson<T>(res: Response): Promise<T> {
 
 /**
  * Layer metadata from pain-server GET /init (`userId` + `layerInfo` envelope).
- * Caches `userId` via {@link setPainServerUserId}; returns validated `layerInfo` rows.
+ * Caches `userId` via {@link setPainServerUserId}; returns validated {@link MapLayer}s.
  * @see http://178.63.65.178:3000/init
  */
-export async function fetchLayerInfo(): Promise<PainServerLayerRow[]> {
+export async function fetchLayerInfo(): Promise<MapLayer[]> {
   clearPainServerUserId();
   const res = await fetch(apiUrl("/init"));
   const body = await parseJson<unknown>(res);

@@ -17,7 +17,7 @@ Checklist for changes that touch data loading or deployment. Automated gate: **`
 | **`npm run dev`** | Vite + local mock Express on `:3847` (`server/index.ts`, CSV fixtures) | Frontend-only work; no backend required |
 
 - **`npm run dev:pain-server`** sets `VITE_USE_MOCK_API=false`. Do **not** run `npm run dev` at the same time (mock `/server` on `:3847` conflicts with the pain-server workflow).
-- Mock mode uses different layer ids (`environmental`, `physical`, …) than production (`Env`, `Phys`, …). See [Layer id vs row `painorigin`](#layer-id-vs-row-painorigin) below.
+- Mock mode uses different layer ids (`environmental`, `physical`, …) than production (`Env`, `Phys`, …). See [Layer id vs row fields](#layer-id-vs-row-fields) below.
 
 ## API call order
 
@@ -43,43 +43,56 @@ Returns a JSON **array** of layer objects (HUD tabs, tint color, word-cloud flag
 | `geospatial` | boolean | Layer has map points (all current layers: `true`) |
 | `text` | boolean | Layer supports word-cloud HUD (`true` for `Emo` only today) |
 
-**Frontend types:** raw row → `PainServerLayerRow` (`src/types/painServer.ts`); normalized UI shape → `MapLayer` (`src/types/api.ts`). Parser: `src/api/initLayerList.ts` → `mapInitLayerListToMapLayers`. HTTP: `fetchLayerInfo` in `src/api/painServer.ts`.
+**Frontend types:** GET `/init` `layerInfo` → validated `MapLayer` (`src/types/api.ts`) via `parseInitLayerListResponse` in `src/api/initLayerList.ts`. HTTP: `fetchLayerInfo` in `src/api/painServer.ts` returns `MapLayer[]`.
 
 Example (truncated): `http://178.63.65.178:3000/init`
 
 ### GET `/init/:layer` — point rows
 
-`:layer` is the **`id` from GET `/init`** (not the row `painorigin` value).
+`:layer` is the **`id` from GET `/init`**.
 
-Returns a JSON **array** of point rows. Field order matches pain-server `db-config.env` / `PainServerDbConfig` (`src/api/painServerDbConfig.ts`):
+Returns a JSON **array** of point rows. Field names match pain-server `db-config.env` / `PainServerDbConfig` (`src/api/painServerDbConfig.ts`). Two shapes:
+
+**Lat/lng layers** (e.g. environmental, physical):
 
 | Field | Type | Maps to |
 |-------|------|---------|
 | `id` | number \| string | `PainPoint.id` (coerced to string) |
-| `lat` | number \| string | `PainPoint.lat` (WGS84; invalid coords → row skipped) |
-| `lng` | number \| string | `PainPoint.lng` (WGS84) |
+| `aggrid` | number \| string \| null | Normalized only (not on `PainPoint`) |
 | `value` | number \| string | **`PainPoint.intensity` as-is** (see Pattern 19 below) |
-| `datatype` | string | `PainPoint.datatype` |
-| `painorigin` | string | Row origin label only; not used for `PainPoint.uiLayer` (see below) |
+| `category` | string | `PainPoint.category` (empty → `"unknown"` + warn) |
+| `lat` | number \| string | `PainPoint.lat` (WGS84; invalid → row skipped) |
+| `lng` | number \| string | `PainPoint.lng` (WGS84) |
+
+**Country layers** (e.g. emotional, socioeconomical):
+
+| Field | Type | Maps to |
+|-------|------|---------|
+| `id` | number \| string | Parsed in normalize |
+| `aggrid` | number \| string \| null | Normalized only |
+| `value` | number \| string | Intensity when plotted |
+| `category` | string | Category label |
+| `country` | string | `PainPoint.country` / `metadata.country` |
+| `word` | string (emotional) | `PainPoint.word` / preferred `text` |
+
+Country-only rows are **normalized** but **skipped for globe plotting** (no lat/lng) with `console.warn` until a country→position path exists.
 
 **Frontend types:** raw row → `PainServerRow` (`src/types/painServer.ts`); globe shape → `PainPoint` (`src/types/api.ts`). Normalizer: `normalizePainServerRow` in `src/api/painServerRow.ts`. Adapter: `mapInitResponseToPainPoints(rows, layerId)` in `src/api/adapter.ts`.
 
-`PainPoint.uiLayer` is the **`layerId` from the request** (`GET /init/:layer`), not derived from row `painorigin`. `painorigin` is still parsed and may appear in frontend-only synthesized `text` until the API provides a real text field.
+`PainPoint.uiLayer` is the **`layerId` from the request** (`GET /init/:layer`), not a row field.
 
 #### Pattern 19 — do not mutate API `value`
 
 The frontend stores `value` in `PainPoint.intensity` **without clamping, rounding, or rescaling**. If `value` is outside `0…1`, the adapter logs `console.warn` and still stores it as-is. Rendering may clamp for display safety in `src/globe/` only; the stored model must reflect the API.
 
-## Layer id vs row `painorigin`
-
-Two different string namespaces:
+## Layer id vs row fields
 
 | Source | Example values | Used for |
 |--------|----------------|----------|
 | **Layer list `id`** (GET `/init`) | `Env`, `Emo`, `Phys`, `Socioeco` | HUD selection, `fetchPoints(layerId)`, `PainPoint.uiLayer`, marker tint from cached `MapLayer.color` |
-| **Row `painorigin`** (GET `/init/:layer` rows) | `EnvNat`, `Emo`, `Phys`, `Socioeco` | Per-row origin label in API data; may appear in frontend-only placeholder `text` |
+| **Row `category`** (GET `/init/:layer`) | `Fire`, `CancerRate`, … | `PainPoint.category` / hover metric label |
 
-They often differ for the environmental layer: layer list id **`Env`**, row `painorigin` **`EnvNat`**. The frontend does **not** map `painorigin` → `uiLayer`; all points from `GET /init/Env` get `uiLayer: "Env"`.
+The frontend does **not** derive `uiLayer` from row fields; all points from `GET /init/Env` get `uiLayer: "Env"`.
 
 ## API adapter (implementation)
 

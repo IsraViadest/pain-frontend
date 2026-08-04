@@ -2,6 +2,7 @@
  * Survey API client — POST payloads to Mike's endpoint and emit metrics events.
  */
 import { apiUrl, useMockApi } from "../api/config";
+import { getPainServerUserId } from "../api/session";
 import type { SurveySubmissionPayload } from "./surveyData";
 
 type SurveySubmissionResult = {
@@ -45,7 +46,10 @@ export async function submitSurvey(
     const res = await fetch(apiUrl("/survey"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        userId: getPainServerUserId(),
+      }),
     });
     if (!res.ok) {
       const text = await res.text();
