@@ -16,6 +16,12 @@ import {
 } from "./layerTextures";
 import { latLngToVector3, vector3ToLatLng } from "./latLng";
 import {
+  CO2_HAZE_TUNE_DEFAULTS,
+  createCo2HazeTexture,
+  filterCo2HazePoints,
+  type Co2HazeTune,
+} from "./co2HazeField";
+import {
   createPainHeatTexture,
   type HeatMapBuildParams,
 } from "./painHeatField";
@@ -30,6 +36,8 @@ import {
   SCAR_OVERLAY_SURFACE_BIAS,
 } from "./scarDisplacement";
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
+
+export type { Co2HazeTune };
 
 /**
  * “Inner black sphere” in scar mode is usually NOT a mesh — land/ocean stipple is GPU-dented;
@@ -127,6 +135,8 @@ const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
 const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 160;
 const GLOW_RADIUS = RADIUS * 1.09;
+/** CO2 haze shell between solid globe and rim glow. */
+const HAZE_RADIUS = RADIUS * 1.05;
 /** Pain “points” mode marker sphere radius on the globe surface. */
 const MARKER_BASE_RADIUS = 0.018;
 const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
@@ -169,6 +179,11 @@ const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
   peakPower: 0.7,
   peakFloor: 0.02,
   heatStrength: 2.3,
+};
+
+/** Defaults for debug-panel CO2 haze stamp / blur / alpha. */
+const GLOBE_CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
+  ...CO2_HAZE_TUNE_DEFAULTS,
 };
 
 const GLOW_VS = /* glsl */ `
@@ -292,8 +307,9 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  *
  * scene (root)
  * ├── lights (ambLight, keyLight, fillLight)
- * ├── earthContent      rotates with auto-spin; parent of solid + rim glow
+ * ├── earthContent      rotates with auto-spin; parent of solid + CO2 haze + rim glow
  * │   ├── glow              renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
+ * │   ├── co2Haze           renderOrder -1  — CO2 category haze (HAZE_RADIUS; AdditiveBlending)
  * │   └── globe             renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)
  * │       · texture mode: canvas layer map on mesh
  * │       · scar mode: usually hidden; CPU-warped when debug showGlobeMeshInScarMode
@@ -336,13 +352,19 @@ export class GlobeView {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
-  /** Rotating group: solid globe shell + rim glow (spins with globeSpinY). */
+  /** Rotating group: solid globe shell + CO2 haze + rim glow (spins with globeSpinY). */
   readonly earthContent = new THREE.Group();
   /** SHELL 0 — Solid sphere (MeshStandardMaterial). See syncBaseGlobeVisibility(). */
   private readonly globe: THREE.Mesh<
     THREE.SphereGeometry,
     THREE.MeshStandardMaterial
   >;
+  /** SHELL CO2 haze — equirect gray+alpha map at HAZE_RADIUS; visible when CO2 points exist. */
+  private readonly co2Haze: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.MeshBasicMaterial
+  >;
+  private co2HazeMap: THREE.DataTexture | null = null;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
@@ -414,6 +436,7 @@ export class GlobeView {
   /** Pain marker material / size (debug panel Markers section). */
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
   private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
+  private co2HazeTune: Co2HazeTune = { ...GLOBE_CO2_HAZE_TUNE_DEFAULTS };
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -469,6 +492,23 @@ export class GlobeView {
       geo.attributes.position!.array,
     );
     this.earthContent.add(this.globe);
+
+    // --- CO2 haze shell (between globe and rim glow; gray+alpha equirect from CO2 points) ---
+    this.co2Haze = new THREE.Mesh(
+      new THREE.SphereGeometry(HAZE_RADIUS, 64, 48),
+      new THREE.MeshBasicMaterial({
+        map: null,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      }),
+    );
+    this.co2Haze.renderOrder = -1;
+    this.co2Haze.visible = false;
+    this.earthContent.add(this.co2Haze);
 
     // --- Rim glow shell (slightly larger sphere; additive fresnel on back faces) ---
     this.glow = new THREE.Mesh(
@@ -620,7 +660,11 @@ export class GlobeView {
     }
     this.markerTune = merged;
     this.applyMarkerMaterialTune();
-    if (radiusChanged && this.painVizMode === PAIN_VIZ_MODE.points) {
+    if (
+      radiusChanged &&
+      this.painVizMode === PAIN_VIZ_MODE.points &&
+      this.currentLayerId === "physpain"
+    ) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     } else if (partial.emissiveBase !== undefined && this.lastPainPoints.length > 0) {
       this.updateMarkerInstanceColors(this.lastPainPoints);
@@ -631,7 +675,11 @@ export class GlobeView {
   resetMarkerTune(): void {
     this.markerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
     this.applyMarkerMaterialTune();
-    if (this.painVizMode === PAIN_VIZ_MODE.points && this.lastPainPoints.length > 0) {
+    if (
+      this.painVizMode === PAIN_VIZ_MODE.points &&
+      this.currentLayerId === "physpain" &&
+      this.lastPainPoints.length > 0
+    ) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     }
   }
@@ -664,6 +712,24 @@ export class GlobeView {
     } else {
       this.applyStippleHeatUniforms();
     }
+  }
+
+  /** Current CO2 haze stamp / blur / alpha tuning (debug panel CO2 Haze section). */
+  getCo2HazeTune(): Co2HazeTune {
+    return { ...this.co2HazeTune };
+  }
+
+  /**
+   * Update CO2 haze knobs without rebuilding — call {@link rebuildCo2Haze} to apply
+   * (CPU stamp over large Env layers is expensive).
+   */
+  setCo2HazeTune(partial: Partial<Co2HazeTune>): void {
+    this.co2HazeTune = { ...this.co2HazeTune, ...partial };
+  }
+
+  /** Rebuild the CO2 haze DataTexture from {@link lastPainPoints} and current tune. */
+  rebuildCo2Haze(): void {
+    this.rebuildCo2HazeMap();
   }
 
   private applyStippleTuneUniforms(): void {
@@ -1508,6 +1574,12 @@ export class GlobeView {
     this.renderer.dispose();
     this.globe.geometry.dispose();
     this.globe.material.dispose();
+    if (this.co2HazeMap) {
+      this.co2HazeMap.dispose();
+      this.co2HazeMap = null;
+    }
+    this.co2Haze.geometry.dispose();
+    this.co2Haze.material.dispose();
     this.glow.geometry.dispose();
     this.glow.material.dispose();
     this.markerGeometry.dispose();
@@ -1631,7 +1703,7 @@ export class GlobeView {
 
   /** Per-instance emissive multiplier from stored intensity (colors only; no matrix rebuild). */
   private markerEmissiveScale(intensity: number): number {
-    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    // Clamp for visualization only — stored intensity is never modified, only the local rendering value is clamped here.
     const clampedIntensity = Math.min(Math.max(0, intensity), 1);
     return (
       this.markerEmissiveBaseEffective() +
@@ -1641,7 +1713,7 @@ export class GlobeView {
 
   /** Instance matrix scale from base tune radius × intensity (baked per point in rebuild). */
   private markerInstanceScaleForPoint(intensity: number): number {
-    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    // Clamp for visualization only — stored intensity is never modified, only the local rendering value is clamped here.
     const clampedIntensity = Math.min(Math.max(0, intensity), 1);
     const worldRadius =
       this.markerTune.radius *
@@ -1783,7 +1855,11 @@ export class GlobeView {
   }
 
   private syncPainMarkersForVizMode(): void {
-    if (this.painVizMode === PAIN_VIZ_MODE.points) {
+    // Instanced markers only for physical pain — other layers (e.g. Env) skip the 100k+ mesh build.
+    if (
+      this.painVizMode === PAIN_VIZ_MODE.points &&
+      this.currentLayerId === "physpain"
+    ) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     } else {
       this.disposePainMarkersInstanced();
@@ -1791,7 +1867,7 @@ export class GlobeView {
   }
 
   /**
-   * Rebuild markers, multiplex graph, and scar field from `lastPainPoints`
+   * Rebuild markers, multiplex graph, scar/heat fields, and CO2 haze from `lastPainPoints`
    * (called after `setMarkers`, viz-mode changes, and layer updates).
    */
   private rebuildPainGeometryAndTexture(): void {
@@ -1812,8 +1888,32 @@ export class GlobeView {
     }
 
     this.scheduleScarFieldRebuild();
+    this.rebuildCo2HazeMap();
     this.syncGlobeSurfaceVisibility();
     this.refreshWordCloud();
+  }
+
+  /**
+   * Stamp CO2-only points into the haze shell map; hide the mesh when none remain.
+   * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
+   */
+  private rebuildCo2HazeMap(): void {
+    if (this.co2HazeMap) {
+      this.co2HazeMap.dispose();
+      this.co2HazeMap = null;
+    }
+    const co2Points = filterCo2HazePoints(this.lastPainPoints);
+    const mat = this.co2Haze.material;
+    if (co2Points.length === 0) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      this.co2Haze.visible = false;
+      return;
+    }
+    this.co2HazeMap = createCo2HazeTexture(co2Points, this.co2HazeTune);
+    mat.map = this.co2HazeMap;
+    mat.needsUpdate = true;
+    this.co2Haze.visible = true;
   }
 
   /**
@@ -1923,6 +2023,10 @@ export class GlobeView {
       this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;
     }
     this.syncWorldRotation();
+    if (this.co2Haze.visible) {
+      (this.co2Haze.material as THREE.MeshBasicMaterial).opacity =
+        0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3);
+    }
     this.controls.update();
     this.tickMultiplex(dt);
     this.tickWordCloud();
@@ -2297,7 +2401,7 @@ export class GlobeView {
       intensity: nearest.intensity,
       lat: nearest.lat,
       lng: nearest.lng,
-      datatype: nearest.datatype ?? "—",
+      category: nearest.category ?? "—",
     };
   }
 

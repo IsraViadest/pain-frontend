@@ -54,7 +54,7 @@ app.post("/api/pain-submission", (req, res) => {
     id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     lat,
     lng,
-    // Dev mock only: clamps intensity to 0…1. Production adapter (src/api/adapter.ts) stores API value as-is (Pattern 19).
+    // Dev mock only: clamps intensity to 0…1. Production adapter (src/api/adapter.ts) stores the API value as-is without clamping.
     intensity:
       body.intensity === undefined
         ? 0.5
