@@ -13,18 +13,14 @@ import {
 type ProductionChromeCallbacks = {
   /** User selected a layer blob button. */
   onLayerChange: (layerId: string) => void;
-  /** User clicked the viz mode cycle button. */
-  onVizCycle: () => void;
   /** User clicked share your pain. */
   onSharePain: () => void;
 };
 
-/** API for syncing chrome state after programmatic layer or viz changes. */
+/** API for syncing chrome state after programmatic layer changes. */
 export type ProductionChrome = {
   /** Highlight one layer blob; deactivates all others. */
   setActiveLayer: (layerId: string) => void;
-  /** Update the viz cycle button label (e.g. current mode name). */
-  setVizModeLabel: (label: string) => void;
 };
 
 function requireChild(host: HTMLElement, id: string): HTMLElement {
@@ -77,7 +73,7 @@ async function createHamburgerButton(): Promise<HTMLButtonElement> {
  *
  * @param appRoot — `#app` element.
  * @param layers — layer list from GET /init (all layers shown regardless of `geospatial`).
- * @param callbacks — layer change, viz cycle, and share-pain handlers from main.ts.
+ * @param callbacks — layer change and share-pain handlers from main.ts.
  */
 export async function mountProductionChrome(
   appRoot: HTMLElement,
@@ -149,17 +145,10 @@ export async function mountProductionChrome(
   }
   themeToggle.hidden = false;
 
-  const vizCycleBtn = document.createElement("button");
-  vizCycleBtn.type = "button";
-  vizCycleBtn.className = "ui-viz-cycle";
-  vizCycleBtn.addEventListener("click", () => {
-    callbacks.onVizCycle();
-  });
-
   const controlsHost = window.matchMedia("(max-width: 768px)").matches
     ? titleControlsHost
     : topRightHost;
-  controlsHost.append(themeToggle, vizCycleBtn);
+  controlsHost.append(themeToggle);
 
   const sharePainBtn = await createBlobButton({
     svgName: "share_pain.svg",
@@ -200,9 +189,6 @@ export async function mountProductionChrome(
   return {
     setActiveLayer(layerId: string): void {
       applyActiveLayer(layerId);
-    },
-    setVizModeLabel(label: string): void {
-      vizCycleBtn.textContent = label;
     },
   };
 }
