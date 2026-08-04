@@ -53,29 +53,6 @@ import {
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
-const VIZ_CYCLE_ORDER: PainVisualizationMode[] = [
-  PAIN_VIZ_MODE.scars,
-  PAIN_VIZ_MODE.points,
-  PAIN_VIZ_MODE.multiplexV0,
-];
-
-function vizModeLabel(mode: PainVisualizationMode): string {
-  switch (mode) {
-    case PAIN_VIZ_MODE.scars:
-      return "Scar dents (topology)";
-    case PAIN_VIZ_MODE.points:
-      return "Point markers";
-    case PAIN_VIZ_MODE.multiplexV0:
-      return "Multiplex v0 (experimental)";
-  }
-}
-
-function nextVizMode(current: PainVisualizationMode): PainVisualizationMode {
-  const index = VIZ_CYCLE_ORDER.indexOf(current);
-  const nextIndex = index < 0 ? 0 : (index + 1) % VIZ_CYCLE_ORDER.length;
-  return VIZ_CYCLE_ORDER[nextIndex]!;
-}
-
 const canvas = document.querySelector<HTMLCanvasElement>("#globe");
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
 const wordCloudToggle = document.querySelector<HTMLButtonElement>("#word-cloud-toggle");
@@ -401,7 +378,9 @@ function applyGlobeLayer(layerId: string): void {
     layerId === "physpain" ? PAIN_VIZ_MODE.scars : PAIN_VIZ_MODE.points;
   currentPainVizMode = vizMode;
   globe.setPainVisualizationMode(vizMode);
-  chrome?.setVizModeLabel(vizModeLabel(vizMode));
+  trackVizMode(vizMode);
+
+  globe.setWordCloudEnabled(layerId === "emopain");
 
   const layer = getMapLayerById(layerId);
   const meta: GlobeLayerDisplayMeta | undefined = layer
@@ -429,19 +408,10 @@ function handleLayerChange(layerId: string): void {
   );
 }
 
-function handleVizCycle(): void {
-  currentPainVizMode = nextVizMode(currentPainVizMode);
-  globe.setPainVisualizationMode(currentPainVizMode);
-  trackVizMode(currentPainVizMode);
-  chrome?.setVizModeLabel(vizModeLabel(currentPainVizMode));
-  hoverModal.hidden = true;
-}
-
 // --- pain-server / mock: populate layer chrome and load points for current layer ---
 async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
   chrome = await mountProductionChrome(appRootEl, layers, {
     onLayerChange: handleLayerChange,
-    onVizCycle: handleVizCycle,
     onSharePain: () => {
       surveyModal.open();
     },
@@ -455,8 +425,6 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
     syncWordCloudForCurrentLayer();
     chrome.setActiveLayer(layerId);
   }
-
-  chrome.setVizModeLabel(vizModeLabel(currentPainVizMode));
 }
 
 async function loadPoints(): Promise<void> {
