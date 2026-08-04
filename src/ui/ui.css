@@ -1,0 +1,379 @@
+/* Production UI chrome — fixed overlays above the globe (z-index 2). */
+
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+#ui-title {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui-title__heading {
+  margin: 0;
+  font-family: "Atelier", serif;
+  font-size: clamp(3.6rem, 7.2vw, 6.3rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-primary, #e8eaef);
+}
+
+.ui-title__subtitle {
+  margin: 0;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.85rem, 1.33vw, 1.03rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #b4bac8);
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+#ui-layer-stack {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  z-index: 2;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+#ui-top-right {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+#ui-share-pain {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+#ui-bottom-left {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+/* Viz mode cycle button (plain, not blob-shaped). */
+.ui-viz-cycle {
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--theme-btn-border, rgba(255, 255, 255, 0.12));
+  background: var(--theme-btn-bg, rgba(28, 34, 48, 0.92));
+  color: var(--text-primary, #e8eaef);
+  font-family: "Apercu Pro", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--hud-shadow, 0 12px 40px rgba(0, 0, 0, 0.45));
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.2s ease;
+}
+
+.ui-viz-cycle:hover {
+  filter: brightness(1.06);
+}
+
+.ui-viz-cycle:focus-visible {
+  outline: 2px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* Blob buttons */
+
+.blob-button {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.blob-button:hover {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+}
+
+.blob-button:focus-visible {
+  outline: 2px solid rgba(120, 200, 255, 0.55);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.blob-button__svg {
+  display: block;
+  width: auto;
+  height: clamp(58px, 9.6vw, 86px);
+  max-width: 168px;
+}
+
+#ui-share-pain .blob-button__svg {
+  height: clamp(67px, 10.8vw, 101px);
+  max-width: 216px;
+}
+
+.blob-button__label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #ffffff !important;
+  text-align: center;
+  pointer-events: none;
+  max-width: 75%;
+  line-height: 1.25;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+#ui-share-pain .blob-button__label {
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
+  text-transform: lowercase;
+}
+
+.blob-button--inactive .blob-button__svg {
+  opacity: 0.4;
+}
+
+.blob-button--active {
+  opacity: 0.7;
+}
+
+.blob-button--share {
+  opacity: 1;
+}
+
+/* Info modal (About / Data Sources) — below survey modal (z-index 8). */
+
+.info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.info-modal--visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.info-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 8, 0.55);
+}
+
+.info-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(640px, calc(100vw - 48px));
+  max-height: min(72vh, 560px);
+  padding: 28px 36px;
+  border-radius: 28px;
+  background: rgba(171, 172, 192, 0.95);
+  box-shadow:
+    0 0 48px rgba(59, 105, 204, 0.28),
+    0 18px 50px rgba(7, 21, 59, 0.12);
+  overflow-y: auto;
+  text-align: left;
+}
+
+.info-modal__close {
+  position: relative;
+  z-index: 1;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: 1rem;
+  background: none !important;
+  border: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  padding: 4px 12px;
+}
+
+.info-modal__close:hover {
+  background: none !important;
+  color: #ffffff;
+  text-shadow:
+    0 0 12px rgba(7, 21, 59, 0.8),
+    0 0 24px rgba(7, 21, 59, 0.4);
+}
+
+.info-modal__title {
+  margin: 0 0 16px;
+  font-family: "Atelier", serif;
+  font-size: clamp(1.35rem, 2.8vw, 1.75rem);
+  font-weight: normal;
+  letter-spacing: 0.06em;
+  color: #07153b;
+}
+
+.info-modal__body {
+  margin: 0;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  line-height: 1.5;
+  color: #07153b;
+}
+
+/* Mobile chrome slots — hidden on desktop; shown under max-width 768px. */
+#ui-hamburger,
+#ui-title-controls {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* ~20% smaller than desktop heading clamp; subtitle unchanged. */
+  .ui-title__heading {
+    font-size: clamp(2.88rem, 5.76vw, 5.04rem);
+  }
+
+  #ui-top-right {
+    display: none;
+  }
+
+  #ui-title-controls {
+    position: fixed;
+    top: 220px;
+    left: 20px;
+    z-index: 2;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    pointer-events: auto;
+    opacity: 1;
+  }
+
+  #ui-title-controls .theme-toggle,
+  #ui-title-controls .ui-viz-cycle {
+    display: inline-flex;
+    opacity: 1;
+  }
+
+  #ui-bottom-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  #ui-hamburger {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 3;
+    display: block;
+  }
+
+  #ui-hamburger .ui-hamburger {
+    display: block;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  #ui-hamburger .ui-hamburger:focus-visible {
+    outline: 2px solid rgba(120, 200, 255, 0.6);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  #ui-hamburger .ui-hamburger svg {
+    display: block;
+    width: 48px;
+    height: auto;
+  }
+
+  #ui-layer-stack {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateX(60px) translateY(-50%);
+    transition: visibility 0.35s, opacity 0.35s ease, transform 0.35s ease;
+  }
+
+  #ui-bottom-left {
+    transform: translateX(-200%);
+    pointer-events: none;
+    transition: transform 0.35s ease;
+  }
+
+  #app.mobile-menu-open #ui-layer-stack {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(0) translateY(-50%);
+  }
+
+  #app.mobile-menu-open #ui-bottom-left {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+}

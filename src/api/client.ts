@@ -9,7 +9,7 @@
  *   fetchLayers → mock/loadMapLayers (dynamic import)
  *   fetchPoints → mockClient (local Express + CSV; not shipped in dist)
  */
-import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
+import type { MapLayer, PainPoint } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
 import { isLayerCacheEmpty, setCachedMapLayers } from "./layers";
@@ -18,7 +18,6 @@ import { getPainServerUserId } from "./session";
 
 type MockApiModule = {
   fetchPointsMock: (layerId?: string) => Promise<PainPoint[]>;
-  submitPainMock: (body: PainSubmission) => Promise<PainPoint>;
 };
 
 let mockApiModulePromise: Promise<MockApiModule> | null = null;
@@ -93,15 +92,4 @@ export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
   }
   const initLayerRows = await fetchLayerDataPoints(layerId);
   return mapInitResponseToPainPoints(initLayerRows, layerId);
-}
-
-/** Dev mock only until pain-server exposes a submission endpoint. */
-export async function submitPain(body: PainSubmission): Promise<PainPoint> {
-  if (!useMockApi) {
-    throw new Error(
-      "Pain submission is not wired to pain-server yet. Use mock dev mode or wait for the backend submission API.",
-    );
-  }
-  const { submitPainMock } = await getMockApiModule();
-  return submitPainMock(body);
 }
