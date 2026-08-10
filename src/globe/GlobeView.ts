@@ -640,8 +640,7 @@ export class GlobeView {
     this.applyMarkerMaterialTune();
     if (
       radiusChanged &&
-      this.painVizMode === PAIN_VIZ_MODE.points &&
-      this.currentLayerId === "physpain"
+      this.painVizMode === PAIN_VIZ_MODE.points
     ) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     } else if (partial.emissiveBase !== undefined && this.lastPainPoints.length > 0) {
@@ -655,7 +654,6 @@ export class GlobeView {
     this.applyMarkerMaterialTune();
     if (
       this.painVizMode === PAIN_VIZ_MODE.points &&
-      this.currentLayerId === "physpain" &&
       this.lastPainPoints.length > 0
     ) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
@@ -1833,11 +1831,9 @@ export class GlobeView {
   }
 
   private syncPainMarkersForVizMode(): void {
-    // Instanced markers only for physical pain — other layers (e.g. Env) skip the 100k+ mesh build.
-    if (
-      this.painVizMode === PAIN_VIZ_MODE.points &&
-      this.currentLayerId === "physpain"
-    ) {
+    // Instanced markers whenever points mode is active (default for non-scar layers /
+    // experimental categories). Scar mode still skips this path.
+    if (this.painVizMode === PAIN_VIZ_MODE.points) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     } else {
       this.disposePainMarkersInstanced();
