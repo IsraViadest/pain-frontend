@@ -98,6 +98,40 @@
   pointer-events: auto;
 }
 
+/* Plain control (theme sibling) — all-layers / former viz-cycle placement. */
+.ui-all-layers {
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--theme-btn-border, rgba(255, 255, 255, 0.12));
+  background: var(--theme-btn-bg, rgba(28, 34, 48, 0.92));
+  color: var(--text-primary, #e8eaef);
+  font-family: "Apercu Pro", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--hud-shadow, 0 12px 40px rgba(0, 0, 0, 0.45));
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.2s ease;
+}
+
+.ui-all-layers:hover {
+  filter: brightness(1.06);
+}
+
+.ui-all-layers:focus-visible {
+  outline: 2px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
+.ui-all-layers.is-active,
+.ui-all-layers[aria-pressed="true"] {
+  border-color: rgba(120, 200, 255, 0.45);
+  background: rgba(40, 55, 80, 0.95);
+}
+
 /* Blob buttons */
 
 .blob-button {
@@ -282,7 +316,8 @@
     opacity: 1;
   }
 
-  #ui-title-controls .theme-toggle {
+  #ui-title-controls .theme-toggle,
+  #ui-title-controls .ui-all-layers {
     display: inline-flex;
     opacity: 1;
   }

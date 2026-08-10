@@ -13,14 +13,21 @@ import {
 type ProductionChromeCallbacks = {
   /** User selected a layer blob button. */
   onLayerChange: (layerId: string) => void;
+  /** User clicked “all layers” — fetch and render every layer together. */
+  onAllLayers: () => void;
   /** User clicked share your pain. */
   onSharePain: () => void;
 };
 
-/** API for syncing chrome state after programmatic layer changes. */
+/** API for syncing chrome state after programmatic layer / all-layers changes. */
 export type ProductionChrome = {
   /** Highlight one layer blob; deactivates all others. */
   setActiveLayer: (layerId: string) => void;
+  /**
+   * When true, clears active state on all layer blobs (all-layers mode).
+   * When false, restores active highlight for the current layer id.
+   */
+  setAllLayersActive: (active: boolean) => void;
 };
 
 function requireChild(host: HTMLElement, id: string): HTMLElement {
@@ -73,7 +80,7 @@ async function createHamburgerButton(): Promise<HTMLButtonElement> {
  *
  * @param appRoot — `#app` element.
  * @param layers — layer list from GET /init (all layers shown regardless of `geospatial`).
- * @param callbacks — layer change and share-pain handlers from main.ts.
+ * @param callbacks — layer change, all-layers, and share-pain handlers from main.ts.
  */
 export async function mountProductionChrome(
   appRoot: HTMLElement,
@@ -113,10 +120,28 @@ export async function mountProductionChrome(
   const layerButtons = new Map<string, HTMLButtonElement>();
   let activeLayerId = layers[0]?.id ?? "";
 
+  const allLayersBtn = document.createElement("button");
+  allLayersBtn.type = "button";
+  allLayersBtn.className = "ui-all-layers";
+  allLayersBtn.textContent = "all layers";
+  allLayersBtn.setAttribute("aria-pressed", "false");
+
   const applyActiveLayer = (layerId: string): void => {
     activeLayerId = layerId;
     for (const [id, btn] of layerButtons) {
       setActive(btn, id === layerId);
+    }
+  };
+
+  const applyAllLayersActive = (active: boolean): void => {
+    allLayersBtn.setAttribute("aria-pressed", active ? "true" : "false");
+    allLayersBtn.classList.toggle("is-active", active);
+    if (active) {
+      for (const btn of layerButtons.values()) {
+        setActive(btn, false);
+      }
+    } else if (activeLayerId) {
+      applyActiveLayer(activeLayerId);
     }
   };
 
@@ -126,6 +151,7 @@ export async function mountProductionChrome(
       label: layer.label,
       variant: "layer",
       onClick: () => {
+        applyAllLayersActive(false);
         applyActiveLayer(layer.id);
         callbacks.onLayerChange(layer.id);
         closeMobileMenu();
@@ -145,10 +171,15 @@ export async function mountProductionChrome(
   }
   themeToggle.hidden = false;
 
+  allLayersBtn.addEventListener("click", () => {
+    callbacks.onAllLayers();
+    closeMobileMenu();
+  });
+
   const controlsHost = window.matchMedia("(max-width: 768px)").matches
     ? titleControlsHost
     : topRightHost;
-  controlsHost.append(themeToggle);
+  controlsHost.append(themeToggle, allLayersBtn);
 
   const sharePainBtn = await createBlobButton({
     svgName: "share_pain.svg",
@@ -189,6 +220,9 @@ export async function mountProductionChrome(
   return {
     setActiveLayer(layerId: string): void {
       applyActiveLayer(layerId);
+    },
+    setAllLayersActive(active: boolean): void {
+      applyAllLayersActive(active);
     },
   };
 }

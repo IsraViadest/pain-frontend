@@ -17,8 +17,8 @@ import {
   trackToggle,
   trackVizMode,
 } from "./api/metricsApi";
-import { getMapLayerById, resolveLayerLexiconBucket } from "./api/layers";
-import type { MapLayer } from "./types/api";
+import { getMapLayerById, isChoroplethMapLayer, resolveLayerLexiconBucket } from "./api/layers";
+import type { MapLayer, PainPoint } from "./types/api";
 import {
   GlobeView,
   type GlobeLayerDisplayMeta,
@@ -67,6 +67,10 @@ const hudStatus = statusEl;
 let lastLayerId = "";
 let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
 let chrome: ProductionChrome | null = null;
+/** Layer list from last successful fetchLayers (for all-layers Promise.all). */
+let cachedLayers: MapLayer[] = [];
+/** True while concurrent multi-layer visuals are shown. */
+let showAllLayersActive = false;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
@@ -436,6 +440,11 @@ function applyGlobeLayer(layerId: string): void {
 }
 
 function handleLayerChange(layerId: string): void {
+  if (showAllLayersActive) {
+    showAllLayersActive = false;
+    globe.setShowAllLayersMode(false);
+    chrome?.setAllLayersActive(false);
+  }
   const prevLayerId = lastLayerId;
   if (prevLayerId && prevLayerId !== layerId) {
     trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
@@ -450,10 +459,56 @@ function handleLayerChange(layerId: string): void {
   );
 }
 
+/**
+ * Fetch every layer in parallel and stack visuals:
+ * physpain scars, socio choropleth shell, env CO2 haze, emo word clouds.
+ */
+async function handleAllLayers(): Promise<void> {
+  if (cachedLayers.length === 0) {
+    setStatus("No layers loaded yet");
+    return;
+  }
+
+  showAllLayersActive = true;
+  chrome?.setAllLayersActive(true);
+
+  const phys = cachedLayers.find((l) => l.id === "physpain");
+  const socio = cachedLayers.find((l) => isChoroplethMapLayer(l));
+  const emo = cachedLayers.find((l) => l.text === true && l.geospatial === false);
+
+  currentPainVizMode = PAIN_VIZ_MODE.scars;
+  globe.setPainVisualizationMode(PAIN_VIZ_MODE.scars);
+  trackVizMode(PAIN_VIZ_MODE.scars);
+  globe.setWordCloudEnabled(true);
+  globe.setShowAllLayersMode(true, {
+    physpainLayerId: phys?.id ?? "physpain",
+    choroplethLayerId: socio?.id ?? "socioecopain",
+    choroplethColorHex: socio?.color ?? null,
+    emopainLayerId: emo?.id ?? "emopain",
+    lexiconBucket: resolveLayerLexiconBucket(emo?.id ?? "emopain"),
+  });
+
+  const pointLists = await Promise.all(
+    cachedLayers.map((layer) => fetchPoints(layer.id)),
+  );
+  const allPoints: PainPoint[] = pointLists.flat();
+  globe.setMarkers(allPoints);
+  syncWordCloudToggle();
+  setStatus(
+    `${allPoints.length} point(s) across ${cachedLayers.length} layer(s) — all visuals`,
+  );
+}
+
 // --- pain-server / mock: populate layer chrome and load points for current layer ---
 async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
+  cachedLayers = layers;
   chrome = await mountProductionChrome(appRootEl, layers, {
     onLayerChange: handleLayerChange,
+    onAllLayers: () => {
+      void handleAllLayers().catch((e) =>
+        setStatus(e instanceof Error ? e.message : String(e)),
+      );
+    },
     onSharePain: () => {
       surveyModal.open();
     },
