@@ -4,11 +4,7 @@
  *
  * Keys are ISO_A3; positions are LABEL_Y (lat) / LABEL_X (lng) — label points, not polygon centroids.
  */
-
-interface CountryCentroid {
-  lat: number;
-  lng: number;
-}
+import type { GeoCoordinates } from "./coordinates";
 
 interface NeCountryProperties {
   ISO_A3?: string;
@@ -28,11 +24,11 @@ interface NeCountryFeatureCollection {
 
 const COUNTRIES_GEOJSON_URL = `${import.meta.env.BASE_URL}borders/ne_110m_admin_0_countries.geojson`;
 
-let centroidByIsoA3: Map<string, CountryCentroid> = new Map();
+let centroidByIsoA3: Map<string, GeoCoordinates> = new Map();
 let loadPromise: Promise<void> | null = null;
 
-function buildCentroidMap(fc: NeCountryFeatureCollection): Map<string, CountryCentroid> {
-  const map = new Map<string, CountryCentroid>();
+function buildCentroidMap(fc: NeCountryFeatureCollection): Map<string, GeoCoordinates> {
+  const map = new Map<string, GeoCoordinates>();
   const features = fc.features ?? [];
   for (const feature of features) {
     const props = feature.properties;
@@ -92,7 +88,7 @@ export async function ensureCountryCentroidsLoaded(): Promise<void> {
  */
 export function getCountryCentroid(
   iso_a3: string,
-): CountryCentroid | null {
+): GeoCoordinates | null {
   const key = iso_a3.trim().toUpperCase();
   if (!key) return null;
   return centroidByIsoA3.get(key) ?? null;
