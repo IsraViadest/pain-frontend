@@ -65,7 +65,7 @@ app.post("/api/pain-submission", (req, res) => {
         ? body.datatype
         : typeof body.element === "string"
           ? body.element
-          : undefined,
+          : type,
     text: typeof body.text === "string" ? body.text : undefined,
     createdAt: new Date().toISOString(),
   };

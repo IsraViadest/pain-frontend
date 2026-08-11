@@ -14,7 +14,7 @@ export interface PainPoint {
   lng: number;
   intensity: number;
   /** pain-server row `category` (metric / category label from API). */
-  category?: string;
+  category: string;
   /** pain-server row `country` when present (country-layer rows). */
   country?: string;
   /** pain-server row `word` when present (emotional layer). */
