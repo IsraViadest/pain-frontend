@@ -9,7 +9,7 @@ export interface MapLayer {
 }
 
 export interface PainPoint {
-  id: string;
+  id: number;
   lat: number;
   lng: number;
   intensity: number;

@@ -51,7 +51,7 @@ app.post("/api/pain-submission", (req, res) => {
   }
 
   const point: PainPoint = {
-    id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: Date.now(),
     lat,
     lng,
     // Dev mock only: clamps intensity to 0…1. Production adapter (src/api/adapter.ts) stores API value as-is (Pattern 19).

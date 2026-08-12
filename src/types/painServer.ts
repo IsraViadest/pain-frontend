@@ -12,7 +12,7 @@ import type { MapLayer } from "./api";
  */
 export interface PainServerRow {
   id?: number;
-  aggrid?: number | string | null;
+  aggrid?: number | null;
   value?: number;
   category?: string;
   lat?: number | string;

@@ -31,7 +31,7 @@ export function mapInitResponseToPainPoints(
       skipped++;
       continue;
     }
-    const point = mapRow(row, layerId, i);
+    const point = mapRow(row, layerId);
     if (point) points.push(point);
     else skipped++;
   }
@@ -54,7 +54,6 @@ export function mapInitResponseToPainPoints(
 function mapRow(
   row: NormalizedPainServerRow,
   layerId: string,
-  index: number,
 ): PainPoint | null {
   let coords: GeoCoordinates | null = null;
 
@@ -97,7 +96,7 @@ function mapRow(
   }
 
   return {
-    id: String(id ?? `pain-server-${index}`),
+    id,
     lat: coords.lat,
     lng: coords.lng,
     intensity: value,
