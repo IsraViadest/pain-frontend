@@ -13,6 +13,9 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, "..", "data");
 
+/** Unique numeric ids for mock CSV points (PainPoint.id is a number). */
+let nextMockPointId = 1;
+
 const REPO =
   "https://github.com/7Magic7Mike7/pain/tree/main/data";
 
@@ -34,7 +37,7 @@ function readCsv(file: string): Record<string, string>[] {
 }
 
 function toPoint(
-  id: string,
+  id: number,
   country: Country,
   uiLayer: string,
   intensity: number,
@@ -87,7 +90,7 @@ function loadEnvironmental(cca3Map: Map<string, Country>): PainPoint[] {
   const n = normByMax(intensities);
   return tmp.map((t, i) =>
     toPoint(
-      `env-${t.country.cca3}`,
+      nextMockPointId++,
       t.country,
       "environmental",
       n[i] ?? t.inv,
@@ -122,7 +125,7 @@ function loadSocioeconomic(cca2Map: Map<string, Country>): PainPoint[] {
   const n = normByMax(raw.map((x) => x.gini));
   return raw.map((t, i) =>
     toPoint(
-      `socio-${t.country.cca2}`,
+      nextMockPointId++,
       t.country,
       "socioeconomic",
       n[i] ?? clamp01(t.gini / 70),
@@ -168,7 +171,7 @@ function loadPhysical(resolve: (loc: string) => Country | undefined): PainPoint[
   const n = normByMax(raw.map((x) => x.sum));
   return raw.map((t, i) =>
     toPoint(
-      `phys-${t.country.cca2}`,
+      nextMockPointId++,
       t.country,
       "physical",
       n[i] ?? clamp01(t.sum),
@@ -208,7 +211,7 @@ function loadEmotional(resolve: (loc: string) => Country | undefined): PainPoint
     if (raw.length) {
       return raw.map((t, i) =>
         toPoint(
-          `emo-social-${t.country.cca3}`,
+          nextMockPointId++,
           t.country,
           "emotional",
           n[i] ?? clamp01(t.score),
@@ -246,7 +249,7 @@ function loadEmotional(resolve: (loc: string) => Country | undefined): PainPoint
   const n = normByMax(raw.map((x) => x.rate));
   return raw.map((t, i) =>
     toPoint(
-      `emo-${t.country.cca2}`,
+      nextMockPointId++,
       t.country,
       "emotional",
       n[i] ?? clamp01(t.rate / 100),

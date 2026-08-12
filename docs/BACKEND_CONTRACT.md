@@ -57,12 +57,12 @@ Returns a JSON **array** of point rows. Field names match pain-server `db-config
 
 | Field | Required | Type | Maps to |
 |-------|----------|------|---------|
-| `id` | mandatory | number \| string | `PainPoint.id` (coerced to string) |
-| `aggrid` | mandatory | number \| string \| null | Normalized only (not on `PainPoint`) |
-| `value` | mandatory | number \| string | **`PainPoint.intensity` as-is** (see Pattern 19 below) |
+| `id` | mandatory | number | `PainPoint.id` |
+| `aggrid` | mandatory | number \| null | Normalized only (not on `PainPoint`) |
+| `value` | mandatory | number | **`PainPoint.intensity` as-is** (stored as-is; never clamped or modified before rendering) |
 | `category` | mandatory | string | `PainPoint.category` (empty → `"unknown"` + warn) |
-| `lat` | optional | number \| string | `PainPoint.lat` (WGS84; invalid → row skipped when present) |
-| `lng` | optional | number \| string | `PainPoint.lng` (WGS84) |
+| `lat` | optional | number | `PainPoint.lat` (WGS84; invalid → row skipped when present) |
+| `lng` | optional | number | `PainPoint.lng` (WGS84) |
 | `country` | optional | string | `PainPoint.country` / `metadata.country` |
 | `word` | optional | string | `PainPoint.word` / preferred `text` |
 
