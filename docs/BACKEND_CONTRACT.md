@@ -57,7 +57,7 @@ Returns a JSON **array** of point rows. Field names match pain-server `db-config
 
 | Field | Required | Type | Maps to |
 |-------|----------|------|---------|
-| `id` | mandatory | number | `PainPoint.id` |
+| `id` | mandatory | number | `PainPoint.id` (unique per layer, not globally unique; use with `category` to identify a point) |
 | `aggrid` | mandatory | number \| null | Normalized only (not on `PainPoint`) |
 | `value` | mandatory | number | **`PainPoint.intensity` as-is** (stored as-is; never clamped or modified before rendering) |
 | `category` | mandatory | string | `PainPoint.category` (empty → `"unknown"` + warn) |

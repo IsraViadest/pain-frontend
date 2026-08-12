@@ -9,6 +9,7 @@ export interface MapLayer {
 }
 
 export interface PainPoint {
+  /** Unique within a layer (not globally unique across layers). Use with `category` to identify a specific data point. */
   id: number;
   lat: number;
   lng: number;
