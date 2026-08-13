@@ -8,8 +8,8 @@ function resolveUseMockApi(): boolean {
 
 /**
  * API mode for the static frontend.
- * - Mock (dev): Vite proxies /api → local Express in /server (CSV prototype only).
- * - pain-server (prod): GET /init/:layer on the deployed backend; no /server in dist.
+ * - Mock (dev): in-repo fixtures (`mock/`).
+ * - pain-server (prod): GET /init/:layer on the deployed backend.
  */
 // TODO: convert useMockApi to a build-time constant (Vite define) so Rollup can drop mock
 // branches entirely from dist. Dynamic import of mock/layers.ts may still emit a lazy
