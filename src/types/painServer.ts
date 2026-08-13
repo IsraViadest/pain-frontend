@@ -15,8 +15,8 @@ export interface PainServerRow {
   aggrid?: number | null;
   value?: number;
   category?: string;
-  lat?: number | string;
-  lng?: number | string;
+  lat?: number;
+  lng?: number;
   country?: string;
   word?: string;
 }
