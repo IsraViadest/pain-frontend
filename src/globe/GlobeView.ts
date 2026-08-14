@@ -99,7 +99,7 @@ const RADIUS = 1;
 /** Rim sphere (`glow`) additive shell. */
 const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
 /** Solid globe shell tint (map cleared when applied — solid color). */
-const GLOBE_SHELL_COLOR = 0xff0000;
+const GLOBE_SHELL_COLOR = 0x080c1a;
 /** Show solid `globe` mesh in scar/multiplex mode (stipple display). */
 const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
@@ -120,6 +120,11 @@ const MARKER_INSTANCE_CAPACITY_GROWTH = 1.25;
 const MARKER_INSTANCE_INITIAL_CAPACITY = 256;
 /** Base marker color before per-instance layer tint is applied (instanceColor × emissive). */
 const MARKER_COLOR_WHITE = 0xffffff;
+/** Word-cloud connector lines (surface → sprite). */
+const WORD_CLOUD_LINE_COLOR = 0xffffff;
+const WORD_CLOUD_LINE_OPACITY = 0.3;
+/** Hide far-side sprites / degenerate their connectors (camera-facing dot product). */
+const WORD_CLOUD_FACING_MIN = 0.05;
 
 export type GlobeMarkerTune = {
   radius: number;
@@ -194,7 +199,25 @@ type WordCloudItem = {
   radius: number;
   baseScaleX: number;
   baseScaleY: number;
+  /** Index into the connector position buffer (`i * 6` floats). */
+  segmentOffset: number;
 };
+
+/** One connector: start = dir × startRadius, end = dir × endRadius. Radii 0 → degenerate (hidden). */
+function writeWordCloudSegment(
+  positions: Float32Array,
+  offset: number,
+  dir: THREE.Vector3,
+  startRadius: number,
+  endRadius: number,
+): void {
+  positions[offset] = dir.x * startRadius;
+  positions[offset + 1] = dir.y * startRadius;
+  positions[offset + 2] = dir.z * startRadius;
+  positions[offset + 3] = dir.x * endRadius;
+  positions[offset + 4] = dir.y * endRadius;
+  positions[offset + 5] = dir.z * endRadius;
+}
 export type WordCloudHoverInfo = {
   country: string;
   shortLabel: string;
@@ -280,7 +303,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * ├── markersGroup      renderOrder  2  — pain “points” mode markers (small spheres)
  * ├── bordersOutlines   renderOrder  3  — coast + country lines (countryBorders.ts)
  * ├── multiplexGroup    renderOrder  3  — multiplex-v0 nodes / links / clusters
- * └── textLayerGroup renderOrder 4 — word-cloud sprites
+ * └── textLayerGroup renderOrder 4 — word-cloud sprites + connector LineSegments
  *
  * Scar / heat data (not separate meshes):
  *   painScarField.ts  → scarDisplacementMap → dents (stipple VS + border CPU warp)
@@ -384,7 +407,13 @@ export class GlobeView {
   private multiplexTime = 0;
   private multiplexRuntime: MultiplexRuntime | null = null;
   private wordCloudEnabled = false;
+  /** Combined-layer demo path; unused on this branch (always false). */
+  private showAllLayersMode = false;
   private wordCloudItems: WordCloudItem[] = [];
+  private wordCloudConnectors: THREE.LineSegments<
+    THREE.BufferGeometry,
+    THREE.LineBasicMaterial
+  > | null = null;
   /** Per-layer visibility overrides from the debug panel (`null` = follow auto). */
   private readonly debugLayerOverrides = new Map<GlobeDebugLayerId, boolean>();
   /** Live tuning (debug panel sliders) — see GLOBE_DEBUG_TUNE_DEFAULTS. */
@@ -691,6 +720,8 @@ export class GlobeView {
   }
 
   private getAutoGlobeVisible(): boolean {
+    // Single-layer choropleth: hide the solid shell so only choroplethShell shows.
+    if (this.isChoroplethLayerActive() && !this.showAllLayersMode) return false;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
@@ -700,6 +731,11 @@ export class GlobeView {
       );
     }
     return this.displayMode === "texture";
+  }
+
+  /** Whether the active layer should use country choropleth (single-layer socio path). */
+  private isChoroplethLayerActive(): boolean {
+    return false;
   }
 
   private getAutoStippleVisible(): boolean {
@@ -1952,8 +1988,11 @@ export class GlobeView {
     this.clearWordCloud();
     if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return;
     if (!this.lastPainPoints.length) return;
-    const sample = this.lastPainPoints.slice(0, 42);
-    for (const p of sample) {
+    // One sprite per emo row (no sample cap).
+    const n = this.lastPainPoints.length;
+    const linePositions = new Float32Array(n * 2 * 3);
+    for (let i = 0; i < n; i++) {
+      const p = this.lastPainPoints[i]!;
       const label = this.wordCloudLabelForPoint(p);
       const sprite = this.createWordSprite(label);
       sprite.userData.wordCloudHover = {
@@ -1966,18 +2005,43 @@ export class GlobeView {
       const radius = RADIUS * (1.11 + 0.08 * p.intensity);
       sprite.position.copy(dir.clone().multiplyScalar(radius));
       this.textLayerGroup.add(sprite);
+      const segmentOffset = i * 6;
+      writeWordCloudSegment(linePositions, segmentOffset, dir, RADIUS, radius);
       this.wordCloudItems.push({
         dir,
         sprite,
         radius,
         baseScaleX: sprite.scale.x,
         baseScaleY: sprite.scale.y,
+        segmentOffset,
       });
     }
+    const lineGeom = new THREE.BufferGeometry();
+    lineGeom.setAttribute(
+      "position",
+      new THREE.BufferAttribute(linePositions, 3),
+    );
+    const lineMat = new THREE.LineBasicMaterial({
+      color: WORD_CLOUD_LINE_COLOR,
+      transparent: true,
+      opacity: WORD_CLOUD_LINE_OPACITY,
+      depthWrite: false,
+    });
+    const connectors = new THREE.LineSegments(lineGeom, lineMat);
+    connectors.frustumCulled = false;
+    connectors.raycast = () => {};
+    this.textLayerGroup.add(connectors);
+    this.wordCloudConnectors = connectors;
     this.applyDebugLayerVisibility();
   }
 
   private clearWordCloud(): void {
+    if (this.wordCloudConnectors) {
+      this.textLayerGroup.remove(this.wordCloudConnectors);
+      this.wordCloudConnectors.geometry.dispose();
+      this.wordCloudConnectors.material.dispose();
+      this.wordCloudConnectors = null;
+    }
     for (const item of this.wordCloudItems) {
       const mat = item.sprite.material;
       mat.map?.dispose();
@@ -2163,14 +2227,36 @@ export class GlobeView {
     if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return;
     const camDir = this.camera.position.clone().normalize();
     const q = this.textLayerGroup.quaternion;
+    const posAttr = this.wordCloudConnectors?.geometry.getAttribute(
+      "position",
+    ) as THREE.BufferAttribute | undefined;
+    const linePositions = posAttr
+      ? (posAttr.array as Float32Array)
+      : null;
+    let linesDirty = false;
     for (const item of this.wordCloudItems) {
       const worldDir = item.dir.clone().applyQuaternion(q);
       const facing = worldDir.dot(camDir);
-      item.sprite.visible = facing > 0.05;
+      item.sprite.visible = facing > WORD_CLOUD_FACING_MIN;
+      if (linePositions) {
+        if (!item.sprite.visible) {
+          writeWordCloudSegment(linePositions, item.segmentOffset, item.dir, 0, 0);
+        } else {
+          writeWordCloudSegment(
+            linePositions,
+            item.segmentOffset,
+            item.dir,
+            RADIUS,
+            item.radius,
+          );
+        }
+        linesDirty = true;
+      }
       if (!item.sprite.visible) continue;
       const scale = 0.92 + facing * 0.2;
       item.sprite.scale.set(item.baseScaleX * scale, item.baseScaleY * scale, 1);
     }
+    if (linesDirty && posAttr) posAttr.needsUpdate = true;
   }
 
   pickWordCloudHover(clientX: number, clientY: number): WordCloudHoverInfo | null {
