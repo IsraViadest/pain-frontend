@@ -32,6 +32,11 @@ import {
   type HeatMapBuildParams,
 } from "./painHeatField";
 import {
+  createTemperatureHazeTexture,
+  filterTemperatureHazePoints,
+  TEMPERATURE_HAZE_TUNE_DEFAULTS,
+} from "./temperatureHazeField";
+import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
 } from "./painScarField";
@@ -145,6 +150,8 @@ const GLOW_RADIUS = RADIUS * 1.09;
 const CHOROPLETH_SHELL_RADIUS = RADIUS * 1.001;
 /** CO2 haze shell between solid globe and rim glow. */
 const HAZE_RADIUS = RADIUS * 1.05;
+/** Temperature haze shell just outside the solid globe (inside CO2 haze). */
+const TEMPERATURE_SHELL_RADIUS = RADIUS * 1.003;
 /** Pain “points” mode marker sphere radius on the globe surface. */
 const MARKER_BASE_RADIUS = 0.018;
 const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
@@ -198,6 +205,31 @@ const GLOBE_CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
 const BORDER_SHELL_SCALE_DEFAULT = 0.9999;
 const BORDER_SHELL_SCALE_MIN = 0.99;
 const BORDER_SHELL_SCALE_MAX = 1.01;
+
+/**
+ * CPU stamp / blur + shell opacity scale for Temperature haze
+ * (debug panel Temperature Heat section).
+ */
+export type TempHeatTune = {
+  /** Base stamp radius in texture pixels before intensity scaling. */
+  stampRadiusBase: number;
+  /** Extra stamp radius at full intensity (px). */
+  stampRadiusSpan: number;
+  /** First box-blur radius (px); 0 skips the pass. */
+  blurPass1Radius: number;
+  /** Second box-blur radius (px); 0 skips the pass. */
+  blurPass2Radius: number;
+  /** Multiplier on temperature shell material opacity (breathing base). */
+  heatStrength: number;
+};
+
+const GLOBE_TEMP_HEAT_TUNE_DEFAULTS: TempHeatTune = {
+  stampRadiusBase: 3,
+  stampRadiusSpan: 5,
+  blurPass1Radius: 2,
+  blurPass2Radius: 1,
+  heatStrength: 1,
+};
 
 const GLOW_VS = /* glsl */ `
 varying float vGlow;
@@ -323,6 +355,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * ├── earthContent      rotates with auto-spin; parent of solid + choropleth + CO2 haze + rim glow
  * │   ├── glow              renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
  * │   ├── co2Haze           renderOrder -1  — CO2 category haze (HAZE_RADIUS; AdditiveBlending)
+ * │   ├── temperatureShell  renderOrder -1  — Temperature haze (TEMPERATURE_SHELL_RADIUS)
  * │   ├── choroplethShell   renderOrder  1  — country fill (CHOROPLETH_SHELL_RADIUS; NormalBlending)
  * │   └── globe             renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)
  * │       · always GLOBE_SHELL_COLOR (no choropleth map swap)
@@ -369,7 +402,7 @@ export class GlobeView {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
-  /** Rotating group: solid globe + choropleth shell + CO2 haze + rim glow (spins with globeSpinY). */
+  /** Rotating group: solid globe + choropleth + temperature/CO2 haze + rim glow (spins with globeSpinY). */
   readonly earthContent = new THREE.Group();
   /** SHELL 0 — Solid sphere (MeshStandardMaterial). See syncBaseGlobeVisibility(). */
   private readonly globe: THREE.Mesh<
@@ -390,6 +423,15 @@ export class GlobeView {
     THREE.MeshBasicMaterial
   >;
   private co2HazeMap: THREE.DataTexture | null = null;
+  /**
+   * SHELL temperature haze — equirect red+alpha map at TEMPERATURE_SHELL_RADIUS;
+   * visible when Temperature points exist.
+   */
+  private readonly temperatureShell: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.MeshBasicMaterial
+  >;
+  private temperatureShellMap: THREE.DataTexture | null = null;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
@@ -473,6 +515,7 @@ export class GlobeView {
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
   private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
   private co2HazeTune: Co2HazeTune = { ...GLOBE_CO2_HAZE_TUNE_DEFAULTS };
+  private tempHeatTune: TempHeatTune = { ...GLOBE_TEMP_HEAT_TUNE_DEFAULTS };
   /** Uniform scale for coast/border line shell (`bordersOutlines.group`). */
   private borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
 
@@ -547,6 +590,24 @@ export class GlobeView {
     this.choroplethShell.renderOrder = 1;
     this.choroplethShell.visible = false;
     this.earthContent.add(this.choroplethShell);
+
+    // --- Temperature haze shell (just outside globe; red+alpha equirect from Temperature points) ---
+    this.temperatureShell = new THREE.Mesh(
+      new THREE.SphereGeometry(TEMPERATURE_SHELL_RADIUS, 64, 48),
+      new THREE.MeshBasicMaterial({
+        map: null,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      }),
+    );
+    this.temperatureShell.renderOrder = -1;
+    this.temperatureShell.frustumCulled = false;
+    this.temperatureShell.visible = false;
+    this.earthContent.add(this.temperatureShell);
 
     // --- CO2 haze shell (between globe and rim glow; gray+alpha equirect from CO2 points) ---
     this.co2Haze = new THREE.Mesh(
@@ -808,6 +869,24 @@ export class GlobeView {
 
   private applyBorderShellScale(): void {
     this.bordersOutlines?.group.scale.setScalar(this.borderShellScale);
+  }
+
+  /** Current Temperature haze stamp / blur / strength (debug panel Temperature Heat). */
+  getTempHeatTune(): TempHeatTune {
+    return { ...this.tempHeatTune };
+  }
+
+  /**
+   * Update Temperature haze knobs without rebuilding — call {@link rebuildTempHeat}
+   * to apply stamp/blur (CPU stamp can be slow on large Env layers).
+   */
+  setTempHeatTune(partial: Partial<TempHeatTune>): void {
+    this.tempHeatTune = { ...this.tempHeatTune, ...partial };
+  }
+
+  /** Rebuild Temperature haze shell from {@link lastPainPoints} and current temp tune. */
+  rebuildTempHeat(): void {
+    this.rebuildTemperatureShellMap();
   }
 
   private applyStippleTuneUniforms(): void {
@@ -1443,7 +1522,9 @@ export class GlobeView {
       this.painHeatMap.dispose();
       this.painHeatMap = null;
     }
-    if (this.lastPainPoints.length > 0) {
+    const scars =
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
+    if (scars && this.lastPainPoints.length > 0) {
       this.painHeatMap = createPainHeatTexture(this.lastPainPoints, {
         peakPower: this.heatTune.peakPower,
         peakFloor: this.heatTune.peakFloor,
@@ -1460,10 +1541,6 @@ export class GlobeView {
       this.scarDisplacementMap.dispose();
       this.scarDisplacementMap = null;
     }
-    if (this.painHeatMap) {
-      this.painHeatMap.dispose();
-      this.painHeatMap = null;
-    }
 
     if (this.shouldSuppressScarsForChoropleth()) {
       return;
@@ -1476,6 +1553,7 @@ export class GlobeView {
       mat.emissiveMap = null;
       mat.emissive.setHex(0x000000);
       mat.emissiveIntensity = 1;
+      this.rebuildPainHeatMap();
       void this.ensureStipple().then(() => this.syncScarVisualization());
       return;
     }
@@ -1500,10 +1578,7 @@ export class GlobeView {
           blurPass2Radius: this.debugTune.scarBlurPass2Radius,
         },
       );
-      this.painHeatMap = createPainHeatTexture(points, {
-        peakPower: this.heatTune.peakPower,
-        peakFloor: this.heatTune.peakFloor,
-      });
+      this.rebuildPainHeatMap();
       this.updateScarMapPreview();
       void this.ensureStipple().then(() => {
         if (generation !== this.scarBuildGeneration) return;
@@ -1783,6 +1858,12 @@ export class GlobeView {
     }
     this.co2Haze.geometry.dispose();
     this.co2Haze.material.dispose();
+    if (this.temperatureShellMap) {
+      this.temperatureShellMap.dispose();
+      this.temperatureShellMap = null;
+    }
+    this.temperatureShell.geometry.dispose();
+    this.temperatureShell.material.dispose();
     this.glow.geometry.dispose();
     this.glow.material.dispose();
     this.markerGeometry.dispose();
@@ -2108,8 +2189,9 @@ export class GlobeView {
   }
 
   /**
-   * Rebuild markers, multiplex graph, scar/heat fields, choropleth shell, and CO2 haze
-   * from `lastPainPoints` (called after `setMarkers`, viz-mode changes, and layer updates).
+   * Rebuild markers, multiplex graph, scar/heat fields, choropleth shell, and CO2 /
+   * Temperature haze from `lastPainPoints` (called after `setMarkers`, viz-mode changes,
+   * and layer updates).
    * Single-layer choropleth skips scars/markers and paints the country-fill shell only.
    * Show-all mode runs scars + choropleth + haze + word clouds together.
    */
@@ -2160,9 +2242,41 @@ export class GlobeView {
     if (this.showAllLayersMode) {
       this.scheduleChoroplethRebuild();
     }
+    this.rebuildPainHeatMap();
+    this.rebuildTemperatureShellMap();
     this.rebuildCo2HazeMap();
     this.syncGlobeSurfaceVisibility();
     this.refreshWordCloud();
+  }
+
+  /**
+   * Stamp Temperature-only points into the red haze shell map; hide when none remain.
+   * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
+   */
+  private rebuildTemperatureShellMap(): void {
+    if (this.temperatureShellMap) {
+      this.temperatureShellMap.dispose();
+      this.temperatureShellMap = null;
+    }
+    const temperaturePoints = filterTemperatureHazePoints(this.lastPainPoints);
+    const mat = this.temperatureShell.material;
+    if (temperaturePoints.length === 0) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      this.temperatureShell.visible = false;
+      return;
+    }
+    this.temperatureShellMap = createTemperatureHazeTexture(temperaturePoints, {
+      stampRadiusBase: this.tempHeatTune.stampRadiusBase,
+      stampRadiusSpan: this.tempHeatTune.stampRadiusSpan,
+      blurPass1Radius: this.tempHeatTune.blurPass1Radius,
+      blurPass2Radius: this.tempHeatTune.blurPass2Radius,
+      maxAlpha: TEMPERATURE_HAZE_TUNE_DEFAULTS.maxAlpha,
+      alphaThreshold: TEMPERATURE_HAZE_TUNE_DEFAULTS.alphaThreshold,
+    });
+    mat.map = this.temperatureShellMap;
+    mat.needsUpdate = true;
+    this.temperatureShell.visible = true;
   }
 
   /**
@@ -2295,6 +2409,11 @@ export class GlobeView {
       this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;
     }
     this.syncWorldRotation();
+    if (this.temperatureShell.visible) {
+      (this.temperatureShell.material as THREE.MeshBasicMaterial).opacity =
+        (0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3)) *
+        this.tempHeatTune.heatStrength;
+    }
     if (this.co2Haze.visible) {
       (this.co2Haze.material as THREE.MeshBasicMaterial).opacity =
         0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3);
