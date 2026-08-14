@@ -12,6 +12,7 @@ import {
   type GlobeHeatTune,
   type GlobeMarkerTune,
   type GlobeView,
+  type TempHeatTune,
 } from "./GlobeView";
 
 const LAYER_UI: {
@@ -370,6 +371,64 @@ const CO2_HAZE_TUNE_SLIDERS: Co2HazeTuneSliderSpec[] = [
   },
 ];
 
+type TempHeatTuneSliderSpec = {
+  key: keyof TempHeatTune;
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+  decimals?: number;
+};
+
+const TEMP_HEAT_TUNE_SLIDERS: TempHeatTuneSliderSpec[] = [
+  {
+    key: "stampRadiusBase",
+    label: "Stamp radius base",
+    hint: "Base stamp radius in texture pixels (before intensity scaling).",
+    min: 1,
+    max: 20,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "stampRadiusSpan",
+    label: "Stamp radius span",
+    hint: "Extra stamp radius at full intensity (px).",
+    min: 0,
+    max: 20,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "blurPass1Radius",
+    label: "Blur pass 1",
+    hint: "First box-blur radius (px); 0 skips the pass.",
+    min: 0,
+    max: 10,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "blurPass2Radius",
+    label: "Blur pass 2",
+    hint: "Second box-blur radius (px); 0 skips the pass.",
+    min: 0,
+    max: 10,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "heatStrength",
+    label: "Heat strength",
+    hint: "How strongly Temperature heat tints the land stipple.",
+    min: 0,
+    max: 2,
+    step: 0.05,
+    decimals: 2,
+  },
+];
+
 /** Sliders flattened for sync (`Scar …` section checkbox lives separately). */
 const ALL_TUNING_SLIDER_SPECS = TUNE_SECTIONS.flatMap((s) => s.sliders);
 
@@ -651,6 +710,62 @@ export function mountGlobeDebugPanel(
   co2HazeTuneBlock.body.appendChild(rebuildCo2HazeBtn);
   host.appendChild(co2HazeTuneBlock.el);
 
+  const tempHeatTuneBlock = makeDetails("Temperature Heat", false);
+  const tempHeatTuneIntro = document.createElement("p");
+  tempHeatTuneIntro.className =
+    "globe-debug-panel__intro globe-debug-panel__intro--nested";
+  tempHeatTuneIntro.textContent =
+    "Red stipple heat from category === Temperature — sliders update knobs; Rebuild applies (CPU stamp can be slow on large Env layers).";
+  tempHeatTuneBlock.body.appendChild(tempHeatTuneIntro);
+
+  const tempHeatTuneInputs: Partial<
+    Record<keyof TempHeatTune, HTMLInputElement>
+  > = {};
+
+  for (const spec of TEMP_HEAT_TUNE_SLIDERS) {
+    const row = document.createElement("label");
+    row.className = "globe-debug-panel__tune-row";
+
+    const head = document.createElement("span");
+    head.className = "globe-debug-panel__tune-head";
+    const valSpan = document.createElement("output");
+    valSpan.className = "globe-debug-panel__tune-val";
+
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = String(spec.min);
+    range.max = String(spec.max);
+    range.step = String(spec.step);
+
+    const hint = document.createElement("span");
+    hint.className = "globe-debug-panel__tune-hint";
+    hint.textContent = spec.hint;
+
+    head.textContent = `${spec.label} `;
+    head.append(valSpan);
+    row.append(head, range, hint);
+    tempHeatTuneBlock.body.appendChild(row);
+    tempHeatTuneInputs[spec.key] = range;
+
+    const decimals = spec.decimals ?? 3;
+
+    range.addEventListener("input", () => {
+      const v = Number(range.value);
+      valSpan.textContent = formatTuneValue(v, decimals);
+      globe.setTempHeatTune({ [spec.key]: v });
+    });
+  }
+
+  const rebuildTempHeatBtn = document.createElement("button");
+  rebuildTempHeatBtn.type = "button";
+  rebuildTempHeatBtn.className = "globe-debug-panel__action";
+  rebuildTempHeatBtn.textContent = "Rebuild";
+  rebuildTempHeatBtn.addEventListener("click", () => {
+    globe.rebuildTempHeat();
+  });
+  tempHeatTuneBlock.body.appendChild(rebuildTempHeatBtn);
+  host.appendChild(tempHeatTuneBlock.el);
+
   const markerTuneBlock = makeDetails("Markers", false);
   const markerTuneIntro = document.createElement("p");
   markerTuneIntro.className =
@@ -762,6 +877,19 @@ export function mountGlobeDebugPanel(
     }
   }
 
+  function syncTempHeatTuneSliders(): void {
+    const t = globe.getTempHeatTune();
+    for (const spec of TEMP_HEAT_TUNE_SLIDERS) {
+      const range = tempHeatTuneInputs[spec.key];
+      if (!range) continue;
+      range.value = String(t[spec.key]);
+      const out = range.parentElement?.querySelector("output");
+      const decimals = spec.decimals ?? 3;
+      if (out)
+        out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
+    }
+  }
+
   const buttonWrap = document.createElement("div");
   buttonWrap.className = "globe-debug-panel__actions";
 
@@ -789,6 +917,7 @@ export function mountGlobeDebugPanel(
     console.log("[markerTune]", globe.getMarkerTune());
     console.log("[heatTune]", globe.getHeatTune());
     console.log("[co2HazeTune]", globe.getCo2HazeTune());
+    console.log("[tempHeatTune]", globe.getTempHeatTune());
   });
 
   const syncBtn = document.createElement("button");
@@ -802,6 +931,7 @@ export function mountGlobeDebugPanel(
   syncMarkerTuneSliders();
   syncHeatTuneSliders();
   syncCo2HazeTuneSliders();
+  syncTempHeatTuneSliders();
 
   if (
     scarPreviewCanvas &&
