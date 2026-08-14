@@ -23,9 +23,13 @@ import {
 } from "./co2HazeField";
 import {
   createPainHeatTexture,
-  filterTemperaturePoints,
   type HeatMapBuildParams,
 } from "./painHeatField";
+import {
+  createTemperatureHazeTexture,
+  filterTemperatureHazePoints,
+  TEMPERATURE_HAZE_TUNE_DEFAULTS,
+} from "./temperatureHazeField";
 import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
@@ -116,8 +120,8 @@ const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 
 const GLOW_RADIUS = RADIUS * 1.09;
 /** CO2 haze shell between solid globe and rim glow. */
 const HAZE_RADIUS = RADIUS * 1.05;
-/** Temperature stipple heat hot end (sRGB hex → {@link getLayerBaseColorLinear}). */
-const TEMPERATURE_HEAT_COLOR_HEX = "#ff0000";
+/** Temperature haze shell just outside the solid globe (inside CO2 haze). */
+const TEMPERATURE_SHELL_RADIUS = RADIUS * 1.003;
 /** Pain “points” mode marker sphere radius on the globe surface. */
 const MARKER_BASE_RADIUS = 0.018;
 const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
@@ -168,7 +172,7 @@ const GLOBE_CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
 };
 
 /**
- * CPU stamp / blur + stipple mix strength for Temperature heat
+ * CPU stamp / blur + shell opacity scale for Temperature haze
  * (debug panel Temperature Heat section).
  */
 export type TempHeatTune = {
@@ -180,7 +184,7 @@ export type TempHeatTune = {
   blurPass1Radius: number;
   /** Second box-blur radius (px); 0 skips the pass. */
   blurPass2Radius: number;
-  /** Stipple heat mix strength when Temperature heat is active. */
+  /** Multiplier on temperature shell material opacity (breathing base). */
   heatStrength: number;
 };
 
@@ -316,6 +320,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * ├── earthContent      rotates with auto-spin; parent of solid + CO2 haze + rim glow
  * │   ├── glow              renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
  * │   ├── co2Haze           renderOrder -1  — CO2 category haze (HAZE_RADIUS; AdditiveBlending)
+ * │   ├── temperatureShell  renderOrder -1  — Temperature haze (TEMPERATURE_SHELL_RADIUS)
  * │   └── globe             renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)
  * │       · texture mode: canvas layer map on mesh
  * │       · scar mode: usually hidden; CPU-warped when debug showGlobeMeshInScarMode
@@ -358,7 +363,7 @@ export class GlobeView {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
-  /** Rotating group: solid globe shell + CO2 haze + rim glow (spins with globeSpinY). */
+  /** Rotating group: solid globe shell + temperature/CO2 haze + rim glow (spins with globeSpinY). */
   readonly earthContent = new THREE.Group();
   /** SHELL 0 — Solid sphere (MeshStandardMaterial). See syncBaseGlobeVisibility(). */
   private readonly globe: THREE.Mesh<
@@ -371,6 +376,15 @@ export class GlobeView {
     THREE.MeshBasicMaterial
   >;
   private co2HazeMap: THREE.DataTexture | null = null;
+  /**
+   * SHELL temperature haze — equirect red+alpha map at TEMPERATURE_SHELL_RADIUS;
+   * visible when Temperature points exist.
+   */
+  private readonly temperatureShell: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.MeshBasicMaterial
+  >;
+  private temperatureShellMap: THREE.DataTexture | null = null;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
@@ -406,8 +420,6 @@ export class GlobeView {
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private painHeatMap: THREE.DataTexture | null = null;
-  /** True when {@link painHeatMap} was stamped from Temperature points (red hot end). */
-  private painHeatMapFromTemperature = false;
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
   private scarBuildGeneration = 0;
   private stippleNeutralScarTexture: THREE.DataTexture | null = null;
@@ -501,6 +513,24 @@ export class GlobeView {
       geo.attributes.position!.array,
     );
     this.earthContent.add(this.globe);
+
+    // --- Temperature haze shell (just outside globe; red+alpha equirect from Temperature points) ---
+    this.temperatureShell = new THREE.Mesh(
+      new THREE.SphereGeometry(TEMPERATURE_SHELL_RADIUS, 64, 48),
+      new THREE.MeshBasicMaterial({
+        map: null,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      }),
+    );
+    this.temperatureShell.renderOrder = -1;
+    this.temperatureShell.frustumCulled = false;
+    this.temperatureShell.visible = false;
+    this.earthContent.add(this.temperatureShell);
 
     // --- CO2 haze shell (between globe and rim glow; gray+alpha equirect from CO2 points) ---
     this.co2Haze = new THREE.Mesh(
@@ -739,22 +769,22 @@ export class GlobeView {
     this.rebuildCo2HazeMap();
   }
 
-  /** Current Temperature heat stamp / blur / strength (debug panel Temperature Heat). */
+  /** Current Temperature haze stamp / blur / strength (debug panel Temperature Heat). */
   getTempHeatTune(): TempHeatTune {
     return { ...this.tempHeatTune };
   }
 
   /**
-   * Update Temperature heat knobs without rebuilding — call {@link rebuildTempHeat}
+   * Update Temperature haze knobs without rebuilding — call {@link rebuildTempHeat}
    * to apply stamp/blur (CPU stamp can be slow on large Env layers).
    */
   setTempHeatTune(partial: Partial<TempHeatTune>): void {
     this.tempHeatTune = { ...this.tempHeatTune, ...partial };
   }
 
-  /** Rebuild Temperature (or scar) heat from {@link lastPainPoints} and current temp tune. */
+  /** Rebuild Temperature haze shell from {@link lastPainPoints} and current temp tune. */
   rebuildTempHeat(): void {
-    this.rebuildPainHeatMap();
+    this.rebuildTemperatureShellMap();
   }
 
   private applyStippleTuneUniforms(): void {
@@ -819,8 +849,7 @@ export class GlobeView {
     return (
       this.displayMode === "points" ||
       this.painVizMode === PAIN_VIZ_MODE.scars ||
-      this.painVizMode === PAIN_VIZ_MODE.multiplexV0 ||
-      Boolean(this.painHeatMap && this.painHeatMapFromTemperature)
+      this.painVizMode === PAIN_VIZ_MODE.multiplexV0
     );
   }
 
@@ -833,7 +862,7 @@ export class GlobeView {
   private getAutoHeatOverlayActive(): boolean {
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
-    return Boolean(this.painHeatMap) && (this.painHeatMapFromTemperature || scars);
+    return scars && Boolean(this.painHeatMap);
   }
 
   private isDebugLayerAvailable(id: GlobeDebugLayerId): boolean {
@@ -1276,38 +1305,21 @@ export class GlobeView {
     drawScarMapPreview(this.scarMapPreviewCanvas, this.scarDisplacementMap);
   }
 
-  /**
-   * Rebuild CPU heat texture from Temperature points (red hot end) or, in scar/multiplex,
-   * all {@link lastPainPoints} with the layer color.
-   */
+  /** Rebuild CPU heat texture from {@link lastPainPoints} and current {@link heatTune} peak curve. */
   private rebuildPainHeatMap(): void {
     if (this.painHeatMap) {
       this.painHeatMap.dispose();
       this.painHeatMap = null;
     }
-    this.painHeatMapFromTemperature = false;
-    const peak = {
-      peakPower: this.heatTune.peakPower,
-      peakFloor: this.heatTune.peakFloor,
-    };
-    const tempPoints = filterTemperaturePoints(this.lastPainPoints);
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
-    if (tempPoints.length > 0) {
-      this.painHeatMap = createPainHeatTexture(tempPoints, {
-        peakPower: 1,
-        peakFloor: 0,
-        stampRadiusBase: this.tempHeatTune.stampRadiusBase,
-        stampRadiusSpan: this.tempHeatTune.stampRadiusSpan,
-        blurPass1Radius: this.tempHeatTune.blurPass1Radius,
-        blurPass2Radius: this.tempHeatTune.blurPass2Radius,
+    if (scars && this.lastPainPoints.length > 0) {
+      this.painHeatMap = createPainHeatTexture(this.lastPainPoints, {
+        peakPower: this.heatTune.peakPower,
+        peakFloor: this.heatTune.peakFloor,
       });
-      this.painHeatMapFromTemperature = true;
-    } else if (scars && this.lastPainPoints.length > 0) {
-      this.painHeatMap = createPainHeatTexture(this.lastPainPoints, peak);
     }
     this.applyStippleHeatUniforms();
-    this.syncStippleVisibility();
   }
 
   /** Build scar height map off the hot path (full layers are ~20k rows). */
@@ -1483,12 +1495,10 @@ export class GlobeView {
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const heatOn = this.resolveDebugLayerVisibility(
       "heatOverlay",
-      Boolean(this.painHeatMap) && (this.painHeatMapFromTemperature || scars),
+      scars && Boolean(this.painHeatMap),
     );
     u.uHeatActive.value = heatOn ? 1 : 0;
-    u.uHeatStrength.value = this.painHeatMapFromTemperature
-      ? this.tempHeatTune.heatStrength
-      : this.heatTune.heatStrength;
+    u.uHeatStrength.value = this.heatTune.heatStrength;
     if (heatOn && this.painHeatMap) {
       this.painHeatMap.needsUpdate = true;
       u.uHeatMap.value = this.painHeatMap;
@@ -1497,10 +1507,8 @@ export class GlobeView {
     }
 
     u.uHeatCool.value.set(0.04, 0.07, 0.18);
-    const [heatR, heatG, heatB] = this.painHeatMapFromTemperature
-      ? getLayerBaseColorLinear(TEMPERATURE_HEAT_COLOR_HEX, this.visualTheme)
-      : this.getActiveLayerColorLinear();
-    u.uHeatHot.value.set(heatR, heatG, heatB);
+    const [heatR, heatG, heatB] = this.getActiveLayerColorLinear();
+    u.uHeatHot.value.set(heatR, heatG, heatB); // hot end — active layer color
   }
 
   /** SHELL coast + borders — loads GeoJSON, adds `bordersOutlines.group` to scene. */
@@ -1623,6 +1631,12 @@ export class GlobeView {
     }
     this.co2Haze.geometry.dispose();
     this.co2Haze.material.dispose();
+    if (this.temperatureShellMap) {
+      this.temperatureShellMap.dispose();
+      this.temperatureShellMap = null;
+    }
+    this.temperatureShell.geometry.dispose();
+    this.temperatureShell.material.dispose();
     this.glow.geometry.dispose();
     this.glow.material.dispose();
     this.markerGeometry.dispose();
@@ -1908,14 +1922,14 @@ export class GlobeView {
   }
 
   /**
-   * Rebuild markers, multiplex graph, scar/heat fields, and CO2 haze from `lastPainPoints`
-   * (called after `setMarkers`, viz-mode changes, and layer updates).
+   * Rebuild markers, multiplex graph, scar/heat fields, and CO2 / Temperature haze from
+   * `lastPainPoints` (called after `setMarkers`, viz-mode changes, and layer updates).
    */
   private rebuildPainGeometryAndTexture(): void {
-    const scars =
-      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
-    const hasTemperature = filterTemperaturePoints(this.lastPainPoints).length > 0;
-    if (scars || hasTemperature) {
+    if (
+      this.painVizMode === PAIN_VIZ_MODE.scars ||
+      this.painVizMode === PAIN_VIZ_MODE.multiplexV0
+    ) {
       void this.ensureStipple();
     }
 
@@ -1930,9 +1944,40 @@ export class GlobeView {
 
     this.scheduleScarFieldRebuild();
     this.rebuildPainHeatMap();
+    this.rebuildTemperatureShellMap();
     this.rebuildCo2HazeMap();
     this.syncGlobeSurfaceVisibility();
     this.refreshWordCloud();
+  }
+
+  /**
+   * Stamp Temperature-only points into the red haze shell map; hide when none remain.
+   * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
+   */
+  private rebuildTemperatureShellMap(): void {
+    if (this.temperatureShellMap) {
+      this.temperatureShellMap.dispose();
+      this.temperatureShellMap = null;
+    }
+    const temperaturePoints = filterTemperatureHazePoints(this.lastPainPoints);
+    const mat = this.temperatureShell.material;
+    if (temperaturePoints.length === 0) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      this.temperatureShell.visible = false;
+      return;
+    }
+    this.temperatureShellMap = createTemperatureHazeTexture(temperaturePoints, {
+      stampRadiusBase: this.tempHeatTune.stampRadiusBase,
+      stampRadiusSpan: this.tempHeatTune.stampRadiusSpan,
+      blurPass1Radius: this.tempHeatTune.blurPass1Radius,
+      blurPass2Radius: this.tempHeatTune.blurPass2Radius,
+      maxAlpha: TEMPERATURE_HAZE_TUNE_DEFAULTS.maxAlpha,
+      alphaThreshold: TEMPERATURE_HAZE_TUNE_DEFAULTS.alphaThreshold,
+    });
+    mat.map = this.temperatureShellMap;
+    mat.needsUpdate = true;
+    this.temperatureShell.visible = true;
   }
 
   /**
@@ -2065,6 +2110,11 @@ export class GlobeView {
       this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;
     }
     this.syncWorldRotation();
+    if (this.temperatureShell.visible) {
+      (this.temperatureShell.material as THREE.MeshBasicMaterial).opacity =
+        (0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3)) *
+        this.tempHeatTune.heatStrength;
+    }
     if (this.co2Haze.visible) {
       (this.co2Haze.material as THREE.MeshBasicMaterial).opacity =
         0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3);

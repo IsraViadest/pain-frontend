@@ -421,7 +421,7 @@ const TEMP_HEAT_TUNE_SLIDERS: TempHeatTuneSliderSpec[] = [
   {
     key: "heatStrength",
     label: "Heat strength",
-    hint: "How strongly Temperature heat tints the land stipple.",
+    hint: "How strongly the Temperature shell opacity is scaled (multiplies the breathing base).",
     min: 0,
     max: 2,
     step: 0.05,
@@ -715,7 +715,7 @@ export function mountGlobeDebugPanel(
   tempHeatTuneIntro.className =
     "globe-debug-panel__intro globe-debug-panel__intro--nested";
   tempHeatTuneIntro.textContent =
-    "Red stipple heat from category === Temperature — sliders update knobs; Rebuild applies (CPU stamp can be slow on large Env layers).";
+    "Red additive shell from category === Temperature — sliders update stamp/blur; Rebuild applies (CPU stamp can be slow on large Env layers). Heat strength scales shell opacity live.";
   tempHeatTuneBlock.body.appendChild(tempHeatTuneIntro);
 
   const tempHeatTuneInputs: Partial<

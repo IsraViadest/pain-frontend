@@ -1,6 +1,6 @@
 /**
  * Heat intensity map (DataTexture) — not a visible shell.
- * Tints land stipple dots (earthStippleGlobe fragment shader): scar heat, or Temperature overlay.
+ * Tints land stipple dots in scar mode (earthStippleGlobe fragment shader).
  */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
@@ -9,14 +9,6 @@ import {
   SCAR_MAP_HEIGHT,
   SCAR_MAP_WIDTH,
 } from "./painScarField";
-
-/** pain-server `category` value that feeds the temperature stipple heat overlay. */
-const TEMPERATURE_CATEGORY = "Temperature";
-
-/** Keep only points whose `category` is `"Temperature"`. */
-export function filterTemperaturePoints(points: PainPoint[]): PainPoint[] {
-  return points.filter((p) => p.category === TEMPERATURE_CATEGORY);
-}
 
 function boxBlurHeat(
   src: Float32Array,
