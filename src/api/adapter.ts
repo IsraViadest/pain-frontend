@@ -1,6 +1,9 @@
 import type { PainPoint } from "../types/api";
 import type { PainServerRow } from "../types/painServer";
-import { resolvePainServerCoordinates } from "./coordinates";
+import {
+  resolvePainServerCoordinates,
+  type GeoCoordinates,
+} from "./coordinates";
 import { getCountryCentroid } from "./countryCentroids";
 import { getMapLayerById } from "./layers";
 import {
@@ -28,7 +31,7 @@ export function mapInitResponseToPainPoints(
       skipped++;
       continue;
     }
-    const point = mapRow(row, layerId, i);
+    const point = mapRow(row, layerId);
     if (point) points.push(point);
     else skipped++;
   }
@@ -51,9 +54,8 @@ export function mapInitResponseToPainPoints(
 function mapRow(
   row: NormalizedPainServerRow,
   layerId: string,
-  index: number,
 ): PainPoint | null {
-  let coords: { lat: number; lng: number } | null = null;
+  let coords: GeoCoordinates | null = null;
 
   if (row.lat !== null && row.lng !== null) {
     coords = resolvePainServerCoordinates(row);
@@ -94,7 +96,7 @@ function mapRow(
   }
 
   return {
-    id: String(id ?? `pain-server-${index}`),
+    id,
     lat: coords.lat,
     lng: coords.lng,
     intensity: value,

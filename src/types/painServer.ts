@@ -11,12 +11,12 @@ import type { MapLayer } from "./api";
  * Numeric columns may arrive as strings; {@link ../api/painServerRow.ts normalizePainServerRow} coerces them.
  */
 export interface PainServerRow {
-  id?: number | string;
-  aggrid?: number | string | null;
-  value?: number | string;
+  id?: number;
+  aggrid?: number | null;
+  value?: number;
   category?: string;
-  lat?: number | string;
-  lng?: number | string;
+  lat?: number;
+  lng?: number;
   country?: string;
   word?: string;
 }

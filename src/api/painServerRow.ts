@@ -33,7 +33,7 @@ function pickString(
 /** Normalized row after applying {@link PainServerDbConfig} column names. */
 export interface NormalizedPainServerRow {
   id: number;
-  aggrid: string | null;
+  aggrid: number | null;
   value: number;
   category: string;
   lat: number | null;
@@ -59,7 +59,7 @@ export function normalizePainServerRow(
   const id = asNumber(r[PainServerDbConfig.TABLE_COLUMN_ID]);
   if (id === null) return null;
 
-  const aggrid = pickString(r, [PainServerDbConfig.TABLE_COLUMN_AGGRID]);
+  const aggrid = asNumber(r[PainServerDbConfig.TABLE_COLUMN_AGGRID]);
 
   const value = asNumber(r[PainServerDbConfig.TABLE_COLUMN_VALUE]);
   if (value === null) return null;

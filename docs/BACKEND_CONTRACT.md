@@ -51,37 +51,32 @@ Example (truncated): `http://178.63.65.178:3000/init`
 
 `:layer` is the **`id` from GET `/init`**.
 
-Returns a JSON **array** of point rows. Field names match pain-server `db-config.env` / `PainServerDbConfig` (`src/api/painServerDbConfig.ts`). Two shapes:
+Returns a JSON **array** of point rows. Field names match pain-server `db-config.env` / `PainServerDbConfig` (`src/api/painServerDbConfig.ts`).
 
-**Lat/lng layers** (e.g. environmental, physical):
+**One data shape for all layers** — mandatory columns always present; optional columns appear depending on layer type:
 
-| Field | Type | Maps to |
-|-------|------|---------|
-| `id` | number \| string | `PainPoint.id` (coerced to string) |
-| `aggrid` | number \| string \| null | Normalized only (not on `PainPoint`) |
-| `value` | number \| string | **`PainPoint.intensity` as-is** (see intensity rule below) |
-| `category` | string | `PainPoint.category` (empty → `"unknown"` + warn) |
-| `lat` | number \| string | `PainPoint.lat` (WGS84; invalid → row skipped) |
-| `lng` | number \| string | `PainPoint.lng` (WGS84) |
+| Field | Required | Type | Maps to |
+|-------|----------|------|---------|
+| `id` | mandatory | number | `PainPoint.id` (unique per layer, not globally unique; use with `category` to identify a point) |
+| `aggrid` | mandatory | number \| null | Normalized only (not on `PainPoint`) |
+| `value` | mandatory | number | **`PainPoint.intensity` as-is** (stored as-is; never clamped or modified before rendering) |
+| `category` | mandatory | string | `PainPoint.category` (empty → `"unknown"` + warn) |
+| `lat` | optional | number | `PainPoint.lat` (WGS84; invalid → row skipped when present) |
+| `lng` | optional | number | `PainPoint.lng` (WGS84) |
+| `country` | optional | string | `PainPoint.country` / `metadata.country` |
+| `word` | optional | string | `PainPoint.word` / preferred `text` |
 
-**Country layers** (e.g. emotional, socioeconomical):
+**Which layers typically carry which optional fields:**
 
-| Field | Type | Maps to |
-|-------|------|---------|
-| `id` | number \| string | Parsed in normalize |
-| `aggrid` | number \| string \| null | Normalized only |
-| `value` | number \| string | Intensity when plotted |
-| `category` | string | Category label |
-| `country` | string | `PainPoint.country` / `metadata.country` |
-| `word` | string (emotional) | `PainPoint.word` / preferred `text` |
-
-Country-only rows are **normalized** but **skipped for globe plotting** (no lat/lng) with `console.warn` until a country→position path exists.
+- **Geospatial layers** (e.g. environmental, physical): `lat` / `lng` present; used for globe plotting.
+- **Country-based layers** (e.g. emotional, socioeconomical): `country` present; country-only rows (no lat/lng) are **normalized** but **skipped for globe plotting** with `console.warn` until a country→position path exists.
+- **Emotional layer:** `word` present (in addition to country-based fields).
 
 **Frontend types:** raw row → `PainServerRow` (`src/types/painServer.ts`); globe shape → `PainPoint` (`src/types/api.ts`). Normalizer: `normalizePainServerRow` in `src/api/painServerRow.ts`. Adapter: `mapInitResponseToPainPoints(rows, layerId)` in `src/api/adapter.ts`.
 
 `PainPoint.uiLayer` is the **`layerId` from the request** (`GET /init/:layer`), not a row field.
 
-#### Do not mutate API `value`
+#### Pattern 19 — do not mutate API `value`
 
 The frontend stores `value` in `PainPoint.intensity` **without clamping, rounding, or rescaling**. If `value` is outside `0…1`, the adapter logs `console.warn` and still stores it as-is. Rendering may clamp for display safety in `src/globe/` only; the stored model must reflect the API.
 

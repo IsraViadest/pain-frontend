@@ -9,12 +9,13 @@ export interface MapLayer {
 }
 
 export interface PainPoint {
-  id: string;
+  /** Unique within a layer (not globally unique across layers). Use with `category` to identify a specific data point. */
+  id: number;
   lat: number;
   lng: number;
   intensity: number;
   /** pain-server row `category` (metric / category label from API). */
-  category?: string;
+  category: string;
   /** pain-server row `country` when present (country-layer rows). */
   country?: string;
   /** pain-server row `word` when present (emotional layer). */

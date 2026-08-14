@@ -51,7 +51,7 @@ app.post("/api/pain-submission", (req, res) => {
   }
 
   const point: PainPoint = {
-    id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: Date.now(),
     lat,
     lng,
     // Dev mock only: clamps intensity to 0…1. Production adapter (src/api/adapter.ts) stores the API value as-is without clamping.
@@ -65,7 +65,7 @@ app.post("/api/pain-submission", (req, res) => {
         ? body.datatype
         : typeof body.element === "string"
           ? body.element
-          : undefined,
+          : type,
     text: typeof body.text === "string" ? body.text : undefined,
     createdAt: new Date().toISOString(),
   };

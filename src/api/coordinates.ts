@@ -4,10 +4,11 @@
  */
 import type { NormalizedPainServerRow } from "./painServerRow";
 
-interface GeoCoordinates {
+/** WGS84 latitude / longitude in degrees. */
+export type GeoCoordinates = {
   lat: number;
   lng: number;
-}
+};
 
 /** True WGS84 degrees (fractional lat/lng allowed). */
 function isWgs84Degrees(latVal: number, lngVal: number): boolean {
