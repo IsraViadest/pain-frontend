@@ -135,7 +135,7 @@ function greatCircleDistanceDeg(
 /** Rim sphere (`glow`) additive shell. */
 const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
 /** Solid globe shell tint (map cleared when applied — solid color). */
-const GLOBE_SHELL_COLOR = 0xff0000;
+const GLOBE_SHELL_COLOR = 0x080c1a;
 /** Show solid `globe` mesh in scar/multiplex mode (stipple display). */
 const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
@@ -857,8 +857,8 @@ export class GlobeView {
   }
 
   private getAutoGlobeVisible(): boolean {
-    // Single-layer choropleth: keep the solid shell visible under the fill shell.
-    if (this.isChoroplethLayerActive() && !this.showAllLayersMode) return true;
+    // Single-layer choropleth: hide the solid shell so only choroplethShell shows.
+    if (this.isChoroplethLayerActive() && !this.showAllLayersMode) return false;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
@@ -2356,9 +2356,8 @@ export class GlobeView {
       ? this.pointsForUiLayer(this.allLayersEmopainLayerId)
       : this.lastPainPoints;
     if (!sourcePoints.length) return;
-    // Cap sprites so the cloud stays readable (not every emo row).
-    const sample = sourcePoints.slice(0, 42);
-    for (const p of sample) {
+    // One sprite per emo row (no sample cap).
+    for (const p of sourcePoints) {
       const label = this.wordCloudLabelForPoint(p);
       const sprite = this.createWordSprite(label);
       sprite.userData.wordCloudHover = {
