@@ -73,6 +73,7 @@ const MANUAL_CENTROIDS: Record<string, GeoCoordinates> = {
   FRO: { lat: 61.8926, lng: -6.9118 }, // Faroe Islands
   CUW: { lat: 12.1696, lng: -68.9900 }, // Curaçao
   CPV: { lat: 16.5388, lng: -23.0418 }, // Cape Verde
+  CHI: { lat: 49.3723, lng: -2.3644 }, // Channel Islands
   LCA: { lat: 13.9094, lng: -60.9789 }, // Saint Lucia
   SYC: { lat: -4.6796, lng: 55.4920 }, // Seychelles
   ATG: { lat: 17.0608, lng: -61.7964 }, // Antigua and Barbuda
