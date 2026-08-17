@@ -79,8 +79,8 @@ void main() {
   vFresnel = pow(1.0 - clamp(abs(dot(n, viewDir)), 0.0, 1.0), 2.0);
   vLand = aLand;
   float landMask = vLand;
-  float frontSize = 2.55;
-  float rimSize = 1.55;
+  float frontSize = 3.5;
+  float rimSize = 2.5;
   float sizeByView = mix(frontSize, rimSize, smoothstep(0.0, 1.0, vFresnel));
   // Same screen size for land and ocean so scar dents read equally on both (large land
   // sprites previously hid deformation and looked like a separate shell).
