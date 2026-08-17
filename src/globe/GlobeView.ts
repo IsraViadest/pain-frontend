@@ -150,6 +150,11 @@ const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 
 const GLOW_RADIUS = RADIUS * 1.09;
 /** Country choropleth shell just above the solid globe (below CO2 haze). */
 const CHOROPLETH_SHELL_RADIUS = RADIUS * 1.001;
+/**
+ * Extra radial lift on CPU scar warp so choropleth stays just outside the globe
+ * (globe warp uses surfaceBias 0).
+ */
+const CHOROPLETH_SCAR_SURFACE_BIAS = 0.001;
 /** CO2 haze shell between solid globe and rim glow. */
 const HAZE_RADIUS = RADIUS * 1.05;
 /** Temperature haze shell just outside the solid globe (inside CO2 haze). */
@@ -399,7 +404,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * Visibility toggles (search these method names):
  *   syncBaseGlobeVisibility()  — globe solid shell
  *   syncStippleVisibility()    — pointsStipple layer
- *   syncScarVisualization()    — scar + heat textures, border/stipple warp
+ *   syncScarVisualization()    — scar + heat textures, border/stipple/choropleth warp
  *   rebuildPainGeometryAndTexture() — markersGroup / multiplexGroup
  *
  * Files:
@@ -436,7 +441,7 @@ export class GlobeView {
   >;
   /**
    * SHELL choropleth — country fill at CHOROPLETH_SHELL_RADIUS (MeshBasicMaterial).
-   * Separate from `globe` so scars can dent the solid shell underneath.
+   * Separate from `globe`; scar mode CPU-warps this shell with the same map as the globe.
    */
   private readonly choroplethShell: THREE.Mesh<
     THREE.SphereGeometry,
@@ -487,6 +492,8 @@ export class GlobeView {
   private stippleBasePositions: Float32Array | null = null;
   /** Unwarped globe sphere; scar mode warps vertices (same path as stipple + borders). */
   private readonly globeBasePositions: Float32Array;
+  /** Unwarped choropleth sphere; scar mode warps vertices with the same scar map as the globe. */
+  private choroplethBasePositions: Float32Array | null = null;
   private displayMode: GlobeDisplayMode = "texture";
   private painVizMode: PainVisualizationMode = PAIN_VIZ_MODE.points;
   private lastPainPoints: PainPoint[] = [];
@@ -609,8 +616,12 @@ export class GlobeView {
     this.earthContent.add(this.globe);
 
     // --- Choropleth country-fill shell (just above solid globe; NormalBlending) ---
+    const choroplethGeo = new THREE.SphereGeometry(CHOROPLETH_SHELL_RADIUS, 192, 128);
+    this.choroplethBasePositions = new Float32Array(
+      choroplethGeo.attributes.position!.array,
+    );
     this.choroplethShell = new THREE.Mesh(
-      new THREE.SphereGeometry(CHOROPLETH_SHELL_RADIUS, 128, 96),
+      choroplethGeo,
       new THREE.MeshBasicMaterial({
         map: null,
         transparent: true,
@@ -1415,11 +1426,20 @@ export class GlobeView {
 
   private resetGlobeShellPositions(): void {
     const posAttr = this.globe.geometry.getAttribute("position");
-    if (!posAttr) return;
-    (posAttr.array as Float32Array).set(this.globeBasePositions);
-    posAttr.needsUpdate = true;
-    this.globe.geometry.computeVertexNormals();
-    this.globe.geometry.computeBoundingSphere();
+    if (posAttr) {
+      (posAttr.array as Float32Array).set(this.globeBasePositions);
+      posAttr.needsUpdate = true;
+      this.globe.geometry.computeVertexNormals();
+      this.globe.geometry.computeBoundingSphere();
+    }
+
+    if (!this.choroplethBasePositions) return;
+    const choroplethPos = this.choroplethShell.geometry.getAttribute("position");
+    if (!choroplethPos) return;
+    (choroplethPos.array as Float32Array).set(this.choroplethBasePositions);
+    choroplethPos.needsUpdate = true;
+    this.choroplethShell.geometry.computeVertexNormals();
+    this.choroplethShell.geometry.computeBoundingSphere();
   }
 
   private warpGlobeMeshToScarField(map: THREE.DataTexture): void {
@@ -1439,7 +1459,28 @@ export class GlobeView {
   }
 
   /**
-   * Borders + solid globe use CPU vertex warp; stipple uses GPU scar uniforms.
+   * Same scar map / scale / bias as the globe, with a slightly larger surfaceBias
+   * so country fill stays just outside the warped globe mesh.
+   */
+  private warpChoroplethShellToScarField(map: THREE.DataTexture): void {
+    if (!this.choroplethBasePositions) return;
+    const posAttr = this.choroplethShell.geometry.getAttribute("position");
+    if (!posAttr) return;
+    applyScarToSpherePositions(
+      this.choroplethBasePositions,
+      posAttr.array as Float32Array,
+      map,
+      this.debugTune.scarDispScale,
+      this.debugTune.scarDispBias,
+      CHOROPLETH_SCAR_SURFACE_BIAS,
+    );
+    posAttr.needsUpdate = true;
+    this.choroplethShell.geometry.computeVertexNormals();
+    this.choroplethShell.geometry.computeBoundingSphere();
+  }
+
+  /**
+   * Borders + solid globe + choropleth use CPU vertex warp; stipple uses GPU scar uniforms.
    * Use the same scale/bias (`debugTune`) so outlines sit on the same deformed shell as dots.
    */
   private refreshCpuScarDisplacementFromTune(): void {
@@ -1457,10 +1498,11 @@ export class GlobeView {
       this.resetGlobeShellPositions();
       this.warpGlobeMeshToScarField(map);
     }
+    this.warpChoroplethShellToScarField(map);
   }
 
   /**
-   * Scar + heat fields → stipple shader uniforms + CPU-warped coast/border lines.
+   * Scar + heat fields → stipple shader uniforms + CPU-warped coast/border/choropleth.
    * Does not add meshes; updates existing shells. See painScarField.ts, painHeatField.ts.
    */
   private syncScarVisualization(): void {
@@ -1489,6 +1531,7 @@ export class GlobeView {
         this.resetGlobeShellPositions();
         this.warpGlobeMeshToScarField(map);
       }
+      this.warpChoroplethShellToScarField(map);
 
       this.resetStippleShellPositions();
 
@@ -1906,6 +1949,7 @@ export class GlobeView {
     }
     this.choroplethShell.geometry.dispose();
     this.choroplethShell.material.dispose();
+    this.choroplethBasePositions = null;
     if (this.co2HazeMap) {
       this.co2HazeMap.dispose();
       this.co2HazeMap = null;
