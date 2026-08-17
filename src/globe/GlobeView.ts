@@ -141,6 +141,8 @@ function greatCircleDistanceDeg(
 const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
 /** Solid globe shell tint (map cleared when applied — solid color). */
 const GLOBE_SHELL_COLOR = 0x080c1a;
+/** Linear RGB stipple/layer tint in show-all mode — white, not a single layer color. */
+const SHOW_ALL_LAYERS_TINT_LINEAR: [number, number, number] = [1.0, 1.0, 1.0];
 /** Show solid `globe` mesh in scar/multiplex mode (stipple display). */
 const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
@@ -1826,6 +1828,9 @@ export class GlobeView {
   }
 
   private getActiveLayerColorLinear(): [number, number, number] {
+    if (this.showAllLayersMode) {
+      return SHOW_ALL_LAYERS_TINT_LINEAR;
+    }
     return getLayerBaseColorLinear(this.currentLayerColorHex, this.visualTheme);
   }
 
@@ -2019,6 +2024,7 @@ export class GlobeView {
       this.allLayersChoroplethColorHex = null;
       this.currentLayerSupportsText = false;
     }
+    this.applyPointsTint();
   }
 
   setWordCloudEnabled(enabled: boolean): void {
