@@ -71,6 +71,8 @@ let chrome: ProductionChrome | null = null;
 let cachedLayers: MapLayer[] = [];
 /** True while concurrent multi-layer visuals are shown. */
 let showAllLayersActive = false;
+/** In-flight {@link loadPoints} fetch; aborted on the next layer switch. */
+let loadPointsAbortController: AbortController | null = null;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
@@ -440,6 +442,7 @@ function applyGlobeLayer(layerId: string): void {
 }
 
 function handleLayerChange(layerId: string): void {
+  loadPointsAbortController?.abort();
   if (showAllLayersActive) {
     showAllLayersActive = false;
     globe.setShowAllLayersMode(false);
@@ -451,6 +454,7 @@ function handleLayerChange(layerId: string): void {
   }
   trackToggle(METRICS_KIND_LAYER, layerId, true);
   lastLayerId = layerId;
+  globe.setMarkers([]);
   applyGlobeLayer(layerId);
   syncWordCloudForCurrentLayer();
   chrome?.setActiveLayer(layerId);
@@ -527,11 +531,20 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
 async function loadPoints(): Promise<void> {
   const layer = lastLayerId;
   if (!layer) return;
-  const points = await fetchPoints(layer);
-  globe.setMarkers(points);
-  setStatus(
-    `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
-  );
+  const controller = new AbortController();
+  loadPointsAbortController = controller;
+  try {
+    const points = await fetchPoints(layer, controller.signal);
+    if (controller.signal.aborted) return;
+    globe.setMarkers(points);
+    setStatus(
+      `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
+    );
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    if (e instanceof Error && e.name === "AbortError") return;
+    throw e;
+  }
 }
 
 // --- render loop + initial API bootstrap ---

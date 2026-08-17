@@ -2017,6 +2017,7 @@ export class GlobeView {
       this.currentLayerSupportsText = true;
     } else if (!enabled) {
       this.allLayersChoroplethColorHex = null;
+      this.currentLayerSupportsText = false;
     }
   }
 
