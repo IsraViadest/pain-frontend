@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { MapLayer, PainPoint } from "../types/api";
-import { isChoroplethMapLayer } from "../api/layers";
+import { getMapLayerById, isChoroplethMapLayer } from "../api/layers";
 import {
   loadGlobeBorderOutlines,
   type GlobeBorderOutlines,
@@ -141,7 +141,7 @@ function greatCircleDistanceDeg(
 const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
 /** Solid globe shell tint (map cleared when applied — solid color). */
 const GLOBE_SHELL_COLOR = 0x080c1a;
-/** Linear RGB stipple/layer tint in show-all mode — white, not a single layer color. */
+/** Linear RGB fallback stipple tint in show-all mode when physpain color is missing. */
 const SHOW_ALL_LAYERS_TINT_LINEAR: [number, number, number] = [1.0, 1.0, 1.0];
 /** Show solid `globe` mesh in scar/multiplex mode (stipple display). */
 const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
@@ -1829,7 +1829,10 @@ export class GlobeView {
 
   private getActiveLayerColorLinear(): [number, number, number] {
     if (this.showAllLayersMode) {
-      return SHOW_ALL_LAYERS_TINT_LINEAR;
+      const physpainHex = getMapLayerById("physpain")?.color;
+      return physpainHex
+        ? getLayerBaseColorLinear(physpainHex, this.visualTheme)
+        : SHOW_ALL_LAYERS_TINT_LINEAR;
     }
     return getLayerBaseColorLinear(this.currentLayerColorHex, this.visualTheme);
   }
