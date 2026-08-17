@@ -540,6 +540,11 @@ export class GlobeView {
   private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
   /** Pain marker material / size (debug panel Markers section). */
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+  /**
+   * When false (production default), point markers stay disposed.
+   * Debug panel “Show point markers” sets this so points-mode rebuild can run.
+   */
+  private markersDebugEnabled = false;
   private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
   private co2HazeTune: Co2HazeTune = { ...GLOBE_CO2_HAZE_TUNE_DEFAULTS };
   private tempHeatTune: TempHeatTune = { ...GLOBE_TEMP_HEAT_TUNE_DEFAULTS };
@@ -783,6 +788,20 @@ export class GlobeView {
     ) {
       this.scheduleScarFieldRebuild();
     }
+  }
+
+  /** Whether point markers may rebuild in points mode (debug panel only). */
+  getMarkersDebugEnabled(): boolean {
+    return this.markersDebugEnabled;
+  }
+
+  /**
+   * Enable/disable point-marker InstancedMesh (debug panel).
+   * Triggers {@link syncPainMarkersForVizMode} so the mesh appears or is disposed immediately.
+   */
+  setMarkersDebugEnabled(enabled: boolean): void {
+    this.markersDebugEnabled = enabled;
+    this.syncPainMarkersForVizMode();
   }
 
   /** Current pain-marker tuning (debug panel Markers section). */
@@ -2205,10 +2224,12 @@ export class GlobeView {
     this.logMarkerRebuildMeasure(points.length);
   }
 
+  /**
+   * Point markers are off in production (layers use scars, shells, word clouds, choropleth).
+   * Rebuild only when the debug panel enables {@link markersDebugEnabled} and viz mode is points.
+   */
   private syncPainMarkersForVizMode(): void {
-    // Instanced markers whenever points mode is active (default for non-scar layers /
-    // experimental categories). Scar mode still skips this path.
-    if (this.painVizMode === PAIN_VIZ_MODE.points) {
+    if (this.painVizMode === PAIN_VIZ_MODE.points && this.markersDebugEnabled) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     } else {
       this.disposePainMarkersInstanced();

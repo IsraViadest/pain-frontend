@@ -774,6 +774,20 @@ export function mountGlobeDebugPanel(
     "Pain marker InstancedMesh — material updates live; radius rebuilds instance matrices.";
   markerTuneBlock.body.appendChild(markerTuneIntro);
 
+  const showMarkersRow = document.createElement("label");
+  showMarkersRow.className =
+    "globe-debug-panel__tune-row globe-debug-panel__tune-row--check";
+  const showMarkersCb = document.createElement("input");
+  showMarkersCb.type = "checkbox";
+  showMarkersCb.checked = globe.getMarkersDebugEnabled();
+  const showMarkersText = document.createElement("span");
+  showMarkersText.textContent = "Show point markers (debug only)";
+  showMarkersRow.append(showMarkersCb, showMarkersText);
+  markerTuneBlock.body.appendChild(showMarkersRow);
+  showMarkersCb.addEventListener("change", () => {
+    globe.setMarkersDebugEnabled(showMarkersCb.checked);
+  });
+
   const markerTuneInputs: Partial<
     Record<keyof GlobeMarkerTune, HTMLInputElement>
   > = {};
