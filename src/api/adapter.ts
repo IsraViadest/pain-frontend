@@ -46,7 +46,10 @@ export function mapInitResponseToPainPoints(
 /**
  * Turn one validated API row into a {@link PainPoint} (lat/lng, uiLayer, intensity).
  * Lat/lng rows use WGS84 from the API; country-only rows use Natural Earth label points
- * via {@link getCountryCentroid} (ISO_A3). Returns null when coordinates cannot be resolved.
+ * via {@link getCountryCentroid} (ISO_A3) only when the active layer needs word placement.
+ * Centroids are only needed for emotional-layer word positioning, so non-text layers keep
+ * `lat` / `lng` null when a row has `country` but no coordinates. Returns null when
+ * coordinates cannot be resolved for a text-enabled layer.
  *
  * `metadata.layerLabel` uses {@link getMapLayerById} — requires {@link ../client.ts fetchLayers}
  * before {@link ../client.ts fetchPoints} so the layer cache is populated.
@@ -55,7 +58,11 @@ function mapRow(
   row: NormalizedPainServerRow,
   layerId: string,
 ): PainPoint | null {
+  const layer = getMapLayerById(layerId);
+  const layerSupportsText = layer?.text === true;
   let coords: GeoCoordinates | null = null;
+  let lat: number | null = null;
+  let lng: number | null = null;
 
   if (row.lat !== null && row.lng !== null) {
     coords = resolvePainServerCoordinates(row);
@@ -67,15 +74,21 @@ function mapRow(
       );
       return null;
     }
+    lat = coords.lat;
+    lng = coords.lng;
   } else if (row.country) {
-    coords = getCountryCentroid(row.country);
-    if (coords == null) {
-      console.warn(
-        "[adapter] No centroid for country code:",
-        row.country,
-        row.id,
-      );
-      return null;
+    if (layerSupportsText) {
+      coords = getCountryCentroid(row.country);
+      if (coords == null) {
+        console.warn(
+          "[adapter] No centroid for country code:",
+          row.country,
+          row.id,
+        );
+        return null;
+      }
+      lat = coords.lat;
+      lng = coords.lng;
     }
   } else {
     console.warn(
@@ -97,8 +110,8 @@ function mapRow(
 
   return {
     id,
-    lat: coords.lat,
-    lng: coords.lng,
+    lat,
+    lng,
     intensity: value,
     category,
     country: country ?? undefined,
@@ -108,7 +121,7 @@ function mapRow(
     text: word ?? category,
     metadata: {
       country: country ?? "Unknown",
-      layerLabel: getMapLayerById(layerId)?.label ?? layerId,
+      layerLabel: layer?.label ?? layerId,
       metricLabel: category,
       rawValue: value,
       sourceUrl: "",

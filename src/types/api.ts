@@ -11,8 +11,10 @@ export interface MapLayer {
 export interface PainPoint {
   /** Unique within a layer (not globally unique across layers). Use with `category` to identify a specific data point. */
   id: number;
-  lat: number;
-  lng: number;
+  /** WGS84 latitude, or `null` for country-only rows on layers that do not place words. */
+  lat: number | null;
+  /** WGS84 longitude, or `null` for country-only rows on layers that do not place words. */
+  lng: number | null;
   intensity: number;
   /** pain-server row `category` (metric / category label from API). */
   category: string;

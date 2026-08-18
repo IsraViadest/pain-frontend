@@ -20,7 +20,7 @@ import {
   getLayerBaseColorLinear,
   type VisualTheme,
 } from "./layerTextures";
-import { latLngToVector3, vector3ToLatLng } from "./latLng";
+import { hasPainPointCoordinates, latLngToVector3, vector3ToLatLng } from "./latLng";
 import {
   CO2_HAZE_TUNE_DEFAULTS,
   createCo2HazeTexture,
@@ -2278,8 +2278,13 @@ export class GlobeView {
     for (let i = 0; i < points.length; i++) {
       const p = points[i]!;
       const scale = this.markerInstanceScaleForPoint(p.intensity);
-      this.markerTempScale.set(scale, scale, scale);
-      this.markerTempPosition.copy(latLngToVector3(p.lat, p.lng, RADIUS));
+      if (!hasPainPointCoordinates(p)) {
+        this.markerTempScale.set(0, 0, 0);
+        this.markerTempPosition.set(0, 0, 0);
+      } else {
+        this.markerTempScale.set(scale, scale, scale);
+        this.markerTempPosition.copy(latLngToVector3(p.lat, p.lng, RADIUS));
+      }
       this.markerTempMatrix.compose(
         this.markerTempPosition,
         this.markerTempQuaternion,
@@ -2597,6 +2602,7 @@ export class GlobeView {
     const linePositions = new Float32Array(n * 2 * 3);
     for (let i = 0; i < n; i++) {
       const p = sourcePoints[i]!;
+      if (!hasPainPointCoordinates(p)) continue;
       const label = this.wordCloudLabelForPoint(p);
       const sprite = this.createWordSprite(label);
       sprite.userData.wordCloudHover = {
@@ -2779,8 +2785,11 @@ export class GlobeView {
     };
     const bag =
       lexicon[this.currentLayerLexiconBucket] ?? lexicon.generic ?? ["pain"];
+    // Seed only; `0` when lat/lng are null (country-only non-text rows).
+    const lat = p.lat ?? 0;
+    const lng = p.lng ?? 0;
     const seed = Math.abs(
-      Math.floor((p.lat + 90) * 131 + (p.lng + 180) * 71 + p.intensity * 1000),
+      Math.floor((lat + 90) * 131 + (lng + 180) * 71 + p.intensity * 1000),
     );
     return [bag[seed % bag.length]!, bag[(seed + 3) % bag.length]!];
   }
@@ -2917,6 +2926,7 @@ export class GlobeView {
         continue;
       }
       const p = this.lastPainPoints[instanceId]!;
+      if (!hasPainPointCoordinates(p)) continue;
       return {
         layerId: p.uiLayer,
         intensity: p.intensity,
@@ -2954,6 +2964,7 @@ export class GlobeView {
     let nearest: PainPoint | null = null;
     let nearestDeg = Infinity;
     for (const p of this.lastPainPoints) {
+      if (!hasPainPointCoordinates(p)) continue;
       const deg = greatCircleDistanceDeg(click.lat, click.lng, p.lat, p.lng);
       if (deg < nearestDeg) {
         nearestDeg = deg;
@@ -2961,6 +2972,7 @@ export class GlobeView {
       }
     }
     if (!nearest || nearestDeg > MAX_CLICK_SOUND_RADIUS_DEG) return null;
+    if (!hasPainPointCoordinates(nearest)) return null;
 
     return {
       layerId: nearest.uiLayer,
@@ -3007,7 +3019,12 @@ export class GlobeView {
 
   private rebuildMultiplexVisualization(points: PainPoint[]): void {
     this.disposeMultiplexObjects();
-    const sample = points.slice(0, 260);
+    const sample: Array<PainPoint & { lat: number; lng: number }> = [];
+    for (const p of points) {
+      if (!hasPainPointCoordinates(p)) continue;
+      sample.push(p);
+      if (sample.length >= 260) break;
+    }
     if (sample.length === 0) return;
 
     const directions: THREE.Vector3[] = [];

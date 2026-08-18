@@ -137,7 +137,9 @@ export function createTemperatureHazeTexture(
   const hazeAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
 
   for (const p of temperaturePoints) {
-    const { cx, cy } = painPointToFieldTexel(p);
+    const texel = painPointToFieldTexel(p);
+    if (!texel) continue;
+    const { cx, cy } = texel;
     // Rendering-only clamp — the stored PainPoint.intensity value is never modified; clamping only happens here at render time.
     const inten = THREE.MathUtils.clamp(p.intensity, 0, 1);
     const radiusPx = Math.round(
