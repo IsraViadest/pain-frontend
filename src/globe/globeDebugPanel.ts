@@ -403,6 +403,29 @@ const CO2_HAZE_TUNE_SLIDERS: Co2HazeTuneSliderSpec[] = [
   },
 ];
 
+/** Live shell-radius sliders (scale meshes; not part of {@link Co2HazeTune}). */
+const CO2_HAZE_RADIUS_SLIDER = {
+  label: "Haze radius",
+  hint: "CO2 haze shell radius in globe units (live scale; no rebuild).",
+  min: 1.0,
+  max: 1.3,
+  step: 0.01,
+  /** Matches GlobeView HAZE_RADIUS (RADIUS * 1.15). */
+  value: 1.15,
+  decimals: 2,
+};
+
+const GLOW_RADIUS_SLIDER = {
+  label: "Glow radius",
+  hint: "Rim-glow shell radius in globe units (live scale; no rebuild).",
+  min: 1.0,
+  max: 1.3,
+  step: 0.01,
+  /** Matches GlobeView GLOW_RADIUS (RADIUS * 1.12). */
+  value: 1.12,
+  decimals: 2,
+};
+
 type TempHeatTuneSliderSpec = {
   key: keyof TempHeatTune;
   label: string;
@@ -731,6 +754,53 @@ export function mountGlobeDebugPanel(
       globe.setCo2HazeTune({ [spec.key]: v });
     });
   }
+
+  function appendLiveRadiusSlider(
+    spec: {
+      label: string;
+      hint: string;
+      min: number;
+      max: number;
+      step: number;
+      value: number;
+      decimals: number;
+    },
+    onInput: (value: number) => void,
+  ): HTMLInputElement {
+    const row = document.createElement("label");
+    row.className = "globe-debug-panel__tune-row";
+    const head = document.createElement("span");
+    head.className = "globe-debug-panel__tune-head";
+    const valSpan = document.createElement("output");
+    valSpan.className = "globe-debug-panel__tune-val";
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = String(spec.min);
+    range.max = String(spec.max);
+    range.step = String(spec.step);
+    range.value = String(spec.value);
+    valSpan.textContent = formatTuneValue(spec.value, spec.decimals);
+    const hint = document.createElement("span");
+    hint.className = "globe-debug-panel__tune-hint";
+    hint.textContent = spec.hint;
+    head.textContent = `${spec.label} `;
+    head.append(valSpan);
+    row.append(head, range, hint);
+    co2HazeTuneBlock.body.appendChild(row);
+    range.addEventListener("input", () => {
+      const v = Number(range.value);
+      valSpan.textContent = formatTuneValue(v, spec.decimals);
+      onInput(v);
+    });
+    return range;
+  }
+
+  appendLiveRadiusSlider(CO2_HAZE_RADIUS_SLIDER, (v) => {
+    globe.setHazeRadius(v);
+  });
+  appendLiveRadiusSlider(GLOW_RADIUS_SLIDER, (v) => {
+    globe.setGlowRadius(v);
+  });
 
   const co2HazeNormRow = document.createElement("label");
   co2HazeNormRow.className = "globe-debug-panel__tune-row";

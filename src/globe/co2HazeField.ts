@@ -58,7 +58,7 @@ export type Co2HazeTune = {
 
 /** Tuned CO2 haze look (debug panel defaults). */
 export const CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
-  stampRadiusBase: 11,
+  stampRadiusBase: 20,
   stampRadiusSpan: 11,
   blurPass1Radius: 3,
   blurPass2Radius: 1,
