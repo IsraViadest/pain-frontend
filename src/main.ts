@@ -100,6 +100,8 @@ function readPainVizMode(): PainVisualizationMode {
 const hudStatus = statusEl;
 const layerPicker = layerSelect;
 let lastLayerId = "";
+/** In-flight {@link loadPoints} fetch; aborted on the next layer switch. */
+let loadPointsAbortController: AbortController | null = null;
 const wordCloudBtn = wordCloudToggle;
 const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
@@ -440,14 +442,30 @@ async function loadLayersIntoSelect(): Promise<void> {
 
 async function loadPoints(): Promise<void> {
   const layer = layerPicker.value;
-  const points = await fetchPoints(layer);
-  globe.setMarkers(points);
-  setStatus(
-    `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
-  );
+  const controller = new AbortController();
+  loadPointsAbortController = controller;
+  try {
+    const points = await fetchPoints(layer, controller.signal);
+    if (controller.signal.aborted) return;
+    globe.setMarkers(points);
+    setStatus(
+      `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
+    );
+  } catch (e) {
+    if (
+      controller.signal.aborted ||
+      (e instanceof DOMException && e.name === "AbortError") ||
+      (e instanceof Error && e.name === "AbortError")
+    ) {
+      return;
+    }
+    throw e;
+  }
 }
 
 layerPicker.addEventListener("change", () => {
+  loadPointsAbortController?.abort();
+  globe.setMarkers([]);
   const prevLayerId = lastLayerId;
   const nextLayerId = layerPicker.value;
   if (prevLayerId && prevLayerId !== nextLayerId) {
