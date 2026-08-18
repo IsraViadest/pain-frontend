@@ -66,6 +66,8 @@ const hudStatus = statusEl;
 let lastLayerId = "";
 let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
 let chrome: ProductionChrome | null = null;
+/** In-flight {@link loadPoints} fetch; aborted on the next layer switch. */
+let loadPointsAbortController: AbortController | null = null;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
@@ -394,6 +396,8 @@ function applyGlobeLayer(layerId: string): void {
 }
 
 function handleLayerChange(layerId: string): void {
+  loadPointsAbortController?.abort();
+  globe.setMarkers([]);
   const prevLayerId = lastLayerId;
   if (prevLayerId && prevLayerId !== layerId) {
     trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
@@ -430,11 +434,25 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
 async function loadPoints(): Promise<void> {
   const layer = lastLayerId;
   if (!layer) return;
-  const points = await fetchPoints(layer);
-  globe.setMarkers(points);
-  setStatus(
-    `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
-  );
+  const controller = new AbortController();
+  loadPointsAbortController = controller;
+  try {
+    const points = await fetchPoints(layer, controller.signal);
+    if (controller.signal.aborted) return;
+    globe.setMarkers(points);
+    setStatus(
+      `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
+    );
+  } catch (e) {
+    if (
+      controller.signal.aborted ||
+      (e instanceof DOMException && e.name === "AbortError") ||
+      (e instanceof Error && e.name === "AbortError")
+    ) {
+      return;
+    }
+    throw e;
+  }
 }
 
 // --- render loop + initial API bootstrap ---

@@ -68,8 +68,13 @@ export async function fetchLayers(): Promise<MapLayer[]> {
 /**
  * Load pain points for the selected layer id.
  * Production: GET /init/:layerId via {@link fetchLayerDataPoints}.
+ *
+ * @param signal — optional abort signal so a layer switch can cancel an in-flight fetch.
  */
-export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
+export async function fetchPoints(
+  layerId?: string,
+  signal?: AbortSignal,
+): Promise<PainPoint[]> {
   if (useMockApi) {
     const { fetchPointsMock } = await getMockApiModule();
     return fetchPointsMock(layerId);
@@ -90,6 +95,6 @@ export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
       "[client] fetchPoints without a cached pain-server userId — call fetchLayers first.",
     );
   }
-  const initLayerRows = await fetchLayerDataPoints(layerId);
+  const initLayerRows = await fetchLayerDataPoints(layerId, signal);
   return mapInitResponseToPainPoints(initLayerRows, layerId);
 }
