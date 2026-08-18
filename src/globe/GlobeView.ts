@@ -138,7 +138,7 @@ function greatCircleDistanceDeg(
 }
 
 /** Rim sphere (`glow`) additive shell. */
-const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
+const GLOBE_ATMOSPHERE_GLOW_ENABLED = false;
 /** Solid globe shell tint (map cleared when applied — solid color). */
 const GLOBE_SHELL_COLOR = 0x080c1a;
 /** Linear RGB fallback stipple tint in show-all mode when physpain color is missing. */
@@ -147,7 +147,7 @@ const SHOW_ALL_LAYERS_TINT_LINEAR: [number, number, number] = [1.0, 1.0, 1.0];
 const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
 const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 160;
-const GLOW_RADIUS = RADIUS * 1.09;
+const GLOW_RADIUS = RADIUS * 1.12;
 /** Country choropleth shell just above the solid globe (below CO2 haze). */
 const CHOROPLETH_SHELL_RADIUS = RADIUS * 1.001;
 /**
@@ -161,7 +161,7 @@ const CHOROPLETH_SCAR_SURFACE_BIAS = 0.001;
  */
 const GLOBE_DEPTH_MASK_SCALE = 0.994;
 /** CO2 haze shell between solid globe and rim glow. */
-const HAZE_RADIUS = RADIUS * 1.05;
+const HAZE_RADIUS = RADIUS * 1.15;
 /** Temperature haze shell just outside the solid globe (inside CO2 haze). */
 const TEMPERATURE_SHELL_RADIUS = RADIUS * 1.003;
 /** Pain “points” mode marker sphere radius on the globe surface. */
@@ -213,7 +213,7 @@ const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
   heatStrength: 2.3,
 };
 
-/** Defaults for debug-panel CO2 haze stamp / blur / alpha. */
+/** Defaults for debug-panel CO2 haze stamp / blur / color / opacity. */
 const GLOBE_CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
   ...CO2_HAZE_TUNE_DEFAULTS,
 };
@@ -241,11 +241,11 @@ export type TempHeatTune = {
 };
 
 const GLOBE_TEMP_HEAT_TUNE_DEFAULTS: TempHeatTune = {
-  stampRadiusBase: 3,
-  stampRadiusSpan: 5,
-  blurPass1Radius: 2,
+  stampRadiusBase: 16,
+  stampRadiusSpan: 12,
+  blurPass1Radius: 4,
   blurPass2Radius: 1,
-  heatStrength: 1,
+  heatStrength: 1.30,
 };
 
 const GLOW_VS = /* glsl */ `
@@ -668,7 +668,7 @@ export class GlobeView {
         depthWrite: false,
         depthTest: true,
         side: THREE.FrontSide,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
         toneMapped: false,
       }),
     );
@@ -892,7 +892,7 @@ export class GlobeView {
     }
   }
 
-  /** Current CO2 haze stamp / blur / alpha tuning (debug panel CO2 Haze section). */
+  /** Current CO2 haze stamp / blur / color / opacity tuning (debug panel CO2 Haze section). */
   getCo2HazeTune(): Co2HazeTune {
     return { ...this.co2HazeTune };
   }
@@ -933,6 +933,22 @@ export class GlobeView {
 
   private applyBorderShellScale(): void {
     this.bordersOutlines?.group.scale.setScalar(this.borderShellScale);
+  }
+
+  /**
+   * Set CO2 haze shell radius in globe units (live). Scales the existing sphere
+   * relative to the geometry base {@link HAZE_RADIUS} — no texture rebuild.
+   */
+  setHazeRadius(r: number): void {
+    this.co2Haze.scale.setScalar(r / HAZE_RADIUS);
+  }
+
+  /**
+   * Set rim-glow shell radius in globe units (live). Scales the existing sphere
+   * relative to the geometry base {@link GLOW_RADIUS}.
+   */
+  setGlowRadius(r: number): void {
+    this.glow.scale.setScalar(r / GLOW_RADIUS);
   }
 
   /** Current Temperature haze stamp / blur / strength (debug panel Temperature Heat). */
@@ -2557,7 +2573,8 @@ export class GlobeView {
     }
     if (this.co2Haze.visible) {
       (this.co2Haze.material as THREE.MeshBasicMaterial).opacity =
-        0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3);
+        this.co2HazeTune.hazeOpacity +
+        0.15 * Math.sin(this.clock.elapsedTime * 0.3);
     }
     this.controls.update();
     this.tickMultiplex(dt);
