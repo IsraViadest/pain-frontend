@@ -1,4 +1,12 @@
 import * as THREE from "three";
+import type { PainPoint } from "../types/api";
+
+/** True when a pain point has WGS84 coordinates (country-only non-text rows store null). */
+export function hasPainPointCoordinates(
+  p: PainPoint,
+): p is PainPoint & { lat: number; lng: number } {
+  return p.lat !== null && p.lng !== null;
+}
 
 /** Equirectangular placement on a Y-up unit sphere (matches typical Three.js globe UVs). */
 export function latLngToVector3(

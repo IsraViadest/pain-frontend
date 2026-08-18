@@ -95,7 +95,9 @@ export function createPainHeatTexture(
   const heatAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
 
   for (const p of points) {
-    const { cx, cy } = painPointToFieldTexel(p);
+    const texel = painPointToFieldTexel(p);
+    if (!texel) continue;
+    const { cx, cy } = texel;
     // Rendering-only clamp: does not modify PainPoint.intensity (Pattern 19 — adapter stores API value as-is).
     const inten = THREE.MathUtils.clamp(p.intensity, 0, 1);
     const radiusPx = Math.round(10 + 28 * (0.25 + 0.75 * inten));

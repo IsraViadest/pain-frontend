@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
-import { latLngToVector3 } from "./latLng";
+import { hasPainPointCoordinates, latLngToVector3 } from "./latLng";
 import { isDebugScarVisual } from "./debugScarVisual";
 
 /** Internal scar height-map resolution (rendering only; not the API data contract). */
@@ -16,8 +16,13 @@ export const SCAR_MAP_HEIGHT = 482;
 const SCAR_NEUTRAL_DEPTH = 128;
 const SCAR_MIN_DEPTH = 0;
 
-/** WGS84 lat/lng → scar height-map texel (same equirect frame as stipple shader). */
-export function painPointToFieldTexel(p: PainPoint): { cx: number; cy: number } {
+/** WGS84 lat/lng → scar height-map texel (same equirect frame as stipple shader).
+ * Returns null when the point has no coordinates (country-only non-text rows).
+ */
+export function painPointToFieldTexel(
+  p: PainPoint,
+): { cx: number; cy: number } | null {
+  if (!hasPainPointCoordinates(p)) return null;
   const maxCol = SCAR_MAP_WIDTH - 1;
   const maxRow = SCAR_MAP_HEIGHT - 1;
   const { u, v } = unitDirectionToGlobeEquirectUV(
@@ -165,7 +170,9 @@ export function createPainScarDisplacementTexture(
   };
 
   for (const p of points) {
-    const { cx, cy } = painPointToFieldTexel(p);
+    const texel = painPointToFieldTexel(p);
+    if (!texel) continue;
+    const { cx, cy } = texel;
     const radiusBlend = scarStampIntensityBlend(p.intensity);
     const baseRadius = Math.round(
       (SCAR_STAMP_RADIUS_BASE_PX +
