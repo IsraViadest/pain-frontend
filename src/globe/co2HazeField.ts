@@ -1,6 +1,6 @@
 /**
  * CO2 haze intensity map (RGBA DataTexture) for a shell slightly outside the globe.
- * Stamps / blurs like {@link ./painHeatField.ts}; RGB is fixed gray, alpha carries intensity.
+ * Stamps / blurs like {@link ./painHeatField.ts}; RGB is gray from tune.hazeColor, alpha carries intensity.
  */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
@@ -13,9 +13,6 @@ import {
 /** pain-server `category` value that feeds the CO2 haze shell. */
 const CO2_HAZE_CATEGORY = "CO2";
 
-/** Hardcoded haze RGB (#888888) — Mary may make this dynamic later. */
-const HAZE_GRAY_BYTE = 0x88;
-
 /** Intensity→stamp size blend (not debug-tuned). */
 const HAZE_STAMP_RADIUS_INTENSITY_FLOOR = 0.25;
 const HAZE_STAMP_RADIUS_INTENSITY_WEIGHT = 0.75;
@@ -25,8 +22,14 @@ const HAZE_STAMP_PEAK_POWER = 2;
 const HAZE_STAMP_PEAK_FLOOR = 0;
 
 const BYTES_PER_RGBA_PIXEL = 4;
-/** Skip max-normalize when the field is effectively empty. */
+/** Treat maxHaze at or below this as an empty field (skip max / log scale). */
 const HAZE_MAX_EPSILON = 1e-6;
+
+/**
+ * How smoothed texel values map to [0, 1] before `alphaThreshold` / `maxAlpha`.
+ * Debug-panel Normalization select; default `"log"` compresses outliers.
+ */
+export type Co2HazeNormMode = "max" | "raw" | "log";
 
 /**
  * CPU stamp / blur / alpha knobs for {@link createCo2HazeTexture}
@@ -45,16 +48,25 @@ export type Co2HazeTune = {
   maxAlpha: number;
   /** Normalized intensity below this → alpha 0. */
   alphaThreshold: number;
+  /** Field stretch before alpha mapping — see {@link Co2HazeNormMode}. */
+  normMode: Co2HazeNormMode;
+  /** Gray RGB byte (0–255) written to every texel; default 255 = #ffffff. */
+  hazeColor: number;
+  /** Base material opacity in {@link ../GlobeView.ts tick} before the sine breath. */
+  hazeOpacity: number;
 };
 
-/** Defaults match current hardcoded haze look. */
+/** Tuned CO2 haze look (debug panel defaults). */
 export const CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
-  stampRadiusBase: 1,
-  stampRadiusSpan: 1,
-  blurPass1Radius: 1,
+  stampRadiusBase: 11,
+  stampRadiusSpan: 11,
+  blurPass1Radius: 3,
   blurPass2Radius: 1,
-  maxAlpha: 115,
-  alphaThreshold: 0.03,
+  maxAlpha: 255,
+  alphaThreshold: 0,
+  normMode: "log",
+  hazeColor: 255,
+  hazeOpacity: 1.0,
 };
 
 function boxBlurHaze(
@@ -116,6 +128,34 @@ function hazeStampPeak(intensity: number): number {
   );
 }
 
+/**
+ * Map a smoothed haze texel to [0, 1] according to {@link Co2HazeNormMode}.
+ * `max` stretches the peak to 1; `raw` leaves the accumulated value; `log`
+ * uses log(1 + x) / log(1 + max) so outliers compress and mid values lift.
+ */
+function hazeNormalizedValue(
+  value: number,
+  maxHaze: number,
+  normMode: Co2HazeNormMode,
+): number {
+  switch (normMode) {
+    case "raw":
+      return THREE.MathUtils.clamp(value, 0, 1);
+    case "log": {
+      if (maxHaze <= HAZE_MAX_EPSILON) return 0;
+      return THREE.MathUtils.clamp(
+        Math.log(1 + value) / Math.log(1 + maxHaze),
+        0,
+        1,
+      );
+    }
+    case "max": {
+      const scale = maxHaze > HAZE_MAX_EPSILON ? 1 / maxHaze : 1;
+      return THREE.MathUtils.clamp(value * scale, 0, 1);
+    }
+  }
+}
+
 /** Keep only points whose `category` is `"CO2"`. */
 export function filterCo2HazePoints(points: PainPoint[]): PainPoint[] {
   return points.filter((p) => p.category === CO2_HAZE_CATEGORY);
@@ -123,7 +163,8 @@ export function filterCo2HazePoints(points: PainPoint[]): PainPoint[] {
 
 /**
  * Build an equirectangular RGBA haze map from CO2 points.
- * RGB is fixed gray (#888888); alpha is max-normalized intensity (0 = transparent).
+ * RGB is a uniform gray from {@link Co2HazeTune.hazeColor}; alpha comes from
+ * {@link Co2HazeTune.normMode} then `alphaThreshold` / `maxAlpha` (0 = transparent).
  *
  * @param co2Points — already filtered to `category === "CO2"` (see {@link filterCo2HazePoints}).
  * @param tune — stamp / blur / alpha knobs (debug panel); defaults to {@link CO2_HAZE_TUNE_DEFAULTS}.
@@ -179,21 +220,25 @@ export function createCo2HazeTexture(
   for (let i = 0; i < smoothed.length; i++) {
     maxHaze = Math.max(maxHaze, smoothed[i]!);
   }
-  const norm = maxHaze > HAZE_MAX_EPSILON ? 1 / maxHaze : 1;
 
   const bytes = new Uint8Array(
     SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * BYTES_PER_RGBA_PIXEL,
   );
+  const rgb = THREE.MathUtils.clamp(Math.round(tune.hazeColor), 0, 255);
   for (let i = 0; i < smoothed.length; i++) {
-    const normalized = THREE.MathUtils.clamp(smoothed[i]! * norm, 0, 1);
+    const normalized = hazeNormalizedValue(
+      smoothed[i]!,
+      maxHaze,
+      tune.normMode,
+    );
     const alpha =
       normalized < tune.alphaThreshold
         ? 0
         : Math.round(normalized * tune.maxAlpha);
     const o = i * BYTES_PER_RGBA_PIXEL;
-    bytes[o] = HAZE_GRAY_BYTE;
-    bytes[o + 1] = HAZE_GRAY_BYTE;
-    bytes[o + 2] = HAZE_GRAY_BYTE;
+    bytes[o] = rgb;
+    bytes[o + 1] = rgb;
+    bytes[o + 2] = rgb;
     bytes[o + 3] = alpha;
   }
 

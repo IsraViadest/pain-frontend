@@ -14,6 +14,7 @@ import {
   type GlobeView,
   type TempHeatTune,
 } from "./GlobeView";
+import type { Co2HazeNormMode } from "./co2HazeField";
 
 const LAYER_UI: {
   id: GlobeDebugLayerId;
@@ -305,7 +306,7 @@ const HEAT_MAP_TUNE_SLIDERS: HeatTuneSliderSpec[] = [
 ];
 
 type Co2HazeTuneSliderSpec = {
-  key: keyof Co2HazeTune;
+  key: Exclude<keyof Co2HazeTune, "normMode">;
   label: string;
   hint: string;
   min: number;
@@ -313,6 +314,19 @@ type Co2HazeTuneSliderSpec = {
   step: number;
   decimals?: number;
 };
+
+const CO2_HAZE_NORM_MODE_OPTIONS: {
+  value: Co2HazeNormMode;
+  label: string;
+}[] = [
+  { value: "max", label: "Max" },
+  { value: "raw", label: "Raw" },
+  { value: "log", label: "Log" },
+];
+
+function isCo2HazeNormMode(value: string): value is Co2HazeNormMode {
+  return CO2_HAZE_NORM_MODE_OPTIONS.some((opt) => opt.value === value);
+}
 
 const CO2_HAZE_TUNE_SLIDERS: Co2HazeTuneSliderSpec[] = [
   {
@@ -367,6 +381,24 @@ const CO2_HAZE_TUNE_SLIDERS: Co2HazeTuneSliderSpec[] = [
     min: 0,
     max: 0.5,
     step: 0.01,
+    decimals: 2,
+  },
+  {
+    key: "hazeColor",
+    label: "Haze color",
+    hint: "Gray RGB byte written to every texel (0 = black, 255 = white). Rebuild to apply.",
+    min: 0,
+    max: 255,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "hazeOpacity",
+    label: "Base opacity",
+    hint: "Material opacity before the sine breath (live; no rebuild).",
+    min: 0,
+    max: 1,
+    step: 0.05,
     decimals: 2,
   },
 ];
@@ -663,7 +695,7 @@ export function mountGlobeDebugPanel(
   co2HazeTuneBlock.body.appendChild(co2HazeTuneIntro);
 
   const co2HazeTuneInputs: Partial<
-    Record<keyof Co2HazeTune, HTMLInputElement>
+    Record<Exclude<keyof Co2HazeTune, "normMode">, HTMLInputElement>
   > = {};
 
   for (const spec of CO2_HAZE_TUNE_SLIDERS) {
@@ -699,6 +731,31 @@ export function mountGlobeDebugPanel(
       globe.setCo2HazeTune({ [spec.key]: v });
     });
   }
+
+  const co2HazeNormRow = document.createElement("label");
+  co2HazeNormRow.className = "globe-debug-panel__tune-row";
+  const co2HazeNormHead = document.createElement("span");
+  co2HazeNormHead.className = "globe-debug-panel__tune-head";
+  co2HazeNormHead.textContent = "Normalization";
+  const co2HazeNormSelect = document.createElement("select");
+  co2HazeNormSelect.className = "globe-debug-panel__tune-select";
+  for (const opt of CO2_HAZE_NORM_MODE_OPTIONS) {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    co2HazeNormSelect.appendChild(option);
+  }
+  const co2HazeNormHint = document.createElement("span");
+  co2HazeNormHint.className = "globe-debug-panel__tune-hint";
+  co2HazeNormHint.textContent =
+    "Max stretches the hottest texel to full alpha. Raw uses accumulated values as-is. Log compresses outliers.";
+  co2HazeNormRow.append(co2HazeNormHead, co2HazeNormSelect, co2HazeNormHint);
+  co2HazeTuneBlock.body.appendChild(co2HazeNormRow);
+  co2HazeNormSelect.addEventListener("change", () => {
+    const v = co2HazeNormSelect.value;
+    if (!isCo2HazeNormMode(v)) return;
+    globe.setCo2HazeTune({ normMode: v });
+  });
 
   const rebuildCo2HazeBtn = document.createElement("button");
   rebuildCo2HazeBtn.type = "button";
@@ -875,6 +932,7 @@ export function mountGlobeDebugPanel(
       if (out)
         out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
     }
+    co2HazeNormSelect.value = t.normMode;
   }
 
   function syncTempHeatTuneSliders(): void {

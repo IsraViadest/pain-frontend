@@ -584,7 +584,8 @@ button:disabled {
   color: #ffb86c;
 }
 
-.globe-debug-panel__tune-row input[type="range"] {
+.globe-debug-panel__tune-row input[type="range"],
+.globe-debug-panel__tune-select {
   width: 100%;
 }
 

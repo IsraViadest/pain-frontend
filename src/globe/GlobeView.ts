@@ -166,7 +166,7 @@ const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
   heatStrength: 2.3,
 };
 
-/** Defaults for debug-panel CO2 haze stamp / blur / alpha. */
+/** Defaults for debug-panel CO2 haze stamp / blur / color / opacity. */
 const GLOBE_CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
   ...CO2_HAZE_TUNE_DEFAULTS,
 };
@@ -189,11 +189,11 @@ export type TempHeatTune = {
 };
 
 const GLOBE_TEMP_HEAT_TUNE_DEFAULTS: TempHeatTune = {
-  stampRadiusBase: 3,
-  stampRadiusSpan: 5,
-  blurPass1Radius: 2,
+  stampRadiusBase: 16,
+  stampRadiusSpan: 12,
+  blurPass1Radius: 4,
   blurPass2Radius: 1,
-  heatStrength: 1,
+  heatStrength: 1.30,
 };
 
 const GLOW_VS = /* glsl */ `
@@ -541,7 +541,7 @@ export class GlobeView {
         depthWrite: false,
         depthTest: true,
         side: THREE.FrontSide,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
         toneMapped: false,
       }),
     );
@@ -751,7 +751,7 @@ export class GlobeView {
     }
   }
 
-  /** Current CO2 haze stamp / blur / alpha tuning (debug panel CO2 Haze section). */
+  /** Current CO2 haze stamp / blur / color / opacity tuning (debug panel CO2 Haze section). */
   getCo2HazeTune(): Co2HazeTune {
     return { ...this.co2HazeTune };
   }
@@ -2117,7 +2117,8 @@ export class GlobeView {
     }
     if (this.co2Haze.visible) {
       (this.co2Haze.material as THREE.MeshBasicMaterial).opacity =
-        0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3);
+        this.co2HazeTune.hazeOpacity +
+        0.15 * Math.sin(this.clock.elapsedTime * 0.3);
     }
     this.controls.update();
     this.tickMultiplex(dt);
