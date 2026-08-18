@@ -1756,20 +1756,35 @@ export class GlobeView {
       return;
     }
     u.uOceanPointScale.value = 1;
-    const rgb = this.getActiveLayerColorLinear();
-    u.uTint.value.set(rgb[0], rgb[1], rgb[2]);
-    if (this.visualTheme === "blue") {
-      u.uShadeBase.value.set(
-        209 / 255,
-        247 / 255,
-        255 / 255,
-      );
-      u.uLandTint.value.set(209 / 255, 247 / 255, 255 / 255);
-      u.uLandTintStrength.value = 0.3;
-    } else {
+    const emopainHex = this.showAllLayersMode
+      ? getMapLayerById("emopain")?.color
+      : undefined;
+    const physpainHex = this.showAllLayersMode
+      ? getMapLayerById("physpain")?.color
+      : undefined;
+    if (emopainHex && physpainHex) {
+      const oceanRgb = getLayerBaseColorLinear(emopainHex, this.visualTheme);
+      const landRgb = getLayerBaseColorLinear(physpainHex, this.visualTheme);
+      u.uTint.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
+      u.uLandTint.value.set(landRgb[0], landRgb[1], landRgb[2]);
+      u.uLandTintStrength.value = 1.0;
       u.uShadeBase.value.set(1, 1, 1);
-      u.uLandTint.value.set(0.86, 0.9, 0.96);
-      u.uLandTintStrength.value = 0.22;
+    } else {
+      const rgb = this.getActiveLayerColorLinear();
+      u.uTint.value.set(rgb[0], rgb[1], rgb[2]);
+      if (this.visualTheme === "blue") {
+        u.uShadeBase.value.set(
+          209 / 255,
+          247 / 255,
+          255 / 255,
+        );
+        u.uLandTint.value.set(209 / 255, 247 / 255, 255 / 255);
+        u.uLandTintStrength.value = 0.3;
+      } else {
+        u.uShadeBase.value.set(1, 1, 1);
+        u.uLandTint.value.set(0.86, 0.9, 0.96);
+        u.uLandTintStrength.value = 0.22;
+      }
     }
     this.applyStippleTuneUniforms();
     this.applyStippleHeatUniforms();
