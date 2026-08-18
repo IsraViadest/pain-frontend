@@ -155,6 +155,11 @@ const CHOROPLETH_SHELL_RADIUS = RADIUS * 1.001;
  * (globe warp uses surfaceBias 0).
  */
 const CHOROPLETH_SCAR_SURFACE_BIAS = 0.001;
+/**
+ * Uniform scale on `globe` when it is a depth-only mask in all-layers choropleth mode
+ * so it sits inside stipple and borders.
+ */
+const GLOBE_DEPTH_MASK_SCALE = 0.994;
 /** CO2 haze shell between solid globe and rim glow. */
 const HAZE_RADIUS = RADIUS * 1.05;
 /** Temperature haze shell just outside the solid globe (inside CO2 haze). */
@@ -997,6 +1002,8 @@ export class GlobeView {
   private getAutoGlobeVisible(): boolean {
     // Single-layer choropleth: hide the solid shell so only choroplethShell shows.
     if (this.isChoroplethLayerActive() && !this.showAllLayersMode) return false;
+    // All-layers choropleth: keep the globe drawing so it can write depth (see applyGlobeShellColor).
+    if (this.showAllLayersMode && this.shouldPaintChoropleth()) return true;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
@@ -1250,7 +1257,17 @@ export class GlobeView {
     mat.map = null;
     mat.color.setHex(GLOBE_SHELL_COLOR);
     mat.transparent = false;
-    mat.opacity = 1;
+    if (this.showAllLayersMode && this.shouldPaintChoropleth()) {
+      // Invisible but still writes depth so choropleth back faces do not show through.
+      mat.opacity = 0;
+      mat.colorWrite = false;
+      mat.depthWrite = true;
+      this.globe.scale.setScalar(GLOBE_DEPTH_MASK_SCALE);
+    } else {
+      mat.opacity = 1;
+      mat.colorWrite = true;
+      this.globe.scale.setScalar(1);
+    }
     mat.needsUpdate = true;
   }
 
@@ -2086,6 +2103,8 @@ export class GlobeView {
       this.allLayersChoroplethColorHex = null;
       this.currentLayerSupportsText = false;
     }
+    this.applyGlobeShellColor();
+    this.syncBaseGlobeVisibility();
     this.applyPointsTint();
   }
 
