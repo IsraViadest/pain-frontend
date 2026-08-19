@@ -318,6 +318,19 @@
   pointer-events: none;
 }
 
+.survey-map-pin.survey-map__bubble--selected .survey-map-pin__dot {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.7);
+}
+
+.survey-screen__tap-hint {
+  margin: 0 0 6px;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  color: #07153b;
+  opacity: 0.65;
+  text-align: center;
+}
+
 .survey-screen__tray {
   display: flex;
   flex-direction: row;
@@ -369,6 +382,13 @@
 
 .survey-tray-bubble:active {
   cursor: grabbing;
+}
+
+.survey-map__bubble--selected {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+  border-radius: 12px;
 }
 
 .survey-tray-bubble .survey-bubble__label {

@@ -11,10 +11,10 @@ import type { MapLayer } from "../types/api";
  * Mock mode layer ids (e.g. `environmental`) are not in this map — fallbacks use "generic".
  */
 const LAYER_ID_TO_LEXICON_BUCKET: Record<string, string> = {
-  Env: "environmental",
-  Phys: "physical",
-  Emo: "emotional",
-  Socioeco: "socioeconomic",
+  emopain: "emotional",
+  envpain: "environmental",
+  physpain: "physical",
+  socioecopain: "socioeconomic",
 };
 
 /**
@@ -54,7 +54,7 @@ export function resolveLayerLexiconBucket(layerId: string): string {
   const bucket = LAYER_ID_TO_LEXICON_BUCKET[layerId.trim()];
   if (bucket) return bucket;
   console.warn(
-    `[layers] No lexicon bucket for layer id "${layerId}" — using "generic". Mock mode? Prod ids only in LAYER_ID_TO_LEXICON_BUCKET.`,
+    `[layers] No lexicon bucket for layer id "${layerId}" — using "generic".`,
   );
   return "generic";
 }

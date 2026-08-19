@@ -455,6 +455,7 @@ function handleLayerChange(layerId: string): void {
     globe.setShowAllLayersMode(false);
     chrome?.setAllLayersActive(false);
   }
+  globe.setMarkers([]);
   const prevLayerId = lastLayerId;
   if (prevLayerId && prevLayerId !== layerId) {
     trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
@@ -548,8 +549,13 @@ async function loadPoints(): Promise<void> {
       `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
     );
   } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") return;
-    if (e instanceof Error && e.name === "AbortError") return;
+    if (
+      controller.signal.aborted ||
+      (e instanceof DOMException && e.name === "AbortError") ||
+      (e instanceof Error && e.name === "AbortError")
+    ) {
+      return;
+    }
     throw e;
   }
 }
