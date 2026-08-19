@@ -105,6 +105,13 @@
   color: #07153b;
 }
 
+.survey-screen__title-hint {
+  display: block;
+  font-size: 0.85em;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
 .survey-screen__bubble-field {
   position: relative;
   flex: 1;
@@ -230,7 +237,9 @@
   background: rgba(7, 21, 59, 0.88);
   color: #ffffff;
   font-size: 1.6rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(7, 21, 59, 0.22);
   transition: transform 0.2s ease, background 0.2s ease;
@@ -407,7 +416,9 @@
   background: rgba(7, 21, 59, 0.88);
   color: #ffffff;
   font-size: 1.6rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(7, 21, 59, 0.22);
   transition: transform 0.2s ease, background 0.2s ease;
@@ -469,6 +480,38 @@
 .survey-screen--4 .survey-bubble__label {
   font-size: clamp(1.1rem, 2vw, 1.4rem);
   white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .survey-screen__bubble-field,
+  .survey-screen__temporality-field {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+    align-content: flex-start;
+    overflow-y: auto;
+    height: auto;
+    max-height: 65vh;
+    min-height: unset;
+  }
+
+  .survey-screen__bubble-field .survey-bubble-anchor,
+  .survey-screen__temporality-field .survey-bubble-anchor {
+    position: relative;
+    left: unset !important;
+    top: unset !important;
+    transform: none !important;
+  }
+
+  .survey-screen__tray {
+    margin: 0 5px 4px;
+    max-height: none;
+    flex-wrap: wrap;
+    overflow-x: hidden;
+    overflow-y: visible;
+    height: auto;
+  }
 }
 
 /* Screen 5 — pain description and submit */

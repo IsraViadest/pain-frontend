@@ -34,8 +34,8 @@ export function mountSurveyScreen1(
 
   const title = document.createElement("h2");
   title.className = "survey-screen__title";
-  title.textContent =
-    "Select the words that describe your pain (click all that apply).";
+  title.innerHTML =
+    'Select the words that describe your pain<br><span class="survey-screen__title-hint">(click all that apply)</span>';
 
   const field = document.createElement("div");
   field.className = "survey-screen__bubble-field";
@@ -104,7 +104,8 @@ export function mountSurveyScreen1(
   advanceBtn.type = "button";
   advanceBtn.className = "survey-screen__advance";
   advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.textContent = "→";
+  advanceBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h12M11 5l5 5-5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   advanceBtn.addEventListener("click", onAdvance);
 
   root.append(title, field, advanceBtn);

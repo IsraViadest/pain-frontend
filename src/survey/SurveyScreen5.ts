@@ -50,13 +50,15 @@ export function mountSurveyScreen5(
   backBtn.type = "button";
   backBtn.className = "survey-screen__back";
   backBtn.setAttribute("aria-label", "Back to relations selection");
-  backBtn.textContent = "←";
+  backBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10H4M9 5L4 10l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   const submitBtn = document.createElement("button");
   submitBtn.type = "button";
   submitBtn.className = "survey-screen__advance";
   submitBtn.setAttribute("aria-label", "Submit survey");
-  submitBtn.textContent = "→";
+  submitBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h12M11 5l5 5-5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   root.append(title, painText, backBtn, submitBtn);
   host.appendChild(root);

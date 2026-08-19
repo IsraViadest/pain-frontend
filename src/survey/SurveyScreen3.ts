@@ -58,8 +58,8 @@ export function mountSurveyScreen3(
 
   const title = document.createElement("h2");
   title.className = "survey-screen__title";
-  title.textContent =
-    "How long have you felt this pain? (click all that apply)";
+  title.innerHTML =
+    'How long have you felt this pain?<br><span class="survey-screen__title-hint">(click all that apply)</span>';
 
   const field = document.createElement("div");
   field.className = "survey-screen__temporality-field";
@@ -125,13 +125,15 @@ export function mountSurveyScreen3(
   backBtn.type = "button";
   backBtn.className = "survey-screen__back";
   backBtn.setAttribute("aria-label", "Back to map placement");
-  backBtn.textContent = "←";
+  backBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10H4M9 5L4 10l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   const advanceBtn = document.createElement("button");
   advanceBtn.type = "button";
   advanceBtn.className = "survey-screen__advance";
   advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.textContent = "→";
+  advanceBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h12M11 5l5 5-5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   root.append(title, field, backBtn, advanceBtn);
   host.appendChild(root);

@@ -202,13 +202,15 @@ export function mountSurveyScreen2(
   backBtn.type = "button";
   backBtn.className = "survey-screen__back";
   backBtn.setAttribute("aria-label", "Back to word selection");
-  backBtn.textContent = "←";
+  backBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10H4M9 5L4 10l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   const advanceBtn = document.createElement("button");
   advanceBtn.type = "button";
   advanceBtn.className = "survey-screen__advance";
   advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.textContent = "→";
+  advanceBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h12M11 5l5 5-5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   root.append(title, tapHint, mapWrap, tray, backBtn, advanceBtn);
   host.appendChild(root);
