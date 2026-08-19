@@ -120,8 +120,14 @@ function createMapPin(word: string): HTMLElement {
   return pin;
 }
 
+/** CSS class toggled on the tap-selected tray bubble or placed pin. */
+const TAP_SELECTED_CLASS = "survey-map__bubble--selected";
+
 /**
- * Survey screen 2 — drag selected words onto the world map and place lat/lng pins.
+ * Survey screen 2 — drag or tap-to-place words onto the world map as lat/lng pins.
+ *
+ * Desktop: drag a tray bubble onto the map (existing behaviour).
+ * Mobile / touch: tap a tray bubble to select it, then tap the map to place it.
  */
 export function mountSurveyScreen2(
   host: HTMLElement,
@@ -146,13 +152,32 @@ export function mountSurveyScreen2(
     });
   };
 
+  let tapSelectedWord: string | null = null;
+  let tapSelectedEl: HTMLElement | null = null;
+
+  const setTapSelection = (word: string | null, el: HTMLElement | null): void => {
+    if (tapSelectedEl) tapSelectedEl.classList.remove(TAP_SELECTED_CLASS);
+    if (word === tapSelectedWord && word !== null) {
+      tapSelectedWord = null;
+      tapSelectedEl = null;
+      return;
+    }
+    tapSelectedWord = word;
+    tapSelectedEl = el;
+    if (tapSelectedEl) tapSelectedEl.classList.add(TAP_SELECTED_CLASS);
+  };
+
   const root = document.createElement("div");
   root.className = "survey-screen survey-screen--2";
 
   const title = document.createElement("h2");
   title.className = "survey-screen__title";
   title.textContent =
-    "Drag the word bubbles onto the body of the planet.";
+    "Place the word bubbles on the body of the planet.";
+
+  const tapHint = document.createElement("p");
+  tapHint.className = "survey-screen__tap-hint";
+  tapHint.textContent = "Tap a word, then tap the map to place it";
 
   const mapWrap = document.createElement("div");
   mapWrap.className = "survey-screen__map-wrap";
@@ -185,7 +210,7 @@ export function mountSurveyScreen2(
   advanceBtn.setAttribute("aria-label", "Continue to next step");
   advanceBtn.textContent = "→";
 
-  root.append(title, mapWrap, tray, backBtn, advanceBtn);
+  root.append(title, tapHint, mapWrap, tray, backBtn, advanceBtn);
   host.appendChild(root);
 
   const pinByWord = new Map<string, HTMLElement>();
@@ -219,6 +244,11 @@ export function mountSurveyScreen2(
         event.dataTransfer.setData(SURVEY_DRAG_WORD_MIME, placement.word);
         event.dataTransfer.setData("text/plain", placement.word);
         event.dataTransfer.effectAllowed = "move";
+      });
+
+      const pinRef = pin;
+      addListener(pin, "click", () => {
+        setTapSelection(placement.word, pinRef);
       });
     }
     if (positionNow) {
@@ -279,6 +309,10 @@ export function mountSurveyScreen2(
       addListener(blobBtn, "dragend", () => {
         blobBtn.setAttribute("aria-grabbed", "false");
       });
+
+      addListener(blobBtn, "click", () => {
+        setTapSelection(word, blobBtn);
+      });
     }
   };
 
@@ -312,6 +346,17 @@ export function mountSurveyScreen2(
   });
 
   addListener(mapImg, "drop", handleMapDrop);
+
+  addListener(mapImg, "click", (event) => {
+    if (!tapSelectedWord) return;
+    const coords = svgCoordsToLatLng(event.clientX, event.clientY, mapImg);
+    if (!coords) return;
+    const word = tapSelectedWord;
+    upsertPlacement(state, word, coords.lat, coords.lng);
+    renderPin({ word, lat: coords.lat, lng: coords.lng });
+    setTapSelection(null, null);
+    refreshTray();
+  });
 
   schedulePinLayoutSync(mapImg, syncAllPinPositions);
 
