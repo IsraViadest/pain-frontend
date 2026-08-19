@@ -160,7 +160,7 @@
   display: block;
   width: auto;
   height: clamp(58px, 9.6vw, 86px);
-  max-width: 168px;
+  max-width: 200px;
 }
 
 #ui-share-pain .blob-button__svg {
@@ -181,10 +181,10 @@
   color: #ffffff !important;
   text-align: center;
   pointer-events: none;
-  max-width: 75%;
+  max-width: 90%;
   line-height: 1.25;
-  word-break: break-word;
-  hyphens: auto;
+  word-break: normal;
+  hyphens: none;
 }
 
 #ui-share-pain .blob-button__label {
@@ -305,7 +305,11 @@
 
   #ui-title-controls {
     position: fixed;
-    top: 220px;
+    /* 20px top inset + mobile title + subtitle + spacing */
+    top: calc(
+      20px + clamp(2.88rem, 5.76vw, 5.04rem) + clamp(0.85rem, 1.33vw, 1.03rem) +
+        24px
+    );
     left: 20px;
     z-index: 2;
     display: flex;
