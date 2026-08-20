@@ -509,8 +509,8 @@
     max-height: none;
     flex-wrap: wrap;
     overflow-x: hidden;
-    overflow-y: visible;
-    height: auto;
+    overflow-y: auto;
+    height: 80px;
   }
 }
 
