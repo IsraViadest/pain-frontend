@@ -58,10 +58,19 @@ function postMetrics(path: string, body: MetricsPostBody): void {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, ...body }),
-  }).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[metricsApi] POST ${metricsPath} failed: ${msg}`);
-  });
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.warn(
+          `[metricsApi] POST ${metricsPath} → ${res.status}: ${text}`,
+        );
+      }
+    })
+    .catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[metricsApi] POST ${metricsPath} failed: ${msg}`);
+    });
 }
 
 /**
