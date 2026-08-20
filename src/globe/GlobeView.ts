@@ -269,6 +269,7 @@ void main() {
   gl_FragColor = vec4(uGlowColor, alpha);
 }
 `;
+
 type MultiplexLink = {
   aIndex: number;
   bIndex: number;
@@ -389,7 +390,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * ├── lights (ambLight, keyLight, fillLight)
  * ├── earthContent      rotates with auto-spin; parent of solid + choropleth + CO2 haze + rim glow
  * │   ├── glow              renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
- * │   ├── co2Haze           renderOrder -1  — CO2 category haze (HAZE_RADIUS; AdditiveBlending)
+ * │   ├── co2Haze           renderOrder -1  — CO2 category haze (HAZE_RADIUS; NormalBlending)
  * │   ├── temperatureShell  renderOrder -1  — Temperature haze (TEMPERATURE_SHELL_RADIUS)
  * │   ├── choroplethShell   renderOrder  1  — country fill (CHOROPLETH_SHELL_RADIUS; NormalBlending)
  * │   └── globe             renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)

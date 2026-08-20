@@ -84,8 +84,8 @@ function boxBlurHaze(
         const iy = y + dy;
         if (iy < 0 || iy >= height) continue;
         for (let dx = -radius; dx <= radius; dx++) {
-          const ix = x + dx;
-          if (ix < 0 || ix >= width) continue;
+          // Equirect wrap on X so blur matches stamp wrap at the antimeridian.
+          const ix = ((x + dx) % width + width) % width;
           sum += src[iy * width + ix]!;
           count++;
         }
@@ -104,7 +104,7 @@ function makeHazeRgbaDataTexture(bytes: Uint8Array): THREE.DataTexture {
     THREE.RGBAFormat,
     THREE.UnsignedByteType,
   );
-  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
