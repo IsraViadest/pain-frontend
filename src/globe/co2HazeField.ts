@@ -64,7 +64,7 @@ export const CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
   blurPass2Radius: 1,
   maxAlpha: 255,
   alphaThreshold: 0,
-  normMode: "log",
+  normMode: "raw",
   hazeColor: 255,
   hazeOpacity: 1.0,
 };

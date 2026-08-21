@@ -165,12 +165,6 @@ export async function mountProductionChrome(
     applyActiveLayer(activeLayerId);
   }
 
-  const themeToggle = appRoot.querySelector<HTMLButtonElement>("#theme-toggle");
-  if (!themeToggle) {
-    throw new Error("[productionChrome] Missing #theme-toggle");
-  }
-  themeToggle.hidden = false;
-
   allLayersBtn.addEventListener("click", () => {
     callbacks.onAllLayers();
     closeMobileMenu();
@@ -179,7 +173,7 @@ export async function mountProductionChrome(
   const controlsHost = window.matchMedia("(max-width: 768px)").matches
     ? titleControlsHost
     : topRightHost;
-  controlsHost.append(themeToggle, allLayersBtn);
+  controlsHost.append(allLayersBtn);
 
   const sharePainBtn = await createBlobButton({
     svgName: "share_pain.svg",

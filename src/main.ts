@@ -57,9 +57,8 @@ const THEME_STORAGE_KEY = "pain-ui-theme";
 const canvas = document.querySelector<HTMLCanvasElement>("#globe");
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
 const wordCloudToggle = document.querySelector<HTMLButtonElement>("#word-cloud-toggle");
-const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
 
-if (!canvas || !statusEl || !wordCloudToggle || !themeToggle) {
+if (!canvas || !statusEl || !wordCloudToggle) {
   throw new Error("Missing DOM nodes");
 }
 
@@ -83,7 +82,6 @@ function readPainVizMode(): PainVisualizationMode {
 }
 
 const wordCloudBtn = wordCloudToggle;
-const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
 if (!appRoot) throw new Error("Missing app root");
 const appRootEl: HTMLDivElement = appRoot;
@@ -111,14 +109,6 @@ function getInitialTheme(): VisualTheme {
       : readStoredTheme();
   } catch {
     return "blue";
-  }
-}
-
-function persistTheme(theme: VisualTheme): void {
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-  } catch {
-    /* ignore quota / private mode */
   }
 }
 
@@ -242,14 +232,6 @@ let wordCloudEnabled = false;
 globe.setWordCloudEnabled(wordCloudEnabled);
 
 // --- Production chrome event handlers ---
-function syncThemeToggle(): void {
-  const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
-  themeBtn.textContent = t === "blue" ? "Dark mode" : "Blue mode";
-  themeBtn.setAttribute("aria-pressed", t === "blue" ? "true" : "false");
-}
-
-syncThemeToggle();
-
 function getCurrentMapLayer(): MapLayer | undefined {
   return getMapLayerById(lastLayerId);
 }
@@ -278,15 +260,6 @@ function syncWordCloudToggle(): void {
 }
 
 syncWordCloudToggle();
-
-themeBtn.addEventListener("click", () => {
-  const next: VisualTheme =
-    document.documentElement.dataset.theme === "blue" ? "dark" : "blue";
-  document.documentElement.dataset.theme = next;
-  persistTheme(next);
-  globe.setVisualTheme(next);
-  syncThemeToggle();
-});
 
 wordCloudBtn.addEventListener("click", () => {
   wordCloudEnabled = !wordCloudEnabled;

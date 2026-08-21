@@ -120,15 +120,15 @@ const TUNE_SECTIONS: {
         label: "Scar dent scale (GPU)",
         hint: "Radial depth from height map.",
         min: 0,
-        max: 0.2,
+        max: 0.5,
         step: 0.002,
       },
       {
         key: "scarDispBias",
         label: "Scar dent bias (GPU)",
         hint: "Adds constant radial offset.",
-        min: -0.1,
-        max: 0.02,
+        min: -0.3,
+        max: 0,
         step: 0.002,
       },
       {
@@ -175,7 +175,7 @@ const TUNE_SECTIONS: {
         label: "Stamp depth mul",
         hint: "Brightness of each dent before GPU scale (detail vs strength).",
         min: 0.2,
-        max: 2.5,
+        max: 10000,
         step: 0.05,
       },
       {
@@ -635,7 +635,22 @@ export function mountGlobeDebugPanel(
       range.addEventListener("input", () => {
         const v = Number(range.value);
         valSpan.textContent = formatTuneValue(v, decimals);
-        globe.setDebugTune({ [spec.key]: v });
+        if (spec.key === "scarDispBias") {
+          globe.setScarDispBias(v);
+        } else if (spec.key === "scarDispScale") {
+          globe.setDebugTune({ scarDispScale: v });
+          // bias = -0.5 * scale keeps neutral surface at radius 1.
+          const bias = -0.5 * v;
+          globe.setScarDispBias(bias);
+          const biasRange = tuneInputs.scarDispBias;
+          if (biasRange) {
+            biasRange.value = String(bias);
+            const biasOut = biasRange.parentElement?.querySelector("output");
+            if (biasOut) biasOut.textContent = formatTuneValue(bias, 3);
+          }
+        } else {
+          globe.setDebugTune({ [spec.key]: v });
+        }
       });
     }
 

@@ -58,8 +58,8 @@ export type { Co2HazeTune };
 /** Stipple: discard when dot(surfaceNormal, viewDir) < this; can be negative to keep more limb dots. */
 export const GLOBE_DEBUG_TUNE_DEFAULTS = {
   facingCullMin: -0.2,
-  scarDispScale: 0.12,
-  scarDispBias: -0.052,
+  scarDispScale: 0.4,
+  scarDispBias: -0.2,
   oceanAlphaBoost: 0.2,
   /** 1 = land dents only (nested “inner sphere”); 0 = land + ocean move together. */
   scarLandOnly: 0,
@@ -807,6 +807,16 @@ export class GlobeView {
     ) {
       this.scheduleScarFieldRebuild();
     }
+  }
+
+  /**
+   * Set GPU scar dent bias (constant radial offset). Live for debug panel.
+   * Default: {@link GLOBE_DEBUG_TUNE_DEFAULTS.scarDispBias}.
+   */
+  setScarDispBias(value: number): void {
+    this.debugTune = { ...this.debugTune, scarDispBias: value };
+    this.applyStippleScarUniforms();
+    this.refreshCpuScarDisplacementFromTune();
   }
 
   /** Whether point markers may rebuild in points mode (debug panel only). */
