@@ -22,6 +22,13 @@ type CreateBlobButtonOptions = {
   label?: string;
   variant: BlobButtonVariant;
   onClick?: () => void;
+  /**
+   * When true, active state keeps native SVG fill ({@link activeFill}) instead of gradient.
+   * For multi-path assets (e.g. physpain gray + red dots).
+   */
+  skipActiveGradient?: boolean;
+  /** Fill when active and {@link skipActiveGradient} is set. */
+  activeFill?: string;
 };
 
 type BlobButtonState = {
@@ -29,6 +36,8 @@ type BlobButtonState = {
   path: SVGPathElement;
   gradientId: string;
   active: boolean;
+  skipActiveGradient: boolean;
+  activeFill: string;
 };
 
 const blobButtonState = new WeakMap<HTMLElement, BlobButtonState>();
@@ -79,10 +88,15 @@ function prepareBlobPath(path: SVGPathElement): void {
 }
 
 function applyBlobFill(state: BlobButtonState): void {
-  const { path, gradientId, variant, active } = state;
-  const useGradient = variant === "share" || (variant === "layer" && active);
+  const { path, gradientId, variant, active, skipActiveGradient, activeFill } =
+    state;
+  const useGradient =
+    variant === "share" ||
+    (variant === "layer" && active && !skipActiveGradient);
   if (useGradient) {
     path.setAttribute("fill", `url(#${gradientId})`);
+  } else if (variant === "layer" && active && skipActiveGradient) {
+    path.setAttribute("fill", activeFill);
   } else {
     path.setAttribute("fill", INACTIVE_FILL);
   }
@@ -103,7 +117,8 @@ function syncBlobButtonClasses(el: HTMLElement, state: BlobButtonState): void {
 export async function createBlobButton(
   options: CreateBlobButtonOptions,
 ): Promise<HTMLButtonElement> {
-  const { svgName, label, variant, onClick } = options;
+  const { svgName, label, variant, onClick, skipActiveGradient, activeFill } =
+    options;
 
   const button = document.createElement("button");
   button.type = "button";
@@ -142,6 +157,8 @@ export async function createBlobButton(
     path,
     gradientId,
     active: false,
+    skipActiveGradient: skipActiveGradient === true,
+    activeFill: activeFill ?? "#3F3F3F",
   };
   blobButtonState.set(button, state);
   applyBlobFill(state);

@@ -38,6 +38,25 @@ function requireChild(host: HTMLElement, id: string): HTMLElement {
   return el;
 }
 
+/** Known production layer ids → SVG under `public/blobs/` (includes `new/` assets). */
+const PRODUCTION_LAYER_BLOB_SVG: Record<string, string> = {
+  emopain: "new/emo_pain.svg",
+  envpain: "new/env_pain.svg",
+  physpain: "new/phys_pain.svg",
+  socioecopain: "new/socioeco_pain.svg",
+};
+
+/** All-layers blob (not a GET /init layer id). */
+const ALL_PAIN_BLOB_SVG = "new/all_pain.svg";
+
+/**
+ * Layer blob for production chrome: hackathon SVGs for known ids;
+ * {@link resolveLayerBlobSvg} fallback for unknown layers.
+ */
+function resolveChromeLayerBlobSvg(layerId: string): string {
+  return PRODUCTION_LAYER_BLOB_SVG[layerId.trim()] ?? resolveLayerBlobSvg(layerId);
+}
+
 /** Same `/blobs/` URL pattern as blobButton — for assets that skip fill/gradient. */
 function blobAssetUrl(svgName: string): string {
   const file = svgName.endsWith(".svg") ? svgName : `${svgName}.svg`;
@@ -88,9 +107,7 @@ export async function mountProductionChrome(
   callbacks: ProductionChromeCallbacks,
 ): Promise<ProductionChrome> {
   const titleHost = requireChild(appRoot, "ui-title");
-  const titleControlsHost = requireChild(appRoot, "ui-title-controls");
   const layerStackHost = requireChild(appRoot, "ui-layer-stack");
-  const topRightHost = requireChild(appRoot, "ui-top-right");
   const hamburgerHost = requireChild(appRoot, "ui-hamburger");
   const sharePainHost = requireChild(appRoot, "ui-share-pain");
   const bottomLeftHost = requireChild(appRoot, "ui-bottom-left");
@@ -120,11 +137,17 @@ export async function mountProductionChrome(
   const layerButtons = new Map<string, HTMLButtonElement>();
   let activeLayerId = layers[0]?.id ?? "";
 
-  const allLayersBtn = document.createElement("button");
-  allLayersBtn.type = "button";
-  allLayersBtn.className = "ui-all-layers";
-  allLayersBtn.textContent = "all layers";
-  allLayersBtn.setAttribute("aria-pressed", "false");
+  const allPainBtn = await createBlobButton({
+    svgName: ALL_PAIN_BLOB_SVG,
+    label: "all the pain",
+    variant: "layer",
+    onClick: () => {
+      callbacks.onAllLayers();
+      closeMobileMenu();
+    },
+  });
+  allPainBtn.dataset.layer = "all-pain";
+  layerStackHost.appendChild(allPainBtn);
 
   const applyActiveLayer = (layerId: string): void => {
     activeLayerId = layerId;
@@ -134,8 +157,7 @@ export async function mountProductionChrome(
   };
 
   const applyAllLayersActive = (active: boolean): void => {
-    allLayersBtn.setAttribute("aria-pressed", active ? "true" : "false");
-    allLayersBtn.classList.toggle("is-active", active);
+    setActive(allPainBtn, active);
     if (active) {
       for (const btn of layerButtons.values()) {
         setActive(btn, false);
@@ -147,9 +169,10 @@ export async function mountProductionChrome(
 
   for (const layer of layers) {
     const btn = await createBlobButton({
-      svgName: resolveLayerBlobSvg(layer.id),
+      svgName: resolveChromeLayerBlobSvg(layer.id),
       label: layer.label,
       variant: "layer",
+      skipActiveGradient: layer.id === "physpain",
       onClick: () => {
         applyAllLayersActive(false);
         applyActiveLayer(layer.id);
@@ -157,6 +180,7 @@ export async function mountProductionChrome(
         closeMobileMenu();
       },
     });
+    btn.dataset.layer = layer.id;
     layerButtons.set(layer.id, btn);
     layerStackHost.appendChild(btn);
   }
@@ -164,16 +188,6 @@ export async function mountProductionChrome(
   if (activeLayerId) {
     applyActiveLayer(activeLayerId);
   }
-
-  allLayersBtn.addEventListener("click", () => {
-    callbacks.onAllLayers();
-    closeMobileMenu();
-  });
-
-  const controlsHost = window.matchMedia("(max-width: 768px)").matches
-    ? titleControlsHost
-    : topRightHost;
-  controlsHost.append(allLayersBtn);
 
   const sharePainBtn = await createBlobButton({
     svgName: "share_pain.svg",

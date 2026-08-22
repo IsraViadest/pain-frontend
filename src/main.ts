@@ -396,6 +396,14 @@ function setStatus(msg: string): void {
   hudStatus.textContent = msg;
 }
 
+/** Stipple tint overrides for known layers; unknown ids use GET /init `color`. */
+const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
+  emopain: "#6B15CE",
+  envpain: "#00674F",
+  physpain: "#FF0000",
+  socioecopain: "#FFFF00",
+};
+
 /**
  * Apply layer visuals and auto-switch pain viz mode:
  * physpain → scars; all other / unknown ids → points.
@@ -412,7 +420,7 @@ function applyGlobeLayer(layerId: string): void {
   const layer = getMapLayerById(layerId);
   const meta: GlobeLayerDisplayMeta | undefined = layer
     ? {
-        color: layer.color,
+        color: LAYER_STIPPLE_COLOR_OVERRIDES[layerId] ?? layer.color,
         text: layer.text,
         geospatial: layer.geospatial,
         lexiconBucket: resolveLayerLexiconBucket(layerId),
