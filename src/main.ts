@@ -427,6 +427,7 @@ function handleLayerChange(layerId: string): void {
     showAllLayersActive = false;
     globe.setShowAllLayersMode(false);
     chrome?.setAllLayersActive(false);
+    trackToggle(METRICS_KIND_LAYER, "all-layers", false);
   }
   globe.setMarkers([]);
   const prevLayerId = lastLayerId;
@@ -456,6 +457,7 @@ async function handleAllLayers(): Promise<void> {
 
   showAllLayersActive = true;
   chrome?.setAllLayersActive(true);
+  trackToggle(METRICS_KIND_LAYER, "all-layers", true);
 
   const phys = cachedLayers.find((l) => l.id === "physpain");
   const socio = cachedLayers.find((l) => isChoroplethMapLayer(l));
