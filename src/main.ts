@@ -430,6 +430,9 @@ function applyGlobeLayer(layerId: string): void {
 }
 
 function handleLayerChange(layerId: string): void {
+  if (layerId === lastLayerId && !showAllLayersActive) {
+    return;
+  }
   loadPointsAbortController?.abort();
   if (showAllLayersActive) {
     showAllLayersActive = false;
