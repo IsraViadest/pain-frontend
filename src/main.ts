@@ -46,6 +46,7 @@ import {
 } from "./survey/surveyResultModal";
 import { type SurveySubmissionPayload } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
+import { showConsentModal } from "./survey/consentModal";
 import {
   mountProductionChrome,
   type ProductionChrome,
@@ -510,7 +511,13 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
       );
     },
     onSharePain: () => {
-      surveyModal.open();
+      void showConsentModal(
+        appRootEl,
+        () => {
+          surveyModal.open();
+        },
+        () => {},
+      );
     },
   });
 
