@@ -22,7 +22,7 @@ let closeHandler: (() => void) | null = null;
 /**
  * Show a centered info modal (About / Data Sources) with title and body text.
  *
- * Replaces any existing info modal. CLOSE sits outside the panel (survey result pattern).
+ * Replaces any existing info modal. Close is a top-right × on the panel.
  */
 export function showInfoModal(
   host: HTMLElement,
@@ -57,7 +57,7 @@ export function showInfoModal(
   closeBtn.type = "button";
   closeBtn.className = "info-modal__close";
   closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.textContent = "CLOSE";
+  closeBtn.textContent = "×";
 
   const handleClose = (): void => {
     const cb = closeHandler;
@@ -65,9 +65,10 @@ export function showInfoModal(
     cb?.();
   };
 
+  backdrop.addEventListener("click", handleClose);
   closeBtn.addEventListener("click", handleClose);
-  panel.append(titleEl, bodyEl);
-  modalEl.append(backdrop, panel, closeBtn);
+  panel.append(closeBtn, titleEl, bodyEl);
+  modalEl.append(backdrop, panel);
   host.appendChild(modalEl);
 }
 
