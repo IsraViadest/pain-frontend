@@ -628,15 +628,20 @@
 }
 
 .survey-result-modal__close {
+  display: block;
+  margin-top: 16px;
   font-family: "Hypodermic", sans-serif;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
   background: none !important;
   border: none !important;
   -webkit-appearance: none;
   appearance: none;
-  color: rgba(255, 255, 255, 0.8);
+  color: #07153b;
   cursor: pointer;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
+  width: 100%;
+  text-align: center;
   padding: 4px 12px;
 }
 

@@ -58,8 +58,8 @@ export function showSurveyResultModal(
   };
 
   closeBtn.addEventListener("click", handleClose);
-  panel.append(title, coords);
-  modalEl.append(panel, closeBtn);
+  panel.append(title, coords, closeBtn);
+  modalEl.append(panel);
   host.appendChild(modalEl);
 }
 

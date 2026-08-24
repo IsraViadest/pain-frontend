@@ -28,6 +28,11 @@ export type ProductionChrome = {
    * When false, restores active highlight for the current layer id.
    */
   setAllLayersActive: (active: boolean) => void;
+  /**
+   * Enable or dim share / about / data-sources / hamburger while a result
+   * overlay is showing. Layer blobs stay clickable.
+   */
+  setUiEnabled: (enabled: boolean) => void;
 };
 
 function requireChild(host: HTMLElement, id: string): HTMLElement {
@@ -225,12 +230,32 @@ export async function mountProductionChrome(
 
   bottomLeftHost.append(aboutBtn, dataSourcesBtn);
 
+  const chromeActionButtons = [
+    sharePainBtn,
+    aboutBtn,
+    dataSourcesBtn,
+    hamburgerBtn,
+  ];
+
   return {
     setActiveLayer(layerId: string): void {
       applyActiveLayer(layerId);
     },
     setAllLayersActive(active: boolean): void {
       applyAllLayersActive(active);
+    },
+    setUiEnabled(enabled: boolean): void {
+      for (const btn of chromeActionButtons) {
+        btn.disabled = !enabled;
+        if (enabled) {
+          btn.style.opacity = "";
+          btn.style.pointerEvents = "";
+        } else {
+          // Dimmed overlay chrome while the post-submit result card is open.
+          btn.style.opacity = "0.4";
+          btn.style.pointerEvents = "none";
+        }
+      }
     },
   };
 }

@@ -155,6 +155,7 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
       globe.earthContent,
     );
     const removeSurfaceMarker = globe.addSurfaceMarker(resultLat, resultLng);
+    chrome?.setUiEnabled(false);
     showSurveyResultModal(overlayHost, {
       lat: resultLat,
       lng: resultLng,
@@ -162,6 +163,7 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
         removeSurfaceMarker();
         hideSurveyResultModal();
         globe.setAutoSpinEnabled(true);
+        chrome?.setUiEnabled(true);
       },
     });
   } finally {
