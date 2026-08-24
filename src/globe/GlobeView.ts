@@ -593,6 +593,7 @@ export class GlobeView {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
     this.controls.rotateSpeed = 0.65;
+    this.controls.enablePan = false;
     this.controls.minDistance = 1.35;
     this.controls.maxDistance = 5;
 
