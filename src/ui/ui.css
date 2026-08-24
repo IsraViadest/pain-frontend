@@ -363,6 +363,10 @@
 }
 
 @media (max-width: 768px) {
+  .info-modal__panel .info-modal__logos-inner {
+    max-width: 100% !important;
+  }
+
   /* ~20% smaller than desktop heading clamp; subtitle unchanged. */
   .ui-title__heading {
     font-size: clamp(2.88rem, 5.76vw, 5.04rem);

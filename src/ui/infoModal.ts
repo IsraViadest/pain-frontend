@@ -13,9 +13,11 @@ export const INFO_MODAL_ABOUT: Readonly<{ title: string; body: string }> = {
 <h2 style="font-family: 'Atelier', serif; font-weight: normal; margin: 0 0 12px;">About the P.A.I.N. Collective</h2>
 <p style="font-family: 'Halfre', sans-serif; margin: 0 0 24px; line-height: 1.6;">The P.A.I.N Collective is an interdisciplinary group of artists (Mary Maggic, Dora Siafla, Hollis Hui, Dominika Kolenda), alongside computer scientist Michael Artner, AI researcher Christian Stelmach, network scientist Ines Gerard-Ursin, UX/UI developer Isra Viadest, and facilitator Mathieu Mahve-Beydokhti (LBG-OIS). The collective formed during the "Impact Initiative on AI, Art, and Health" hackathon, organized by JKU Linz and Ars Electronica in 2025.</p>
 <p style="font-family: 'Halfre', sans-serif; margin: 0 0 32px; line-height: 1.6;">With additional support from Iker Núñez-Carpintero (Post-Doc Researcher) - Multiplex Systems Expert, and Norbert Unfug and Sebastian Pirch - Data Visualization from the Ludwig Boltzmann Institute for Network Medicine.</p>
-<div style="display: flex; gap: 24px; align-items: flex-start; background: white; padding: 16px 36px; margin: 0 -36px -28px; border-radius: 0 0 20px 20px;">
-  <a href="https://netmed.lbg.ac.at/" target="_blank" rel="noopener"><img src="/logos/LBI_NetMed_EN_Basisfarben.svg" alt="LBI NetMed" style="height: 60px; width: auto;"></a>
-  <a href="https://ois.lbg.ac.at/" target="_blank" rel="noopener"><img src="/logos/LBG_Logo_OIS_RGB.png" alt="LBG OIS" style="height: 48px; width: auto;"></a>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; background: white; padding: 16px 36px; margin: 0 -36px -28px; border-radius: 0 0 20px 20px;">
+  <div class="info-modal__logos-inner" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; max-width: 70%; width: 100%;">
+    <a href="https://netmed.lbg.ac.at/" target="_blank" rel="noopener" style="flex: 0.698; min-width: 0;"><img id="logo-netmed" src="/logos/LBI_NetMed_EN_Basisfarben.svg" alt="LBI NetMed" style="width: 100%; height: auto;"></a>
+    <a href="https://ois.lbg.ac.at/" target="_blank" rel="noopener" style="flex: 1; min-width: 0;"><img src="/logos/LBG_Logo_OIS_RGB.png" alt="LBG OIS" style="width: 100%; height: auto;"></a>
+  </div>
 </div>
 `.trim(),
 };
