@@ -163,6 +163,8 @@ export async function mountProductionChrome(
     svgName: ALL_PAIN_BLOB_SVG,
     label: "all the pain",
     variant: "layer",
+    skipActiveGradient: true,
+    activeFill: "#D9D9D9",
     onClick: () => {
       callbacks.onAllLayers();
       closeMobileMenu();
@@ -195,7 +197,8 @@ export async function mountProductionChrome(
       svgName: resolveChromeLayerBlobSvg(layer.id),
       label: layer.label,
       variant: "layer",
-      skipActiveGradient: layer.id === "physpain",
+      skipActiveGradient: layer.id === "physpain" || layer.id === "envpain",
+      activeFill: layer.id === "envpain" ? "#CBB0B9" : undefined,
       onClick: () => {
         applyAllLayersActive(false);
         applyActiveLayer(layer.id);
