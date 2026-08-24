@@ -4,10 +4,20 @@ type InfoModalOptions = {
   onClose: () => void;
 };
 
-/** Placeholder copy for the About info modal. */
+/** About info modal — title lives inside {@link INFO_MODAL_ABOUT.body} HTML. */
 export const INFO_MODAL_ABOUT: Readonly<{ title: string; body: string }> = {
-  title: "About",
-  body: "Coming soon.",
+  title: "",
+  body: `
+<h2 style="font-family: 'Atelier', serif; font-weight: normal; margin: 0 0 12px;">About P.A.I.N.</h2>
+<p style="font-family: 'Halfre', sans-serif; margin: 0 0 24px; line-height: 1.6;">When the Earth feels pain, we feel pain too. The P.A.I.N. project reimagines pain as an interconnected reality (environmental, emotional, social-economic, communal) and how individual and planetary wounds mirror one another. When forests burn, do our nervous systems feel the same inflammation? Could grief be mapped alongside extinction curves? Merging Art, AI, and Network Science, P.A.I.N. weaves often disconnected data sets (climate indicators, public health records, social media sentiment, and GDP indexes) into an interactive 3D globe called the Personal-Planetary-Pain (PPP) Map. Users contribute their own pain stories while an AI engine entangles them with the planet's suffering, inviting visitors to feel as nodes within the Earth's body. In collaboration with the Ludwig Boltzmann Institute for Network Medicine, the project reveals a vastly hidden architecture of pain and transformation, where care for the self becomes inseparable from care for the more-than-human world we are nested within.</p>
+<h2 style="font-family: 'Atelier', serif; font-weight: normal; margin: 0 0 12px;">About the P.A.I.N. Collective</h2>
+<p style="font-family: 'Halfre', sans-serif; margin: 0 0 24px; line-height: 1.6;">The P.A.I.N Collective is an interdisciplinary group of artists (Mary Maggic, Dora Siafla, Hollis Hui, Dominika Kolenda), alongside computer scientist Michael Artner, AI researcher Christian Stelmach, network scientist Ines Gerard-Ursin, UX/UI developer Isra Viadest, and facilitator Mathieu Mahve-Beydokhti (LBG-OIS). The collective formed during the "Impact Initiative on AI, Art, and Health" hackathon, organized by JKU Linz and Ars Electronica in 2025.</p>
+<p style="font-family: 'Halfre', sans-serif; margin: 0 0 32px; line-height: 1.6;">With additional support from Iker Núñez-Carpintero (Post-Doc Researcher) - Multiplex Systems Expert, and Norbert Unfug and Sebastian Pirch - Data Visualization from the Ludwig Boltzmann Institute for Network Medicine.</p>
+<div style="display: flex; gap: 24px; align-items: flex-start; background: white; padding: 16px 36px; margin: 0 -36px -28px; border-radius: 0 0 20px 20px;">
+  <a href="https://netmed.lbg.ac.at/" target="_blank" rel="noopener"><img src="/logos/LBI_NetMed_EN_Basisfarben.svg" alt="LBI NetMed" style="height: 60px; width: auto;"></a>
+  <a href="https://ois.lbg.ac.at/" target="_blank" rel="noopener"><img src="/logos/LBG_Logo_OIS_RGB.png" alt="LBG OIS" style="height: 48px; width: auto;"></a>
+</div>
+`.trim(),
 };
 
 /** Placeholder copy for the Data Sources info modal. */
@@ -19,10 +29,17 @@ export const INFO_MODAL_DATA_SOURCES: Readonly<{ title: string; body: string }> 
 let modalEl: HTMLElement | null = null;
 let closeHandler: (() => void) | null = null;
 
+/** True when `body` includes an HTML open tag (block markup for About, etc.). */
+function bodyContainsHtml(body: string): boolean {
+  return /<[a-z][\s\S]*>/i.test(body);
+}
+
 /**
  * Show a centered info modal (About / Data Sources) with title and body text.
  *
  * Replaces any existing info modal. Close is a top-right × on the panel.
+ * When `body` contains HTML tags, it is set via `innerHTML` on a div; otherwise
+ * plain text goes into a paragraph via `textContent`.
  */
 export function showInfoModal(
   host: HTMLElement,
@@ -36,7 +53,7 @@ export function showInfoModal(
   modalEl.className = "info-modal info-modal--visible";
   modalEl.setAttribute("role", "dialog");
   modalEl.setAttribute("aria-modal", "true");
-  modalEl.setAttribute("aria-label", title);
+  modalEl.setAttribute("aria-label", title || "About");
 
   const backdrop = document.createElement("div");
   backdrop.className = "info-modal__backdrop";
@@ -49,9 +66,15 @@ export function showInfoModal(
   titleEl.className = "info-modal__title";
   titleEl.textContent = title;
 
-  const bodyEl = document.createElement("p");
+  const useHtml = bodyContainsHtml(body);
+  // Block markup cannot live inside <p>; use a div when body is HTML.
+  const bodyEl = document.createElement(useHtml ? "div" : "p");
   bodyEl.className = "info-modal__body";
-  bodyEl.textContent = body;
+  if (useHtml) {
+    bodyEl.innerHTML = body;
+  } else {
+    bodyEl.textContent = body;
+  }
 
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
@@ -67,7 +90,11 @@ export function showInfoModal(
 
   backdrop.addEventListener("click", handleClose);
   closeBtn.addEventListener("click", handleClose);
-  panel.append(closeBtn, titleEl, bodyEl);
+  if (title) {
+    panel.append(closeBtn, titleEl, bodyEl);
+  } else {
+    panel.append(closeBtn, bodyEl);
+  }
   modalEl.append(backdrop, panel);
   host.appendChild(modalEl);
 }
