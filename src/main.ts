@@ -52,6 +52,7 @@ import {
   type ProductionChrome,
 } from "./ui/productionChrome";
 import { playPainSound } from "./sound/soundEngine";
+import { hideLegend, showLegend } from "./ui/legend";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -430,6 +431,7 @@ function applyGlobeLayer(layerId: string): void {
       }
     : undefined;
   globe.updateLayerVisuals(layerId, meta);
+  showLegend(layerId);
 }
 
 function handleLayerChange(layerId: string): void {
@@ -471,6 +473,7 @@ async function handleAllLayers(): Promise<void> {
 
   showAllLayersActive = true;
   chrome?.setAllLayersActive(true);
+  hideLegend();
   trackToggle(METRICS_KIND_LAYER, "all-layers", true);
 
   const phys = cachedLayers.find((l) => l.id === "physpain");

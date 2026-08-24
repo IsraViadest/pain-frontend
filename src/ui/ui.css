@@ -326,6 +326,31 @@
   color: #07153b;
 }
 
+#ui-legend {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  max-height: 80vh;
+  width: auto;
+  transform: translateY(-50%) translateX(calc(-100% - 100vw));
+  transition: transform 0.4s ease;
+  pointer-events: none;
+}
+
+#ui-legend.legend--visible {
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
+
+#ui-legend .ui-legend__img {
+  display: block;
+  max-height: 32vh;
+  width: auto;
+}
+
 /* Mobile chrome slots — hidden on desktop; shown under max-width 768px. */
 #ui-hamburger,
 #ui-title-controls {
@@ -399,6 +424,26 @@
     display: block;
     width: 48px;
     height: auto;
+  }
+
+  #ui-legend {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    right: auto;
+    top: auto;
+    display: flex;
+    justify-content: flex-start;
+    transform: translateX(-120%);
+  }
+
+  #ui-legend.legend--visible {
+    transform: translateX(0);
+  }
+
+  #ui-legend .ui-legend__img {
+    max-height: 15vh;
+    width: auto;
   }
 
   #ui-layer-stack {

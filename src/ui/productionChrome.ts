@@ -8,6 +8,7 @@ import {
   INFO_MODAL_DATA_SOURCES,
   showInfoModal,
 } from "./infoModal";
+import { hideLegend, showLegend } from "./legend";
 
 /** Handlers wired from main.ts for globe / survey actions. */
 type ProductionChromeCallbacks = {
@@ -128,14 +129,30 @@ export async function mountProductionChrome(
   titleHost.append(heading, subtitle);
 
   const hamburgerBtn = await createHamburgerButton();
+  let allLayersMode = false;
+
   const closeMobileMenu = (): void => {
+    const menuWasOpen = appRoot.classList.contains("mobile-menu-open");
     appRoot.classList.remove("mobile-menu-open");
     hamburgerBtn.setAttribute("aria-expanded", "false");
+    if (!menuWasOpen) return;
+    if (allLayersMode) {
+      hideLegend();
+    } else {
+      showLegend(activeLayerId);
+    }
   };
 
   hamburgerBtn.addEventListener("click", () => {
     const open = appRoot.classList.toggle("mobile-menu-open");
     hamburgerBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) {
+      hideLegend();
+    } else if (allLayersMode) {
+      hideLegend();
+    } else {
+      showLegend(activeLayerId);
+    }
   });
   hamburgerHost.appendChild(hamburgerBtn);
 
@@ -162,6 +179,7 @@ export async function mountProductionChrome(
   };
 
   const applyAllLayersActive = (active: boolean): void => {
+    allLayersMode = active;
     setActive(allPainBtn, active);
     if (active) {
       for (const btn of layerButtons.values()) {
