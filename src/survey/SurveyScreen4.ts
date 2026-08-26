@@ -1,4 +1,5 @@
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
+import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import { METRICS_KIND_RELATION, trackToggle } from "../api/metricsApi";
 import {
   SURVEY_BLOB_DEFS,
@@ -119,6 +120,7 @@ export function mountSurveyScreen4(
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));
       trackToggle(METRICS_KIND_RELATION, relation, selected);
+      syncAdvanceEnabled();
     });
 
     field.appendChild(anchor);
@@ -132,18 +134,26 @@ export function mountSurveyScreen4(
   backBtn.innerHTML =
     '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10H4M9 5L4 10l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-  const advanceBtn = document.createElement("button");
-  advanceBtn.type = "button";
-  advanceBtn.className = "survey-screen__advance";
-  advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.innerHTML =
-    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h12M11 5l5 5-5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const advanceGate = createSurveyAdvanceGate(
+    "Please select at least one option",
+    onAdvance,
+  );
 
-  root.append(title, field, backBtn, advanceBtn);
+  const syncAdvanceEnabled = (): void => {
+    advanceGate.setEnabled(state.relations.length >= 1);
+  };
+  syncAdvanceEnabled();
+
+  root.append(
+    title,
+    field,
+    backBtn,
+    advanceGate.validationMsg,
+    advanceGate.wrapper,
+  );
   host.appendChild(root);
 
   addListener(backBtn, "click", onBack);
-  addListener(advanceBtn, "click", onAdvance);
 
   const layoutSchedule = scheduleBubbleFieldLayout(field, anchors, () => {
     field.classList.add("survey-screen__bubble-field--ready");
@@ -152,6 +162,7 @@ export function mountSurveyScreen4(
   return {
     unmount: () => {
       layoutSchedule.cancel();
+      advanceGate.dispose();
       for (const cleanup of cleanups) cleanup();
       root.remove();
     },

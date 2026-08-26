@@ -1,4 +1,5 @@
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
+import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import { METRICS_KIND_WORD, trackToggle } from "../api/metricsApi";
 import {
   SURVEY_BLOB_DEFS,
@@ -41,6 +42,15 @@ export function mountSurveyScreen1(
   field.className = "survey-screen__bubble-field";
   field.setAttribute("role", "group");
   field.setAttribute("aria-label", "Pain descriptor words");
+
+  const advanceGate = createSurveyAdvanceGate(
+    "Please select at least one word",
+    onAdvance,
+  );
+
+  const syncAdvanceEnabled = (): void => {
+    advanceGate.setEnabled(state.selectedWords.size >= 1);
+  };
 
   const anchors: HTMLElement[] = [];
 
@@ -94,21 +104,16 @@ export function mountSurveyScreen1(
         state.selectedWords.delete(word);
       }
       trackToggle(METRICS_KIND_WORD, word, selected);
+      syncAdvanceEnabled();
     });
 
     field.appendChild(anchor);
     anchors.push(anchor);
   }
 
-  const advanceBtn = document.createElement("button");
-  advanceBtn.type = "button";
-  advanceBtn.className = "survey-screen__advance";
-  advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.innerHTML =
-    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h12M11 5l5 5-5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  advanceBtn.addEventListener("click", onAdvance);
+  syncAdvanceEnabled();
 
-  root.append(title, field, advanceBtn);
+  root.append(title, field, advanceGate.validationMsg, advanceGate.wrapper);
   host.appendChild(root);
 
   const layoutSchedule = scheduleBubbleFieldLayout(field, anchors, () => {
@@ -118,6 +123,7 @@ export function mountSurveyScreen1(
   return {
     unmount: () => {
       layoutSchedule.cancel();
+      advanceGate.dispose();
       root.remove();
     },
   };

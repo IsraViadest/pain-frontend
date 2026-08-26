@@ -1,4 +1,5 @@
 import { latLngToNormalizedMapXY, svgCoordsToLatLng } from "./mapUtils";
+import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_DRAG_WORD_MIME,
@@ -205,14 +206,24 @@ export function mountSurveyScreen2(
   backBtn.innerHTML =
     '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10H4M9 5L4 10l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-  const advanceBtn = document.createElement("button");
-  advanceBtn.type = "button";
-  advanceBtn.className = "survey-screen__advance";
-  advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.innerHTML =
-    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h12M11 5l5 5-5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const advanceGate = createSurveyAdvanceGate(
+    "Please place at least one word on the map",
+    onAdvance,
+  );
 
-  root.append(title, tapHint, mapWrap, tray, backBtn, advanceBtn);
+  const syncAdvanceEnabled = (): void => {
+    advanceGate.setEnabled(state.placements.length >= 1);
+  };
+
+  root.append(
+    title,
+    tapHint,
+    mapWrap,
+    tray,
+    backBtn,
+    advanceGate.validationMsg,
+    advanceGate.wrapper,
+  );
   host.appendChild(root);
 
   const pinByWord = new Map<string, HTMLElement>();
@@ -275,15 +286,6 @@ export function mountSurveyScreen2(
     tray.replaceChildren();
 
     if (state.selectedWords.size === 0) {
-      const empty = document.createElement("div");
-      empty.className = "survey-screen__tray-empty";
-
-      const message = document.createElement("p");
-      message.className = "survey-screen__tray-empty-message";
-      message.textContent = "No words selected — go back to choose some";
-
-      empty.append(message);
-      tray.appendChild(empty);
       return;
     }
 
@@ -338,6 +340,7 @@ export function mountSurveyScreen2(
     upsertPlacement(state, word, coords.lat, coords.lng);
     renderPin({ word, lat: coords.lat, lng: coords.lng });
     refreshTray();
+    syncAdvanceEnabled();
   };
 
   addListener(mapImg, "dragover", (event) => {
@@ -358,15 +361,18 @@ export function mountSurveyScreen2(
     renderPin({ word, lat: coords.lat, lng: coords.lng });
     setTapSelection(null, null);
     refreshTray();
+    syncAdvanceEnabled();
   });
 
   schedulePinLayoutSync(mapImg, syncAllPinPositions);
 
+  syncAdvanceEnabled();
+
   addListener(backBtn, "click", onBack);
-  addListener(advanceBtn, "click", onAdvance);
 
   return {
     unmount: () => {
+      advanceGate.dispose();
       for (const cleanup of cleanups) cleanup();
       root.remove();
     },
