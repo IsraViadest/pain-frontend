@@ -439,6 +439,7 @@ function handleLayerChange(layerId: string): void {
     return;
   }
   loadPointsAbortController?.abort();
+  const wasAllLayersActive = showAllLayersActive;
   if (showAllLayersActive) {
     showAllLayersActive = false;
     globe.setShowAllLayersMode(false);
@@ -447,7 +448,7 @@ function handleLayerChange(layerId: string): void {
   }
   globe.setMarkers([]);
   const prevLayerId = lastLayerId;
-  if (prevLayerId && prevLayerId !== layerId) {
+  if (prevLayerId && prevLayerId !== layerId && !wasAllLayersActive) {
     trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
   }
   trackToggle(METRICS_KIND_LAYER, layerId, true);
@@ -474,7 +475,11 @@ async function handleAllLayers(): Promise<void> {
   showAllLayersActive = true;
   chrome?.setAllLayersActive(true);
   hideLegend();
+  if (lastLayerId) {
+    trackToggle(METRICS_KIND_LAYER, lastLayerId, false);
+  }
   trackToggle(METRICS_KIND_LAYER, "all-layers", true);
+  lastLayerId = "all-layers";
 
   const phys = cachedLayers.find((l) => l.id === "physpain");
   const socio = cachedLayers.find((l) => isChoroplethMapLayer(l));
