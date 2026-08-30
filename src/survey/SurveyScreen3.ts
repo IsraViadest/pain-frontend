@@ -10,6 +10,7 @@ import {
   type SurveySessionState,
 } from "./surveyData";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_TEMPORALITY, trackToggle } from "../api/metricsApi";
 
 type SurveyScreen3Context = {
@@ -116,7 +117,9 @@ export function mountSurveyScreen3(
       const selected = toggleTemporality(state, option);
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));
-      trackToggle(METRICS_KIND_TEMPORALITY, option, selected);
+      if (isConsentGiven()) {
+        trackToggle(METRICS_KIND_TEMPORALITY, option, selected);
+      }
       syncAdvanceEnabled();
     });
 

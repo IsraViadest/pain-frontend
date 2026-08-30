@@ -1,5 +1,6 @@
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_RELATION, trackToggle } from "../api/metricsApi";
 import {
   SURVEY_BLOB_DEFS,
@@ -119,7 +120,9 @@ export function mountSurveyScreen4(
       const selected = toggleRelation(state, relation);
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));
-      trackToggle(METRICS_KIND_RELATION, relation, selected);
+      if (isConsentGiven()) {
+        trackToggle(METRICS_KIND_RELATION, relation, selected);
+      }
       syncAdvanceEnabled();
     });
 

@@ -22,10 +22,11 @@ function removeUnlockListeners(): void {
 }
 
 function onUserGestureUnlock(): void {
-  if (!audio || !readPreference() || !audio.paused) return;
+  if (!audio || !readPreference() || !audio.muted) return;
   audio.muted = false;
   void audio.play().then(() => {
     removeUnlockListeners();
+    document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
   }).catch(() => {
     if (audio) audio.muted = true;
   });
@@ -48,14 +49,10 @@ export function initBackgroundMusic(): void {
   const wantEnabled = readPreference();
   audio.muted = !wantEnabled;
   attachUnlockListeners();
-  void audio.play().then(() => {
-    removeUnlockListeners();
-  }).catch(() => {
+  void audio.play().catch(() => {
     if (!audio) return;
     audio.muted = true;
-    void audio.play().then(() => {
-      removeUnlockListeners();
-    }).catch(() => {});
+    void audio.play().catch(() => {});
   });
 }
 

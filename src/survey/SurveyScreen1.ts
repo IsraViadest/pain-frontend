@@ -1,5 +1,6 @@
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_WORD, trackToggle } from "../api/metricsApi";
 import {
   SURVEY_BLOB_DEFS,
@@ -103,7 +104,9 @@ export function mountSurveyScreen1(
       } else {
         state.selectedWords.delete(word);
       }
-      trackToggle(METRICS_KIND_WORD, word, selected);
+      if (isConsentGiven()) {
+        trackToggle(METRICS_KIND_WORD, word, selected);
+      }
       syncAdvanceEnabled();
     });
 

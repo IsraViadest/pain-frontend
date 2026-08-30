@@ -136,7 +136,20 @@ export async function mountProductionChrome(
 
   const syncSoundToggle = (): void => {
     const enabled = isSoundEnabled();
-    soundToggleBtn.textContent = enabled ? "sound on" : "sound off";
+    soundToggleBtn.replaceChildren();
+    if (enabled) {
+      soundToggleBtn.append("sound ");
+      const onWord = document.createElement("span");
+      onWord.style.fontWeight = "700";
+      onWord.textContent = "on";
+      soundToggleBtn.append(onWord, " / off");
+    } else {
+      soundToggleBtn.append("sound on / ");
+      const offWord = document.createElement("span");
+      offWord.style.fontWeight = "700";
+      offWord.textContent = "off";
+      soundToggleBtn.append(offWord);
+    }
     soundToggleBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
   };
 
@@ -145,6 +158,7 @@ export async function mountProductionChrome(
     setSoundEnabled(!isSoundEnabled());
     syncSoundToggle();
   });
+  document.addEventListener("backgroundMusicStateChanged", syncSoundToggle);
 
   titleHost.append(heading, subtitle, soundToggleBtn);
 
