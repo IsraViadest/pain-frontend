@@ -53,6 +53,36 @@
   line-height: 1.35;
 }
 
+.ui-title__sound-toggle {
+  display: inline-block;
+  width: auto;
+  align-self: flex-start;
+  margin: 4px 0 0;
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: none;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.65rem, 1vw, 0.75rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #b4bac8);
+  line-height: 1.35;
+  text-align: left;
+  text-transform: lowercase;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.ui-title__sound-toggle:hover {
+  color: var(--text-primary, #e8eaef);
+}
+
+.ui-title__sound-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
 #ui-layer-stack {
   position: fixed;
   top: calc(50% - 40px);

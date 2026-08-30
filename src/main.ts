@@ -48,6 +48,7 @@ import { type SurveySubmissionPayload } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
 import { showConsentModal } from "./survey/consentModal";
 import { isConsentGiven } from "./survey/consentStorage";
+import { initBackgroundMusic } from "./sound/backgroundMusic";
 import {
   mountProductionChrome,
   type ProductionChrome,
@@ -587,6 +588,7 @@ function loop(): void {
 }
 
 (async () => {
+  initBackgroundMusic();
   try {
     const layers = await fetchLayers();
     await loadLayersIntoChrome(layers);

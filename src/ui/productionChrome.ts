@@ -1,6 +1,10 @@
 import "./ui.css";
 import type { MapLayer } from "../types/api";
 import { resolveLayerBlobSvg } from "../api/layers";
+import {
+  isSoundEnabled,
+  setSoundEnabled,
+} from "../sound/backgroundMusic";
 import { createBlobButton, setActive } from "./blobButton";
 import {
   hideInfoModal,
@@ -126,7 +130,23 @@ export async function mountProductionChrome(
   subtitle.className = "ui-title__subtitle";
   subtitle.textContent = "Personal And Interconnected with Nature";
 
-  titleHost.append(heading, subtitle);
+  const soundToggleBtn = document.createElement("button");
+  soundToggleBtn.type = "button";
+  soundToggleBtn.className = "ui-title__sound-toggle";
+
+  const syncSoundToggle = (): void => {
+    const enabled = isSoundEnabled();
+    soundToggleBtn.textContent = enabled ? "sound on" : "sound off";
+    soundToggleBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+  };
+
+  syncSoundToggle();
+  soundToggleBtn.addEventListener("click", () => {
+    setSoundEnabled(!isSoundEnabled());
+    syncSoundToggle();
+  });
+
+  titleHost.append(heading, subtitle, soundToggleBtn);
 
   const hamburgerBtn = await createHamburgerButton();
   let allLayersMode = false;
