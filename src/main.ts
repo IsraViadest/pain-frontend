@@ -47,6 +47,7 @@ import {
 import { type SurveySubmissionPayload } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
 import { showConsentModal } from "./survey/consentModal";
+import { isConsentGiven } from "./survey/consentStorage";
 import {
   mountProductionChrome,
   type ProductionChrome,
@@ -417,7 +418,9 @@ function applyGlobeLayer(layerId: string): void {
     layerId === "physpain" ? PAIN_VIZ_MODE.scars : PAIN_VIZ_MODE.points;
   currentPainVizMode = vizMode;
   globe.setPainVisualizationMode(vizMode);
-  trackVizMode(vizMode);
+  if (isConsentGiven()) {
+    trackVizMode(vizMode);
+  }
 
   globe.setWordCloudEnabled(layerId === "emopain");
 
@@ -444,14 +447,20 @@ function handleLayerChange(layerId: string): void {
     showAllLayersActive = false;
     globe.setShowAllLayersMode(false);
     chrome?.setAllLayersActive(false);
-    trackToggle(METRICS_KIND_LAYER, "all-layers", false);
+    if (isConsentGiven()) {
+      trackToggle(METRICS_KIND_LAYER, "all-layers", false);
+    }
   }
   globe.setMarkers([]);
   const prevLayerId = lastLayerId;
   if (prevLayerId && prevLayerId !== layerId && !wasAllLayersActive) {
-    trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
+    if (isConsentGiven()) {
+      trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
+    }
   }
-  trackToggle(METRICS_KIND_LAYER, layerId, true);
+  if (isConsentGiven()) {
+    trackToggle(METRICS_KIND_LAYER, layerId, true);
+  }
   lastLayerId = layerId;
   globe.setMarkers([]);
   applyGlobeLayer(layerId);
@@ -476,9 +485,13 @@ async function handleAllLayers(): Promise<void> {
   chrome?.setAllLayersActive(true);
   hideLegend();
   if (lastLayerId) {
-    trackToggle(METRICS_KIND_LAYER, lastLayerId, false);
+    if (isConsentGiven()) {
+      trackToggle(METRICS_KIND_LAYER, lastLayerId, false);
+    }
   }
-  trackToggle(METRICS_KIND_LAYER, "all-layers", true);
+  if (isConsentGiven()) {
+    trackToggle(METRICS_KIND_LAYER, "all-layers", true);
+  }
   lastLayerId = "all-layers";
 
   const phys = cachedLayers.find((l) => l.id === "physpain");
@@ -487,7 +500,9 @@ async function handleAllLayers(): Promise<void> {
 
   currentPainVizMode = PAIN_VIZ_MODE.scars;
   globe.setPainVisualizationMode(PAIN_VIZ_MODE.scars);
-  trackVizMode(PAIN_VIZ_MODE.scars);
+  if (isConsentGiven()) {
+    trackVizMode(PAIN_VIZ_MODE.scars);
+  }
   globe.setWordCloudEnabled(true);
   globe.setShowAllLayersMode(true, {
     physpainLayerId: phys?.id ?? "physpain",
@@ -533,7 +548,9 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
     const layerId = layers[0].id;
     lastLayerId = layerId;
     applyGlobeLayer(layerId);
-    trackToggle(METRICS_KIND_LAYER, layerId, true);
+    if (isConsentGiven()) {
+      trackToggle(METRICS_KIND_LAYER, layerId, true);
+    }
     syncWordCloudForCurrentLayer();
     chrome.setActiveLayer(layerId);
   }

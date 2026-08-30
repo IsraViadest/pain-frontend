@@ -17,7 +17,8 @@ function hideConsentModal(): void {
  *
  * If this device already consented, calls `onConsent` without showing UI.
  * Otherwise shows a modal: I Agree → persist + `onConsent`; I Decline or
- * backdrop click → `recordDecline` + `onDecline`.
+ * backdrop click → `recordDecline` + `onConsent` (survey still opens;
+ * metrics stay off because consent is not recorded as given).
  */
 export async function showConsentModal(
   host: HTMLElement,
@@ -91,7 +92,7 @@ export async function showConsentModal(
     settled = true;
     hideConsentModal();
     void recordDecline().then(() => {
-      onDecline();
+      onConsent();
     });
   };
 

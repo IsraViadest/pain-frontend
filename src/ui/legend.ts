@@ -112,20 +112,9 @@ export function showLegend(layerId: string): void {
   const nextSrc = legendAssetUrl(fileName);
   const alreadyVisible = host.classList.contains("legend--visible");
   const switchingLegend = alreadyVisible && currentFileName !== fileName;
-  console.log(
-    "[legend] switchingLegend:",
-    switchingLegend,
-    "alreadyVisible:",
-    alreadyVisible,
-    "currentFileName:",
-    currentFileName,
-    "fileName:",
-    fileName,
-  );
 
   if (switchingLegend) {
     host.classList.remove("legend--visible");
-    console.log("[legend] removed visible class");
     void host.offsetHeight;
     currentFileName = fileName;
     swapTimeoutId = setTimeout(() => {
@@ -133,7 +122,6 @@ export function showLegend(layerId: string): void {
       if (!imgEl) return;
       imgEl.src = nextSrc;
       host.dataset.layer = layerId.trim();
-      console.log("[legend] timeout fired, adding visible class");
       host.classList.add("legend--visible");
       afterLegendShown();
     }, LEGEND_SWAP_RETRIGGER_MS);

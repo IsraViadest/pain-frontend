@@ -7,9 +7,15 @@
  */
 const CONSENT_STORAGE_KEY = "pain-consent-given";
 const CONSENT_GIVEN_VALUE = "true";
+const CONSENT_DECLINED_VALUE = "false";
 
 /** True when this device has already recorded survey consent. */
 export async function hasUserConsented(): Promise<boolean> {
+  return localStorage.getItem(CONSENT_STORAGE_KEY) === CONSENT_GIVEN_VALUE;
+}
+
+/** Synchronous consent check for metrics calls that fire immediately. */
+export function isConsentGiven(): boolean {
   return localStorage.getItem(CONSENT_STORAGE_KEY) === CONSENT_GIVEN_VALUE;
 }
 
@@ -19,9 +25,8 @@ export async function recordConsent(): Promise<void> {
 }
 
 /**
- * Record a decline. No-op in the localStorage version — declining does not
- * persist, so the modal can be shown again.
+ * Record a decline so the modal is not shown again on this device.
  */
 export async function recordDecline(): Promise<void> {
-  // no-op in localStorage version
+  localStorage.setItem(CONSENT_STORAGE_KEY, CONSENT_DECLINED_VALUE);
 }

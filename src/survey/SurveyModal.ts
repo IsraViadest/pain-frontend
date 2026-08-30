@@ -11,6 +11,7 @@ import {
   type SurveySubmissionPayload,
 } from "./surveyData";
 import { trackSurveyStep } from "../api/metricsApi";
+import { isConsentGiven } from "./consentStorage";
 
 type ActiveScreen = {
   unmount: () => void;
@@ -99,7 +100,9 @@ export class SurveyModal {
     this.unmountActiveScreen();
     this.mountScreen1();
     this.currentScreen = 1;
-    trackSurveyStep(0);
+    if (isConsentGiven()) {
+      trackSurveyStep(0);
+    }
   }
 
   /** Close the survey modal with a fade-out. */
@@ -151,7 +154,9 @@ export class SurveyModal {
     this.activeScreen = mountSurveyScreen1(this.screenHost, {
       state: this.state,
       onAdvance: () => {
-        trackSurveyStep(1);
+        if (isConsentGiven()) {
+          trackSurveyStep(1);
+        }
         void this.goToScreen(2);
       },
     });
@@ -164,7 +169,9 @@ export class SurveyModal {
         void this.goToScreen(1);
       },
       onAdvance: () => {
-        trackSurveyStep(2);
+        if (isConsentGiven()) {
+          trackSurveyStep(2);
+        }
         void this.goToScreen(3);
       },
     });
@@ -177,7 +184,9 @@ export class SurveyModal {
         void this.goToScreen(2);
       },
       onAdvance: () => {
-        trackSurveyStep(3);
+        if (isConsentGiven()) {
+          trackSurveyStep(3);
+        }
         void this.goToScreen(4);
       },
     });
@@ -190,7 +199,9 @@ export class SurveyModal {
         void this.goToScreen(3);
       },
       onAdvance: () => {
-        trackSurveyStep(4);
+        if (isConsentGiven()) {
+          trackSurveyStep(4);
+        }
         void this.goToScreen(5);
       },
     });
@@ -203,7 +214,9 @@ export class SurveyModal {
         void this.goToScreen(4);
       },
       onSubmit: () => {
-        trackSurveyStep(5);
+        if (isConsentGiven()) {
+          trackSurveyStep(5);
+        }
         this.handleSurveySubmit();
       },
     });
