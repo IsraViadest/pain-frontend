@@ -160,6 +160,7 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
     );
     const removeSurfaceMarker = globe.addSurfaceMarker(resultLat, resultLng);
     chrome?.setUiEnabled(false);
+    new Audio("/sounds/Results.mp3").play().catch(() => {});
     showSurveyResultModal(overlayHost, {
       lat: resultLat,
       lng: resultLng,
