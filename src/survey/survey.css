@@ -612,14 +612,16 @@
 
   .survey-screen--2 .survey-screen__tray {
     flex: 1;
-    justify-content: center;
-    align-content: center;
+    justify-content: flex-start;
+    align-content: flex-start;
   }
 
   .survey-screen--2 .survey-screen__tray .survey-tray-bubble {
     /* base values (72px, 0.55rem 0.85rem) scaled ×1.2 for larger tap targets on mobile */
     min-width: 86.4px;
     padding: 0.66rem 1.02rem;
+    /* Allow vertical tray scroll while preserving tap-to-select; desktop keeps touch-action: none. */
+    touch-action: pan-y;
   }
 
   .survey-screen--2 .survey-screen__tray .survey-tray-bubble .survey-bubble__label {
