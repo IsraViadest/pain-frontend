@@ -10,17 +10,18 @@
   padding: 20px;
   pointer-events: none !important;
   opacity: 0;
-  transition: opacity 300ms ease;
 }
 
 .survey-modal--visible {
   opacity: 1;
   pointer-events: auto !important;
+  transition: opacity 300ms ease;
 }
 
 .survey-modal--closing {
   opacity: 0;
   pointer-events: none !important;
+  transition: opacity 300ms ease;
 }
 
 .survey-modal__panel {
