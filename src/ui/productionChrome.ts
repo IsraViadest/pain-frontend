@@ -6,6 +6,7 @@ import {
   setSoundEnabled,
 } from "../sound/backgroundMusic";
 import {
+  playButtonSound,
   SOUND_BUTTON_BLOB,
   SOUND_BUTTON_INFO,
   SOUND_BUTTON_SHARE,
@@ -241,8 +242,10 @@ export async function mountProductionChrome(
       variant: "layer",
       skipActiveGradient: layer.id === "physpain" || layer.id === "envpain",
       activeFill: layer.id === "envpain" ? "#CBB0B9" : undefined,
-      soundFile: SOUND_BUTTON_BLOB,
       onClick: () => {
+        if (layer.id !== activeLayerId || allLayersMode) {
+          playButtonSound(SOUND_BUTTON_BLOB);
+        }
         applyAllLayersActive(false);
         applyActiveLayer(layer.id);
         callbacks.onLayerChange(layer.id);
