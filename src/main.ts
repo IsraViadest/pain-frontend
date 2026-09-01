@@ -527,15 +527,6 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
       );
     },
   });
-
-  if (layers[0]) {
-    const layerId = layers[0].id;
-    lastLayerId = layerId;
-    applyGlobeLayer(layerId);
-    trackToggle(METRICS_KIND_LAYER, layerId, true);
-    syncWordCloudForCurrentLayer();
-    chrome.setActiveLayer(layerId);
-  }
 }
 
 async function loadPoints(): Promise<void> {
@@ -573,7 +564,7 @@ function loop(): void {
   try {
     const layers = await fetchLayers();
     await loadLayersIntoChrome(layers);
-    await loadPoints();
+    await handleAllLayers();
   } catch (e) {
     setStatus(
       e instanceof Error

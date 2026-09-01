@@ -560,6 +560,11 @@
 }
 
 @media (max-width: 768px) {
+  .survey-modal__close {
+    width: 24px;
+    height: 24px;
+  }
+
   .survey-screen__bubble-field,
   .survey-screen__temporality-field {
     display: flex;

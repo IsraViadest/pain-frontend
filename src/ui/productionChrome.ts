@@ -118,7 +118,6 @@ export async function mountProductionChrome(
 ): Promise<ProductionChrome> {
   const titleHost = requireChild(appRoot, "ui-title");
   const layerStackHost = requireChild(appRoot, "ui-layer-stack");
-  const hamburgerHost = requireChild(appRoot, "ui-hamburger");
   const sharePainHost = requireChild(appRoot, "ui-share-pain");
   const bottomLeftHost = requireChild(appRoot, "ui-bottom-left");
 
@@ -160,8 +159,6 @@ export async function mountProductionChrome(
   });
   document.addEventListener("backgroundMusicStateChanged", syncSoundToggle);
 
-  titleHost.append(heading, subtitle, soundToggleBtn);
-
   const hamburgerBtn = await createHamburgerButton();
   let allLayersMode = false;
 
@@ -188,7 +185,12 @@ export async function mountProductionChrome(
       showLegend(activeLayerId);
     }
   });
-  hamburgerHost.appendChild(hamburgerBtn);
+
+  const titleTopRow = document.createElement("div");
+  titleTopRow.className = "ui-title__top-row";
+  titleTopRow.append(heading, hamburgerBtn);
+
+  titleHost.append(titleTopRow, subtitle, soundToggleBtn);
 
   const layerButtons = new Map<string, HTMLButtonElement>();
   let activeLayerId = layers[0]?.id ?? "";

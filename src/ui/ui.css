@@ -83,6 +83,10 @@
   outline-offset: 2px;
 }
 
+.ui-title__top-row .ui-hamburger {
+  display: none;
+}
+
 #ui-layer-stack {
   position: fixed;
   top: calc(50% - 40px);
@@ -393,6 +397,11 @@
 }
 
 @media (max-width: 768px) {
+  .info-modal__close {
+    width: 24px;
+    height: 24px;
+  }
+
   .info-modal__panel .info-modal__logos-inner {
     max-width: 100% !important;
   }
@@ -400,6 +409,18 @@
   /* ~20% smaller than desktop heading clamp; subtitle unchanged. */
   .ui-title__heading {
     font-size: clamp(2.88rem, 5.76vw, 5.04rem);
+  }
+
+  #ui-title {
+    right: 16px;
+  }
+
+  .ui-title__top-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
   }
 
   #ui-top-right {
@@ -434,16 +455,10 @@
     gap: 12px;
   }
 
-  #ui-hamburger {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    z-index: 3;
+  .ui-title__top-row .ui-hamburger {
     display: block;
-  }
-
-  #ui-hamburger .ui-hamburger {
-    display: block;
+    flex-shrink: 0;
+    pointer-events: auto;
     padding: 0;
     margin: 0;
     border: none;
@@ -453,13 +468,13 @@
     appearance: none;
   }
 
-  #ui-hamburger .ui-hamburger:focus-visible {
+  .ui-title__top-row .ui-hamburger:focus-visible {
     outline: 2px solid rgba(120, 200, 255, 0.6);
     outline-offset: 2px;
     border-radius: 8px;
   }
 
-  #ui-hamburger .ui-hamburger svg {
+  .ui-title__top-row .ui-hamburger svg {
     display: block;
     width: 48px;
     height: auto;
