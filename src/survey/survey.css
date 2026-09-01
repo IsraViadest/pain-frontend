@@ -226,6 +226,10 @@
   color: #ffffff;
 }
 
+.survey-bubble--placed {
+  opacity: 0.4; /* dimmed — word already placed on the map (Screen 2) */
+}
+
 .survey-screen__validation-msg {
   position: absolute;
   left: 56px;
@@ -318,7 +322,6 @@
     margin-left: 0;
     margin-right: 0;
     align-self: center;
-    border: 1px solid rgba(30, 40, 100, 0.15);
   }
 }
 
@@ -330,6 +333,7 @@
   align-items: center;
   justify-content: center;
   margin: 0 4px 8px;
+  background: rgba(30, 40, 100, 0.05); /* title blue at 5% opacity — marks the placeable map area */
 }
 
 .survey-screen__map {
@@ -572,6 +576,27 @@
     overflow-x: hidden;
     overflow-y: auto;
     height: 80px;
+  }
+
+  .survey-screen--2 .survey-screen__map-wrap {
+    flex: 0 1 auto;
+    align-self: center;
+  }
+
+  .survey-screen--2 .survey-screen__tray {
+    flex: 1;
+    justify-content: center;
+    align-content: center;
+  }
+
+  .survey-screen--2 .survey-screen__tray .survey-tray-bubble {
+    /* base values (72px, 0.55rem 0.85rem) scaled ×1.2 for larger tap targets on mobile */
+    min-width: 86.4px;
+    padding: 0.66rem 1.02rem;
+  }
+
+  .survey-screen--2 .survey-screen__tray .survey-tray-bubble .survey-bubble__label {
+    font-size: clamp(0.86rem, 1.44vw, 1.06rem); /* base clamp(0.72rem, 1.2vw, 0.88rem) scaled ×1.2 */
   }
 }
 

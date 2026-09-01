@@ -76,7 +76,27 @@ export function mountSurveyScreen1(
     button.type = "button";
     button.className = `survey-bubble survey-bubble--${blobId}`;
     button.dataset.word = word;
-    button.setAttribute("aria-pressed", "false");
+
+    // Hydrate selection from session; placed styling only when both selected and on the map.
+    // Placement without selectedWords is abnormal — warn below; !isSelected skips classes safely.
+    const isSelected = state.selectedWords.has(word);
+    if (
+      !isSelected &&
+      state.placements.some((entry) => entry.word === word)
+    ) {
+      console.warn(
+        `[SurveyScreen1] Placement for "${word}" without selectedWords entry.`,
+      );
+    }
+    const isPlaced =
+      isSelected && state.placements.some((entry) => entry.word === word);
+    if (isSelected) {
+      button.classList.add("survey-bubble--selected");
+    }
+    if (isPlaced) {
+      button.classList.add("survey-bubble--placed");
+    }
+    button.setAttribute("aria-pressed", String(isSelected));
 
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", blob.viewBox);
@@ -97,6 +117,20 @@ export function mountSurveyScreen1(
     anchor.appendChild(button);
 
     button.addEventListener("click", () => {
+      if (button.classList.contains("survey-bubble--placed")) {
+        state.selectedWords.delete(word);
+        state.placements = state.placements.filter(
+          (entry) => entry.word !== word,
+        );
+        button.classList.remove("survey-bubble--selected", "survey-bubble--placed");
+        button.setAttribute("aria-pressed", "false");
+        if (isConsentGiven()) {
+          trackToggle(METRICS_KIND_WORD, word, false);
+        }
+        syncAdvanceEnabled();
+        return;
+      }
+
       const selected = button.classList.toggle("survey-bubble--selected");
       button.setAttribute("aria-pressed", String(selected));
       if (selected) {
