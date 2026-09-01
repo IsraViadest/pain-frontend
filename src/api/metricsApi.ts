@@ -1,4 +1,3 @@
-import type { PainVisualizationMode } from "../globe/GlobeView";
 import { apiUrl, useMockApi } from "./config";
 import { getPainServerUserId } from "./session";
 
@@ -25,11 +24,6 @@ type MetricsToggleBody = {
   enabled: boolean;
 };
 
-type MetricsVizModeBody = {
-  userId: string;
-  mode: PainVisualizationMode;
-};
-
 type MetricsSurveyStepBody = {
   userId: string;
   step: MetricsSurveyStep;
@@ -37,11 +31,9 @@ type MetricsSurveyStepBody = {
 
 type MetricsPostBody =
   | Omit<MetricsToggleBody, "userId">
-  | Omit<MetricsVizModeBody, "userId">
   | Omit<MetricsSurveyStepBody, "userId">;
 
 const METRICS_PATH_TOGGLE = "/toggle";
-const METRICS_PATH_VIZMODE = "/vizmode";
 const METRICS_PATH_SURVEYSTEP = "/surveystep";
 
 /** POST under `/metrics` — `path` is the suffix only (e.g. `/toggle`). */
@@ -89,12 +81,6 @@ export function trackToggle(
 ): void {
   const body: Omit<MetricsToggleBody, "userId"> = { kind, element, enabled };
   postMetrics(METRICS_PATH_TOGGLE, body);
-}
-
-/** POST `/metrics/vizmode` — fire-and-forget; mock-mode no-op; never throws. */
-export function trackVizMode(mode: PainVisualizationMode): void {
-  const body: Omit<MetricsVizModeBody, "userId"> = { mode };
-  postMetrics(METRICS_PATH_VIZMODE, body);
 }
 
 /** POST `/metrics/surveystep` — fire-and-forget; mock-mode no-op; never throws. */

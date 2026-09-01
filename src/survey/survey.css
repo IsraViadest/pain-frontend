@@ -293,10 +293,33 @@
   outline-offset: 2px;
 }
 
+/* Screen 1 — word bubble selection */
+
+@media (min-width: 769px) {
+  .survey-screen--1 {
+    padding-bottom: 52px;
+  }
+}
+
 /* Screen 2 — world map placement */
 
 .survey-screen--2 {
   padding-bottom: 72px;
+}
+
+@media (min-width: 769px) {
+  .survey-screen--2 .survey-screen__tray {
+    margin-left: 0;
+    margin-right: 0;
+    align-self: center;
+  }
+
+  .survey-screen--2 .survey-screen__map-wrap {
+    margin-left: 0;
+    margin-right: 0;
+    align-self: center;
+    border: 1px solid rgba(30, 40, 100, 0.15);
+  }
 }
 
 .survey-screen__map-wrap {

@@ -242,6 +242,41 @@ export function mountSurveyScreen2(
     }
   };
 
+  const syncMapColumnWidth = (): void => {
+    const width = mapImg.getBoundingClientRect().width;
+    if (width <= 0) return;
+
+    if (window.matchMedia("(min-width: 769px)").matches) {
+      mapWrap.style.width = `${width}px`;
+      tray.style.width = `${width}px`;
+      tray.style.maxWidth = "";
+      syncAllPinPositions();
+      return;
+    }
+
+    mapWrap.style.width = "";
+    tray.style.width = "";
+    tray.style.maxWidth = `${width}px`;
+  };
+
+  const scheduleMapColumnWidthSync = (): void => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(syncMapColumnWidth);
+    });
+  };
+
+  if (mapImg.complete) {
+    scheduleMapColumnWidthSync();
+  } else {
+    mapImg.addEventListener("load", scheduleMapColumnWidthSync, { once: true });
+  }
+
+  const onWindowResize = (): void => {
+    scheduleMapColumnWidthSync();
+  };
+  window.addEventListener("resize", onWindowResize);
+  cleanups.push(() => window.removeEventListener("resize", onWindowResize));
+
   const renderPin = (
     placement: SurveyWordPlacement,
     positionNow = true,
