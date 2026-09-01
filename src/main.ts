@@ -564,6 +564,7 @@ function loop(): void {
   try {
     const layers = await fetchLayers();
     await loadLayersIntoChrome(layers);
+    // Default to all-layers on load instead of activating the first API layer.
     await handleAllLayers();
   } catch (e) {
     setStatus(

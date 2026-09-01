@@ -478,7 +478,7 @@
 
   .ui-title__top-row .ui-hamburger svg {
     display: block;
-    width: 48px;
+    width: 48px; /* hamburger icon rendered size */
     height: auto;
   }
 
