@@ -74,6 +74,10 @@ let cachedLayers: MapLayer[] = [];
 let showAllLayersActive = false;
 /** In-flight {@link loadPoints} fetch; aborted on the next layer switch. */
 let loadPointsAbortController: AbortController | null = null;
+/** Idle time before applying a layer switch; coalesces rapid clicks to avoid WebGL context loss. */
+const LAYER_CHANGE_DEBOUNCE_MS = 150;
+/** Debounced {@link applyPendingLayerChange} timer for rapid layer clicks. */
+let pendingLayerChangeTimer: ReturnType<typeof setTimeout> | null = null;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
@@ -434,32 +438,49 @@ function applyGlobeLayer(layerId: string): void {
   showLegend(layerId);
 }
 
+function applyPendingLayerChange(layerId: string): void {
+  globe.setMarkers([]);
+  const prevLayerId = lastLayerId;
+  if (
+    prevLayerId &&
+    prevLayerId !== layerId &&
+    // all-layers-off already tracked in handleLayerChange (immediate path).
+    prevLayerId !== "all-layers"
+  ) {
+    trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
+  }
+  trackToggle(METRICS_KIND_LAYER, layerId, true);
+  lastLayerId = layerId;
+  applyGlobeLayer(layerId);
+  syncWordCloudForCurrentLayer();
+  void loadPoints().catch((e) =>
+    setStatus(e instanceof Error ? e.message : String(e)),
+  );
+}
+
 function handleLayerChange(layerId: string): void {
-  if (layerId === lastLayerId && !showAllLayersActive) {
+  if (
+    layerId === lastLayerId &&
+    !showAllLayersActive &&
+    // Allow re-selecting the current layer while a debounce is still pending.
+    pendingLayerChangeTimer === null
+  ) {
     return;
   }
   loadPointsAbortController?.abort();
-  const wasAllLayersActive = showAllLayersActive;
   if (showAllLayersActive) {
     showAllLayersActive = false;
     globe.setShowAllLayersMode(false);
     chrome?.setAllLayersActive(false);
     trackToggle(METRICS_KIND_LAYER, "all-layers", false);
   }
-  globe.setMarkers([]);
-  const prevLayerId = lastLayerId;
-  if (prevLayerId && prevLayerId !== layerId && !wasAllLayersActive) {
-    trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
-  }
-  trackToggle(METRICS_KIND_LAYER, layerId, true);
-  lastLayerId = layerId;
-  globe.setMarkers([]);
-  applyGlobeLayer(layerId);
-  syncWordCloudForCurrentLayer();
   chrome?.setActiveLayer(layerId);
-  void loadPoints().catch((e) =>
-    setStatus(e instanceof Error ? e.message : String(e)),
-  );
+  // Immediate: user feedback + fetch cancel. Deferred: GPU rebuild (coalesce rapid clicks).
+  clearTimeout(pendingLayerChangeTimer ?? undefined);
+  pendingLayerChangeTimer = setTimeout(() => {
+    pendingLayerChangeTimer = null;
+    applyPendingLayerChange(layerId);
+  }, LAYER_CHANGE_DEBOUNCE_MS);
 }
 
 /**
