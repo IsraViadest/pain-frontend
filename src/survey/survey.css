@@ -567,6 +567,14 @@
     height: 24px;
   }
 
+  .survey-screen__tap-hint {
+    font-size: clamp(0.84rem, 2.4vw, 1.02rem); /* ×1.2 scale matching tray label sizing on mobile */
+  }
+
+  .survey-screen__title-hint {
+    font-size: 0.95em; /* slightly larger than desktop 0.85em for mobile legibility */
+  }
+
   .survey-screen__bubble-field,
   .survey-screen__temporality-field {
     display: flex;
