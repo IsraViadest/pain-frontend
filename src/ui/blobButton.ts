@@ -2,6 +2,8 @@
  * Blob-shaped UI buttons — fetches SVG assets and swaps path fill between gray and gradient.
  */
 
+import { playButtonSound } from "../sound/buttonSound";
+
 const BLOB_GRADIENT_STOPS: ReadonlyArray<{ offset: string; color: string }> = [
   { offset: "0%", color: "#103CCB" },
   { offset: "25%", color: "#774B7F" },
@@ -29,6 +31,8 @@ type CreateBlobButtonOptions = {
   skipActiveGradient?: boolean;
   /** Fill when active and {@link skipActiveGradient} is set. */
   activeFill?: string;
+  /** Optional click sound URL (e.g. {@link SOUND_BUTTON_BLOB} from `buttonSound.ts`). */
+  soundFile?: string;
 };
 
 type BlobButtonState = {
@@ -111,13 +115,13 @@ function syncBlobButtonClasses(el: HTMLElement, state: BlobButtonState): void {
 /**
  * Fetch a blob SVG, inject a left-to-right gradient def, and build a clickable button.
  *
- * @param options — asset name, optional label, variant, and click handler.
+ * @param options — asset name, optional label, variant, optional {@link CreateBlobButtonOptions.soundFile}, and click handler.
  * @returns A `<button class="blob-button">` with inline SVG (fill manipulated on the path).
  */
 export async function createBlobButton(
   options: CreateBlobButtonOptions,
 ): Promise<HTMLButtonElement> {
-  const { svgName, label, variant, onClick, skipActiveGradient, activeFill } =
+  const { svgName, label, variant, onClick, skipActiveGradient, activeFill, soundFile } =
     options;
 
   const button = document.createElement("button");
@@ -164,8 +168,13 @@ export async function createBlobButton(
   applyBlobFill(state);
   syncBlobButtonClasses(button, state);
 
-  if (onClick) {
-    button.addEventListener("click", onClick);
+  if (soundFile || onClick) {
+    button.addEventListener("click", () => {
+      if (soundFile) {
+        playButtonSound(soundFile);
+      }
+      onClick?.();
+    });
   }
 
   return button;

@@ -2,6 +2,7 @@ import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_RELATION, trackToggle } from "../api/metricsApi";
+import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_RELATIONS_OPTIONS,
@@ -117,6 +118,7 @@ export function mountSurveyScreen4(
     anchor.appendChild(button);
 
     addListener(button, "click", () => {
+      playButtonSound(SOUND_BUTTON_BLOB);
       const selected = toggleRelation(state, relation);
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));

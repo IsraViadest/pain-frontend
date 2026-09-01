@@ -1,5 +1,6 @@
 import { latLngToNormalizedMapXY, svgCoordsToLatLng } from "./mapUtils";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_DRAG_WORD_MIME,
@@ -350,9 +351,18 @@ export function mountSurveyScreen2(
       });
 
       addListener(blobBtn, "click", () => {
+        playButtonSound(SOUND_BUTTON_BLOB);
         setTapSelection(word, blobBtn);
       });
     }
+  };
+
+  const commitPlacement = (word: string, lat: number, lng: number): void => {
+    upsertPlacement(state, word, lat, lng);
+    renderPin({ word, lat, lng });
+    refreshTray();
+    syncAdvanceEnabled();
+    playButtonSound(SOUND_BUTTON_BLOB);
   };
 
   refreshTray();
@@ -372,10 +382,7 @@ export function mountSurveyScreen2(
     const coords = svgCoordsToLatLng(event.clientX, event.clientY, mapImg);
     if (!coords) return;
 
-    upsertPlacement(state, word, coords.lat, coords.lng);
-    renderPin({ word, lat: coords.lat, lng: coords.lng });
-    refreshTray();
-    syncAdvanceEnabled();
+    commitPlacement(word, coords.lat, coords.lng);
   };
 
   addListener(mapImg, "dragover", (event) => {
@@ -392,11 +399,8 @@ export function mountSurveyScreen2(
     const coords = svgCoordsToLatLng(event.clientX, event.clientY, mapImg);
     if (!coords) return;
     const word = tapSelectedWord;
-    upsertPlacement(state, word, coords.lat, coords.lng);
-    renderPin({ word, lat: coords.lat, lng: coords.lng });
+    commitPlacement(word, coords.lat, coords.lng);
     setTapSelection(null, null);
-    refreshTray();
-    syncAdvanceEnabled();
   });
 
   schedulePinLayoutSync(mapImg, syncAllPinPositions);

@@ -2,6 +2,7 @@ import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_WORD, trackToggle } from "../api/metricsApi";
+import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_WORDS,
@@ -117,6 +118,7 @@ export function mountSurveyScreen1(
     anchor.appendChild(button);
 
     button.addEventListener("click", () => {
+      playButtonSound(SOUND_BUTTON_BLOB);
       if (button.classList.contains("survey-bubble--placed")) {
         state.selectedWords.delete(word);
         state.placements = state.placements.filter(

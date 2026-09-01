@@ -12,6 +12,7 @@ import {
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_TEMPORALITY, trackToggle } from "../api/metricsApi";
+import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 
 type SurveyScreen3Context = {
   state: SurveySessionState;
@@ -114,6 +115,7 @@ export function mountSurveyScreen3(
     anchor.appendChild(button);
 
     addListener(button, "click", () => {
+      playButtonSound(SOUND_BUTTON_BLOB);
       const selected = toggleTemporality(state, option);
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));

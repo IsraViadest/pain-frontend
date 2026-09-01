@@ -5,6 +5,11 @@ import {
   isSoundEnabled,
   setSoundEnabled,
 } from "../sound/backgroundMusic";
+import {
+  SOUND_BUTTON_BLOB,
+  SOUND_BUTTON_INFO,
+  SOUND_BUTTON_SHARE,
+} from "../sound/buttonSound";
 import { createBlobButton, setActive } from "./blobButton";
 import {
   hideInfoModal,
@@ -201,6 +206,7 @@ export async function mountProductionChrome(
     variant: "layer",
     skipActiveGradient: true,
     activeFill: "#D9D9D9",
+    soundFile: SOUND_BUTTON_BLOB,
     onClick: () => {
       callbacks.onAllLayers();
       closeMobileMenu();
@@ -235,6 +241,7 @@ export async function mountProductionChrome(
       variant: "layer",
       skipActiveGradient: layer.id === "physpain" || layer.id === "envpain",
       activeFill: layer.id === "envpain" ? "#CBB0B9" : undefined,
+      soundFile: SOUND_BUTTON_BLOB,
       onClick: () => {
         applyAllLayersActive(false);
         applyActiveLayer(layer.id);
@@ -255,6 +262,7 @@ export async function mountProductionChrome(
     svgName: "share_pain.svg",
     label: "share your pain",
     variant: "share",
+    soundFile: SOUND_BUTTON_SHARE,
     onClick: () => {
       callbacks.onSharePain();
     },
@@ -265,6 +273,7 @@ export async function mountProductionChrome(
     svgName: "about.svg",
     label: "about",
     variant: "info",
+    soundFile: SOUND_BUTTON_INFO,
     onClick: () => {
       showInfoModal(appRoot, {
         ...INFO_MODAL_ABOUT,
@@ -277,6 +286,7 @@ export async function mountProductionChrome(
     svgName: "data_sources.svg",
     label: "data sources",
     variant: "info",
+    soundFile: SOUND_BUTTON_INFO,
     onClick: () => {
       showInfoModal(appRoot, {
         ...INFO_MODAL_DATA_SOURCES,

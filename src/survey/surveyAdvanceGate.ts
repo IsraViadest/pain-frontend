@@ -1,3 +1,5 @@
+import { playButtonSound, SOUND_BUTTON_SURVEY_ARROW } from "../sound/buttonSound";
+
 /** How long the validation hint stays visible before fading out. */
 const VALIDATION_VISIBLE_MS = 2000;
 
@@ -63,6 +65,7 @@ export function createSurveyAdvanceGate(
       showValidation();
       return;
     }
+    playButtonSound(SOUND_BUTTON_SURVEY_ARROW);
     onAdvance();
   };
 

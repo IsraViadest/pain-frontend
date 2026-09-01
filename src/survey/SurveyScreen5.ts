@@ -2,6 +2,11 @@ import {
   buildSurveySubmissionPayload,
   type SurveySessionState,
 } from "./surveyData";
+import {
+  playButtonSound,
+  SOUND_BUTTON_SUBMIT,
+  SOUND_BUTTON_SURVEY_ARROW,
+} from "../sound/buttonSound";
 
 type SurveyScreen5Context = {
   state: SurveySessionState;
@@ -67,9 +72,13 @@ export function mountSurveyScreen5(
     state.painText = painText.value;
   });
 
-  addListener(backBtn, "click", onBack);
+  addListener(backBtn, "click", () => {
+    playButtonSound(SOUND_BUTTON_SURVEY_ARROW);
+    onBack();
+  });
 
   addListener(submitBtn, "click", () => {
+    playButtonSound(SOUND_BUTTON_SUBMIT);
     state.painText = painText.value;
     const payload = buildSurveySubmissionPayload(state);
     console.log("Survey submission:", JSON.stringify(payload, null, 2));
