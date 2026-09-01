@@ -392,8 +392,18 @@
   pointer-events: none;
 }
 
+/* inverted palette: dark blue fill, off-white text — matches survey-bubble--selected on Screen 1 */
+.survey-map-pin.survey-map__bubble--selected {
+  /* two stacked shadows for a dense opaque glow — single shadow is too transparent at map scale */
+  filter: drop-shadow(0 0 2px #07153b) drop-shadow(0 0 4px #07153b);
+}
+
+.survey-map-pin.survey-map__bubble--selected .survey-map-pin__label {
+  color: #f7f8fc;
+}
+
 .survey-map-pin.survey-map__bubble--selected .survey-map-pin__dot {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.7);
+  background: #f7f8fc;
 }
 
 .survey-screen__tap-hint {
@@ -458,11 +468,13 @@
   cursor: grabbing;
 }
 
-.survey-map__bubble--selected {
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
-  outline: 2px solid rgba(255, 255, 255, 0.8);
-  outline-offset: 2px;
-  border-radius: 12px;
+/* inverted palette: dark blue fill, off-white text — matches survey-bubble--selected on Screen 1 */
+.survey-map__bubble--selected .survey-bubble__path {
+  fill: #07153b;
+}
+
+.survey-map__bubble--selected .survey-bubble__label {
+  color: #f7f8fc;
 }
 
 .survey-tray-bubble .survey-bubble__label {
