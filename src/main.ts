@@ -171,6 +171,8 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
     await hideSurveyLoadingOverlay();
     if (!res) {
       console.warn("[main] Survey submission failed; skipping post-submit fly-to.");
+      setStatus("Survey submission failed. Please try again.");
+      sharePainBtn.focus();
       return;
     }
     globe.setAutoSpinEnabled(false);

@@ -119,7 +119,9 @@ known consequence is clustering at up to 46 fixed points for visitors who place 
 so pain-server must not return the message service's full text field here.
 
 The result card renders `text` with `textContent`, not HTML. A failed survey request returns `null`
-from `submitSurvey`, and the frontend does not invent fallback copy.
+from `submitSurvey`; the frontend shows a visible retry status and does not invent fallback copy.
+The result is a nonmodal dialog with close-button focus, Escape dismissal, and focus return to
+`Share your pain`.
 
 ## API adapter (implementation)
 

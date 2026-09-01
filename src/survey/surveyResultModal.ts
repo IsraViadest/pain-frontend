@@ -7,6 +7,7 @@ type SurveyResultModalOptions = {
 
 let modalEl: HTMLElement | null = null;
 let closeHandler: (() => void) | null = null;
+let escapeHandler: ((event: KeyboardEvent) => void) | null = null;
 
 /** Decimal places for lat/lng display in the result modal. */
 const COORD_DECIMAL_PLACES = 1;
@@ -32,7 +33,6 @@ export function showSurveyResultModal(
   modalEl = document.createElement("div");
   modalEl.className = "survey-result-modal survey-result-modal--visible";
   modalEl.setAttribute("role", "dialog");
-  modalEl.setAttribute("aria-modal", "true");
   modalEl.setAttribute("aria-labelledby", "survey-result-title");
   modalEl.setAttribute(
     "aria-describedby",
@@ -69,7 +69,12 @@ export function showSurveyResultModal(
     cb?.();
   };
 
+  escapeHandler = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") handleClose();
+  };
+
   closeBtn.addEventListener("click", handleClose);
+  document.addEventListener("keydown", escapeHandler);
   panel.append(title, coords, messageEl);
   modalEl.append(panel, closeBtn);
   host.appendChild(modalEl);
@@ -78,7 +83,9 @@ export function showSurveyResultModal(
 
 /** Dismiss the post-submit result modal if visible. */
 export function hideSurveyResultModal(): void {
+  if (escapeHandler) document.removeEventListener("keydown", escapeHandler);
   modalEl?.remove();
   modalEl = null;
   closeHandler = null;
+  escapeHandler = null;
 }
