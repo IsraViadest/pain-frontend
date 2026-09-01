@@ -390,13 +390,13 @@
   width: auto;
 }
 
-/* Mobile chrome slots — hidden on desktop; shown under max-width 768px. */
-#ui-hamburger,
+/* Mobile chrome slot — hidden on desktop; shown under max-width 768px. */
 #ui-title-controls {
   display: none;
 }
 
 @media (max-width: 768px) {
+  /* Reduced from 36px desktop size to avoid overlapping modal titles on small screens. */
   .info-modal__close {
     width: 24px;
     height: 24px;
@@ -411,6 +411,7 @@
     font-size: clamp(2.88rem, 5.76vw, 5.04rem);
   }
 
+  /* Matches the old fixed hamburger right inset. */
   #ui-title {
     right: 16px;
   }
@@ -458,6 +459,7 @@
   .ui-title__top-row .ui-hamburger {
     display: block;
     flex-shrink: 0;
+    /* #ui-title sets pointer-events: none; re-enable clicks on the hamburger. */
     pointer-events: auto;
     padding: 0;
     margin: 0;

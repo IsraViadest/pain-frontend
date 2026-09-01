@@ -560,6 +560,7 @@
 }
 
 @media (max-width: 768px) {
+  /* Reduced from 36px desktop size to avoid overlapping modal titles on small screens. */
   .survey-modal__close {
     width: 24px;
     height: 24px;
