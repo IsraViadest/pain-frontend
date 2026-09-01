@@ -1,6 +1,7 @@
 type SurveyResultModalOptions = {
   lat: number;
   lng: number;
+  message: string;
   onClose: () => void;
 };
 
@@ -22,7 +23,7 @@ function formatCoordinates(lat: number, lng: number): string {
 /** Centered result card after post-submit globe fly-to. */
 export function showSurveyResultModal(
   host: HTMLElement,
-  { lat, lng, onClose }: SurveyResultModalOptions,
+  { lat, lng, message, onClose }: SurveyResultModalOptions,
 ): void {
   hideSurveyResultModal();
 
@@ -32,7 +33,11 @@ export function showSurveyResultModal(
   modalEl.className = "survey-result-modal survey-result-modal--visible";
   modalEl.setAttribute("role", "dialog");
   modalEl.setAttribute("aria-modal", "true");
-  modalEl.setAttribute("aria-label", "Pain shared location");
+  modalEl.setAttribute("aria-labelledby", "survey-result-title");
+  modalEl.setAttribute(
+    "aria-describedby",
+    "survey-result-coordinates survey-result-message",
+  );
 
   const panel = document.createElement("div");
   panel.className = "survey-result-modal__panel";
@@ -44,12 +49,19 @@ export function showSurveyResultModal(
   closeBtn.textContent = "CLOSE";
 
   const title = document.createElement("h2");
+  title.id = "survey-result-title";
   title.className = "survey-result-modal__title";
   title.textContent = "YOUR PAIN IS SHARED HERE";
 
   const coords = document.createElement("p");
+  coords.id = "survey-result-coordinates";
   coords.className = "survey-result-modal__coords";
   coords.textContent = formatCoordinates(lat, lng);
+
+  const messageEl = document.createElement("p");
+  messageEl.id = "survey-result-message";
+  messageEl.className = "survey-result-modal__message";
+  messageEl.textContent = message;
 
   const handleClose = (): void => {
     const cb = closeHandler;
@@ -58,9 +70,10 @@ export function showSurveyResultModal(
   };
 
   closeBtn.addEventListener("click", handleClose);
-  panel.append(title, coords);
+  panel.append(title, coords, messageEl);
   modalEl.append(panel, closeBtn);
   host.appendChild(modalEl);
+  closeBtn.focus();
 }
 
 /** Dismiss the post-submit result modal if visible. */
