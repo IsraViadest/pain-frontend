@@ -1,8 +1,8 @@
 /**
- * App entry — wires HUD controls to GlobeView and pain-server (or dev mock).
+ * App entry — wires production UI chrome to GlobeView and pain-server (or dev mock).
  *
  * Data flow (production):
- *   layer select → fetchPoints(layer) → api/client → GET /init/:layer → adapter → globe.setMarkers()
+ *   layer button → fetchPoints(layer) → api/client → GET /init/:layer → adapter → globe.setMarkers()
  *
  * Dev:
  *   npm run dev              — mock CSV API (Vite /api proxy)
@@ -11,14 +11,13 @@
  * Globe debug UI is opt-in only (?globeDebug=1 or localStorage pain-globe-debug=1).
  */
 import "./style.css";
-import { fetchLayers, fetchPoints, submitPain } from "./api/client";
+import { fetchLayers, fetchPoints } from "./api/client";
 import {
   METRICS_KIND_LAYER,
   trackToggle,
-  trackVizMode,
 } from "./api/metricsApi";
-import { getMapLayerById, resolveLayerLexiconBucket } from "./api/layers";
-import type { MapLayer } from "./types/api";
+import { getMapLayerById, isChoroplethMapLayer, resolveLayerLexiconBucket } from "./api/layers";
+import type { MapLayer, PainPoint } from "./types/api";
 import {
   GlobeView,
   type GlobeLayerDisplayMeta,
@@ -44,74 +43,60 @@ import {
   hideSurveyResultModal,
   showSurveyResultModal,
 } from "./survey/surveyResultModal";
-import {
-  type SurveySubmissionPayload,
-} from "./survey/surveyData";
+import { type SurveySubmissionPayload } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
-import { mountSurveyTestPanel } from "./dev/surveyTestPanel";
+import { showConsentModal } from "./survey/consentModal";
+import { initBackgroundMusic } from "./sound/backgroundMusic";
+import {
+  mountProductionChrome,
+  type ProductionChrome,
+} from "./ui/productionChrome";
+import { playPainSound } from "./sound/soundEngine";
+import { hideLegend, showLegend } from "./ui/legend";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#globe");
-const layerSelect = document.querySelector<HTMLSelectElement>("#layer-select");
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
-const refreshBtn = document.querySelector<HTMLButtonElement>("#refresh-points");
-const testPostBtn = document.querySelector<HTMLButtonElement>("#test-post");
 const wordCloudToggle = document.querySelector<HTMLButtonElement>("#word-cloud-toggle");
-const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
-const painVizSelect =
-  document.querySelector<HTMLSelectElement>("#pain-viz-mode");
 
-if (
-  !canvas ||
-  !layerSelect ||
-  !statusEl ||
-  !refreshBtn ||
-  !testPostBtn ||
-  !wordCloudToggle ||
-  !themeToggle ||
-  !painVizSelect
-) {
+if (!canvas || !statusEl || !wordCloudToggle) {
   throw new Error("Missing DOM nodes");
 }
 
-const painVizEl = painVizSelect;
-painVizEl.value = PAIN_VIZ_MODE.scars;
-
-const hudRow = document.querySelector<HTMLDivElement>("#hud .row");
-if (!hudRow) throw new Error("Missing HUD button row");
-const sharePainBtn = document.createElement("button");
-sharePainBtn.type = "button";
-sharePainBtn.id = "share-pain";
-sharePainBtn.textContent = "Share your pain";
-hudRow.appendChild(sharePainBtn);
+const hudStatus = statusEl;
+let lastLayerId = "";
+let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
+let chrome: ProductionChrome | null = null;
+/** Layer list from last successful fetchLayers (for all-layers Promise.all). */
+let cachedLayers: MapLayer[] = [];
+/** True while concurrent multi-layer visuals are shown. */
+let showAllLayersActive = false;
+/** In-flight {@link loadPoints} fetch; aborted on the next layer switch. */
+let loadPointsAbortController: AbortController | null = null;
+/** Idle time before applying a layer switch; coalesces rapid clicks to avoid WebGL context loss. */
+const LAYER_CHANGE_DEBOUNCE_MS = 150;
+/** Debounced {@link applyPendingLayerChange} timer for rapid layer clicks. */
+let pendingLayerChangeTimer: ReturnType<typeof setTimeout> | null = null;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
 
+/** Current pain viz mode (production chrome cycles this; no HUD select). */
 function readPainVizMode(): PainVisualizationMode {
-  if (painVizEl.value === PAIN_VIZ_MODE.scars) return PAIN_VIZ_MODE.scars;
-  if (painVizEl.value === PAIN_VIZ_MODE.multiplexV0) {
-    return PAIN_VIZ_MODE.multiplexV0;
-  }
-  return PAIN_VIZ_MODE.points;
+  return currentPainVizMode;
 }
 
-const hudStatus = statusEl;
-const layerPicker = layerSelect;
-let lastLayerId = "";
 const wordCloudBtn = wordCloudToggle;
-const themeBtn = themeToggle;
 const appRoot = document.querySelector<HTMLDivElement>("#app");
 if (!appRoot) throw new Error("Missing app root");
+const appRootEl: HTMLDivElement = appRoot;
 // Floating tooltip for multiplex / word-cloud hovers (not in index.html).
 const hoverModal = document.createElement("div");
 hoverModal.id = "multiplex-hover";
 hoverModal.className = "multiplex-hover";
 hoverModal.hidden = true;
-appRoot.appendChild(hoverModal);
-
-mountSurveyTestPanel(appRoot);
+appRootEl.appendChild(hoverModal);
 
 function readStoredTheme(): VisualTheme {
   try {
@@ -133,14 +118,6 @@ function getInitialTheme(): VisualTheme {
   }
 }
 
-function persistTheme(theme: VisualTheme): void {
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
-
 const initialTheme = getInitialTheme();
 document.documentElement.dataset.theme = initialTheme;
 
@@ -148,7 +125,7 @@ if (isDebugScarVisual()) {
   document.documentElement.dataset.scarDebug = "true";
 }
 
-// --- Globe + optional debug panel (outside HUD — see index.html) ---
+// --- Globe + optional debug panel (see index.html) ---
 const globe = new GlobeView(canvas);
 const scarMapPreview = document.querySelector<HTMLCanvasElement>(
   "#scar-map-preview",
@@ -163,16 +140,13 @@ let postSubmitRunning = false;
 async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<void> {
   if (postSubmitRunning) return;
   postSubmitRunning = true;
-  const overlayHost = appRoot;
-  if (!overlayHost) return;
+  const overlayHost = appRootEl;
   try {
     showSurveyLoadingOverlay(overlayHost);
     const res = await submitSurvey(payload);
     await hideSurveyLoadingOverlay();
     if (!res) {
       console.warn("[main] Survey submission failed; skipping post-submit fly-to.");
-      setStatus("Survey submission failed. Please try again.");
-      sharePainBtn.focus();
       return;
     }
     globe.setAutoSpinEnabled(false);
@@ -187,6 +161,8 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
       globe.earthContent,
     );
     const removeSurfaceMarker = globe.addSurfaceMarker(resultLat, resultLng);
+    chrome?.setUiEnabled(false);
+    new Audio("/sounds/Results.mp3").play().catch(() => {});
     showSurveyResultModal(overlayHost, {
       lat: resultLat,
       lng: resultLng,
@@ -195,7 +171,7 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
         removeSurfaceMarker();
         hideSurveyResultModal();
         globe.setAutoSpinEnabled(true);
-        sharePainBtn.focus();
+        chrome?.setUiEnabled(true);
       },
     });
   } finally {
@@ -207,10 +183,6 @@ const surveyModal = new SurveyModal(surveyModalHost, {
   onSurveySubmitted: (payload) => {
     void runPostSubmitSequence(payload);
   },
-});
-
-sharePainBtn.addEventListener("click", () => {
-  surveyModal.open();
 });
 
 const showGlobeDebugEntry = shouldShowGlobeDebugPanel();
@@ -265,21 +237,13 @@ if (globeDebugToggle && globeDebugHost && showGlobeDebugEntry) {
 }
 globe.setVisualTheme(initialTheme);
 globe.setGlobeDisplayMode("points");
-globe.setPainVisualizationMode(readPainVizMode());
+globe.setPainVisualizationMode(currentPainVizMode);
 let wordCloudEnabled = false;
 globe.setWordCloudEnabled(wordCloudEnabled);
 
-// --- HUD event handlers ---
-function syncThemeToggle(): void {
-  const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
-  themeBtn.textContent = t === "blue" ? "Dark mode" : "Blue mode";
-  themeBtn.setAttribute("aria-pressed", t === "blue" ? "true" : "false");
-}
-
-syncThemeToggle();
-
+// --- Production chrome event handlers ---
 function getCurrentMapLayer(): MapLayer | undefined {
-  return getMapLayerById(layerPicker.value);
+  return getMapLayerById(lastLayerId);
 }
 
 function currentLayerSupportsWordCloud(): boolean {
@@ -306,22 +270,6 @@ function syncWordCloudToggle(): void {
 }
 
 syncWordCloudToggle();
-
-themeBtn.addEventListener("click", () => {
-  const next: VisualTheme =
-    document.documentElement.dataset.theme === "blue" ? "dark" : "blue";
-  document.documentElement.dataset.theme = next;
-  persistTheme(next);
-  globe.setVisualTheme(next);
-  syncThemeToggle();
-});
-
-painVizEl.addEventListener("change", () => {
-  const mode = readPainVizMode();
-  globe.setPainVisualizationMode(mode);
-  trackVizMode(mode);
-  hoverModal.hidden = true;
-});
 
 wordCloudBtn.addEventListener("click", () => {
   wordCloudEnabled = !wordCloudEnabled;
@@ -363,6 +311,13 @@ function renderWordCloudHover(info: WordCloudHoverInfo): string {
 /** Pixel offset from cursor when positioning the floating hover tooltip (avoids covering the pointer). */
 const HOVER_TOOLTIP_OFFSET_X = 14;
 const HOVER_TOOLTIP_OFFSET_Y = 12;
+/** Max pointer travel (px) between down and up to count as a click rather than an orbit drag. */
+const CLICK_MAX_MOVE_PX = 5;
+/**
+ * When false, globe click-to-sound listeners are not registered.
+ * Flip to true to re-enable the soft bell on pain-point clicks.
+ */
+const SOUND_ENABLED = false;
 
 canvas.addEventListener("pointermove", (ev) => {
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
@@ -407,98 +362,218 @@ canvas.addEventListener("pointerleave", () => {
   hoverModal.hidden = true;
 });
 
+/** Pointer down position for click-vs-drag detection on the globe canvas. */
+let pointerDownPos: { x: number; y: number } | null = null;
+let lastSoundTime = 0;
+
+if (SOUND_ENABLED) {
+  canvas.addEventListener("pointerdown", (ev) => {
+    pointerDownPos = { x: ev.clientX, y: ev.clientY };
+  });
+
+  /**
+   * Click-in-place on the globe: play a soft bell for pain at the pointer.
+   * Points mode uses exact marker pick (any hit); scars/multiplex sample scar
+   * dent strength and only play when a pain point is nearby.
+   * Ignores orbit drags (pointer moved more than {@link CLICK_MAX_MOVE_PX}).
+   */
+  canvas.addEventListener("pointerup", (ev) => {
+    if (!pointerDownPos) return;
+    const dx = Math.abs(ev.clientX - pointerDownPos.x);
+    const dy = Math.abs(ev.clientY - pointerDownPos.y);
+    pointerDownPos = null;
+    if (dx > CLICK_MAX_MOVE_PX || dy > CLICK_MAX_MOVE_PX) return;
+    if (Date.now() - lastSoundTime < 300) return;
+
+    if (readPainVizMode() === PAIN_VIZ_MODE.points) {
+      const hit = globe.pickMarkerHover(ev.clientX, ev.clientY);
+      if (!hit) return;
+      playPainSound(hit.intensity, hit.layerId);
+      lastSoundTime = Date.now();
+      return;
+    }
+
+    const scarIntensity = globe.sampleScarAtClick(ev.clientX, ev.clientY);
+    if (scarIntensity === null) return;
+    if (!globe.pickNearestPainPoint(ev.clientX, ev.clientY)) return;
+    if (!lastLayerId) return;
+    playPainSound(scarIntensity, lastLayerId);
+    lastSoundTime = Date.now();
+  });
+}
+
 function setStatus(msg: string): void {
   hudStatus.textContent = msg;
 }
 
+/** Stipple tint overrides for known layers; unknown ids use GET /init `color`. */
+const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
+  emopain: "#6B15CE",
+  envpain: "#00674F",
+  physpain: "#FF0000",
+  socioecopain: "#FFFF00",
+};
+
+/**
+ * Apply layer visuals and auto-switch pain viz mode:
+ * physpain → scars; all other / unknown ids → points.
+ */
 function applyGlobeLayer(layerId: string): void {
+  const vizMode =
+    layerId === "physpain" ? PAIN_VIZ_MODE.scars : PAIN_VIZ_MODE.points;
+  currentPainVizMode = vizMode;
+  globe.setPainVisualizationMode(vizMode);
+
+  globe.setWordCloudEnabled(layerId === "emopain");
+
   const layer = getMapLayerById(layerId);
   const meta: GlobeLayerDisplayMeta | undefined = layer
     ? {
-        color: layer.color,
+        color: LAYER_STIPPLE_COLOR_OVERRIDES[layerId] ?? layer.color,
         text: layer.text,
+        geospatial: layer.geospatial,
         lexiconBucket: resolveLayerLexiconBucket(layerId),
       }
     : undefined;
   globe.updateLayerVisuals(layerId, meta);
+  showLegend(layerId);
 }
 
-// --- pain-server / mock: populate layer list and load points for current layer ---
-async function loadLayersIntoSelect(): Promise<void> {
-  const layers = await fetchLayers();
-  layerPicker.innerHTML = "";
-  for (const layer of layers) {
-    const opt = document.createElement("option");
-    opt.value = layer.id;
-    opt.textContent = layer.label;
-    layerPicker.appendChild(opt);
-  }
-  if (layers[0]) {
-    const layerId = String(layers[0].id);
-    applyGlobeLayer(layerId);
-    trackToggle(METRICS_KIND_LAYER, layerId, true);
-    lastLayerId = layerId;
-  }
-  syncWordCloudForCurrentLayer();
-}
-
-async function loadPoints(): Promise<void> {
-  const layer = layerPicker.value;
-  const points = await fetchPoints(layer);
-  globe.setMarkers(points);
-  setStatus(
-    `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
-  );
-}
-
-layerPicker.addEventListener("change", () => {
+function applyPendingLayerChange(layerId: string): void {
+  globe.setMarkers([]);
   const prevLayerId = lastLayerId;
-  const nextLayerId = layerPicker.value;
-  if (prevLayerId && prevLayerId !== nextLayerId) {
+  if (
+    prevLayerId &&
+    prevLayerId !== layerId &&
+    // all-layers-off already tracked in handleLayerChange (immediate path).
+    prevLayerId !== "all-layers"
+  ) {
     trackToggle(METRICS_KIND_LAYER, prevLayerId, false);
   }
-  trackToggle(METRICS_KIND_LAYER, nextLayerId, true);
-  lastLayerId = nextLayerId;
+  trackToggle(METRICS_KIND_LAYER, layerId, true);
+  lastLayerId = layerId;
+  applyGlobeLayer(layerId);
   syncWordCloudForCurrentLayer();
-  applyGlobeLayer(nextLayerId);
   void loadPoints().catch((e) =>
     setStatus(e instanceof Error ? e.message : String(e)),
   );
-});
+}
 
-refreshBtn.addEventListener("click", async () => {
-  refreshBtn.disabled = true;
-  try {
-    await loadPoints();
-  } catch (e) {
-    setStatus(e instanceof Error ? e.message : String(e));
-  } finally {
-    refreshBtn.disabled = false;
+function handleLayerChange(layerId: string): void {
+  if (
+    layerId === lastLayerId &&
+    !showAllLayersActive &&
+    // Allow re-selecting the current layer while a debounce is still pending.
+    pendingLayerChangeTimer === null
+  ) {
+    return;
   }
-});
+  loadPointsAbortController?.abort();
+  if (showAllLayersActive) {
+    showAllLayersActive = false;
+    globe.setShowAllLayersMode(false);
+    chrome?.setAllLayersActive(false);
+    trackToggle(METRICS_KIND_LAYER, "all-layers", false);
+  }
+  chrome?.setActiveLayer(layerId);
+  // Immediate: user feedback + fetch cancel. Deferred: GPU rebuild (coalesce rapid clicks).
+  clearTimeout(pendingLayerChangeTimer ?? undefined);
+  pendingLayerChangeTimer = setTimeout(() => {
+    pendingLayerChangeTimer = null;
+    applyPendingLayerChange(layerId);
+  }, LAYER_CHANGE_DEBOUNCE_MS);
+}
 
-testPostBtn.addEventListener("click", async () => {
-  testPostBtn.disabled = true;
-  try {
-    const lat = (Math.random() * 140 - 70).toFixed(2);
-    const lng = (Math.random() * 360 - 180).toFixed(2);
-    const types = ["environmental", "physical", "emotional", "socioeconomic"];
-    const type = types[Math.floor(Math.random() * types.length)]!;
-    await submitPain({
-      lat: Number(lat),
-      lng: Number(lng),
-      type,
-      intensity: Math.random(),
-      datatype: "water",
-      text: "Dev test submission",
-    });
-    await loadPoints();
-  } catch (e) {
-    setStatus(e instanceof Error ? e.message : String(e));
-  } finally {
-    testPostBtn.disabled = false;
+/**
+ * Fetch every layer in parallel and stack visuals:
+ * physpain scars, socio choropleth shell, env CO2 haze, emo word clouds.
+ */
+async function handleAllLayers(): Promise<void> {
+  if (cachedLayers.length === 0) {
+    setStatus("No layers loaded yet");
+    return;
   }
-});
+
+  showAllLayersActive = true;
+  chrome?.setAllLayersActive(true);
+  hideLegend();
+  if (lastLayerId) {
+    trackToggle(METRICS_KIND_LAYER, lastLayerId, false);
+  }
+  trackToggle(METRICS_KIND_LAYER, "all-layers", true);
+  lastLayerId = "all-layers";
+
+  const phys = cachedLayers.find((l) => l.id === "physpain");
+  const socio = cachedLayers.find((l) => isChoroplethMapLayer(l));
+  const emo = cachedLayers.find((l) => l.text === true && l.geospatial === false);
+
+  currentPainVizMode = PAIN_VIZ_MODE.scars;
+  globe.setPainVisualizationMode(PAIN_VIZ_MODE.scars);
+  globe.setWordCloudEnabled(true);
+  globe.setShowAllLayersMode(true, {
+    physpainLayerId: phys?.id ?? "physpain",
+    choroplethLayerId: socio?.id ?? "socioecopain",
+    choroplethColorHex: socio?.color ?? null,
+    emopainLayerId: emo?.id ?? "emopain",
+    lexiconBucket: resolveLayerLexiconBucket(emo?.id ?? "emopain"),
+  });
+
+  const pointLists = await Promise.all(
+    cachedLayers.map((layer) => fetchPoints(layer.id)),
+  );
+  const allPoints: PainPoint[] = pointLists.flat();
+  globe.setMarkers(allPoints);
+  syncWordCloudToggle();
+  setStatus(
+    `${allPoints.length} point(s) across ${cachedLayers.length} layer(s) — all visuals`,
+  );
+}
+
+// --- pain-server / mock: populate layer chrome and load points for current layer ---
+async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
+  cachedLayers = layers;
+  chrome = await mountProductionChrome(appRootEl, layers, {
+    onLayerChange: handleLayerChange,
+    onAllLayers: () => {
+      void handleAllLayers().catch((e) =>
+        setStatus(e instanceof Error ? e.message : String(e)),
+      );
+    },
+    onSharePain: () => {
+      void showConsentModal(
+        appRootEl,
+        () => {
+          surveyModal.open();
+        },
+        () => {},
+      );
+    },
+  });
+}
+
+async function loadPoints(): Promise<void> {
+  const layer = lastLayerId;
+  if (!layer) return;
+  const controller = new AbortController();
+  loadPointsAbortController = controller;
+  try {
+    const points = await fetchPoints(layer, controller.signal);
+    if (controller.signal.aborted) return;
+    globe.setMarkers(points);
+    setStatus(
+      `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
+    );
+  } catch (e) {
+    if (
+      controller.signal.aborted ||
+      (e instanceof DOMException && e.name === "AbortError") ||
+      (e instanceof Error && e.name === "AbortError")
+    ) {
+      return;
+    }
+    throw e;
+  }
+}
 
 // --- render loop + initial API bootstrap ---
 function loop(): void {
@@ -507,9 +582,12 @@ function loop(): void {
 }
 
 (async () => {
+  initBackgroundMusic();
   try {
-    await loadLayersIntoSelect();
-    await loadPoints();
+    const layers = await fetchLayers();
+    await loadLayersIntoChrome(layers);
+    // Default to all-layers on load instead of activating the first API layer.
+    await handleAllLayers();
   } catch (e) {
     setStatus(
       e instanceof Error

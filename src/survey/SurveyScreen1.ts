@@ -1,5 +1,8 @@
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
+import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_WORD, trackToggle } from "../api/metricsApi";
+import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_WORDS,
@@ -34,13 +37,22 @@ export function mountSurveyScreen1(
 
   const title = document.createElement("h2");
   title.className = "survey-screen__title";
-  title.textContent =
-    "Select the words that describe your pain (click all that apply).";
+  title.innerHTML =
+    'Select the words that describe your pain<br><span class="survey-screen__title-hint">(click all that apply)</span>';
 
   const field = document.createElement("div");
   field.className = "survey-screen__bubble-field";
   field.setAttribute("role", "group");
   field.setAttribute("aria-label", "Pain descriptor words");
+
+  const advanceGate = createSurveyAdvanceGate(
+    "Please select at least one word",
+    onAdvance,
+  );
+
+  const syncAdvanceEnabled = (): void => {
+    advanceGate.setEnabled(state.selectedWords.size >= 1);
+  };
 
   const anchors: HTMLElement[] = [];
 
@@ -65,7 +77,27 @@ export function mountSurveyScreen1(
     button.type = "button";
     button.className = `survey-bubble survey-bubble--${blobId}`;
     button.dataset.word = word;
-    button.setAttribute("aria-pressed", "false");
+
+    // Hydrate selection from session; placed styling only when both selected and on the map.
+    // Placement without selectedWords is abnormal — warn below; !isSelected skips classes safely.
+    const isSelected = state.selectedWords.has(word);
+    if (
+      !isSelected &&
+      state.placements.some((entry) => entry.word === word)
+    ) {
+      console.warn(
+        `[SurveyScreen1] Placement for "${word}" without selectedWords entry.`,
+      );
+    }
+    const isPlaced =
+      isSelected && state.placements.some((entry) => entry.word === word);
+    if (isSelected) {
+      button.classList.add("survey-bubble--selected");
+    }
+    if (isPlaced) {
+      button.classList.add("survey-bubble--placed");
+    }
+    button.setAttribute("aria-pressed", String(isSelected));
 
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", blob.viewBox);
@@ -86,6 +118,21 @@ export function mountSurveyScreen1(
     anchor.appendChild(button);
 
     button.addEventListener("click", () => {
+      playButtonSound(SOUND_BUTTON_BLOB);
+      if (button.classList.contains("survey-bubble--placed")) {
+        state.selectedWords.delete(word);
+        state.placements = state.placements.filter(
+          (entry) => entry.word !== word,
+        );
+        button.classList.remove("survey-bubble--selected", "survey-bubble--placed");
+        button.setAttribute("aria-pressed", "false");
+        if (isConsentGiven()) {
+          trackToggle(METRICS_KIND_WORD, word, false);
+        }
+        syncAdvanceEnabled();
+        return;
+      }
+
       const selected = button.classList.toggle("survey-bubble--selected");
       button.setAttribute("aria-pressed", String(selected));
       if (selected) {
@@ -93,21 +140,19 @@ export function mountSurveyScreen1(
       } else {
         state.selectedWords.delete(word);
       }
-      trackToggle(METRICS_KIND_WORD, word, selected);
+      if (isConsentGiven()) {
+        trackToggle(METRICS_KIND_WORD, word, selected);
+      }
+      syncAdvanceEnabled();
     });
 
     field.appendChild(anchor);
     anchors.push(anchor);
   }
 
-  const advanceBtn = document.createElement("button");
-  advanceBtn.type = "button";
-  advanceBtn.className = "survey-screen__advance";
-  advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.textContent = "→";
-  advanceBtn.addEventListener("click", onAdvance);
+  syncAdvanceEnabled();
 
-  root.append(title, field, advanceBtn);
+  root.append(title, field, advanceGate.validationMsg, advanceGate.wrapper);
   host.appendChild(root);
 
   const layoutSchedule = scheduleBubbleFieldLayout(field, anchors, () => {
@@ -117,6 +162,7 @@ export function mountSurveyScreen1(
   return {
     unmount: () => {
       layoutSchedule.cancel();
+      advanceGate.dispose();
       root.remove();
     },
   };

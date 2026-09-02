@@ -7,7 +7,6 @@ type SurveyResultModalOptions = {
 
 let modalEl: HTMLElement | null = null;
 let closeHandler: (() => void) | null = null;
-let escapeHandler: ((event: KeyboardEvent) => void) | null = null;
 
 /** Decimal places for lat/lng display in the result modal. */
 const COORD_DECIMAL_PLACES = 1;
@@ -33,11 +32,8 @@ export function showSurveyResultModal(
   modalEl = document.createElement("div");
   modalEl.className = "survey-result-modal survey-result-modal--visible";
   modalEl.setAttribute("role", "dialog");
-  modalEl.setAttribute("aria-labelledby", "survey-result-title");
-  modalEl.setAttribute(
-    "aria-describedby",
-    "survey-result-coordinates survey-result-message",
-  );
+  modalEl.setAttribute("aria-modal", "true");
+  modalEl.setAttribute("aria-label", "Pain shared location");
 
   const panel = document.createElement("div");
   panel.className = "survey-result-modal__panel";
@@ -49,17 +45,14 @@ export function showSurveyResultModal(
   closeBtn.textContent = "CLOSE";
 
   const title = document.createElement("h2");
-  title.id = "survey-result-title";
   title.className = "survey-result-modal__title";
   title.textContent = "YOUR PAIN IS SHARED HERE";
 
   const coords = document.createElement("p");
-  coords.id = "survey-result-coordinates";
   coords.className = "survey-result-modal__coords";
   coords.textContent = formatCoordinates(lat, lng);
 
   const messageEl = document.createElement("p");
-  messageEl.id = "survey-result-message";
   messageEl.className = "survey-result-modal__message";
   messageEl.textContent = message;
 
@@ -69,23 +62,15 @@ export function showSurveyResultModal(
     cb?.();
   };
 
-  escapeHandler = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") handleClose();
-  };
-
   closeBtn.addEventListener("click", handleClose);
-  document.addEventListener("keydown", escapeHandler);
-  panel.append(title, coords, messageEl);
-  modalEl.append(panel, closeBtn);
+  panel.append(title, coords, messageEl, closeBtn);
+  modalEl.append(panel);
   host.appendChild(modalEl);
-  closeBtn.focus();
 }
 
 /** Dismiss the post-submit result modal if visible. */
 export function hideSurveyResultModal(): void {
-  if (escapeHandler) document.removeEventListener("keydown", escapeHandler);
   modalEl?.remove();
   modalEl = null;
   closeHandler = null;
-  escapeHandler = null;
 }

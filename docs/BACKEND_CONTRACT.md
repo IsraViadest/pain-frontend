@@ -32,10 +32,7 @@ Calling `fetchPoints` before `fetchLayers` throws in production (`fetchPoints` r
 
 ### GET `/init` — layer metadata
 
-Returns a JSON object with:
-
-- `userId`: string cached by the frontend and added to later survey and metrics POSTs
-- `layerInfo`: JSON array of layer objects (HUD tabs, tint color, word-cloud flag)
+Returns a JSON **array** of layer objects (HUD tabs, tint color, word-cloud flag).
 
 | Field | Type | Role |
 |-------|------|------|
@@ -46,10 +43,7 @@ Returns a JSON object with:
 | `geospatial` | boolean | Layer has map points (all current layers: `true`) |
 | `text` | boolean | Layer supports word-cloud HUD (`true` for `Emo` only today) |
 
-**Frontend types:** GET `/init` envelope → `PainServerInitResponse` (`src/types/painServer.ts`);
-`layerInfo` → validated `MapLayer` (`src/types/api.ts`) via `parseInitLayerListResponse` in
-`src/api/initLayerList.ts`. HTTP: `fetchLayerInfo` in `src/api/painServer.ts` returns
-`MapLayer[]`.
+**Frontend types:** GET `/init` `layerInfo` → validated `MapLayer` (`src/types/api.ts`) via `parseInitLayerListResponse` in `src/api/initLayerList.ts`. HTTP: `fetchLayerInfo` in `src/api/painServer.ts` returns `MapLayer[]`.
 
 Example (truncated): `http://178.63.65.178:3000/init`
 
@@ -94,34 +88,6 @@ The frontend stores `value` in `PainPoint.intensity` **without clamping, roundin
 | **Row `category`** (GET `/init/:layer`) | `Fire`, `CancerRate`, … | `PainPoint.category` / hover metric label |
 
 The frontend does **not** derive `uiLayer` from row fields; all points from `GET /init/Env` get `uiLayer: "Env"`.
-
-## Survey submission
-
-The survey UI sends `POST /survey` to pain-server after Screen 5. The request contains
-`wordBubbles`, `wordBody`, `temporality`, `relations`, and `painDescription`; the frontend adds the
-cached `userId`.
-
-Pain-server returns:
-
-```json
-{
-  "lat": 12.5,
-  "lng": -47.25,
-  "text": "Ice cracks beside the iron rail."
-}
-```
-
-`lat` and `lng` are the message service's selected point. A visitor-placed speaking pain keeps its
-exact map coordinate; an unplaced speaking pain uses its deterministic pain-specific point. The
-known consequence is clustering at up to 46 fixed points for visitors who place nothing.
-
-`text` is the body-only custom paragraph. The result card owns the heading and formatted coordinate,
-so pain-server must not return the message service's full text field here.
-
-The result card renders `text` with `textContent`, not HTML. A failed survey request returns `null`
-from `submitSurvey`; the frontend shows a visible retry status and does not invent fallback copy.
-The result is a nonmodal dialog with close-button focus, Escape dismissal, and focus return to
-`Share your pain`.
 
 ## API adapter (implementation)
 

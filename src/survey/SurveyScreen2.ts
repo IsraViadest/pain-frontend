@@ -1,4 +1,6 @@
 import { latLngToNormalizedMapXY, svgCoordsToLatLng } from "./mapUtils";
+import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 import {
   SURVEY_BLOB_DEFS,
   SURVEY_DRAG_WORD_MIME,
@@ -120,8 +122,14 @@ function createMapPin(word: string): HTMLElement {
   return pin;
 }
 
+/** CSS class toggled on the tap-selected tray bubble or placed pin. */
+const TAP_SELECTED_CLASS = "survey-map__bubble--selected";
+
 /**
- * Survey screen 2 — drag selected words onto the world map and place lat/lng pins.
+ * Survey screen 2 — drag or tap-to-place words onto the world map as lat/lng pins.
+ *
+ * Desktop: drag a tray bubble onto the map (existing behaviour).
+ * Mobile / touch: tap a tray bubble to select it, then tap the map to place it.
  */
 export function mountSurveyScreen2(
   host: HTMLElement,
@@ -146,13 +154,32 @@ export function mountSurveyScreen2(
     });
   };
 
+  let tapSelectedWord: string | null = null;
+  let tapSelectedEl: HTMLElement | null = null;
+
+  const setTapSelection = (word: string | null, el: HTMLElement | null): void => {
+    if (tapSelectedEl) tapSelectedEl.classList.remove(TAP_SELECTED_CLASS);
+    if (word === tapSelectedWord && word !== null) {
+      tapSelectedWord = null;
+      tapSelectedEl = null;
+      return;
+    }
+    tapSelectedWord = word;
+    tapSelectedEl = el;
+    if (tapSelectedEl) tapSelectedEl.classList.add(TAP_SELECTED_CLASS);
+  };
+
   const root = document.createElement("div");
   root.className = "survey-screen survey-screen--2";
 
   const title = document.createElement("h2");
   title.className = "survey-screen__title";
   title.textContent =
-    "Drag the word bubbles onto the body of the planet.";
+    "Place the word bubbles on the body of the planet.";
+
+  const tapHint = document.createElement("p");
+  tapHint.className = "survey-screen__tap-hint";
+  tapHint.textContent = "Tap a word, then tap the map to place it";
 
   const mapWrap = document.createElement("div");
   mapWrap.className = "survey-screen__map-wrap";
@@ -177,15 +204,27 @@ export function mountSurveyScreen2(
   backBtn.type = "button";
   backBtn.className = "survey-screen__back";
   backBtn.setAttribute("aria-label", "Back to word selection");
-  backBtn.textContent = "←";
+  backBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10H4M9 5L4 10l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-  const advanceBtn = document.createElement("button");
-  advanceBtn.type = "button";
-  advanceBtn.className = "survey-screen__advance";
-  advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.textContent = "→";
+  const advanceGate = createSurveyAdvanceGate(
+    "Please place at least one word on the map",
+    onAdvance,
+  );
 
-  root.append(title, mapWrap, tray, backBtn, advanceBtn);
+  const syncAdvanceEnabled = (): void => {
+    advanceGate.setEnabled(state.placements.length >= 1);
+  };
+
+  root.append(
+    title,
+    tapHint,
+    mapWrap,
+    tray,
+    backBtn,
+    advanceGate.validationMsg,
+    advanceGate.wrapper,
+  );
   host.appendChild(root);
 
   const pinByWord = new Map<string, HTMLElement>();
@@ -204,6 +243,41 @@ export function mountSurveyScreen2(
     }
   };
 
+  const syncMapColumnWidth = (): void => {
+    const width = mapImg.getBoundingClientRect().width;
+    if (width <= 0) return;
+
+    if (window.matchMedia("(min-width: 769px)").matches) {
+      mapWrap.style.width = `${width}px`;
+      tray.style.width = `${width}px`;
+      tray.style.maxWidth = "";
+      syncAllPinPositions();
+      return;
+    }
+
+    mapWrap.style.width = "";
+    tray.style.width = "";
+    tray.style.maxWidth = `${width}px`;
+  };
+
+  const scheduleMapColumnWidthSync = (): void => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(syncMapColumnWidth);
+    });
+  };
+
+  if (mapImg.complete) {
+    scheduleMapColumnWidthSync();
+  } else {
+    mapImg.addEventListener("load", scheduleMapColumnWidthSync, { once: true });
+  }
+
+  const onWindowResize = (): void => {
+    scheduleMapColumnWidthSync();
+  };
+  window.addEventListener("resize", onWindowResize);
+  cleanups.push(() => window.removeEventListener("resize", onWindowResize));
+
   const renderPin = (
     placement: SurveyWordPlacement,
     positionNow = true,
@@ -219,6 +293,11 @@ export function mountSurveyScreen2(
         event.dataTransfer.setData(SURVEY_DRAG_WORD_MIME, placement.word);
         event.dataTransfer.setData("text/plain", placement.word);
         event.dataTransfer.effectAllowed = "move";
+      });
+
+      const pinRef = pin;
+      addListener(pin, "click", () => {
+        setTapSelection(placement.word, pinRef);
       });
     }
     if (positionNow) {
@@ -243,15 +322,6 @@ export function mountSurveyScreen2(
     tray.replaceChildren();
 
     if (state.selectedWords.size === 0) {
-      const empty = document.createElement("div");
-      empty.className = "survey-screen__tray-empty";
-
-      const message = document.createElement("p");
-      message.className = "survey-screen__tray-empty-message";
-      message.textContent = "No words selected — go back to choose some";
-
-      empty.append(message);
-      tray.appendChild(empty);
       return;
     }
 
@@ -279,7 +349,20 @@ export function mountSurveyScreen2(
       addListener(blobBtn, "dragend", () => {
         blobBtn.setAttribute("aria-grabbed", "false");
       });
+
+      addListener(blobBtn, "click", () => {
+        playButtonSound(SOUND_BUTTON_BLOB);
+        setTapSelection(word, blobBtn);
+      });
     }
+  };
+
+  const commitPlacement = (word: string, lat: number, lng: number): void => {
+    upsertPlacement(state, word, lat, lng);
+    renderPin({ word, lat, lng });
+    refreshTray();
+    syncAdvanceEnabled();
+    playButtonSound(SOUND_BUTTON_BLOB);
   };
 
   refreshTray();
@@ -299,9 +382,7 @@ export function mountSurveyScreen2(
     const coords = svgCoordsToLatLng(event.clientX, event.clientY, mapImg);
     if (!coords) return;
 
-    upsertPlacement(state, word, coords.lat, coords.lng);
-    renderPin({ word, lat: coords.lat, lng: coords.lng });
-    refreshTray();
+    commitPlacement(word, coords.lat, coords.lng);
   };
 
   addListener(mapImg, "dragover", (event) => {
@@ -313,13 +394,24 @@ export function mountSurveyScreen2(
 
   addListener(mapImg, "drop", handleMapDrop);
 
+  addListener(mapImg, "click", (event) => {
+    if (!tapSelectedWord) return;
+    const coords = svgCoordsToLatLng(event.clientX, event.clientY, mapImg);
+    if (!coords) return;
+    const word = tapSelectedWord;
+    commitPlacement(word, coords.lat, coords.lng);
+    setTapSelection(null, null);
+  });
+
   schedulePinLayoutSync(mapImg, syncAllPinPositions);
 
+  syncAdvanceEnabled();
+
   addListener(backBtn, "click", onBack);
-  addListener(advanceBtn, "click", onAdvance);
 
   return {
     unmount: () => {
+      advanceGate.dispose();
       for (const cleanup of cleanups) cleanup();
       root.remove();
     },

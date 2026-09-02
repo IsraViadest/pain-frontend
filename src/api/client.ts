@@ -9,7 +9,7 @@
  *   fetchLayers → mock/loadMapLayers (dynamic import)
  *   fetchPoints → mockClient (local Express + CSV; not shipped in dist)
  */
-import type { MapLayer, PainPoint, PainSubmission } from "../types/api";
+import type { MapLayer, PainPoint } from "../types/api";
 import { mapInitResponseToPainPoints } from "./adapter";
 import { useMockApi } from "./config";
 import { ensureCountryCentroidsLoaded } from "./countryCentroids";
@@ -19,7 +19,6 @@ import { getPainServerUserId } from "./session";
 
 type MockApiModule = {
   fetchPointsMock: (layerId?: string) => Promise<PainPoint[]>;
-  submitPainMock: (body: PainSubmission) => Promise<PainPoint>;
 };
 
 let mockApiModulePromise: Promise<MockApiModule> | null = null;
@@ -70,8 +69,13 @@ export async function fetchLayers(): Promise<MapLayer[]> {
 /**
  * Load pain points for the selected layer id.
  * Production: GET /init/:layerId via {@link fetchLayerDataPoints}.
+ *
+ * @param signal — optional abort from layer-switch {@link AbortController}.
  */
-export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
+export async function fetchPoints(
+  layerId?: string,
+  signal?: AbortSignal,
+): Promise<PainPoint[]> {
   if (useMockApi) {
     const { fetchPointsMock } = await getMockApiModule();
     return fetchPointsMock(layerId);
@@ -92,19 +96,8 @@ export async function fetchPoints(layerId?: string): Promise<PainPoint[]> {
       "[client] fetchPoints without a cached pain-server userId — call fetchLayers first.",
     );
   }
-  const initLayerRows = await fetchLayerDataPoints(layerId);
+  const initLayerRows = await fetchLayerDataPoints(layerId, signal);
   // Preload NE label points so country-only rows can resolve ISO_A3 → lat/lng in the adapter.
   await ensureCountryCentroidsLoaded();
   return mapInitResponseToPainPoints(initLayerRows, layerId);
-}
-
-/** Dev mock only until pain-server exposes a submission endpoint. */
-export async function submitPain(body: PainSubmission): Promise<PainPoint> {
-  if (!useMockApi) {
-    throw new Error(
-      "Pain submission is not wired to pain-server yet. Use mock dev mode or wait for the backend submission API.",
-    );
-  }
-  const { submitPainMock } = await getMockApiModule();
-  return submitPainMock(body);
 }

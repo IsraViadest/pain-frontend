@@ -1,10 +1,16 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { MapLayer, PainPoint } from "../types/api";
+import { getMapLayerById, isChoroplethMapLayer } from "../api/layers";
 import {
   loadGlobeBorderOutlines,
   type GlobeBorderOutlines,
 } from "./countryBorders";
+import {
+  aggregateChoroplethValues,
+  createChoroplethTexture,
+  ensureChoroplethCountriesLoaded,
+} from "./choroplethField";
 import {
   createEarthStippleGlobe,
   STIPPLE_LAND_MASK_GEOJSON_URL,
@@ -14,20 +20,35 @@ import {
   getLayerBaseColorLinear,
   type VisualTheme,
 } from "./layerTextures";
-import { hasPainPointCoordinates, latLngToVector3 } from "./latLng";
+import { hasPainPointCoordinates, latLngToVector3, vector3ToLatLng } from "./latLng";
+import {
+  CO2_HAZE_TUNE_DEFAULTS,
+  createCo2HazeTexture,
+  filterCo2HazePoints,
+  type Co2HazeTune,
+} from "./co2HazeField";
 import {
   createPainHeatTexture,
   type HeatMapBuildParams,
 } from "./painHeatField";
 import {
+  createTemperatureHazeTexture,
+  filterTemperatureHazePoints,
+  TEMPERATURE_HAZE_TUNE_DEFAULTS,
+} from "./temperatureHazeField";
+import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
 } from "./painScarField";
+import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import {
   applyScarToSpherePositions,
+  sampleScarHeight01,
   SCAR_OVERLAY_SURFACE_BIAS,
 } from "./scarDisplacement";
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
+
+export type { Co2HazeTune };
 
 /**
  * “Inner black sphere” in scar mode is usually NOT a mesh — land/ocean stipple is GPU-dented;
@@ -37,8 +58,8 @@ import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 /** Stipple: discard when dot(surfaceNormal, viewDir) < this; can be negative to keep more limb dots. */
 export const GLOBE_DEBUG_TUNE_DEFAULTS = {
   facingCullMin: -0.2,
-  scarDispScale: 0.12,
-  scarDispBias: -0.052,
+  scarDispScale: 0.4,
+  scarDispBias: -0.2,
   oceanAlphaBoost: 0.2,
   /** 1 = land dents only (nested “inner sphere”); 0 = land + ocean move together. */
   scarLandOnly: 0,
@@ -96,15 +117,53 @@ type MaterialWithClipping = THREE.Material & {
 };
 
 const RADIUS = 1;
+/** Max angular distance (°) between a surface click and nearest pain point before pick returns null. */
+const MAX_CLICK_SOUND_RADIUS_DEG = 15;
+
+/** Spherical law of cosines — central angle between two WGS84 positions, in degrees. */
+function greatCircleDistanceDeg(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const φ1 = THREE.MathUtils.degToRad(lat1);
+  const φ2 = THREE.MathUtils.degToRad(lat2);
+  const Δλ = THREE.MathUtils.degToRad(lng2 - lng1);
+  const cosC =
+    Math.sin(φ1) * Math.sin(φ2) + Math.cos(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return THREE.MathUtils.radToDeg(
+    Math.acos(THREE.MathUtils.clamp(cosC, -1, 1)),
+  );
+}
+
 /** Rim sphere (`glow`) additive shell. */
-const GLOBE_ATMOSPHERE_GLOW_ENABLED = true;
+const GLOBE_ATMOSPHERE_GLOW_ENABLED = false;
 /** Solid globe shell tint (map cleared when applied — solid color). */
-const GLOBE_SHELL_COLOR = 0xff0000;
+const GLOBE_SHELL_COLOR = 0x080c1a;
+/** Linear RGB fallback stipple tint in show-all mode when physpain color is missing. */
+const SHOW_ALL_LAYERS_TINT_LINEAR: [number, number, number] = [1.0, 1.0, 1.0];
 /** Show solid `globe` mesh in scar/multiplex mode (stipple display). */
 const GLOBE_SHELL_VISIBLE_IN_SCAR_MODE = false;
 /** Earth rotates eastward once per sidereal day (~23h56m); slowed for calm ambient motion. */
 const GLOBE_AUTO_SPIN_RAD_PER_SEC = (Math.PI * 2) / (23 * 3600 + 56 * 60 + 4) * 160;
-const GLOW_RADIUS = RADIUS * 1.09;
+const GLOW_RADIUS = RADIUS * 1.12;
+/** Country choropleth shell just above the solid globe (below CO2 haze). */
+const CHOROPLETH_SHELL_RADIUS = RADIUS * 1.001;
+/**
+ * Extra radial lift on CPU scar warp so choropleth stays just outside the globe
+ * (globe warp uses surfaceBias 0).
+ */
+const CHOROPLETH_SCAR_SURFACE_BIAS = 0.001;
+/**
+ * Uniform scale on `globe` when it is a depth-only mask in all-layers choropleth mode
+ * so it sits inside stipple and borders.
+ */
+const GLOBE_DEPTH_MASK_SCALE = 0.994;
+/** CO2 haze shell between solid globe and rim glow. */
+const HAZE_RADIUS = RADIUS * 1.15;
+/** Temperature haze shell just outside the solid globe (inside CO2 haze). */
+const TEMPERATURE_SHELL_RADIUS = RADIUS * 1.003;
 /** Pain “points” mode marker sphere radius on the globe surface. */
 const MARKER_BASE_RADIUS = 0.018;
 const MARKER_SPHERE_WIDTH_SEGMENTS = 8;
@@ -120,6 +179,11 @@ const MARKER_INSTANCE_CAPACITY_GROWTH = 1.25;
 const MARKER_INSTANCE_INITIAL_CAPACITY = 256;
 /** Base marker color before per-instance layer tint is applied (instanceColor × emissive). */
 const MARKER_COLOR_WHITE = 0xffffff;
+/** Word-cloud connector lines (surface → sprite). */
+const WORD_CLOUD_LINE_COLOR = 0xffffff;
+const WORD_CLOUD_LINE_OPACITY = 0.3;
+/** Hide far-side sprites / degenerate their connectors (camera-facing dot product). */
+const WORD_CLOUD_FACING_MIN = 0.05;
 
 export type GlobeMarkerTune = {
   radius: number;
@@ -149,6 +213,41 @@ const GLOBE_HEAT_TUNE_DEFAULTS: GlobeHeatTune = {
   heatStrength: 2.3,
 };
 
+/** Defaults for debug-panel CO2 haze stamp / blur / color / opacity. */
+const GLOBE_CO2_HAZE_TUNE_DEFAULTS: Co2HazeTune = {
+  ...CO2_HAZE_TUNE_DEFAULTS,
+};
+
+/** Uniform scale on `bordersOutlines.group` (debug panel Borders section). */
+const BORDER_SHELL_SCALE_DEFAULT = 0.9999;
+const BORDER_SHELL_SCALE_MIN = 0.99;
+const BORDER_SHELL_SCALE_MAX = 1.01;
+
+/**
+ * CPU stamp / blur + shell opacity scale for Temperature haze
+ * (debug panel Temperature Heat section).
+ */
+export type TempHeatTune = {
+  /** Base stamp radius in texture pixels before intensity scaling. */
+  stampRadiusBase: number;
+  /** Extra stamp radius at full intensity (px). */
+  stampRadiusSpan: number;
+  /** First box-blur radius (px); 0 skips the pass. */
+  blurPass1Radius: number;
+  /** Second box-blur radius (px); 0 skips the pass. */
+  blurPass2Radius: number;
+  /** Multiplier on temperature shell material opacity (breathing base). */
+  heatStrength: number;
+};
+
+const GLOBE_TEMP_HEAT_TUNE_DEFAULTS: TempHeatTune = {
+  stampRadiusBase: 16,
+  stampRadiusSpan: 12,
+  blurPass1Radius: 4,
+  blurPass2Radius: 1,
+  heatStrength: 1.30,
+};
+
 const GLOW_VS = /* glsl */ `
 varying float vGlow;
 void main() {
@@ -170,6 +269,7 @@ void main() {
   gl_FragColor = vec4(uGlowColor, alpha);
 }
 `;
+
 type MultiplexLink = {
   aIndex: number;
   bIndex: number;
@@ -194,7 +294,25 @@ type WordCloudItem = {
   radius: number;
   baseScaleX: number;
   baseScaleY: number;
+  /** Index into the connector position buffer (`i * 6` floats). */
+  segmentOffset: number;
 };
+
+/** One connector: start = dir × startRadius, end = dir × endRadius. Radii 0 → degenerate (hidden). */
+function writeWordCloudSegment(
+  positions: Float32Array,
+  offset: number,
+  dir: THREE.Vector3,
+  startRadius: number,
+  endRadius: number,
+): void {
+  positions[offset] = dir.x * startRadius;
+  positions[offset + 1] = dir.y * startRadius;
+  positions[offset + 2] = dir.z * startRadius;
+  positions[offset + 3] = dir.x * endRadius;
+  positions[offset + 4] = dir.y * endRadius;
+  positions[offset + 5] = dir.z * endRadius;
+}
 export type WordCloudHoverInfo = {
   country: string;
   shortLabel: string;
@@ -270,17 +388,20 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  *
  * scene (root)
  * ├── lights (ambLight, keyLight, fillLight)
- * ├── earthContent      rotates with auto-spin; parent of solid + rim glow
+ * ├── earthContent      rotates with auto-spin; parent of solid + choropleth + CO2 haze + rim glow
  * │   ├── glow              renderOrder -1  — rim sphere (GLOBE_ATMOSPHERE_GLOW_ENABLED)
+ * │   ├── co2Haze           renderOrder -1  — CO2 category haze (HAZE_RADIUS; NormalBlending)
+ * │   ├── temperatureShell  renderOrder -1  — Temperature haze (TEMPERATURE_SHELL_RADIUS)
+ * │   ├── choroplethShell   renderOrder  1  — country fill (CHOROPLETH_SHELL_RADIUS; NormalBlending)
  * │   └── globe             renderOrder  0  — solid MeshStandardMaterial sphere (“globe shell”)
- * │       · texture mode: canvas layer map on mesh
+ * │       · always GLOBE_SHELL_COLOR (no choropleth map swap)
  * │       · scar mode: usually hidden; CPU-warped when debug showGlobeMeshInScarMode
  * ├── pointsStipple     renderOrder  2  — land/ocean dots (earthStippleGlobe.ts)
  * │       · scar: GPU displacement + heat tint on land dots
  * ├── markersGroup      renderOrder  2  — pain “points” mode markers (small spheres)
  * ├── bordersOutlines   renderOrder  3  — coast + country lines (countryBorders.ts)
  * ├── multiplexGroup    renderOrder  3  — multiplex-v0 nodes / links / clusters
- * └── textLayerGroup renderOrder 4 — word-cloud sprites
+ * └── textLayerGroup renderOrder 4 — word-cloud sprites + connector LineSegments
  *
  * Scar / heat data (not separate meshes):
  *   painScarField.ts  → scarDisplacementMap → dents (stipple VS + border CPU warp)
@@ -289,7 +410,7 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  * Visibility toggles (search these method names):
  *   syncBaseGlobeVisibility()  — globe solid shell
  *   syncStippleVisibility()    — pointsStipple layer
- *   syncScarVisualization()    — scar + heat textures, border/stipple warp
+ *   syncScarVisualization()    — scar + heat textures, border/stipple/choropleth warp
  *   rebuildPainGeometryAndTexture() — markersGroup / multiplexGroup
  *
  * Files:
@@ -305,7 +426,10 @@ const BORDERS_BASE = `${import.meta.env.BASE_URL}borders/`;
  */
 
 /** Layer metadata passed from main.ts into {@link GlobeView.updateLayerVisuals} (not raw API shape). */
-export type GlobeLayerDisplayMeta = Pick<MapLayer, "color" | "text"> & {
+export type GlobeLayerDisplayMeta = Pick<
+  MapLayer,
+  "color" | "text" | "geospatial"
+> & {
   lexiconBucket: string;
 };
 
@@ -314,13 +438,36 @@ export class GlobeView {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
-  /** Rotating group: solid globe shell + rim glow (spins with globeSpinY). */
+  /** Rotating group: solid globe + choropleth + temperature/CO2 haze + rim glow (spins with globeSpinY). */
   readonly earthContent = new THREE.Group();
   /** SHELL 0 — Solid sphere (MeshStandardMaterial). See syncBaseGlobeVisibility(). */
   private readonly globe: THREE.Mesh<
     THREE.SphereGeometry,
     THREE.MeshStandardMaterial
   >;
+  /**
+   * SHELL choropleth — country fill at CHOROPLETH_SHELL_RADIUS (MeshBasicMaterial).
+   * Separate from `globe`; scar mode CPU-warps this shell with the same map as the globe.
+   */
+  private readonly choroplethShell: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.MeshBasicMaterial
+  >;
+  /** SHELL CO2 haze — equirect gray+alpha map at HAZE_RADIUS; visible when CO2 points exist. */
+  private readonly co2Haze: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.MeshBasicMaterial
+  >;
+  private co2HazeMap: THREE.DataTexture | null = null;
+  /**
+   * SHELL temperature haze — equirect red+alpha map at TEMPERATURE_SHELL_RADIUS;
+   * visible when Temperature points exist.
+   */
+  private readonly temperatureShell: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.MeshBasicMaterial
+  >;
+  private temperatureShellMap: THREE.DataTexture | null = null;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
@@ -351,13 +498,26 @@ export class GlobeView {
   private stippleBasePositions: Float32Array | null = null;
   /** Unwarped globe sphere; scar mode warps vertices (same path as stipple + borders). */
   private readonly globeBasePositions: Float32Array;
+  /** Unwarped choropleth sphere; scar mode warps vertices with the same scar map as the globe. */
+  private choroplethBasePositions: Float32Array | null = null;
   private displayMode: GlobeDisplayMode = "texture";
   private painVizMode: PainVisualizationMode = PAIN_VIZ_MODE.points;
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private painHeatMap: THREE.DataTexture | null = null;
+  private choroplethMap: THREE.DataTexture | null = null;
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
   private scarBuildGeneration = 0;
+  private choroplethBuildGeneration = 0;
+  /**
+   * When true, rebuild scars + choropleth shell + CO2 haze + word clouds together
+   * from multi-layer `lastPainPoints` (filtered by uiLayer ids below).
+   */
+  private showAllLayersMode = false;
+  private allLayersPhyspainLayerId = "physpain";
+  private allLayersChoroplethLayerId = "socioecopain";
+  private allLayersChoroplethColorHex: string | null = null;
+  private allLayersEmopainLayerId = "emopain";
   private stippleNeutralScarTexture: THREE.DataTexture | null = null;
   private stippleNeutralHeatTexture: THREE.DataTexture | null = null;
   private readonly ambLight: THREE.AmbientLight;
@@ -385,13 +545,26 @@ export class GlobeView {
   private multiplexRuntime: MultiplexRuntime | null = null;
   private wordCloudEnabled = false;
   private wordCloudItems: WordCloudItem[] = [];
+  private wordCloudConnectors: THREE.LineSegments<
+    THREE.BufferGeometry,
+    THREE.LineBasicMaterial
+  > | null = null;
   /** Per-layer visibility overrides from the debug panel (`null` = follow auto). */
   private readonly debugLayerOverrides = new Map<GlobeDebugLayerId, boolean>();
   /** Live tuning (debug panel sliders) — see GLOBE_DEBUG_TUNE_DEFAULTS. */
   private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
   /** Pain marker material / size (debug panel Markers section). */
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+  /**
+   * When false (production default), point markers stay disposed.
+   * Debug panel “Show point markers” sets this so points-mode rebuild can run.
+   */
+  private markersDebugEnabled = false;
   private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
+  private co2HazeTune: Co2HazeTune = { ...GLOBE_CO2_HAZE_TUNE_DEFAULTS };
+  private tempHeatTune: TempHeatTune = { ...GLOBE_TEMP_HEAT_TUNE_DEFAULTS };
+  /** Uniform scale for coast/border line shell (`bordersOutlines.group`). */
+  private borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -420,6 +593,7 @@ export class GlobeView {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
     this.controls.rotateSpeed = 0.65;
+    this.controls.enablePan = false;
     this.controls.minDistance = 1.35;
     this.controls.maxDistance = 5;
 
@@ -447,6 +621,62 @@ export class GlobeView {
       geo.attributes.position!.array,
     );
     this.earthContent.add(this.globe);
+
+    // --- Choropleth country-fill shell (just above solid globe; NormalBlending) ---
+    const choroplethGeo = new THREE.SphereGeometry(CHOROPLETH_SHELL_RADIUS, 192, 128);
+    this.choroplethBasePositions = new Float32Array(
+      choroplethGeo.attributes.position!.array,
+    );
+    this.choroplethShell = new THREE.Mesh(
+      choroplethGeo,
+      new THREE.MeshBasicMaterial({
+        map: null,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.FrontSide,
+        blending: THREE.NormalBlending,
+        toneMapped: false,
+      }),
+    );
+    this.choroplethShell.renderOrder = 1;
+    this.choroplethShell.visible = false;
+    this.earthContent.add(this.choroplethShell);
+
+    // --- Temperature haze shell (just outside globe; red+alpha equirect from Temperature points) ---
+    this.temperatureShell = new THREE.Mesh(
+      new THREE.SphereGeometry(TEMPERATURE_SHELL_RADIUS, 64, 48),
+      new THREE.MeshBasicMaterial({
+        map: null,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      }),
+    );
+    this.temperatureShell.renderOrder = -1;
+    this.temperatureShell.frustumCulled = false;
+    this.temperatureShell.visible = false;
+    this.earthContent.add(this.temperatureShell);
+
+    // --- CO2 haze shell (between globe and rim glow; gray+alpha equirect from CO2 points) ---
+    this.co2Haze = new THREE.Mesh(
+      new THREE.SphereGeometry(HAZE_RADIUS, 64, 48),
+      new THREE.MeshBasicMaterial({
+        map: null,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.FrontSide,
+        blending: THREE.NormalBlending,
+        toneMapped: false,
+      }),
+    );
+    this.co2Haze.renderOrder = -1;
+    this.co2Haze.visible = false;
+    this.earthContent.add(this.co2Haze);
 
     // --- Rim glow shell (slightly larger sphere; additive fresnel on back faces) ---
     this.glow = new THREE.Mesh(
@@ -580,6 +810,30 @@ export class GlobeView {
     }
   }
 
+  /**
+   * Set GPU scar dent bias (constant radial offset). Live for debug panel.
+   * Default: {@link GLOBE_DEBUG_TUNE_DEFAULTS.scarDispBias}.
+   */
+  setScarDispBias(value: number): void {
+    this.debugTune = { ...this.debugTune, scarDispBias: value };
+    this.applyStippleScarUniforms();
+    this.refreshCpuScarDisplacementFromTune();
+  }
+
+  /** Whether point markers may rebuild in points mode (debug panel only). */
+  getMarkersDebugEnabled(): boolean {
+    return this.markersDebugEnabled;
+  }
+
+  /**
+   * Enable/disable point-marker InstancedMesh (debug panel).
+   * Triggers {@link syncPainMarkersForVizMode} so the mesh appears or is disposed immediately.
+   */
+  setMarkersDebugEnabled(enabled: boolean): void {
+    this.markersDebugEnabled = enabled;
+    this.syncPainMarkersForVizMode();
+  }
+
   /** Current pain-marker tuning (debug panel Markers section). */
   getMarkerTune(): GlobeMarkerTune {
     return { ...this.markerTune };
@@ -598,7 +852,10 @@ export class GlobeView {
     }
     this.markerTune = merged;
     this.applyMarkerMaterialTune();
-    if (radiusChanged && this.painVizMode === PAIN_VIZ_MODE.points) {
+    if (
+      radiusChanged &&
+      this.painVizMode === PAIN_VIZ_MODE.points
+    ) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     } else if (partial.emissiveBase !== undefined && this.lastPainPoints.length > 0) {
       this.updateMarkerInstanceColors(this.lastPainPoints);
@@ -609,7 +866,10 @@ export class GlobeView {
   resetMarkerTune(): void {
     this.markerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
     this.applyMarkerMaterialTune();
-    if (this.painVizMode === PAIN_VIZ_MODE.points && this.lastPainPoints.length > 0) {
+    if (
+      this.painVizMode === PAIN_VIZ_MODE.points &&
+      this.lastPainPoints.length > 0
+    ) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     }
   }
@@ -642,6 +902,83 @@ export class GlobeView {
     } else {
       this.applyStippleHeatUniforms();
     }
+  }
+
+  /** Current CO2 haze stamp / blur / color / opacity tuning (debug panel CO2 Haze section). */
+  getCo2HazeTune(): Co2HazeTune {
+    return { ...this.co2HazeTune };
+  }
+
+  /**
+   * Update CO2 haze knobs without rebuilding — call {@link rebuildCo2Haze} to apply
+   * (CPU stamp over large Env layers is expensive).
+   */
+  setCo2HazeTune(partial: Partial<Co2HazeTune>): void {
+    this.co2HazeTune = { ...this.co2HazeTune, ...partial };
+  }
+
+  /** Rebuild the CO2 haze DataTexture from {@link lastPainPoints} and current tune. */
+  rebuildCo2Haze(): void {
+    this.rebuildCo2HazeMap();
+  }
+
+  /** Current border shell uniform scale (debug panel Borders section). */
+  getBorderShellScale(): number {
+    return this.borderShellScale;
+  }
+
+  /** Scale coast/border group uniformly (`bordersOutlines.group.scale.setScalar`). */
+  setBorderShellScale(scale: number): void {
+    this.borderShellScale = THREE.MathUtils.clamp(
+      scale,
+      BORDER_SHELL_SCALE_MIN,
+      BORDER_SHELL_SCALE_MAX,
+    );
+    this.applyBorderShellScale();
+  }
+
+  /** Restore {@link BORDER_SHELL_SCALE_DEFAULT} and re-apply. */
+  resetBorderShellScale(): void {
+    this.borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
+    this.applyBorderShellScale();
+  }
+
+  private applyBorderShellScale(): void {
+    this.bordersOutlines?.group.scale.setScalar(this.borderShellScale);
+  }
+
+  /**
+   * Set CO2 haze shell radius in globe units (live). Scales the existing sphere
+   * relative to the geometry base {@link HAZE_RADIUS} — no texture rebuild.
+   */
+  setHazeRadius(r: number): void {
+    this.co2Haze.scale.setScalar(r / HAZE_RADIUS);
+  }
+
+  /**
+   * Set rim-glow shell radius in globe units (live). Scales the existing sphere
+   * relative to the geometry base {@link GLOW_RADIUS}.
+   */
+  setGlowRadius(r: number): void {
+    this.glow.scale.setScalar(r / GLOW_RADIUS);
+  }
+
+  /** Current Temperature haze stamp / blur / strength (debug panel Temperature Heat). */
+  getTempHeatTune(): TempHeatTune {
+    return { ...this.tempHeatTune };
+  }
+
+  /**
+   * Update Temperature haze knobs without rebuilding — call {@link rebuildTempHeat}
+   * to apply stamp/blur (CPU stamp can be slow on large Env layers).
+   */
+  setTempHeatTune(partial: Partial<TempHeatTune>): void {
+    this.tempHeatTune = { ...this.tempHeatTune, ...partial };
+  }
+
+  /** Rebuild Temperature haze shell from {@link lastPainPoints} and current temp tune. */
+  rebuildTempHeat(): void {
+    this.rebuildTemperatureShellMap();
   }
 
   private applyStippleTuneUniforms(): void {
@@ -691,6 +1028,10 @@ export class GlobeView {
   }
 
   private getAutoGlobeVisible(): boolean {
+    // Single-layer choropleth: hide the solid shell so only choroplethShell shows.
+    if (this.isChoroplethLayerActive() && !this.showAllLayersMode) return false;
+    // All-layers choropleth: keep the globe drawing so it can write depth (see applyGlobeShellColor).
+    if (this.showAllLayersMode && this.shouldPaintChoropleth()) return true;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
@@ -711,12 +1052,14 @@ export class GlobeView {
   }
 
   private getAutoScarDisplacementActive(): boolean {
+    if (this.shouldSuppressScarsForChoropleth()) return false;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     return scars && Boolean(this.scarDisplacementMap);
   }
 
   private getAutoHeatOverlayActive(): boolean {
+    if (this.shouldSuppressScarsForChoropleth()) return false;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     return scars && Boolean(this.painHeatMap);
@@ -755,9 +1098,15 @@ export class GlobeView {
       case "countryBorders":
         return Boolean(this.bordersOutlines);
       case "markers":
-        return this.painVizMode === PAIN_VIZ_MODE.points;
+        return (
+          !this.shouldSuppressScarsForChoropleth() &&
+          this.painVizMode === PAIN_VIZ_MODE.points
+        );
       case "multiplex":
-        return this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
+        return (
+          !this.shouldSuppressScarsForChoropleth() &&
+          this.painVizMode === PAIN_VIZ_MODE.multiplexV0
+        );
       case "wordCloud":
         return this.wordCloudEnabled && this.textLayerGroup.children.length > 0;
       case "scarDisplacement":
@@ -832,11 +1181,13 @@ export class GlobeView {
     );
     this.markersGroup.visible = this.resolveDebugLayerVisibility(
       "markers",
-      this.painVizMode === PAIN_VIZ_MODE.points,
+      !this.shouldSuppressScarsForChoropleth() &&
+        this.painVizMode === PAIN_VIZ_MODE.points,
     );
     this.multiplexGroup.visible = this.resolveDebugLayerVisibility(
       "multiplex",
-      this.painVizMode === PAIN_VIZ_MODE.multiplexV0,
+      !this.shouldSuppressScarsForChoropleth() &&
+        this.painVizMode === PAIN_VIZ_MODE.multiplexV0,
     );
     this.textLayerGroup.visible = this.resolveDebugLayerVisibility(
       "wordCloud",
@@ -928,18 +1279,113 @@ export class GlobeView {
     );
   }
 
-  /** Solid globe shell: full opacity, no layer map. */
+  /** Solid globe shell: full opacity, no layer map (choropleth lives on choroplethShell). */
   private applyGlobeShellColor(): void {
     const mat = this.globe.material as THREE.MeshStandardMaterial;
     mat.map = null;
     mat.color.setHex(GLOBE_SHELL_COLOR);
     mat.transparent = false;
+    if (this.showAllLayersMode && this.shouldPaintChoropleth()) {
+      // Invisible but still writes depth so choropleth back faces do not show through.
+      mat.opacity = 0;
+      mat.colorWrite = false;
+      mat.depthWrite = true;
+      this.globe.scale.setScalar(GLOBE_DEPTH_MASK_SCALE);
+    } else {
+      mat.opacity = 1;
+      mat.colorWrite = true;
+      this.globe.scale.setScalar(1);
+    }
+    mat.needsUpdate = true;
+  }
+
+  /** Whether the active layer should use country choropleth (single-layer socio path). */
+  private isChoroplethLayerActive(): boolean {
+    const meta = this.currentLayerMeta;
+    if (!meta) return false;
+    return isChoroplethMapLayer(meta);
+  }
+
+  /** Paint choropleth shell in single-layer choropleth mode or show-all mode. */
+  private shouldPaintChoropleth(): boolean {
+    return this.showAllLayersMode || this.isChoroplethLayerActive();
+  }
+
+  /**
+   * Single-layer choropleth replaces scars/markers; show-all keeps both
+   * (choropleth on choroplethShell, scars on stipple/globe).
+   */
+  private shouldSuppressScarsForChoropleth(): boolean {
+    return this.isChoroplethLayerActive() && !this.showAllLayersMode;
+  }
+
+  /** Points for one production layer id when show-all combines multiple fetches. */
+  private pointsForUiLayer(layerId: string): PainPoint[] {
+    return this.lastPainPoints.filter((p) => p.uiLayer === layerId);
+  }
+
+  private disposeChoroplethMap(): void {
+    const mat = this.choroplethShell.material;
+    if (mat.map === this.choroplethMap) {
+      mat.map = null;
+      mat.needsUpdate = true;
+    }
+    if (this.choroplethMap) {
+      this.choroplethMap.dispose();
+      this.choroplethMap = null;
+    }
+    this.choroplethShell.visible = false;
+  }
+
+  /** Map choropleth RGBA texture onto choroplethShell (transparent where no country data). */
+  private applyChoroplethMaterial(): void {
+    const mat = this.choroplethShell.material;
+    if (!this.choroplethMap) {
+      mat.map = null;
+      mat.color.setHex(0xffffff);
+      mat.needsUpdate = true;
+      this.choroplethShell.visible = false;
+      return;
+    }
+    this.choroplethMap.needsUpdate = true;
+    mat.map = this.choroplethMap;
+    // White multiply so texture RGB (layer yellow) is unchanged.
+    mat.color.setHex(0xffffff);
+    mat.transparent = true;
     mat.opacity = 1;
     mat.needsUpdate = true;
+    this.choroplethShell.visible = true;
+  }
+
+  /** Rebuild country choropleth texture when choropleth layer is active or show-all is on. */
+  private scheduleChoroplethRebuild(): void {
+    const generation = ++this.choroplethBuildGeneration;
+    this.disposeChoroplethMap();
+    if (!this.shouldPaintChoropleth()) {
+      this.applyGlobeShellColor();
+      return;
+    }
+
+    const points = this.showAllLayersMode
+      ? this.pointsForUiLayer(this.allLayersChoroplethLayerId)
+      : this.lastPainPoints;
+    const colorHex = this.showAllLayersMode
+      ? this.allLayersChoroplethColorHex
+      : this.currentLayerColorHex;
+    void (async () => {
+      await ensureChoroplethCountriesLoaded();
+      if (generation !== this.choroplethBuildGeneration) return;
+      if (!this.shouldPaintChoropleth()) return;
+      const values = aggregateChoroplethValues(points);
+      this.choroplethMap = createChoroplethTexture(values, colorHex);
+      this.applyChoroplethMaterial();
+      this.syncGlobeSurfaceVisibility();
+    })();
   }
 
   /** Neutral base color for the displaced globe under stipple (no canvas layer map). */
   private applyGlobeScarShellMaterial(): void {
+    if (this.shouldSuppressScarsForChoropleth()) return;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (!scars || this.displayMode !== "points") return;
@@ -971,6 +1417,17 @@ export class GlobeView {
     this.syncStippleVisibility();
     this.applyDebugLayerVisibility();
     this.syncStippleBackdropClearColor();
+    this.syncBorderOutlinesRenderOrder();
+  }
+
+  /**
+   * Keep coast/border lines above the choropleth shell (renderOrder 1).
+   * Restores the usual border stack order when choropleth is off.
+   */
+  private syncBorderOutlinesRenderOrder(): void {
+    if (!this.bordersOutlines) return;
+    // Choropleth shell: above globe (0) / shell (1). Otherwise: documented default from loadCountryOutlines.
+    this.bordersOutlines.group.renderOrder = this.shouldPaintChoropleth() ? 2 : 3;
   }
 
   /** Keep canvas clear transparent — CSS theme shows outside the globe (never fill whole viewport). */
@@ -1014,11 +1471,20 @@ export class GlobeView {
 
   private resetGlobeShellPositions(): void {
     const posAttr = this.globe.geometry.getAttribute("position");
-    if (!posAttr) return;
-    (posAttr.array as Float32Array).set(this.globeBasePositions);
-    posAttr.needsUpdate = true;
-    this.globe.geometry.computeVertexNormals();
-    this.globe.geometry.computeBoundingSphere();
+    if (posAttr) {
+      (posAttr.array as Float32Array).set(this.globeBasePositions);
+      posAttr.needsUpdate = true;
+      this.globe.geometry.computeVertexNormals();
+      this.globe.geometry.computeBoundingSphere();
+    }
+
+    if (!this.choroplethBasePositions) return;
+    const choroplethPos = this.choroplethShell.geometry.getAttribute("position");
+    if (!choroplethPos) return;
+    (choroplethPos.array as Float32Array).set(this.choroplethBasePositions);
+    choroplethPos.needsUpdate = true;
+    this.choroplethShell.geometry.computeVertexNormals();
+    this.choroplethShell.geometry.computeBoundingSphere();
   }
 
   private warpGlobeMeshToScarField(map: THREE.DataTexture): void {
@@ -1038,7 +1504,28 @@ export class GlobeView {
   }
 
   /**
-   * Borders + solid globe use CPU vertex warp; stipple uses GPU scar uniforms.
+   * Same scar map / scale / bias as the globe, with a slightly larger surfaceBias
+   * so country fill stays just outside the warped globe mesh.
+   */
+  private warpChoroplethShellToScarField(map: THREE.DataTexture): void {
+    if (!this.choroplethBasePositions) return;
+    const posAttr = this.choroplethShell.geometry.getAttribute("position");
+    if (!posAttr) return;
+    applyScarToSpherePositions(
+      this.choroplethBasePositions,
+      posAttr.array as Float32Array,
+      map,
+      this.debugTune.scarDispScale,
+      this.debugTune.scarDispBias,
+      CHOROPLETH_SCAR_SURFACE_BIAS,
+    );
+    posAttr.needsUpdate = true;
+    this.choroplethShell.geometry.computeVertexNormals();
+    this.choroplethShell.geometry.computeBoundingSphere();
+  }
+
+  /**
+   * Borders + solid globe + choropleth use CPU vertex warp; stipple uses GPU scar uniforms.
    * Use the same scale/bias (`debugTune`) so outlines sit on the same deformed shell as dots.
    */
   private refreshCpuScarDisplacementFromTune(): void {
@@ -1056,13 +1543,15 @@ export class GlobeView {
       this.resetGlobeShellPositions();
       this.warpGlobeMeshToScarField(map);
     }
+    this.warpChoroplethShellToScarField(map);
   }
 
   /**
-   * Scar + heat fields → stipple shader uniforms + CPU-warped coast/border lines.
+   * Scar + heat fields → stipple shader uniforms + CPU-warped coast/border/choropleth.
    * Does not add meshes; updates existing shells. See painScarField.ts, painHeatField.ts.
    */
   private syncScarVisualization(): void {
+    if (this.shouldSuppressScarsForChoropleth()) return;
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const mat = this.globe.material as THREE.MeshStandardMaterial;
@@ -1087,6 +1576,7 @@ export class GlobeView {
         this.resetGlobeShellPositions();
         this.warpGlobeMeshToScarField(map);
       }
+      this.warpChoroplethShellToScarField(map);
 
       this.resetStippleShellPositions();
 
@@ -1168,7 +1658,9 @@ export class GlobeView {
       this.painHeatMap.dispose();
       this.painHeatMap = null;
     }
-    if (this.lastPainPoints.length > 0) {
+    const scars =
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
+    if (scars && this.lastPainPoints.length > 0) {
       this.painHeatMap = createPainHeatTexture(this.lastPainPoints, {
         peakPower: this.heatTune.peakPower,
         peakFloor: this.heatTune.peakFloor,
@@ -1185,9 +1677,9 @@ export class GlobeView {
       this.scarDisplacementMap.dispose();
       this.scarDisplacementMap = null;
     }
-    if (this.painHeatMap) {
-      this.painHeatMap.dispose();
-      this.painHeatMap = null;
+
+    if (this.shouldSuppressScarsForChoropleth()) {
+      return;
     }
 
     const scars =
@@ -1197,16 +1689,22 @@ export class GlobeView {
       mat.emissiveMap = null;
       mat.emissive.setHex(0x000000);
       mat.emissiveIntensity = 1;
+      this.rebuildPainHeatMap();
       void this.ensureStipple().then(() => this.syncScarVisualization());
       return;
     }
 
-    const points = this.lastPainPoints;
+    const scarLayerId = this.showAllLayersMode
+      ? this.allLayersPhyspainLayerId
+      : this.currentLayerId;
+    const points = this.showAllLayersMode
+      ? this.pointsForUiLayer(this.allLayersPhyspainLayerId)
+      : this.lastPainPoints;
     window.setTimeout(() => {
       if (generation !== this.scarBuildGeneration) return;
       this.scarDisplacementMap = createPainScarDisplacementTexture(
         points,
-        this.currentLayerId,
+        scarLayerId,
         {
           stampRadiusMin: this.debugTune.scarStampRadiusMin,
           stampRadiusMul: this.debugTune.scarStampRadiusMul,
@@ -1216,10 +1714,7 @@ export class GlobeView {
           blurPass2Radius: this.debugTune.scarBlurPass2Radius,
         },
       );
-      this.painHeatMap = createPainHeatTexture(points, {
-        peakPower: this.heatTune.peakPower,
-        peakFloor: this.heatTune.peakFloor,
-      });
+      this.rebuildPainHeatMap();
       this.updateScarMapPreview();
       void this.ensureStipple().then(() => {
         if (generation !== this.scarBuildGeneration) return;
@@ -1306,20 +1801,35 @@ export class GlobeView {
       return;
     }
     u.uOceanPointScale.value = 1;
-    const rgb = this.getActiveLayerColorLinear();
-    u.uTint.value.set(rgb[0], rgb[1], rgb[2]);
-    if (this.visualTheme === "blue") {
-      u.uShadeBase.value.set(
-        209 / 255,
-        247 / 255,
-        255 / 255,
-      );
-      u.uLandTint.value.set(209 / 255, 247 / 255, 255 / 255);
-      u.uLandTintStrength.value = 0.3;
-    } else {
+    const emopainHex = this.showAllLayersMode
+      ? getMapLayerById("emopain")?.color
+      : undefined;
+    const physpainHex = this.showAllLayersMode
+      ? getMapLayerById("physpain")?.color
+      : undefined;
+    if (emopainHex && physpainHex) {
+      const oceanRgb = getLayerBaseColorLinear(emopainHex, this.visualTheme);
+      const landRgb = getLayerBaseColorLinear(physpainHex, this.visualTheme);
+      u.uTint.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
+      u.uLandTint.value.set(landRgb[0], landRgb[1], landRgb[2]);
+      u.uLandTintStrength.value = 1.0;
       u.uShadeBase.value.set(1, 1, 1);
-      u.uLandTint.value.set(0.86, 0.9, 0.96);
-      u.uLandTintStrength.value = 0.22;
+    } else {
+      const rgb = this.getActiveLayerColorLinear();
+      u.uTint.value.set(rgb[0], rgb[1], rgb[2]);
+      if (this.visualTheme === "blue") {
+        u.uShadeBase.value.set(
+          209 / 255,
+          247 / 255,
+          255 / 255,
+        );
+        u.uLandTint.value.set(209 / 255, 247 / 255, 255 / 255);
+        u.uLandTintStrength.value = 0.3;
+      } else {
+        u.uShadeBase.value.set(1, 1, 1);
+        u.uLandTint.value.set(0.86, 0.9, 0.96);
+        u.uLandTintStrength.value = 0.22;
+      }
     }
     this.applyStippleTuneUniforms();
     this.applyStippleHeatUniforms();
@@ -1388,7 +1898,8 @@ export class GlobeView {
       this.syncScarVisualization();
       this.scene.remove(this.markersGroup);
       // Coast + country border lines (countryBorders.ts); scar-warped in syncScarVisualization
-      this.bordersOutlines.group.renderOrder = 3;
+      this.syncBorderOutlinesRenderOrder();
+      this.applyBorderShellScale();
       this.scene.add(this.bordersOutlines.group);
       this.scene.add(this.markersGroup);
       this.syncWorldRotation();
@@ -1420,6 +1931,12 @@ export class GlobeView {
   }
 
   private getActiveLayerColorLinear(): [number, number, number] {
+    if (this.showAllLayersMode) {
+      const physpainHex = getMapLayerById("physpain")?.color;
+      return physpainHex
+        ? getLayerBaseColorLinear(physpainHex, this.visualTheme)
+        : SHOW_ALL_LAYERS_TINT_LINEAR;
+    }
     return getLayerBaseColorLinear(this.currentLayerColorHex, this.visualTheme);
   }
 
@@ -1486,6 +2003,25 @@ export class GlobeView {
     this.renderer.dispose();
     this.globe.geometry.dispose();
     this.globe.material.dispose();
+    if (this.choroplethMap) {
+      this.choroplethMap.dispose();
+      this.choroplethMap = null;
+    }
+    this.choroplethShell.geometry.dispose();
+    this.choroplethShell.material.dispose();
+    this.choroplethBasePositions = null;
+    if (this.co2HazeMap) {
+      this.co2HazeMap.dispose();
+      this.co2HazeMap = null;
+    }
+    this.co2Haze.geometry.dispose();
+    this.co2Haze.material.dispose();
+    if (this.temperatureShellMap) {
+      this.temperatureShellMap.dispose();
+      this.temperatureShellMap = null;
+    }
+    this.temperatureShell.geometry.dispose();
+    this.temperatureShell.material.dispose();
     this.glow.geometry.dispose();
     this.glow.material.dispose();
     this.markerGeometry.dispose();
@@ -1496,6 +2032,8 @@ export class GlobeView {
     }
     this.clearWordCloud();
     this.disposeMultiplexObjects();
+    this.choroplethBuildGeneration++;
+    this.disposeChoroplethMap();
     for (const t of this.textureCache.values()) t.dispose();
     this.textureCache.clear();
   }
@@ -1503,11 +2041,12 @@ export class GlobeView {
   /**
    * Select active layer and refresh layer-driven visuals.
    *
-   * Stores layer id and display metadata (color, text flag, lexicon bucket), caches a
+   * Stores layer id and display metadata (color, text, geospatial, lexicon bucket), caches a
    * procedural layer canvas texture, then reapplies globe shell tint, stipple tint,
-   * scar shell material, marker colors, and the word cloud.
+   * scar shell material, marker colors, and the word cloud. Country choropleth layers
+   * (`geospatial: false` && `text: false`) get an equirect fill instead of scars/markers.
    *
-   * @param meta — display fields from main.ts (`applyGlobeLayer`: color, text, lexicon bucket).
+   * @param meta — display fields from main.ts (`applyGlobeLayer`: color, text, geospatial, lexicon bucket).
    */
   updateLayerVisuals(
     layerId: string,
@@ -1537,8 +2076,17 @@ export class GlobeView {
       );
       this.textureCache.set(cacheKey, tex);
     }
-    // Solid shell (GLOBE_SHELL_COLOR); layer canvas stays cached but is not mapped onto the mesh.
-    this.applyGlobeShellColor();
+    if (this.shouldPaintChoropleth() && !this.showAllLayersMode) {
+      // Texture built in rebuildPainGeometryAndTexture (choropleth path).
+      // Keep solid globe at GLOBE_SHELL_COLOR — never the layer yellow/etc.
+      this.applyGlobeShellColor();
+    } else if (!this.showAllLayersMode) {
+      this.disposeChoroplethMap();
+      // Solid shell (GLOBE_SHELL_COLOR); layer canvas stays cached but is not mapped onto the mesh.
+      this.applyGlobeShellColor();
+    } else {
+      this.applyGlobeShellColor();
+    }
     const m = this.globe.material as THREE.MeshStandardMaterial;
     m.roughness = 0.78;
     m.metalness = 0.06;
@@ -1547,6 +2095,7 @@ export class GlobeView {
     this.applyGlobeScarShellMaterial();
     this.updateMarkerInstanceColors(this.lastPainPoints);
     this.refreshWordCloud();
+    this.rebuildPainGeometryAndTexture();
   }
 
   /** Entry from main.ts after fetchPoints — drives markers, scars, multiplex, word cloud. */
@@ -1554,6 +2103,37 @@ export class GlobeView {
     this.lastPainPoints = points;
     this.rebuildPainGeometryAndTexture();
     this.refreshWordCloud();
+  }
+
+  /**
+   * Concurrent phys scars + socio choropleth + env CO2 haze + emo word clouds.
+   * Call before {@link setMarkers} with concatenated per-layer fetches.
+   */
+  setShowAllLayersMode(
+    enabled: boolean,
+    opts?: {
+      physpainLayerId: string;
+      choroplethLayerId: string;
+      choroplethColorHex: string | null;
+      emopainLayerId: string;
+      lexiconBucket: string;
+    },
+  ): void {
+    this.showAllLayersMode = enabled;
+    if (enabled && opts) {
+      this.allLayersPhyspainLayerId = opts.physpainLayerId;
+      this.allLayersChoroplethLayerId = opts.choroplethLayerId;
+      this.allLayersChoroplethColorHex = opts.choroplethColorHex;
+      this.allLayersEmopainLayerId = opts.emopainLayerId;
+      this.currentLayerLexiconBucket = opts.lexiconBucket;
+      this.currentLayerSupportsText = true;
+    } else if (!enabled) {
+      this.allLayersChoroplethColorHex = null;
+      this.currentLayerSupportsText = false;
+    }
+    this.applyGlobeShellColor();
+    this.syncBaseGlobeVisibility();
+    this.applyPointsTint();
   }
 
   setWordCloudEnabled(enabled: boolean): void {
@@ -1609,7 +2189,7 @@ export class GlobeView {
 
   /** Per-instance emissive multiplier from stored intensity (colors only; no matrix rebuild). */
   private markerEmissiveScale(intensity: number): number {
-    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    // Clamp for visualization only — stored intensity is never modified, only the local rendering value is clamped here.
     const clampedIntensity = Math.min(Math.max(0, intensity), 1);
     return (
       this.markerEmissiveBaseEffective() +
@@ -1619,7 +2199,7 @@ export class GlobeView {
 
   /** Instance matrix scale from base tune radius × intensity (baked per point in rebuild). */
   private markerInstanceScaleForPoint(intensity: number): number {
-    // Clamp for visualization only — stored intensity unchanged (Pattern 19)
+    // Clamp for visualization only — stored intensity is never modified, only the local rendering value is clamped here.
     const clampedIntensity = Math.min(Math.max(0, intensity), 1);
     const worldRadius =
       this.markerTune.radius *
@@ -1765,8 +2345,12 @@ export class GlobeView {
     this.logMarkerRebuildMeasure(points.length);
   }
 
+  /**
+   * Point markers are off in production (layers use scars, shells, word clouds, choropleth).
+   * Rebuild only when the debug panel enables {@link markersDebugEnabled} and viz mode is points.
+   */
   private syncPainMarkersForVizMode(): void {
-    if (this.painVizMode === PAIN_VIZ_MODE.points) {
+    if (this.painVizMode === PAIN_VIZ_MODE.points && this.markersDebugEnabled) {
       this.rebuildMarkerInstanceMatrices(this.lastPainPoints);
     } else {
       this.disposePainMarkersInstanced();
@@ -1774,10 +2358,39 @@ export class GlobeView {
   }
 
   /**
-   * Rebuild markers, multiplex graph, and scar field from `lastPainPoints`
-   * (called after `setMarkers`, viz-mode changes, and layer updates).
+   * Rebuild markers, multiplex graph, scar/heat fields, choropleth shell, and CO2 /
+   * Temperature haze from `lastPainPoints` (called after `setMarkers`, viz-mode changes,
+   * and layer updates).
+   * Single-layer choropleth skips scars/markers and paints the country-fill shell only.
+   * Show-all mode runs scars + choropleth + haze + word clouds together.
    */
   private rebuildPainGeometryAndTexture(): void {
+    if (this.shouldSuppressScarsForChoropleth()) {
+      this.disposePainMarkersInstanced();
+      this.disposeMultiplexObjects();
+      // Invalidate any in-flight scar rebuild so it cannot re-apply scars over choropleth.
+      this.scarBuildGeneration++;
+      if (this.scarDisplacementMap) {
+        this.scarDisplacementMap.dispose();
+        this.scarDisplacementMap = null;
+      }
+      if (this.painHeatMap) {
+        this.painHeatMap.dispose();
+        this.painHeatMap = null;
+      }
+      this.bordersOutlines?.setScarDisplacementMap(null, 0, 0);
+      this.resetGlobeShellPositions();
+      this.resetStippleShellPositions();
+      this.scheduleChoroplethRebuild();
+      this.syncGlobeSurfaceVisibility();
+      this.refreshWordCloud();
+      return;
+    }
+
+    if (!this.showAllLayersMode) {
+      this.disposeChoroplethMap();
+    }
+
     if (
       this.painVizMode === PAIN_VIZ_MODE.scars ||
       this.painVizMode === PAIN_VIZ_MODE.multiplexV0
@@ -1795,8 +2408,67 @@ export class GlobeView {
     }
 
     this.scheduleScarFieldRebuild();
+    if (this.showAllLayersMode) {
+      this.scheduleChoroplethRebuild();
+    }
+    this.rebuildPainHeatMap();
+    this.rebuildTemperatureShellMap();
+    this.rebuildCo2HazeMap();
     this.syncGlobeSurfaceVisibility();
     this.refreshWordCloud();
+  }
+
+  /**
+   * Stamp Temperature-only points into the red haze shell map; hide when none remain.
+   * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
+   */
+  private rebuildTemperatureShellMap(): void {
+    if (this.temperatureShellMap) {
+      this.temperatureShellMap.dispose();
+      this.temperatureShellMap = null;
+    }
+    const temperaturePoints = filterTemperatureHazePoints(this.lastPainPoints);
+    const mat = this.temperatureShell.material;
+    if (temperaturePoints.length === 0) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      this.temperatureShell.visible = false;
+      return;
+    }
+    this.temperatureShellMap = createTemperatureHazeTexture(temperaturePoints, {
+      stampRadiusBase: this.tempHeatTune.stampRadiusBase,
+      stampRadiusSpan: this.tempHeatTune.stampRadiusSpan,
+      blurPass1Radius: this.tempHeatTune.blurPass1Radius,
+      blurPass2Radius: this.tempHeatTune.blurPass2Radius,
+      maxAlpha: TEMPERATURE_HAZE_TUNE_DEFAULTS.maxAlpha,
+      alphaThreshold: TEMPERATURE_HAZE_TUNE_DEFAULTS.alphaThreshold,
+    });
+    mat.map = this.temperatureShellMap;
+    mat.needsUpdate = true;
+    this.temperatureShell.visible = true;
+  }
+
+  /**
+   * Stamp CO2-only points into the haze shell map; hide the mesh when none remain.
+   * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
+   */
+  private rebuildCo2HazeMap(): void {
+    if (this.co2HazeMap) {
+      this.co2HazeMap.dispose();
+      this.co2HazeMap = null;
+    }
+    const co2Points = filterCo2HazePoints(this.lastPainPoints);
+    const mat = this.co2Haze.material;
+    if (co2Points.length === 0) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      this.co2Haze.visible = false;
+      return;
+    }
+    this.co2HazeMap = createCo2HazeTexture(co2Points, this.co2HazeTune);
+    mat.map = this.co2HazeMap;
+    mat.needsUpdate = true;
+    this.co2Haze.visible = true;
   }
 
   /**
@@ -1906,6 +2578,16 @@ export class GlobeView {
       this.globeSpinY -= GLOBE_AUTO_SPIN_RAD_PER_SEC * dt;
     }
     this.syncWorldRotation();
+    if (this.temperatureShell.visible) {
+      (this.temperatureShell.material as THREE.MeshBasicMaterial).opacity =
+        (0.85 + 0.15 * Math.sin(this.clock.elapsedTime * 0.3)) *
+        this.tempHeatTune.heatStrength;
+    }
+    if (this.co2Haze.visible) {
+      (this.co2Haze.material as THREE.MeshBasicMaterial).opacity =
+        this.co2HazeTune.hazeOpacity +
+        0.15 * Math.sin(this.clock.elapsedTime * 0.3);
+    }
     this.controls.update();
     this.tickMultiplex(dt);
     this.tickWordCloud();
@@ -1955,10 +2637,19 @@ export class GlobeView {
 
   private refreshWordCloud(): void {
     this.clearWordCloud();
-    if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return;
-    if (!this.lastPainPoints.length) return;
-    const sample = this.lastPainPoints.slice(0, 42);
-    for (const p of sample) {
+    const textOk =
+      this.wordCloudEnabled &&
+      (this.showAllLayersMode || this.currentLayerSupportsText);
+    if (!textOk) return;
+    const sourcePoints = this.showAllLayersMode
+      ? this.pointsForUiLayer(this.allLayersEmopainLayerId)
+      : this.lastPainPoints;
+    if (!sourcePoints.length) return;
+    // One sprite per emo row (no sample cap).
+    const n = sourcePoints.length;
+    const linePositions = new Float32Array(n * 2 * 3);
+    for (let i = 0; i < n; i++) {
+      const p = sourcePoints[i]!;
       if (!hasPainPointCoordinates(p)) continue;
       const label = this.wordCloudLabelForPoint(p);
       const sprite = this.createWordSprite(label);
@@ -1972,18 +2663,43 @@ export class GlobeView {
       const radius = RADIUS * (1.11 + 0.08 * p.intensity);
       sprite.position.copy(dir.clone().multiplyScalar(radius));
       this.textLayerGroup.add(sprite);
+      const segmentOffset = i * 6;
+      writeWordCloudSegment(linePositions, segmentOffset, dir, RADIUS, radius);
       this.wordCloudItems.push({
         dir,
         sprite,
         radius,
         baseScaleX: sprite.scale.x,
         baseScaleY: sprite.scale.y,
+        segmentOffset,
       });
     }
+    const lineGeom = new THREE.BufferGeometry();
+    lineGeom.setAttribute(
+      "position",
+      new THREE.BufferAttribute(linePositions, 3),
+    );
+    const lineMat = new THREE.LineBasicMaterial({
+      color: WORD_CLOUD_LINE_COLOR,
+      transparent: true,
+      opacity: WORD_CLOUD_LINE_OPACITY,
+      depthWrite: false,
+    });
+    const connectors = new THREE.LineSegments(lineGeom, lineMat);
+    connectors.frustumCulled = false;
+    connectors.raycast = () => {};
+    this.textLayerGroup.add(connectors);
+    this.wordCloudConnectors = connectors;
     this.applyDebugLayerVisibility();
   }
 
   private clearWordCloud(): void {
+    if (this.wordCloudConnectors) {
+      this.textLayerGroup.remove(this.wordCloudConnectors);
+      this.wordCloudConnectors.geometry.dispose();
+      this.wordCloudConnectors.material.dispose();
+      this.wordCloudConnectors = null;
+    }
     for (const item of this.wordCloudItems) {
       const mat = item.sprite.material;
       mat.map?.dispose();
@@ -2169,21 +2885,45 @@ export class GlobeView {
 
   /** Per-frame animation update for text-layer word-cloud sprites (billboard toward camera). */
   private tickWordCloud(): void {
-    if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return;
+    if (!this.wordCloudEnabled) return;
+    if (!this.showAllLayersMode && !this.currentLayerSupportsText) return;
     const camDir = this.camera.position.clone().normalize();
     const q = this.textLayerGroup.quaternion;
+    const posAttr = this.wordCloudConnectors?.geometry.getAttribute(
+      "position",
+    ) as THREE.BufferAttribute | undefined;
+    const linePositions = posAttr
+      ? (posAttr.array as Float32Array)
+      : null;
+    let linesDirty = false;
     for (const item of this.wordCloudItems) {
       const worldDir = item.dir.clone().applyQuaternion(q);
       const facing = worldDir.dot(camDir);
-      item.sprite.visible = facing > 0.05;
+      item.sprite.visible = facing > WORD_CLOUD_FACING_MIN;
+      if (linePositions) {
+        if (!item.sprite.visible) {
+          writeWordCloudSegment(linePositions, item.segmentOffset, item.dir, 0, 0);
+        } else {
+          writeWordCloudSegment(
+            linePositions,
+            item.segmentOffset,
+            item.dir,
+            RADIUS,
+            item.radius,
+          );
+        }
+        linesDirty = true;
+      }
       if (!item.sprite.visible) continue;
       const scale = 0.92 + facing * 0.2;
       item.sprite.scale.set(item.baseScaleX * scale, item.baseScaleY * scale, 1);
     }
+    if (linesDirty && posAttr) posAttr.needsUpdate = true;
   }
 
   pickWordCloudHover(clientX: number, clientY: number): WordCloudHoverInfo | null {
-    if (!this.wordCloudEnabled || !this.currentLayerSupportsText) return null;
+    if (!this.wordCloudEnabled) return null;
+    if (!this.showAllLayersMode && !this.currentLayerSupportsText) return null;
     if (!this.wordCloudItems.length) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
@@ -2244,6 +2984,79 @@ export class GlobeView {
       };
     }
     return null;
+  }
+
+  /**
+   * Raycast the globe surface and return the nearest pain point within
+   * {@link MAX_CLICK_SOUND_RADIUS_DEG} (all viz modes).
+   *
+   * @param clientX — pointer X in viewport CSS pixels.
+   * @param clientY — pointer Y in viewport CSS pixels.
+   * @returns {@link MarkerHoverInfo} for the nearest point, or `null` if no hit / too far / no data.
+   */
+  pickNearestPainPoint(clientX: number, clientY: number): MarkerHoverInfo | null {
+    if (this.lastPainPoints.length === 0) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    // Canvas-normalized [0,1] → NDC [-1,1] for Three.js Raycaster (* 2 - 1 per axis).
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hits = this.raycaster.intersectObject(this.globe, false);
+    const hit = hits[0];
+    if (!hit) return null;
+
+    const click = vector3ToLatLng(hit.point);
+    let nearest: PainPoint | null = null;
+    let nearestDeg = Infinity;
+    for (const p of this.lastPainPoints) {
+      if (!hasPainPointCoordinates(p)) continue;
+      const deg = greatCircleDistanceDeg(click.lat, click.lng, p.lat, p.lng);
+      if (deg < nearestDeg) {
+        nearestDeg = deg;
+        nearest = p;
+      }
+    }
+    if (!nearest || nearestDeg > MAX_CLICK_SOUND_RADIUS_DEG) return null;
+    if (!hasPainPointCoordinates(nearest)) return null;
+
+    return {
+      layerId: nearest.uiLayer,
+      intensity: nearest.intensity,
+      lat: nearest.lat,
+      lng: nearest.lng,
+      category: nearest.category ?? "—",
+    };
+  }
+
+  /**
+   * Sample scar dent strength at a pointer click on the globe sphere.
+   *
+   * @param clientX — pointer X in viewport CSS pixels.
+   * @param clientY — pointer Y in viewport CSS pixels.
+   * @returns 0 = no pain, 1 = maximum scar dent; `null` if no scar map or no ray hit.
+   */
+  sampleScarAtClick(clientX: number, clientY: number): number | null {
+    if (!this.scarDisplacementMap) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    // Canvas-normalized [0,1] → NDC [-1,1] for Three.js Raycaster (* 2 - 1 per axis).
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hits = this.raycaster.intersectObject(this.globe, false);
+    const hit = hits[0];
+    if (!hit) return null;
+
+    const dir = hit.point.clone().normalize();
+    const { u, v } = unitDirectionToGlobeEquirectUV(dir);
+    const h = sampleScarHeight01(this.scarDisplacementMap, u, v);
+    // Neutral scar height is ~0.5; dents go below 0.5, so intensity rises as h falls.
+    return THREE.MathUtils.clamp((0.5 - h) * 2, 0, 1);
   }
 
   /** Multiplex node tint for the active layer (per-type colors deferred to step 4b). */
