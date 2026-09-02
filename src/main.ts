@@ -58,6 +58,7 @@ import { loadEmoData } from "./emo/emoData";
 import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
 import {
   shouldShowEmoViews,
+  shouldOpenEmoPanel,
   resolveEmoViewFromUrl,
   applyEmoCaptureOverrides,
 } from "./emo/emoViewConfig";
@@ -656,7 +657,7 @@ function loop(): void {
         },
         onMinimise: () => setEmoPanelOpen(false),
       });
-      setEmoPanelOpen(true);
+      setEmoPanelOpen(shouldOpenEmoPanel());
     } catch (e) {
       console.error("[main] emo label views failed to start", e);
     }

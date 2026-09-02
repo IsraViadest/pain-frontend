@@ -111,6 +111,12 @@
   background: #0b0d14;
 }
 
+/* The display rule above outranks the user-agent stylesheet's [hidden] { display: none }, so
+   without this the hidden attribute sets the property and changes nothing on screen. */
+.globe-debug-panel.emo-view-panel-host[hidden] {
+  display: none;
+}
+
 .emo-view-panel__scroll {
   overflow-y: auto;
   padding-right: 2px;

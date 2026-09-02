@@ -41,6 +41,20 @@ export function shouldShowEmoViews(): boolean {
   }
 }
 
+/**
+ * Whether the views panel starts open. `?emoPanel=0` starts it hidden, which is what the
+ * gallery capture uses: the panel covers a third of the globe, so a screenshot taken with it
+ * open is not a picture of the view. The entry button still restores it.
+ */
+export function shouldOpenEmoPanel(): boolean {
+  try {
+    const v = new URLSearchParams(window.location.search).get("emoPanel");
+    return v !== "0" && v !== "false";
+  } catch {
+    return true;
+  }
+}
+
 /** One enum parameter, validated against its allowed values because these are hand-typed. */
 function readEnumParam(
   q: URLSearchParams,
