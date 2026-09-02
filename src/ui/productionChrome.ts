@@ -56,14 +56,14 @@ function requireChild(host: HTMLElement, id: string): HTMLElement {
 
 /** Known production layer ids → SVG under `public/blobs/` (includes `new/` assets). */
 const PRODUCTION_LAYER_BLOB_SVG: Record<string, string> = {
-  emopain: "new/emo_pain.svg",
-  envpain: "new/env_pain.svg",
-  physpain: "new/phys_pain.svg",
-  socioecopain: "new/socioeco_pain.svg",
+  emopain: "new/emo_pain_new.svg",
+  envpain: "new/env_pain_new.svg",
+  physpain: "new/phys_pain_new.svg",
+  socioecopain: "new/socioeco_pain_new.svg",
 };
 
 /** All-layers blob (not a GET /init layer id). */
-const ALL_PAIN_BLOB_SVG = "new/all_pain.svg";
+const ALL_PAIN_BLOB_SVG = "new/all_pain_new.svg";
 
 /**
  * Layer blob for production chrome: hackathon SVGs for known ids;
@@ -240,8 +240,12 @@ export async function mountProductionChrome(
       svgName: resolveChromeLayerBlobSvg(layer.id),
       label: layer.label,
       variant: "layer",
-      skipActiveGradient: layer.id === "physpain" || layer.id === "envpain",
+      skipActiveGradient: layer.id === "envpain",
       activeFill: layer.id === "envpain" ? "#CBB0B9" : undefined,
+      preserveNativeFill:
+        layer.id === "physpain" ||
+        layer.id === "emopain" ||
+        layer.id === "socioecopain",
       onClick: () => {
         if (layer.id !== activeLayerId || allLayersMode) {
           playButtonSound(SOUND_BUTTON_BLOB);

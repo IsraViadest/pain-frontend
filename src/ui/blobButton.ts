@@ -31,6 +31,11 @@ type CreateBlobButtonOptions = {
   skipActiveGradient?: boolean;
   /** Fill when active and {@link skipActiveGradient} is set. */
   activeFill?: string;
+  /**
+   * When true, leave SVG path fills/strokes as authored — active/inactive via CSS
+   * opacity and glow only (e.g. self-colored emo / phys / socioeco layer blobs).
+   */
+  preserveNativeFill?: boolean;
   /** Optional click sound URL (e.g. {@link SOUND_BUTTON_BLOB} from `buttonSound.ts`). */
   soundFile?: string;
 };
@@ -42,6 +47,7 @@ type BlobButtonState = {
   active: boolean;
   skipActiveGradient: boolean;
   activeFill: string;
+  preserveNativeFill: boolean;
 };
 
 const blobButtonState = new WeakMap<HTMLElement, BlobButtonState>();
@@ -86,12 +92,17 @@ function injectGradient(svg: SVGSVGElement, gradientId: string): void {
   defs.appendChild(gradient);
 }
 
-function prepareBlobPath(path: SVGPathElement): void {
+function prepareBlobPath(
+  path: SVGPathElement,
+  preserveNativeFill: boolean,
+): void {
+  if (preserveNativeFill) return;
   path.setAttribute("fill", INACTIVE_FILL);
   path.removeAttribute("stroke");
 }
 
 function applyBlobFill(state: BlobButtonState): void {
+  if (state.preserveNativeFill) return;
   const { path, gradientId, variant, active, skipActiveGradient, activeFill } =
     state;
   const useGradient =
@@ -121,8 +132,16 @@ function syncBlobButtonClasses(el: HTMLElement, state: BlobButtonState): void {
 export async function createBlobButton(
   options: CreateBlobButtonOptions,
 ): Promise<HTMLButtonElement> {
-  const { svgName, label, variant, onClick, skipActiveGradient, activeFill, soundFile } =
-    options;
+  const {
+    svgName,
+    label,
+    variant,
+    onClick,
+    skipActiveGradient,
+    activeFill,
+    preserveNativeFill,
+    soundFile,
+  } = options;
 
   const button = document.createElement("button");
   button.type = "button";
@@ -143,7 +162,7 @@ export async function createBlobButton(
 
   const gradientId = uniqueGradientId();
   injectGradient(svg, gradientId);
-  prepareBlobPath(path);
+  prepareBlobPath(path, preserveNativeFill === true);
 
   svg.classList.add("blob-button__svg");
   svg.setAttribute("aria-hidden", "true");
@@ -163,6 +182,7 @@ export async function createBlobButton(
     active: false,
     skipActiveGradient: skipActiveGradient === true,
     activeFill: activeFill ?? "#3F3F3F",
+    preserveNativeFill: preserveNativeFill === true,
   };
   blobButtonState.set(button, state);
   applyBlobFill(state);
@@ -181,12 +201,15 @@ export async function createBlobButton(
 }
 
 /**
- * Toggle the active gradient state on a layer-variant blob button.
+ * Toggle the active/inactive CSS state on a layer-variant blob button.
  *
  * No-op for `share` and `info` variants.
  *
  * @param el — element returned from {@link createBlobButton}.
- * @param active — `true` for gradient fill at 70% wrapper opacity; `false` for gray at 50%.
+ * @param active — `true` → `.blob-button--active` (full opacity + CSS glow);
+ *   `false` → `.blob-button--inactive` (reduced opacity). When
+ *   {@link CreateBlobButtonOptions.preserveNativeFill} is true, SVG fills are
+ *   never changed — only these CSS classes apply.
  */
 export function setActive(el: HTMLElement, active: boolean): void {
   const state = blobButtonState.get(el);
