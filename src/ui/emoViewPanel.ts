@@ -61,6 +61,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Click does",
     hint: "toggleLanguage swaps one label and swaps it back. selectNetwork is not built yet.",
   },
+  networkMode: {
+    label: "Network",
+    hint: "all draws every country's arcs to its k nearest neighbours in the same pain category.",
+  },
   colourMode: {
     label: "Colour",
     hint: "family groups the 14 categories into 5 bright violets and pinks. category gives all 14 their own hue.",
@@ -105,6 +109,18 @@ const SECTIONS: EmoSection[] = [
     sliders: [
       { key: "focalConeDeg", label: "Cone", min: 0, max: 90, step: 1, decimals: 0, hint: "Half-angle of the English cone around the camera axis." },
       { key: "focalBlendDeg", label: "Blend", min: 0, max: 45, step: 1, decimals: 0, hint: "Width of the band where the cone hands over to native." },
+    ],
+  },
+  {
+    summary: "Network arcs",
+    defaultOpen: false,
+    selects: ["networkMode"],
+    sliders: [
+      { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest same-category neighbours each country links to. Edges are deduplicated." },
+      { key: "arcLift", label: "Arc lift", min: 1, max: 1.2, step: 0.005, decimals: 3, hint: "Radius the arcs ride at. Keep below the label standoff or they cross the text." },
+      { key: "arcEndTrimDeg", label: "End trim", min: 0, max: 8, step: 0.1, decimals: 1, hint: "Degrees removed at each end, so a line stops short of the label it points at." },
+      { key: "arcWidth", label: "Arc width", min: 0.0005, max: 0.012, step: 0.0005, decimals: 4, hint: "World units, so a fraction of the globe radius rather than pixels." },
+      { key: "arcOpacity", label: "Arc opacity", min: 0.05, max: 1, step: 0.01, decimals: 2, hint: "Lower this before lowering width when the network reads as clutter." },
     ],
   },
   {

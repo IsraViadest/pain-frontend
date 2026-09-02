@@ -56,6 +56,7 @@ import { hideLegend, showLegend } from "./ui/legend";
 import "./emo/emo.css";
 import { loadEmoData } from "./emo/emoData";
 import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
+import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
 import {
   shouldShowEmoViews,
   shouldOpenEmoPanel,
@@ -431,6 +432,7 @@ const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
 const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
 const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
 let emoLabelLayer: EmoLabelLayer | null = null;
+let emoArcLayer: EmoArcLayer | null = null;
 const emoView = resolveEmoViewFromUrl();
 let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 
@@ -448,6 +450,7 @@ function syncEmoLayer(layerId: string): void {
   const active = layerId === "emopain" || layerId === "all-layers";
   const sprites = active && emoPreset?.useIncumbentSprites === true;
   emoLabelHost.hidden = !active || sprites;
+  emoArcLayer?.setVisible(active && !sprites);
   if (active) {
     globe.setWordCloudEnabled(sprites);
   }
@@ -633,6 +636,7 @@ async function loadPoints(): Promise<void> {
 function loop(): void {
   globe.tick();
   emoLabelLayer?.update();
+  emoArcLayer?.update();
   requestAnimationFrame(loop);
 }
 
@@ -646,6 +650,12 @@ function loop(): void {
         data: await loadEmoData(),
         params: emoView.params,
       });
+      emoArcLayer = await createEmoArcLayer({
+        globe,
+        data: await loadEmoData(),
+        params: emoView.params,
+      });
+      syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);
       mountEmoViewPanel(emoPanelHost, {
         initialPresetId: emoView.presetId,
@@ -653,6 +663,7 @@ function loop(): void {
         onChange: (preset, params) => {
           emoPreset = preset;
           emoLabelLayer?.setParams(params);
+          emoArcLayer?.setParams(params);
           syncEmoLayer(lastLayerId);
         },
         onMinimise: () => setEmoPanelOpen(false),
