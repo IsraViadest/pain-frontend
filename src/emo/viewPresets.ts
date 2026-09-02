@@ -75,6 +75,32 @@ export const EMO_PRESETS: EmoPreset[] = [
       "reads in your language where you are looking and in its own everywhere else.",
     params: { labelMode: "focal", clickMode: "toggleLanguage" },
   },
+  {
+    id: "v1-e_native-network-k3",
+    title: "Network, k=3",
+    note:
+      "Every country joined to its 3 nearest neighbours in the same pain category, as arcs that " +
+      "follow the sphere. 388 edges; 13% of them cross more than a quarter of the globe, because " +
+      "the categories are scattered rather than regional.",
+    params: { labelMode: "native", networkMode: "all" },
+  },
+  {
+    id: "v1-f_native-network-k1",
+    title: "Network, k=1",
+    note:
+      "The same network at k=1: 136 edges, 3% of them long. Kept beside k=3 because the pair is " +
+      "the clearest evidence of what neighbour count costs in legibility.",
+    params: { labelMode: "native", networkMode: "all", kNeighbours: 1 },
+  },
+  {
+    id: "v1-g_select-network",
+    title: "Click to select a network",
+    note:
+      "Click a country to reveal only its category's network, fill it, and read it in both " +
+      "languages while every other label dims. Click it again to clear. Not in the gallery: a " +
+      "selection is a gesture, and no URL captures it.",
+    params: { labelMode: "native", networkMode: "selected", clickMode: "selectNetwork" },
+  },
 ];
 
 /** Opens on the plain DOM English view, the closest candidate to what the globe ships today. */

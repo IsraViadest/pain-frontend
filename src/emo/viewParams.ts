@@ -37,8 +37,8 @@ export interface EmoViewParams {
   /** Width of the blend band at the cone edge, in degrees. */
   focalBlendDeg: number;
 
-  /** Whether the within-category nearest-neighbour arcs are drawn. */
-  networkMode: "off" | "all";
+  /** Whether the within-category arcs are drawn: never, always, or for the clicked country. */
+  networkMode: "off" | "all" | "selected";
   /** How many nearest same-category neighbours each country links to. Edges are deduplicated. */
   kNeighbours: number;
   /** Radius the arcs ride at. Below the label standoff, or arcs cross through the text. */
@@ -48,6 +48,10 @@ export interface EmoViewParams {
   /** Arc width in world units, so it is a fraction of the globe radius rather than pixels. */
   arcWidth: number;
   arcOpacity: number;
+  /** Opacity multiplier applied to every label except the selected one. */
+  selectionDim: number;
+  /** Alpha of the wash filling the selected country. */
+  selectionFill: number;
 
   /** White is the default; colour is opt-in because the families do not carry clean meaning. */
   colourMode: "white" | "family" | "category";
@@ -86,6 +90,8 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   arcEndTrimDeg: 1.5,
   arcWidth: 0.0025,
   arcOpacity: 0.55,
+  selectionDim: 0.25,
+  selectionFill: 0.18,
 
   colourMode: "white",
   density: 0,
@@ -103,7 +109,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   labelMode: ["english", "native", "bilingual", "focal"],
   englishText: ["category", "gloss"],
   clickMode: ["off", "toggleLanguage", "selectNetwork"],
-  networkMode: ["off", "all"],
+  networkMode: ["off", "all", "selected"],
   colourMode: ["white", "family", "category"],
 };
 

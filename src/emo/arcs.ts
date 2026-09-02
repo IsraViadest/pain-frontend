@@ -49,6 +49,11 @@ export interface EmoArcLayer {
    * independently of `networkMode`.
    */
   setVisible(visible: boolean): void;
+  /**
+   * The category whose network to show in `networkMode: "selected"`. Ignored in the other
+   * modes, so a preset can carry a selection gesture without changing what is drawn by default.
+   */
+  setSelectedCategory(cat: string | null): void;
   destroy(): void;
 }
 
@@ -184,8 +189,13 @@ export async function createEmoArcLayer(options: {
   }
 
   let layerVisible = true;
+  let selectedCat: string | null = null;
   function syncVisibility(): void {
     group.visible = layerVisible && params.networkMode !== "off";
+    const only = params.networkMode === "selected";
+    for (const [key, mesh] of meshes) {
+      mesh.visible = !only || key === selectedCat;
+    }
   }
 
   rebuild();
@@ -221,6 +231,11 @@ export async function createEmoArcLayer(options: {
     },
     setVisible(visible: boolean): void {
       layerVisible = visible;
+      syncVisibility();
+    },
+    setSelectedCategory(cat: string | null): void {
+      if (cat === selectedCat) return;
+      selectedCat = cat;
       syncVisibility();
     },
     destroy(): void {

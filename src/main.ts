@@ -57,6 +57,7 @@ import "./emo/emo.css";
 import { loadEmoData } from "./emo/emoData";
 import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
 import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
+import { createEmoSelectionLayer, type EmoSelectionLayer } from "./emo/selection";
 import {
   shouldShowEmoViews,
   shouldOpenEmoPanel,
@@ -433,6 +434,7 @@ const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
 const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
 let emoLabelLayer: EmoLabelLayer | null = null;
 let emoArcLayer: EmoArcLayer | null = null;
+let emoSelectionLayer: EmoSelectionLayer | null = null;
 const emoView = resolveEmoViewFromUrl();
 let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 
@@ -649,12 +651,19 @@ function loop(): void {
         globe,
         data: await loadEmoData(),
         params: emoView.params,
+        // The label layer owns the selection because it owns the click; the arcs and the
+        // country fill are told from here.
+        onSelect: (selection) => {
+          emoArcLayer?.setSelectedCategory(selection?.cat ?? null);
+          emoSelectionLayer?.setSelected(selection?.iso3 ?? null);
+        },
       });
       emoArcLayer = await createEmoArcLayer({
         globe,
         data: await loadEmoData(),
         params: emoView.params,
       });
+      emoSelectionLayer = await createEmoSelectionLayer({ globe, params: emoView.params });
       syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);
       mountEmoViewPanel(emoPanelHost, {
@@ -664,6 +673,7 @@ function loop(): void {
           emoPreset = preset;
           emoLabelLayer?.setParams(params);
           emoArcLayer?.setParams(params);
+          emoSelectionLayer?.setParams(params);
           syncEmoLayer(lastLayerId);
         },
         onMinimise: () => setEmoPanelOpen(false),

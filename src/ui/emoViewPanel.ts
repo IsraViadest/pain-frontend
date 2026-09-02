@@ -63,7 +63,7 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
   },
   networkMode: {
     label: "Network",
-    hint: "all draws every country's arcs to its k nearest neighbours in the same pain category.",
+    hint: "all draws every category at once. selected draws only the network of the country you click.",
   },
   colourMode: {
     label: "Colour",
@@ -121,6 +121,8 @@ const SECTIONS: EmoSection[] = [
       { key: "arcEndTrimDeg", label: "End trim", min: 0, max: 8, step: 0.1, decimals: 1, hint: "Degrees removed at each end, so a line stops short of the label it points at." },
       { key: "arcWidth", label: "Arc width", min: 0.0005, max: 0.012, step: 0.0005, decimals: 4, hint: "World units, so a fraction of the globe radius rather than pixels." },
       { key: "arcOpacity", label: "Arc opacity", min: 0.05, max: 1, step: 0.01, decimals: 2, hint: "Lower this before lowering width when the network reads as clutter." },
+      { key: "selectionDim", label: "Selection dim", min: 0, max: 1, step: 0.01, decimals: 2, hint: "Opacity of every label except the selected one, with Click does set to selectNetwork." },
+      { key: "selectionFill", label: "Selection fill", min: 0, max: 0.6, step: 0.01, decimals: 2, hint: "Alpha of the wash on the selected country. 43 microstates have no polygon and stay unfilled." },
     ],
   },
   {

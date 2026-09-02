@@ -297,3 +297,57 @@ export function createChoroplethTexture(
   tex.needsUpdate = true;
   return tex;
 }
+
+/** Half the choropleth map's resolution: a selection wash is not a data surface. */
+const HIGHLIGHT_MAP_WIDTH = 1024;
+const HIGHLIGHT_MAP_HEIGHT = 512;
+
+/**
+ * One country filled into an otherwise transparent equirectangular texture, for the selection
+ * highlight in the emotional-pain views.
+ *
+ * Returns null when the country has no polygon here. `countryCentroids.ts` carries 43 manual
+ * label points for microstates that Natural Earth 1:110m has no geometry for, so such a country
+ * can hold a label and still have nothing to fill. That is a graceful degradation, not an error.
+ */
+export function createCountryHighlightTexture(
+  iso3: string,
+  colorHex: string,
+  opacity: number,
+): THREE.DataTexture | null {
+  const key = iso3.trim().toUpperCase();
+  const match = countryGeometries.find((c) => c.key === key);
+  if (!match) return null;
+
+  const w = HIGHLIGHT_MAP_WIDTH;
+  const h = HIGHLIGHT_MAP_HEIGHT;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("2D canvas unsupported");
+
+  ctx.clearRect(0, 0, w, h);
+  const rgb = parseHexRgb(colorHex) ?? { r: 255, g: 255, b: 255 };
+  ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${Math.max(0, Math.min(1, opacity))})`;
+  fillGeometry(ctx, match.geometry, w, h);
+
+  const { data } = ctx.getImageData(0, 0, w, h);
+  const tex = new THREE.DataTexture(
+    new Uint8Array(data.buffer.slice(0)) as unknown as ArrayBufferView<ArrayBuffer>,
+    w,
+    h,
+    THREE.RGBAFormat,
+    THREE.UnsignedByteType,
+  );
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  // SphereGeometry map sampling, same note as createChoroplethTexture above.
+  tex.flipY = true;
+  tex.needsUpdate = true;
+  return tex;
+}

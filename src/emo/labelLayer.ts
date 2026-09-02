@@ -19,8 +19,19 @@ import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/country
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 
+/**
+ * Which country is selected, and the category whose network that reveals.
+ * Not exported: main.ts takes it through inference on the `onSelect` callback, and the repo's
+ * ts-prune gate fails any export nothing imports.
+ */
+interface EmoSelection {
+  iso3: string;
+  cat: string;
+}
+
 interface LabelEntry {
   iso3: string;
+  cat: string;
   /** Unit direction on the unrotated globe. */
   dir: THREE.Vector3;
   el: HTMLElement;
@@ -60,6 +71,11 @@ export async function createEmoLabelLayer(options: {
   globe: GlobeView;
   data: EmoData;
   params: EmoViewParams;
+  /**
+   * Fired when `clickMode: "selectNetwork"` changes the selection. The layer owns the selection,
+   * because it owns the click; the arc layer and the country fill are told through this.
+   */
+  onSelect?: (selection: EmoSelection | null) => void;
 }): Promise<EmoLabelLayer> {
   const { host, globe, data } = options;
   let params = options.params;
@@ -104,6 +120,7 @@ export async function createEmoLabelLayer(options: {
 
     entries.push({
       iso3,
+      cat: country.cat,
       dir: latLngToVector3(centroid.lat, centroid.lng, 1).normalize(),
       el,
       nativeEl,
@@ -141,14 +158,23 @@ export async function createEmoLabelLayer(options: {
   // Colour is opt-in (decision 3). The host attribute selects a palette; see emo.css.
   host.dataset.colour = params.colourMode;
 
+  let selected: string | null = null;
+
   const onClick = (ev: MouseEvent): void => {
-    if (params.clickMode !== "toggleLanguage") return;
+    if (params.clickMode === "off") return;
     const target = (ev.target as HTMLElement).closest(".emo-label");
     if (!target) return;
     const entry = entries.find((e) => e.el === target);
     if (!entry) return;
-    entry.toggled = !entry.toggled;
     ev.stopPropagation();
+    if (params.clickMode === "toggleLanguage") {
+      entry.toggled = !entry.toggled;
+      return;
+    }
+    // Clicking the selected country again clears the selection, so there is always a way out
+    // without hunting for empty globe between 195 labels.
+    selected = selected === entry.iso3 ? null : entry.iso3;
+    options.onSelect?.(selected === null ? null : { iso3: entry.iso3, cat: entry.cat });
   };
   host.addEventListener("click", onClick);
 
@@ -211,6 +237,9 @@ export async function createEmoLabelLayer(options: {
 
       const fade = ramp(facing, params.facingMin, params.fadeStart);
       const grey = 1 - params.edgeDesaturation * (1 - fade);
+      // Dimming multiplies the fade rather than fighting it: opacity is written inline every
+      // frame, so a CSS rule for this would never win.
+      const dim = selected !== null && entry.iso3 !== selected ? params.selectionDim : 1;
 
       // Which language this label shows right now.
       let showNative: boolean;
@@ -236,6 +265,11 @@ export async function createEmoLabelLayer(options: {
           break;
         }
       }
+      // The selected country reads in both languages, whatever the mode is doing elsewhere.
+      if (entry.iso3 === selected) {
+        showNative = entry.hasNative;
+        showEnglish = true;
+      }
       // A click swaps which single language this label shows, and a second click swaps it back.
       // When the mode already shows both lines there is nothing to swap.
       if (entry.toggled && showNative !== showEnglish) {
@@ -253,7 +287,7 @@ export async function createEmoLabelLayer(options: {
         entry.visible = true;
       }
       el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;
-      el.style.opacity = fade.toFixed(3);
+      el.style.opacity = (fade * dim).toFixed(3);
       el.style.setProperty("--emo-grey", grey.toFixed(3));
     }
   }
@@ -262,6 +296,11 @@ export async function createEmoLabelLayer(options: {
     update,
     setParams(next: EmoViewParams): void {
       const englishChanged = next.englishText !== params.englishText;
+      // A preset that does not select must not leave a stale selection dimming the globe.
+      if (next.clickMode !== "selectNetwork" && selected !== null) {
+        selected = null;
+        options.onSelect?.(null);
+      }
       params = next;
       // Only on change: a slider drag calls this every input event, and 195 text writes per
       // tick would be felt.
