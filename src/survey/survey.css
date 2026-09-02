@@ -337,6 +337,12 @@
   background: rgba(30, 40, 100, 0.05); /* title blue at 5% opacity — marks the placeable map area */
 }
 
+.survey-map__zoom-layer {
+  position: relative;
+  transform-origin: center center;
+  touch-action: none;
+}
+
 .survey-screen__map {
   display: block;
   max-width: 100%;
@@ -608,6 +614,7 @@
   .survey-screen--2 .survey-screen__map-wrap {
     flex: 0 1 auto;
     align-self: center;
+    overflow: hidden;
   }
 
   .survey-screen--2 .survey-screen__tray {

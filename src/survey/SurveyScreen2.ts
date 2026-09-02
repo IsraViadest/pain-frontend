@@ -38,7 +38,7 @@ function schedulePinLayoutSync(
   }
 }
 
-/** Position a pin over the map image; reads img rect at call time (letterbox-safe). */
+/** Position a pin over the map image using layout offsets (transform-safe for pinch zoom). */
 function positionPinOnMapImage(
   pinEl: HTMLElement,
   lat: number,
@@ -46,13 +46,13 @@ function positionPinOnMapImage(
   imgEl: HTMLImageElement,
   pinLayerEl: HTMLElement,
 ): void {
-  const imgRect = imgEl.getBoundingClientRect();
-  const layerRect = pinLayerEl.getBoundingClientRect();
-  if (imgRect.width <= 0 || imgRect.height <= 0) return;
+  const imgWidth = imgEl.offsetWidth;
+  const imgHeight = imgEl.offsetHeight;
+  if (imgWidth <= 0 || imgHeight <= 0) return;
 
   const { nx, ny } = latLngToNormalizedMapXY(lat, lng);
-  const x = imgRect.left - layerRect.left + nx * imgRect.width;
-  const y = imgRect.top - layerRect.top + ny * imgRect.height;
+  const x = imgEl.offsetLeft - pinLayerEl.offsetLeft + nx * imgWidth;
+  const y = imgEl.offsetTop - pinLayerEl.offsetTop + ny * imgHeight;
   pinEl.style.left = `${x}px`;
   pinEl.style.top = `${y}px`;
 }
@@ -125,6 +125,87 @@ function createMapPin(word: string): HTMLElement {
 /** CSS class toggled on the tap-selected tray bubble or placed pin. */
 const TAP_SELECTED_CLASS = "survey-map__bubble--selected";
 
+/** Pinch zoom lower bound — fit-to-wrap baseline (no shrink below natural layout size). */
+const MAP_ZOOM_MIN = 1;
+/** Pinch zoom upper bound — max magnification on mobile Screen 2 map. */
+const MAP_ZOOM_MAX = 5;
+
+function touchPinchMidpoint(touches: TouchList): { x: number; y: number } {
+  return {
+    x: (touches[0]!.clientX + touches[1]!.clientX) / 2,
+    y: (touches[0]!.clientY + touches[1]!.clientY) / 2,
+  };
+}
+
+function pinchOriginPercent(
+  zoomLayer: HTMLElement,
+  midX: number,
+  midY: number,
+): string {
+  const rect = zoomLayer.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return "center center";
+  }
+  const originX = ((midX - rect.left) / rect.width) * 100;
+  const originY = ((midY - rect.top) / rect.height) * 100;
+  return `${originX}% ${originY}%`;
+}
+
+function touchPinchDistance(touches: TouchList): number {
+  if (touches.length < 2) return 0;
+  const dx = touches[1].clientX - touches[0].clientX;
+  const dy = touches[1].clientY - touches[0].clientY;
+  return Math.hypot(dx, dy);
+}
+
+function clampMapZoom(scale: number): number {
+  return Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, scale));
+}
+
+function applyMapZoomTransform(
+  zoomLayer: HTMLElement,
+  pinLayer: HTMLElement,
+  panX: number,
+  panY: number,
+  scale: number,
+): void {
+  if (scale <= MAP_ZOOM_MIN && panX === 0 && panY === 0) {
+    zoomLayer.style.transform = "";
+    pinLayer.style.transform = "";
+    return;
+  }
+  zoomLayer.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  pinLayer.style.transform = scale === 1 ? "" : `scale(${1 / scale})`;
+  pinLayer.style.transformOrigin = "0 0";
+}
+
+function clampMapPanInWrap(
+  zoomLayer: HTMLElement,
+  pinLayer: HTMLElement,
+  mapWrap: HTMLElement,
+  pan: { x: number; y: number },
+  scale: number,
+): void {
+  applyMapZoomTransform(zoomLayer, pinLayer, pan.x, pan.y, scale);
+  const viewport = mapWrap.getBoundingClientRect();
+  const content = zoomLayer.getBoundingClientRect();
+
+  if (content.left > viewport.left) {
+    pan.x -= content.left - viewport.left;
+  }
+  if (content.right < viewport.right) {
+    pan.x += viewport.right - content.right;
+  }
+  if (content.top > viewport.top) {
+    pan.y -= content.top - viewport.top;
+  }
+  if (content.bottom < viewport.bottom) {
+    pan.y += viewport.bottom - content.bottom;
+  }
+
+  applyMapZoomTransform(zoomLayer, pinLayer, pan.x, pan.y, scale);
+}
+
 /**
  * Survey screen 2 — drag or tap-to-place words onto the world map as lat/lng pins.
  *
@@ -184,6 +265,9 @@ export function mountSurveyScreen2(
   const mapWrap = document.createElement("div");
   mapWrap.className = "survey-screen__map-wrap";
 
+  const zoomLayer = document.createElement("div");
+  zoomLayer.className = "survey-map__zoom-layer";
+
   const mapImg = document.createElement("img");
   mapImg.className = "survey-screen__map";
   mapImg.src = "/world.svg";
@@ -193,7 +277,8 @@ export function mountSurveyScreen2(
   const pinLayer = document.createElement("div");
   pinLayer.className = "survey-screen__pin-layer";
 
-  mapWrap.append(mapImg, pinLayer);
+  zoomLayer.append(mapImg, pinLayer);
+  mapWrap.append(zoomLayer);
 
   const tray = document.createElement("div");
   tray.className = "survey-screen__tray";
@@ -244,10 +329,13 @@ export function mountSurveyScreen2(
   };
 
   const syncMapColumnWidth = (): void => {
-    const width = mapImg.getBoundingClientRect().width;
+    const isDesktop = window.matchMedia("(min-width: 769px)").matches;
+    const width = isDesktop
+      ? mapImg.getBoundingClientRect().width
+      : mapImg.offsetWidth;
     if (width <= 0) return;
 
-    if (window.matchMedia("(min-width: 769px)").matches) {
+    if (isDesktop) {
       mapWrap.style.width = `${width}px`;
       tray.style.width = `${width}px`;
       tray.style.maxWidth = "";
@@ -394,7 +482,13 @@ export function mountSurveyScreen2(
 
   addListener(mapImg, "drop", handleMapDrop);
 
+  let suppressNextMapClick = false;
+
   addListener(mapImg, "click", (event) => {
+    if (suppressNextMapClick) {
+      suppressNextMapClick = false;
+      return;
+    }
     if (!tapSelectedWord) return;
     const coords = svgCoordsToLatLng(event.clientX, event.clientY, mapImg);
     if (!coords) return;
@@ -402,6 +496,81 @@ export function mountSurveyScreen2(
     commitPlacement(word, coords.lat, coords.lng);
     setTapSelection(null, null);
   });
+
+  if (window.matchMedia("(max-width: 768px)").matches) {
+    let mapZoomScale = MAP_ZOOM_MIN;
+    let mapPanX = 0;
+    let mapPanY = 0;
+    let lastMidX = 0;
+    let lastMidY = 0;
+    let pinchInitialDistance = 0;
+    let pinchInitialScale = MAP_ZOOM_MIN;
+    let pinchActive = false;
+    let hadMultiTouchDuringGesture = false;
+
+    const clampAndApplyMapTransform = (): void => {
+      const pan = { x: mapPanX, y: mapPanY };
+      clampMapPanInWrap(zoomLayer, pinLayer, mapWrap, pan, mapZoomScale);
+      mapPanX = pan.x;
+      mapPanY = pan.y;
+    };
+
+    const finalizePinchZoom = (): void => {
+      if (!pinchActive) return;
+      pinchActive = false;
+      pinchInitialDistance = 0;
+      mapZoomScale = clampMapZoom(mapZoomScale);
+      if (mapZoomScale <= MAP_ZOOM_MIN) {
+        mapZoomScale = MAP_ZOOM_MIN;
+        mapPanX = 0;
+        mapPanY = 0;
+      }
+      clampAndApplyMapTransform();
+      if (hadMultiTouchDuringGesture) {
+        suppressNextMapClick = true;
+        hadMultiTouchDuringGesture = false;
+      }
+    };
+
+    const onZoomTouchStart = (event: TouchEvent): void => {
+      if (event.touches.length >= 2) {
+        pinchActive = true;
+        hadMultiTouchDuringGesture = true;
+        pinchInitialDistance = touchPinchDistance(event.touches);
+        pinchInitialScale = mapZoomScale;
+        const { x: midX, y: midY } = touchPinchMidpoint(event.touches);
+        lastMidX = midX;
+        lastMidY = midY;
+        zoomLayer.style.transformOrigin = pinchOriginPercent(zoomLayer, midX, midY);
+      }
+    };
+
+    const onZoomTouchMove = (event: TouchEvent): void => {
+      if (event.touches.length < 2 || pinchInitialDistance <= 0) return;
+      hadMultiTouchDuringGesture = true;
+      const { x: midX, y: midY } = touchPinchMidpoint(event.touches);
+      mapPanX += midX - lastMidX;
+      mapPanY += midY - lastMidY;
+      lastMidX = midX;
+      lastMidY = midY;
+      const distance = touchPinchDistance(event.touches);
+      mapZoomScale = clampMapZoom(
+        pinchInitialScale * (distance / pinchInitialDistance),
+      );
+      clampAndApplyMapTransform();
+      event.preventDefault();
+    };
+
+    const onZoomTouchEnd = (event: TouchEvent): void => {
+      if (event.touches.length >= 2) return;
+      finalizePinchZoom();
+    };
+
+    addListener(zoomLayer, "touchstart", onZoomTouchStart);
+    addListener(zoomLayer, "touchmove", onZoomTouchMove, { passive: false });
+    addListener(zoomLayer, "touchend", onZoomTouchEnd);
+    addListener(zoomLayer, "touchcancel", onZoomTouchEnd);
+  }
 
   schedulePinLayoutSync(mapImg, syncAllPinPositions);
 
