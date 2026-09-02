@@ -26,6 +26,9 @@ interface LabelEntry {
   el: HTMLElement;
   nativeEl: HTMLElement;
   englishEl: HTMLElement;
+  /** The two English strings a label can show, so `englishText` switches without a rebuild. */
+  englishCategory: string;
+  englishGloss: string;
   score: number;
   /** Rank by score, 0 = strongest. Used by the density cap. */
   rank: number;
@@ -76,7 +79,8 @@ export async function createEmoLabelLayer(options: {
       missingCentroid += 1;
       return;
     }
-    const english = params.englishText === "gloss" ? country.en : categoryLabel.get(country.cat) ?? country.cat;
+    const englishCategory = categoryLabel.get(country.cat) ?? country.cat;
+    const englishGloss = country.en;
     const hasNative = country.term.length > 0;
 
     const el = document.createElement("div");
@@ -84,17 +88,16 @@ export async function createEmoLabelLayer(options: {
     el.dataset.iso3 = iso3;
     el.dataset.cat = country.cat;
     el.dataset.family = categoryFamily.get(country.cat) ?? "";
-    el.title = `${country.name} — ${categoryLabel.get(country.cat) ?? country.cat}\n${
+    el.title = `${country.name}: ${englishCategory}\n${
       hasNative ? `${country.term} (${country.langEn}): ${country.en}` : "no term in this language; showing English"
     }`;
 
     const nativeEl = document.createElement("div");
     nativeEl.className = "emo-label__native";
-    nativeEl.textContent = hasNative ? country.term : english;
+    nativeEl.textContent = country.term;
 
     const englishEl = document.createElement("div");
     englishEl.className = "emo-label__english";
-    englishEl.textContent = english;
 
     el.append(nativeEl, englishEl);
     host.appendChild(el);
@@ -105,6 +108,8 @@ export async function createEmoLabelLayer(options: {
       el,
       nativeEl,
       englishEl,
+      englishCategory,
+      englishGloss,
       score: country.score,
       rank,
       hasNative,
@@ -116,6 +121,25 @@ export async function createEmoLabelLayer(options: {
   if (missingCentroid > 0) {
     console.warn(`[emoLabelLayer] ${missingCentroid} countries have no centroid and are not drawn`);
   }
+
+  /**
+   * Write the English strings. Called once at build time and again whenever `englishText`
+   * changes, so the switch costs 195 text writes rather than a rebuild of the whole layer.
+   *
+   * A country whose winning category is a declared lexicon gap has no native term, so its
+   * "native" line carries English too and has to follow the same switch.
+   */
+  function applyEnglishText(): void {
+    for (const entry of entries) {
+      const english = params.englishText === "gloss" ? entry.englishGloss : entry.englishCategory;
+      entry.englishEl.textContent = english;
+      if (!entry.hasNative) entry.nativeEl.textContent = english;
+    }
+  }
+
+  applyEnglishText();
+  // Colour is opt-in (decision 3). The host attribute selects a palette; see emo.css.
+  host.dataset.colour = params.colourMode;
 
   const onClick = (ev: MouseEvent): void => {
     if (params.clickMode !== "toggleLanguage") return;
@@ -237,7 +261,12 @@ export async function createEmoLabelLayer(options: {
   return {
     update,
     setParams(next: EmoViewParams): void {
+      const englishChanged = next.englishText !== params.englishText;
       params = next;
+      // Only on change: a slider drag calls this every input event, and 195 text writes per
+      // tick would be felt.
+      if (englishChanged) applyEnglishText();
+      host.dataset.colour = next.colourMode;
       lastFontPx = -1;
       lastSecondScale = -1;
     },

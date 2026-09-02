@@ -28,7 +28,10 @@
   will-change: transform, opacity;
   /* --emo-grey runs 1 (full white, facing the camera) to 1 - edgeDesaturation (at the limb). */
   --emo-grey: 1;
-  color: color-mix(in srgb, #ffffff calc(var(--emo-grey) * 100%), #6f8598);
+  /* --emo-tint feeds the same mix as the limb fade, so colour and distance compose rather than
+     fight. White by default; a preset switches a palette on via the host's data-colour. */
+  --emo-tint: #ffffff;
+  color: color-mix(in srgb, var(--emo-tint) calc(var(--emo-grey) * 100%), #6f8598);
   text-shadow: 0 1px 3px rgba(0, 3, 18, 0.85);
 }
 
@@ -54,3 +57,30 @@
   outline: 1px solid rgba(120, 200, 255, 0.6);
   outline-offset: 2px;
 }
+
+/* Colour palettes, opt-in per decision 3: the category families are not clean enough to carry
+   meaning, so white stays the default and a preset opts in with colourMode.
+
+   "family" is the group-by-colour view: five bright violets and pinks, as asked for. "category"
+   needs fourteen values, which five shades of violet cannot separate, so that ramp walks the
+   whole hue circle at one bright pastel lightness instead. */
+.emo-label-host[data-colour="family"] .emo-label[data-family="acute"] { --emo-tint: #ff9ab0; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="dread"] { --emo-tint: #d0a6ff; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="loss"] { --emo-tint: #93c5ff; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="social"] { --emo-tint: #ff9be8; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="collapse"] { --emo-tint: #a98bff; }
+
+.emo-label-host[data-colour="category"] .emo-label[data-cat="01_pain"] { --emo-tint: hsl(300 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="02_hurt"] { --emo-tint: hsl(326 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="03_eco_anxiety"] { --emo-tint: hsl(352 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="04_uncertainty"] { --emo-tint: hsl(18 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="05_grief"] { --emo-tint: hsl(44 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="06_anger"] { --emo-tint: hsl(70 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="07_hardship"] { --emo-tint: hsl(96 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="08_displacement"] { --emo-tint: hsl(122 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="09_trauma"] { --emo-tint: hsl(148 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="10_loneliness"] { --emo-tint: hsl(174 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="11_depression"] { --emo-tint: hsl(200 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="12_fear"] { --emo-tint: hsl(226 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="13_helplessness"] { --emo-tint: hsl(252 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="14_shame"] { --emo-tint: hsl(278 95% 80%); }
