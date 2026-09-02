@@ -8,7 +8,18 @@
 import * as THREE from "three";
 import type { GlobeView } from "../globe/GlobeView";
 import { latLngToVector3 } from "../globe/latLng";
-import { DEFAULT_EMO_PARAMS, type EmoViewParams } from "./viewParams";
+import {
+  DEFAULT_EMO_PARAMS,
+  EMO_ENUM_VALUES,
+  diffEmoParams,
+  type EmoEnumKey,
+  type EmoViewParams,
+} from "./viewParams";
+import {
+  DEFAULT_EMO_PRESET_ID,
+  findEmoPreset,
+  resolveEmoPresetParams,
+} from "./viewPresets";
 
 const EMO_VIEWS_LS_KEY = "pain-emo-views";
 
@@ -30,38 +41,120 @@ export function shouldShowEmoViews(): boolean {
   }
 }
 
+/** One enum parameter, validated against its allowed values because these are hand-typed. */
+function readEnumParam(
+  q: URLSearchParams,
+  name: string,
+  key: EmoEnumKey,
+  params: EmoViewParams,
+): void {
+  const raw = q.get(name);
+  if (raw === null) return;
+  const allowed: readonly string[] = EMO_ENUM_VALUES[key];
+  if (!allowed.includes(raw)) {
+    console.warn(`[emoViewConfig] ignoring ${name}="${raw}"; expected ${allowed.join(" | ")}`);
+    return;
+  }
+  Object.assign(params, { [key]: raw });
+}
+
 /**
- * Read parameter overrides from the query string, so any view is reachable from a cold load
- * and a screenshot of it is reproducible. Unknown or malformed values fall back to the default
- * rather than throwing, because these are hand-typed.
+ * Apply an exact override object, as written by the view panel's "reload with these".
  *
- * `?emoMode=native&emoClick=toggleLanguage&emoColour=family&emoDensity=60`
+ * Unknown keys and values of the wrong type are dropped rather than thrown on, matching the
+ * rest of this module: every one of these values can arrive hand-edited.
  */
-export function readEmoParamsFromUrl(): EmoViewParams {
-  const params: EmoViewParams = { ...DEFAULT_EMO_PARAMS };
+function applyParamsJson(raw: string, params: EmoViewParams): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    console.warn(`[emoViewConfig] ignoring emoParams; not valid JSON`);
+    return;
+  }
+  if (typeof parsed !== "object" || parsed === null) return;
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!(key in DEFAULT_EMO_PARAMS)) continue;
+    const typed = key as keyof EmoViewParams;
+    if (typeof value !== typeof DEFAULT_EMO_PARAMS[typed]) continue;
+    if (typeof value === "string") {
+      const allowed: readonly string[] | undefined =
+        EMO_ENUM_VALUES[typed as EmoEnumKey];
+      if (allowed && !allowed.includes(value)) continue;
+    }
+    Object.assign(params, { [typed]: value });
+  }
+}
+
+interface EmoViewSelection {
+  presetId: string;
+  params: EmoViewParams;
+}
+
+/**
+ * Resolve which view to open from the query string, so any view is reachable from a cold load
+ * and a screenshot of it is reproducible.
+ *
+ * Four layers, each overriding the one before:
+ *   1. DEFAULT_EMO_PARAMS
+ *   2. `?emoPreset=<id>`   a named entry in the append-only registry
+ *   3. `?emoMode=` and friends, single-field shorthands, kept because they are documented
+ *   4. `?emoParams=<json>` an exact override object, what the panel's reload button writes
+ */
+export function resolveEmoViewFromUrl(): EmoViewSelection {
   let q: URLSearchParams;
   try {
     q = new URLSearchParams(window.location.search);
   } catch {
-    return params;
+    return { presetId: DEFAULT_EMO_PRESET_ID, params: { ...DEFAULT_EMO_PARAMS } };
   }
-  const mode = q.get("emoMode");
-  if (mode === "english" || mode === "native" || mode === "bilingual" || mode === "focal") {
-    params.labelMode = mode;
+
+  const requested = q.get("emoPreset");
+  const preset = findEmoPreset(requested ?? DEFAULT_EMO_PRESET_ID);
+  if (requested !== null && !preset) {
+    console.warn(`[emoViewConfig] unknown emoPreset="${requested}"; falling back to the default`);
   }
-  const click = q.get("emoClick");
-  if (click === "off" || click === "toggleLanguage" || click === "selectNetwork") {
-    params.clickMode = click;
-  }
-  const colour = q.get("emoColour");
-  if (colour === "white" || colour === "family" || colour === "category") {
-    params.colourMode = colour;
-  }
-  const english = q.get("emoEnglish");
-  if (english === "category" || english === "gloss") params.englishText = english;
+  const resolved = preset ?? findEmoPreset(DEFAULT_EMO_PRESET_ID);
+  const params = resolved
+    ? resolveEmoPresetParams(resolved)
+    : { ...DEFAULT_EMO_PARAMS };
+
+  readEnumParam(q, "emoMode", "labelMode", params);
+  readEnumParam(q, "emoClick", "clickMode", params);
+  readEnumParam(q, "emoColour", "colourMode", params);
+  readEnumParam(q, "emoEnglish", "englishText", params);
   const density = Number(q.get("emoDensity"));
   if (Number.isFinite(density) && density > 0) params.density = density;
-  return params;
+
+  const json = q.get("emoParams");
+  if (json !== null) applyParamsJson(json, params);
+
+  return { presetId: resolved?.id ?? DEFAULT_EMO_PRESET_ID, params };
+}
+
+/**
+ * The URL that reopens the current view from a cold load.
+ *
+ * Carries the preset id plus only the fields that differ from it, so an untouched preset is
+ * just its id and a tweaked one stays readable. Every other query parameter is preserved, which
+ * is what keeps `freeze` and `cam` alive across a reload.
+ */
+export function buildEmoViewUrl(presetId: string, params: EmoViewParams): string {
+  const url = new URL(window.location.href);
+  const q = url.searchParams;
+  q.set("emoViews", "1");
+  q.set("emoPreset", presetId);
+  // The shorthands sit in an earlier layer than emoParams, so leaving stale ones behind would
+  // produce a URL whose visible text disagrees with what it opens.
+  for (const name of ["emoMode", "emoClick", "emoColour", "emoEnglish", "emoDensity"]) {
+    q.delete(name);
+  }
+  const preset = findEmoPreset(presetId);
+  const base = preset ? resolveEmoPresetParams(preset) : { ...DEFAULT_EMO_PARAMS };
+  const diff = diffEmoParams(base, params);
+  if (Object.keys(diff).length > 0) q.set("emoParams", JSON.stringify(diff));
+  else q.delete("emoParams");
+  return url.toString();
 }
 
 /**

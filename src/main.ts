@@ -58,9 +58,11 @@ import { loadEmoData } from "./emo/emoData";
 import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
 import {
   shouldShowEmoViews,
-  readEmoParamsFromUrl,
+  resolveEmoViewFromUrl,
   applyEmoCaptureOverrides,
 } from "./emo/emoViewConfig";
+import { findEmoPreset, type EmoPreset } from "./emo/viewPresets";
+import { mountEmoViewPanel } from "./ui/emoViewPanel";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -425,20 +427,42 @@ const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
 // --- emotional-pain label views (opt-in: ?emoViews=1 or localStorage pain-emo-views=1) ---
 const emoViewsEnabled = shouldShowEmoViews();
 const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
+const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
+const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
 let emoLabelLayer: EmoLabelLayer | null = null;
+const emoView = resolveEmoViewFromUrl();
+let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 
 /**
  * Show the DOM label views for the emotional layer and for all-layers mode, and suppress the
  * incumbent sprite word cloud while they are up so the two never draw at once.
  * Other single layers keep their existing visuals untouched.
+ *
+ * The control preset is the incumbent word cloud, so it inverts the pair: sprites on, DOM
+ * labels hidden. This runs after the setWordCloudEnabled calls in applyGlobeLayer and
+ * handleAllLayers, so it has the last word.
  */
 function syncEmoLayer(layerId: string): void {
   if (!emoViewsEnabled || !emoLabelHost) return;
   const active = layerId === "emopain" || layerId === "all-layers";
-  emoLabelHost.hidden = !active;
+  const sprites = active && emoPreset?.useIncumbentSprites === true;
+  emoLabelHost.hidden = !active || sprites;
   if (active) {
-    globe.setWordCloudEnabled(false);
+    globe.setWordCloudEnabled(sprites);
   }
+}
+
+/** Show or hide the views panel, keeping the entry button's aria state in step. */
+function setEmoPanelOpen(open: boolean): void {
+  if (!emoPanelHost || !emoPanelToggle) return;
+  emoPanelHost.hidden = !open;
+  emoPanelToggle.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+if (emoViewsEnabled && emoPanelHost && emoPanelToggle) {
+  emoPanelToggle.hidden = false;
+  emoPanelToggle.title = "Toggle emotional pain label views ([ and ] step between them)";
+  emoPanelToggle.addEventListener("click", () => setEmoPanelOpen(emoPanelHost.hidden));
 }
 
 /**
@@ -613,15 +637,26 @@ function loop(): void {
 
 (async () => {
   initBackgroundMusic();
-  if (emoViewsEnabled && emoLabelHost) {
+  if (emoViewsEnabled && emoLabelHost && emoPanelHost && emoPanelToggle) {
     try {
       emoLabelLayer = await createEmoLabelLayer({
         host: emoLabelHost,
         globe,
         data: await loadEmoData(),
-        params: readEmoParamsFromUrl(),
+        params: emoView.params,
       });
       applyEmoCaptureOverrides(globe);
+      mountEmoViewPanel(emoPanelHost, {
+        initialPresetId: emoView.presetId,
+        initialParams: emoView.params,
+        onChange: (preset, params) => {
+          emoPreset = preset;
+          emoLabelLayer?.setParams(params);
+          syncEmoLayer(lastLayerId);
+        },
+        onMinimise: () => setEmoPanelOpen(false),
+      });
+      setEmoPanelOpen(true);
     } catch (e) {
       console.error("[main] emo label views failed to start", e);
     }

@@ -22,6 +22,22 @@
       <div id="survey-modal"></div>
       <button
         type="button"
+        id="emo-view-toggle"
+        class="globe-debug-entry emo-view-entry"
+        hidden
+        aria-expanded="false"
+        aria-controls="emo-view-panel"
+      >
+        Views
+      </button>
+      <div
+        id="emo-view-panel"
+        class="globe-debug-panel-host globe-debug-panel-host--floating emo-view-panel-host"
+        hidden
+        aria-label="Emotional pain label views"
+      ></div>
+      <button
+        type="button"
         id="globe-debug-toggle"
         class="globe-debug-entry"
         hidden

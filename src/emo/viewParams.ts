@@ -68,3 +68,46 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   colourMode: "white",
   density: 0,
 };
+
+/**
+ * The permitted values of every enum-valued parameter.
+ *
+ * One source of truth for two consumers that would otherwise drift: the URL reader validates
+ * hand-typed values against it, and the view panel builds its dropdowns from it. An unvalidated
+ * enum is worth guarding because an unrecognised labelMode falls through every branch of the
+ * renderer's switch and silently hides all 195 labels.
+ */
+export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] } = {
+  labelMode: ["english", "native", "bilingual", "focal"],
+  englishText: ["category", "gloss"],
+  clickMode: ["off", "toggleLanguage", "selectNetwork"],
+  colourMode: ["white", "family", "category"],
+};
+
+/** The parameters whose value is one of a fixed set of strings. */
+export type EmoEnumKey = {
+  [K in keyof EmoViewParams]: EmoViewParams[K] extends string ? K : never;
+}[keyof EmoViewParams];
+
+/** The parameters that a slider can drive. */
+export type EmoNumberKey = {
+  [K in keyof EmoViewParams]: EmoViewParams[K] extends number ? K : never;
+}[keyof EmoViewParams];
+
+/**
+ * The fields in which `to` differs from `from`.
+ *
+ * Used twice, against two different baselines. Against a preset's resolved parameters it gives
+ * the shortest URL that reproduces the current view; against DEFAULT_EMO_PARAMS it gives exactly
+ * the `params` object literal for a new entry in the append-only preset registry.
+ */
+export function diffEmoParams(
+  from: EmoViewParams,
+  to: EmoViewParams,
+): Partial<EmoViewParams> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(to) as (keyof EmoViewParams)[]) {
+    if (from[key] !== to[key]) out[key] = to[key];
+  }
+  return out as Partial<EmoViewParams>;
+}

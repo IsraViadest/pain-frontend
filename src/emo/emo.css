@@ -84,3 +84,81 @@
 .emo-label-host[data-colour="category"] .emo-label[data-cat="12_fear"] { --emo-tint: hsl(226 95% 80%); }
 .emo-label-host[data-colour="category"] .emo-label[data-cat="13_helplessness"] { --emo-tint: hsl(252 95% 80%); }
 .emo-label-host[data-colour="category"] .emo-label[data-cat="14_shame"] { --emo-tint: hsl(278 95% 80%); }
+
+/* View panel. The box, rows and sliders reuse the globe debug panel's classes from style.css,
+   which is left untouched; only the side differs, so the entry and panel mirror the debug ones
+   in the opposite corner. Both sit at z-index 3, above the production chrome at 2. */
+.emo-view-entry {
+  right: auto;
+  left: 14px;
+}
+
+.emo-view-panel-host {
+  right: auto;
+  left: 12px;
+}
+
+/* Two deliberate departures from the debug panel, both because this one sits over 195 bright
+   labels rather than over empty globe. Opaque, because at the shared 0.92 the labels behind it
+   read as ghost text across every control. And taller, with the switcher held out of the scroll
+   area, because the parameter list only grows as later phases add to it. Specificity beats the
+   .globe-debug-panel rules without depending on stylesheet order. */
+.globe-debug-panel.emo-view-panel-host {
+  display: flex;
+  flex-direction: column;
+  max-height: min(78vh, 720px);
+  overflow: hidden;
+  background: #0b0d14;
+}
+
+.emo-view-panel__scroll {
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* The panel covers a third of the globe, so hiding it has to be one obvious click rather than a
+   hunt for the faint entry button in the corner. [ and ] still step between views while hidden,
+   which makes hide-then-compare the natural way to look at a preset full screen. */
+.emo-view-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.emo-view-panel__minimise {
+  flex: none;
+  margin: -2px -4px 0 0;
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-hint, #8fa0b4);
+  font-size: 1rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.emo-view-panel__minimise:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.emo-view-panel__minimise:focus-visible {
+  outline: 1px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 1px;
+}
+
+.emo-view-panel__snippet {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-muted, #c8d2e0);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  resize: vertical;
+}
