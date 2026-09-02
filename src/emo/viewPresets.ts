@@ -6,9 +6,10 @@
  * forever, which is the point of the whole exercise; a screenshot gallery is a convenience on
  * top of this list, not the record itself.
  *
- * Naming is `v{round}-{letter}_{slug}`, from the figure-design-rounds convention. Round v1 opens
- * here with the control and the four language modes, and continues in the opening round with
- * letters e onward, so the registry accumulates rather than restarting.
+ * Naming is `v{round}-{letter}_{slug}`, from the figure-design-rounds convention. Round v1 holds
+ * the control, the four language modes and the first networks. Round v2 is the network-shape
+ * round: the non-crossing density ladder, a random network for contrast, and two category
+ * variants. The registry accumulates; nothing here is ever edited.
  *
  * THE CONTROL CONFOUNDS TWO CHANGES AT ONCE. `v1-control_english-sprites` is the incumbent
  * canvas word cloud, which draws 174 countries under the old database `word` (15 sets, 10 of
@@ -114,6 +115,63 @@ export const EMO_PRESETS: EmoPreset[] = [
       networkMode: "connected",
       clickMode: "selectNetwork",
     },
+  },
+  {
+    id: "v2-a_world-mst",
+    title: "World: spanning tree",
+    note:
+      "The sparsest connected network that exists: 194 edges, no cycles, no crossings, median " +
+      "arc 5 degrees. Every country reachable from every other by exactly one path.",
+    params: { labelMode: "bilingual", networkMode: "connected", worldGraph: "mst", clickMode: "selectNetwork" },
+  },
+  {
+    id: "v2-b_world-rng",
+    title: "World: relative neighbourhood",
+    note:
+      "233 edges, no crossings. Joins two countries only when no third is closer to both of " +
+      "them, which reads as the skeleton of the landmasses.",
+    params: { labelMode: "bilingual", networkMode: "connected", worldGraph: "rng", clickMode: "selectNetwork" },
+  },
+  {
+    id: "v2-c_world-gabriel",
+    title: "World: Gabriel graph",
+    note:
+      "360 edges, no crossings. Denser than the neighbourhood skeleton and still every edge has " +
+      "an empty circle on it. The middle of the density ladder.",
+    params: { labelMode: "bilingual", networkMode: "connected", worldGraph: "gabriel", clickMode: "selectNetwork" },
+  },
+  {
+    id: "v2-d_world-delaunay",
+    title: "World: full triangulation",
+    note:
+      "579 edges, the densest network that still never crosses itself: the spherical Delaunay " +
+      "triangulation, obtained as the convex hull of the 195 label points.",
+    params: { labelMode: "bilingual", networkMode: "connected", worldGraph: "delaunay", clickMode: "selectNetwork" },
+  },
+  {
+    id: "v2-e_world-random",
+    title: "World: random, click to reshuffle",
+    note:
+      "Partners picked at random rather than by distance, then bridged into one component. It " +
+      "crosses itself heavily, which is the point of having it beside the others. Click anywhere " +
+      "on a label for the next seed.",
+    params: { labelMode: "bilingual", networkMode: "connected", worldGraph: "random", clickMode: "reshuffleNetwork" },
+  },
+  {
+    id: "v2-f_category-complete",
+    title: "Category: all to all",
+    note:
+      "Click a country and every other country sharing its pain category joins it, all to all " +
+      "rather than nearest-neighbour. The densest reading of what a category contains.",
+    params: { labelMode: "bilingual", networkMode: "selected", categoryGraph: "complete", clickMode: "selectNetwork", arcOpacity: 0.35 },
+  },
+  {
+    id: "v2-g_category-k6",
+    title: "Category: k=6",
+    note:
+      "The same category networks at six neighbours instead of three, for comparison against " +
+      "v1-e (k=3) and v1-f (k=1).",
+    params: { labelMode: "bilingual", networkMode: "all", kNeighbours: 6 },
   },
 ];
 

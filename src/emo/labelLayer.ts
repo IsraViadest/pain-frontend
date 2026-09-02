@@ -76,6 +76,8 @@ export async function createEmoLabelLayer(options: {
    * because it owns the click; the arc layer and the country fill are told through this.
    */
   onSelect?: (selection: EmoSelection | null) => void;
+  /** Fired when `clickMode: "reshuffleNetwork"` asks for a different random world network. */
+  onReshuffle?: () => void;
 }): Promise<EmoLabelLayer> {
   const { host, globe, data } = options;
   let params = options.params;
@@ -169,6 +171,10 @@ export async function createEmoLabelLayer(options: {
     ev.stopPropagation();
     if (params.clickMode === "toggleLanguage") {
       entry.toggled = !entry.toggled;
+      return;
+    }
+    if (params.clickMode === "reshuffleNetwork") {
+      options.onReshuffle?.();
       return;
     }
     // Clicking the selected country again clears the selection, so there is always a way out

@@ -59,11 +59,19 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
   },
   clickMode: {
     label: "Click does",
-    hint: "toggleLanguage swaps one label and swaps it back. selectNetwork is not built yet.",
+    hint: "toggleLanguage swaps one label. selectNetwork shows that country's category network. reshuffleNetwork redraws a new random world network.",
   },
   networkMode: {
     label: "Network",
     hint: "all draws every category at once. selected draws only the clicked country's category. connected joins the whole world by proximity until you click.",
+  },
+  worldGraph: {
+    label: "World graph",
+    hint: "mst, rng, gabriel and delaunay never cross themselves and are always connected, sparsest to densest. knn and random can cross.",
+  },
+  categoryGraph: {
+    label: "Category graph",
+    hint: "How countries sharing a pain category are joined. complete links all of them to all.",
   },
   colourMode: {
     label: "Colour",
@@ -114,9 +122,10 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Network arcs",
     defaultOpen: false,
-    selects: ["networkMode"],
+    selects: ["networkMode", "worldGraph", "categoryGraph"],
     sliders: [
-      { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest same-category neighbours each country links to. Edges are deduplicated." },
+      { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest neighbours each country links to. Only used by the knn and random rules." },
+      { key: "randomSeed", label: "Random seed", min: 1, max: 200, step: 1, decimals: 0, hint: "Which random world network to draw. Click does reshuffleNetwork steps this for you." },
       { key: "arcLift", label: "Arc lift", min: 1, max: 1.2, step: 0.005, decimals: 3, hint: "Radius the arcs ride at. Keep below the label standoff or they cross the text." },
       { key: "arcEndTrimDeg", label: "End trim", min: 0, max: 8, step: 0.1, decimals: 1, hint: "Degrees removed at each end, so a line stops short of the label it points at." },
       { key: "arcWidth", label: "Arc width", min: 0.0005, max: 0.012, step: 0.0005, decimals: 4, hint: "World units, so a fraction of the globe radius rather than pixels." },
@@ -146,6 +155,10 @@ function hotkeyTargetIgnoresShortcut(target: EventTarget | null): boolean {
 /**
  * Build the panel into `host`. Mounted once for the page lifetime, behind the same opt-in gate
  * as the views themselves, so there is nothing to tear down.
+ *
+ * Returns a handle for the one case where something outside the panel has to change a value:
+ * clicking the globe to reshuffle the random network. The panel stays the single owner of the
+ * parameter state, so its controls cannot drift out of step with what is drawn.
  */
 export function mountEmoViewPanel(
   host: HTMLElement,
@@ -156,7 +169,7 @@ export function mountEmoViewPanel(
     /** Hide the panel to clear the view. The entry button brings it back. */
     onMinimise: () => void;
   },
-): void {
+): { setParam: (key: EmoNumberKey, value: number) => void } {
   host.classList.add("globe-debug-panel");
   host.innerHTML = "";
 
@@ -420,4 +433,16 @@ export function mountEmoViewPanel(
   if (initial) initial.checked = true;
   noteEl.textContent = currentPreset().note;
   syncControls();
+
+  return {
+    setParam(key: EmoNumberKey, value: number): void {
+      Object.assign(params, { [key]: value });
+      const range = ranges.get(key);
+      if (range) range.value = String(value);
+      const readout = readouts.get(key);
+      const decimals = SECTIONS.flatMap((s) => s.sliders).find((s) => s.key === key)?.decimals ?? 2;
+      if (readout) readout.textContent = formatTuneValue(value, decimals);
+      emit();
+    },
+  };
 }

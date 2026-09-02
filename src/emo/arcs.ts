@@ -23,6 +23,7 @@ import { latLngToVector3 } from "../globe/latLng";
 import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/countryCentroids";
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
+import { buildCategoryGraph, buildWorldGraph } from "./graphs";
 
 /**
  * Subdivisions per arc. A constant, not a parameter: it trades vertex count against visible
@@ -45,27 +46,6 @@ const GLOBAL_KEY = "__global__";
  * just been computed. A trim must never remove an edge.
  */
 const MAX_TRIM_FRACTION = 0.35;
-
-/**
- * Union-find over node indices, used only to guarantee the connected network is connected.
- */
-function makeUnionFind(size: number): {
-  find: (x: number) => number;
-  union: (a: number, b: number) => boolean;
-} {
-  const parent = [...Array(size).keys()];
-  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
-  return {
-    find,
-    union(a: number, b: number): boolean {
-      const ra = find(a);
-      const rb = find(b);
-      if (ra === rb) return false;
-      parent[ra] = rb;
-      return true;
-    },
-  };
-}
 
 interface ArcNode {
   iso3: string;
@@ -178,130 +158,44 @@ export async function createEmoArcLayer(options: {
     return true;
   }
 
-  /**
-   * k nearest same-category neighbours, deduplicated so an undirected edge is drawn once.
-   *
-   * Nearest by great-circle distance is largest dot product, so the angle never has to be
-   * computed here. Group sizes run 7 to 24, so the quadratic scan is not worth avoiding.
-   */
-  function buildCategory(nodes: ArcNode[]): { positions: Float32Array; edges: number } {
-    const k = Math.max(1, Math.round(params.kNeighbours));
-    const seen = new Set<string>();
+  /** Turn index pairs into arc geometry and hand it to a mesh. Returns the edges actually drawn. */
+  function setMeshEdges(key: string, nodes: ArcNode[], pairs: [number, number][]): number {
+    const mesh = meshes.get(key);
+    if (!mesh) return 0;
     const out: number[] = [];
-    let edges = 0;
-    const scored: { j: number; dot: number }[] = [];
-
-    for (let i = 0; i < nodes.length; i++) {
-      scored.length = 0;
-      for (let j = 0; j < nodes.length; j++) {
-        if (i === j) continue;
-        scored.push({ j, dot: nodes[i]!.dir.dot(nodes[j]!.dir) });
-      }
-      scored.sort((x, y) => y.dot - x.dot);
-      for (const { j } of scored.slice(0, k)) {
-        const key = i < j ? `${i}:${j}` : `${j}:${i}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        if (appendArc(nodes[i]!.dir, nodes[j]!.dir, out)) edges += 1;
-      }
-    }
-    return { positions: new Float32Array(out), edges };
-  }
-
-  /**
-   * The classifier-agnostic network: every country to its k nearest neighbours anywhere, plus the
-   * fewest extra edges needed to make the whole thing a single connected component.
-   *
-   * kNN alone fragments. Over these 195 label points it leaves 2 components at k=3 and 9 at k=2,
-   * so "nearest neighbours" on its own does not answer "connect everything". The augmentation is
-   * Kruskal restricted to edges that join two different components: it adds the shortest possible
-   * bridge across each split and nothing else, so connectivity costs 1 edge at k=3 and 8 at k=2.
-   *
-   * Ignoring the category also makes the arcs local. Within a category the median arc is 25
-   * degrees, because the categories are scattered; here it is about 6.
-   */
-  function buildGlobal(nodes: ArcNode[]): {
-    positions: Float32Array;
-    edges: number;
-    components: number;
-    bridges: number;
-  } {
-    const k = Math.max(1, Math.round(params.kNeighbours));
-    const n = nodes.length;
-    const pairs: [number, number][] = [];
-    const seen = new Set<string>();
-    const union = makeUnionFind(n);
-
-    const scored: { j: number; dot: number }[] = [];
-    for (let i = 0; i < n; i++) {
-      scored.length = 0;
-      for (let j = 0; j < n; j++) {
-        if (i === j) continue;
-        scored.push({ j, dot: nodes[i]!.dir.dot(nodes[j]!.dir) });
-      }
-      scored.sort((x, y) => y.dot - x.dot);
-      for (const { j } of scored.slice(0, k)) {
-        const key = i < j ? `${i}:${j}` : `${j}:${i}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        pairs.push([i, j]);
-        union.union(i, j);
-      }
-    }
-    const components = new Set(Array.from({ length: n }, (_, i) => union.find(i))).size;
-
-    // Closest first, so each bridge taken is the shortest one that still joins two components.
-    const candidates: { a: number; b: number; dot: number }[] = [];
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        candidates.push({ a: i, b: j, dot: nodes[i]!.dir.dot(nodes[j]!.dir) });
-      }
-    }
-    candidates.sort((x, y) => y.dot - x.dot);
-    let bridges = 0;
-    for (const { a, b } of candidates) {
-      if (!union.union(a, b)) continue;
-      pairs.push([a, b]);
-      bridges += 1;
-    }
-
-    const out: number[] = [];
-    let edges = 0;
+    let drawn = 0;
     for (const [a, b] of pairs) {
-      if (appendArc(nodes[a]!.dir, nodes[b]!.dir, out)) edges += 1;
+      if (appendArc(nodes[a]!.dir, nodes[b]!.dir, out)) drawn += 1;
     }
-    return { positions: new Float32Array(out), edges, components, bridges };
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions(new Float32Array(out));
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    mesh.geometry.dispose();
+    mesh.geometry = geometry;
+    return drawn;
   }
 
-  /** Regenerate every category's geometry. Cheap enough to run on a slider drag. */
+  /** Regenerate every network. Cheap enough to run on a slider drag. */
   function rebuild(): void {
-    const counts: string[] = [];
+    const k = Math.max(1, Math.round(params.kNeighbours));
+    let categoryEdges = 0;
     for (const [key, nodes] of byCategory) {
-      const { positions, edges } = buildCategory(nodes);
-      const mesh = meshes.get(key);
-      if (!mesh) continue;
-      const geometry = new LineSegmentsGeometry();
-      geometry.setPositions(positions);
-      geometry.computeBoundingBox();
-      geometry.computeBoundingSphere();
-      mesh.geometry.dispose();
-      mesh.geometry = geometry;
-      counts.push(`${key}=${nodes.length}n/${edges}e`);
+      const pairs = buildCategoryGraph(nodes.map((n) => n.dir), params.categoryGraph, k);
+      categoryEdges += setMeshEdges(key, nodes, pairs);
     }
-    const globalMesh = meshes.get(GLOBAL_KEY);
-    if (globalMesh) {
-      const g = buildGlobal(allNodes);
-      const geometry = new LineSegmentsGeometry();
-      geometry.setPositions(g.positions);
-      geometry.computeBoundingBox();
-      geometry.computeBoundingSphere();
-      globalMesh.geometry.dispose();
-      globalMesh.geometry = geometry;
-      counts.push(
-        `global=${allNodes.length}n/${g.edges}e (kNN left ${g.components} components, ${g.bridges} bridges added)`,
-      );
-    }
-    console.info(`[emoArcs] k=${params.kNeighbours} ${counts.join(" ")}`);
+    const world = buildWorldGraph(
+      allNodes.map((n) => n.dir),
+      params.worldGraph,
+      k,
+      Math.round(params.randomSeed),
+    );
+    const worldEdges = setMeshEdges(GLOBAL_KEY, allNodes, world.edges);
+    console.info(
+      `[emoArcs] category=${params.categoryGraph} k=${k} ${categoryEdges}e | ` +
+        `world=${params.worldGraph} ${worldEdges}e, rule left ${world.components} components, ` +
+        `${world.bridges} bridges added, crossing-free ${world.crossingFree}`,
+    );
   }
 
   let layerVisible = true;
@@ -349,7 +243,10 @@ export async function createEmoArcLayer(options: {
       const geometryChanged =
         next.kNeighbours !== params.kNeighbours ||
         next.arcLift !== params.arcLift ||
-        next.arcEndTrimDeg !== params.arcEndTrimDeg;
+        next.arcEndTrimDeg !== params.arcEndTrimDeg ||
+        next.worldGraph !== params.worldGraph ||
+        next.categoryGraph !== params.categoryGraph ||
+        next.randomSeed !== params.randomSeed;
       params = next;
       syncVisibility();
       for (const mesh of meshes.values()) {

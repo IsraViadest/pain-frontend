@@ -437,6 +437,8 @@ let emoArcLayer: EmoArcLayer | null = null;
 let emoSelectionLayer: EmoSelectionLayer | null = null;
 const emoView = resolveEmoViewFromUrl();
 let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
+let emoParams = emoView.params;
+let emoPanel: { setParam: (key: "randomSeed", value: number) => void } | null = null;
 
 /**
  * Show the DOM label views for the emotional layer and for all-layers mode, and suppress the
@@ -657,6 +659,10 @@ function loop(): void {
           emoArcLayer?.setSelectedCategory(selection?.cat ?? null);
           emoSelectionLayer?.setSelected(selection?.iso3 ?? null);
         },
+        // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
+        onReshuffle: () => {
+          emoPanel?.setParam("randomSeed", (Math.round(emoParams.randomSeed) % 200) + 1);
+        },
       });
       emoArcLayer = await createEmoArcLayer({
         globe,
@@ -666,11 +672,12 @@ function loop(): void {
       emoSelectionLayer = await createEmoSelectionLayer({ globe, params: emoView.params });
       syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);
-      mountEmoViewPanel(emoPanelHost, {
+      emoPanel = mountEmoViewPanel(emoPanelHost, {
         initialPresetId: emoView.presetId,
         initialParams: emoView.params,
         onChange: (preset, params) => {
           emoPreset = preset;
+          emoParams = params;
           emoLabelLayer?.setParams(params);
           emoArcLayer?.setParams(params);
           emoSelectionLayer?.setParams(params);

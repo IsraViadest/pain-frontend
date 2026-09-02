@@ -1,3 +1,5 @@
+import type { EmoCategoryGraph, EmoWorldGraph } from "./graphs";
+
 /**
  * Every tunable of the emotional-pain label views, in one object.
  *
@@ -10,8 +12,11 @@ export interface EmoViewParams {
   labelMode: "english" | "native" | "bilingual" | "focal";
   /** Which English string to use: the short category label, or the gloss of the native term. */
   englishText: "category" | "gloss";
-  /** What a click does. The two behaviours compete for the same target, so a preset picks one. */
-  clickMode: "off" | "toggleLanguage" | "selectNetwork";
+  /**
+   * What a click does. These compete for the same target, so a preset picks one.
+   * `reshuffleNetwork` redraws a random world network with the next seed.
+   */
+  clickMode: "off" | "toggleLanguage" | "selectNetwork" | "reshuffleNetwork";
 
   /** Label standoff above the globe surface (globe radius = 1) when the camera is far / near. */
   standoffFar: number;
@@ -43,8 +48,17 @@ export interface EmoViewParams {
    * clicked country's category network once something is.
    */
   networkMode: "off" | "all" | "selected" | "connected";
-  /** How many nearest same-category neighbours each country links to. Edges are deduplicated. */
+  /**
+   * How the classifier-agnostic world network is built. `mst`, `rng`, `gabriel` and `delaunay`
+   * are guaranteed not to cross themselves; `knn` and `random` are not. See graphs.ts.
+   */
+  worldGraph: EmoWorldGraph;
+  /** How countries inside one pain category are joined. `complete` links all of them to all. */
+  categoryGraph: EmoCategoryGraph;
+  /** How many nearest neighbours each country links to, for the two kNN-based rules. */
   kNeighbours: number;
+  /** Seed for `worldGraph: "random"`, so a random network is still reproducible. */
+  randomSeed: number;
   /** Radius the arcs ride at. Below the label standoff, or arcs cross through the text. */
   arcLift: number;
   /** Degrees of arc removed at each end, so a line stops short of the label it points at. */
@@ -86,7 +100,11 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   focalBlendDeg: 12,
 
   networkMode: "off",
+  worldGraph: "knn",
+  categoryGraph: "knn",
   kNeighbours: 3,
+  // The workspace default seed, so a random network is the same one every reload.
+  randomSeed: 43,
   // Just under the far standoff of 1.11, so arcs pass beneath the labels rather than through
   // them. They do not follow the zoom ramp, so they separate from the labels on approach; that
   // is a composition question for the multiplex phase, not a defect here.
@@ -112,8 +130,10 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
 export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] } = {
   labelMode: ["english", "native", "bilingual", "focal"],
   englishText: ["category", "gloss"],
-  clickMode: ["off", "toggleLanguage", "selectNetwork"],
+  clickMode: ["off", "toggleLanguage", "selectNetwork", "reshuffleNetwork"],
   networkMode: ["off", "all", "selected", "connected"],
+  worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
+  categoryGraph: ["knn", "complete"],
   colourMode: ["white", "family", "category"],
 };
 
