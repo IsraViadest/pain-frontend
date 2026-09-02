@@ -37,8 +37,12 @@ export interface EmoViewParams {
   /** Width of the blend band at the cone edge, in degrees. */
   focalBlendDeg: number;
 
-  /** Whether the within-category arcs are drawn: never, always, or for the clicked country. */
-  networkMode: "off" | "all" | "selected";
+  /**
+   * Which arcs are drawn. `all` and `selected` link countries sharing a pain category.
+   * `connected` links the whole world by proximity while nothing is clicked, and switches to the
+   * clicked country's category network once something is.
+   */
+  networkMode: "off" | "all" | "selected" | "connected";
   /** How many nearest same-category neighbours each country links to. Edges are deduplicated. */
   kNeighbours: number;
   /** Radius the arcs ride at. Below the label standoff, or arcs cross through the text. */
@@ -109,7 +113,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   labelMode: ["english", "native", "bilingual", "focal"],
   englishText: ["category", "gloss"],
   clickMode: ["off", "toggleLanguage", "selectNetwork"],
-  networkMode: ["off", "all", "selected"],
+  networkMode: ["off", "all", "selected", "connected"],
   colourMode: ["white", "family", "category"],
 };
 

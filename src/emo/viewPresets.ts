@@ -101,10 +101,26 @@ export const EMO_PRESETS: EmoPreset[] = [
       "selection is a gesture, and no URL captures it.",
     params: { labelMode: "native", networkMode: "selected", clickMode: "selectNetwork" },
   },
+  {
+    id: "v1-h_connected-bilingual",
+    title: "Connected world, click for category",
+    note:
+      "Bilingual labels over one connected network. At rest the arcs ignore the pain category " +
+      "and join every country to its nearest neighbours, plus the shortest bridges needed to " +
+      "make it a single component, so no country is left out. Click a country and the view " +
+      "switches to its category's network alone.",
+    params: {
+      labelMode: "bilingual",
+      networkMode: "connected",
+      clickMode: "selectNetwork",
+    },
+  },
 ];
 
-/** Opens on the plain DOM English view, the closest candidate to what the globe ships today. */
-export const DEFAULT_EMO_PRESET_ID = "v1-a_english-dom";
+/**
+ * Opens on the bilingual pair, which is the treatment the operator judged best on 2026-09-03.
+ */
+export const DEFAULT_EMO_PRESET_ID = "v1-c_bilingual";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);

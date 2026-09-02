@@ -63,7 +63,7 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
   },
   networkMode: {
     label: "Network",
-    hint: "all draws every category at once. selected draws only the network of the country you click.",
+    hint: "all draws every category at once. selected draws only the clicked country's category. connected joins the whole world by proximity until you click.",
   },
   colourMode: {
     label: "Colour",

@@ -33,6 +33,40 @@ const ARC_SEGMENTS = 24;
 /** Arcs stay white like the labels; colour remains opt-in and is a label concern for now. */
 const ARC_COLOUR = 0xffffff;
 
+/** Mesh key for the classifier-agnostic network, which is not one of the 14 categories. */
+const GLOBAL_KEY = "__global__";
+
+/**
+ * Ceiling on the end trim, as a fraction of the arc's own length.
+ *
+ * Without it the trim deletes edges instead of shortening them: the connected network's median
+ * arc is about 6 degrees, so a fixed 1.5 degree trim at each end silently dropped every arc under
+ * 3 degrees, which was 19 percent of the network and broke the connectivity guarantee that had
+ * just been computed. A trim must never remove an edge.
+ */
+const MAX_TRIM_FRACTION = 0.35;
+
+/**
+ * Union-find over node indices, used only to guarantee the connected network is connected.
+ */
+function makeUnionFind(size: number): {
+  find: (x: number) => number;
+  union: (a: number, b: number) => boolean;
+} {
+  const parent = [...Array(size).keys()];
+  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+  return {
+    find,
+    union(a: number, b: number): boolean {
+      const ra = find(a);
+      const rb = find(b);
+      if (ra === rb) return false;
+      parent[ra] = rb;
+      return true;
+    },
+  };
+}
+
 interface ArcNode {
   iso3: string;
   /** Unit direction on the unrotated globe. */
@@ -80,6 +114,9 @@ export async function createEmoArcLayer(options: {
     byCategory.set(country.cat, nodes);
   }
 
+  /** Every country, for the classifier-agnostic network. */
+  const allNodes: ArcNode[] = [...byCategory.values()].flat();
+
   const group = new THREE.Group();
   group.name = "emo-arcs";
   globe.earthContent.add(group);
@@ -87,7 +124,7 @@ export async function createEmoArcLayer(options: {
   const resolution = new THREE.Vector2(1, 1);
   const meshes = new Map<string, LineSegments2>();
 
-  for (const key of byCategory.keys()) {
+  for (const key of [...byCategory.keys(), GLOBAL_KEY]) {
     const material = new LineMaterial({
       color: ARC_COLOUR,
       linewidth: params.arcWidth,
@@ -116,10 +153,11 @@ export async function createEmoArcLayer(options: {
   function appendArc(a: THREE.Vector3, b: THREE.Vector3, out: number[]): boolean {
     const omega = Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1));
     if (omega < 1e-4 || omega > Math.PI - 1e-4) return false;
-    // The trim is angular. A trim expressed as a world distance would swallow a short arc whole.
-    const t0 = THREE.MathUtils.degToRad(params.arcEndTrimDeg) / omega;
+    // The trim is angular, because a trim expressed as a world distance would swallow a short arc
+    // whole, and capped at a fraction of the arc, so a short arc is shortened and never removed.
+    const trim = Math.min(THREE.MathUtils.degToRad(params.arcEndTrimDeg), omega * MAX_TRIM_FRACTION);
+    const t0 = trim / omega;
     const t1 = 1 - t0;
-    if (t1 - t0 < 1e-3) return false;
 
     const sinOmega = Math.sin(omega);
     let px = 0;
@@ -170,6 +208,71 @@ export async function createEmoArcLayer(options: {
     return { positions: new Float32Array(out), edges };
   }
 
+  /**
+   * The classifier-agnostic network: every country to its k nearest neighbours anywhere, plus the
+   * fewest extra edges needed to make the whole thing a single connected component.
+   *
+   * kNN alone fragments. Over these 195 label points it leaves 2 components at k=3 and 9 at k=2,
+   * so "nearest neighbours" on its own does not answer "connect everything". The augmentation is
+   * Kruskal restricted to edges that join two different components: it adds the shortest possible
+   * bridge across each split and nothing else, so connectivity costs 1 edge at k=3 and 8 at k=2.
+   *
+   * Ignoring the category also makes the arcs local. Within a category the median arc is 25
+   * degrees, because the categories are scattered; here it is about 6.
+   */
+  function buildGlobal(nodes: ArcNode[]): {
+    positions: Float32Array;
+    edges: number;
+    components: number;
+    bridges: number;
+  } {
+    const k = Math.max(1, Math.round(params.kNeighbours));
+    const n = nodes.length;
+    const pairs: [number, number][] = [];
+    const seen = new Set<string>();
+    const union = makeUnionFind(n);
+
+    const scored: { j: number; dot: number }[] = [];
+    for (let i = 0; i < n; i++) {
+      scored.length = 0;
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        scored.push({ j, dot: nodes[i]!.dir.dot(nodes[j]!.dir) });
+      }
+      scored.sort((x, y) => y.dot - x.dot);
+      for (const { j } of scored.slice(0, k)) {
+        const key = i < j ? `${i}:${j}` : `${j}:${i}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        pairs.push([i, j]);
+        union.union(i, j);
+      }
+    }
+    const components = new Set(Array.from({ length: n }, (_, i) => union.find(i))).size;
+
+    // Closest first, so each bridge taken is the shortest one that still joins two components.
+    const candidates: { a: number; b: number; dot: number }[] = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        candidates.push({ a: i, b: j, dot: nodes[i]!.dir.dot(nodes[j]!.dir) });
+      }
+    }
+    candidates.sort((x, y) => y.dot - x.dot);
+    let bridges = 0;
+    for (const { a, b } of candidates) {
+      if (!union.union(a, b)) continue;
+      pairs.push([a, b]);
+      bridges += 1;
+    }
+
+    const out: number[] = [];
+    let edges = 0;
+    for (const [a, b] of pairs) {
+      if (appendArc(nodes[a]!.dir, nodes[b]!.dir, out)) edges += 1;
+    }
+    return { positions: new Float32Array(out), edges, components, bridges };
+  }
+
   /** Regenerate every category's geometry. Cheap enough to run on a slider drag. */
   function rebuild(): void {
     const counts: string[] = [];
@@ -185,6 +288,19 @@ export async function createEmoArcLayer(options: {
       mesh.geometry = geometry;
       counts.push(`${key}=${nodes.length}n/${edges}e`);
     }
+    const globalMesh = meshes.get(GLOBAL_KEY);
+    if (globalMesh) {
+      const g = buildGlobal(allNodes);
+      const geometry = new LineSegmentsGeometry();
+      geometry.setPositions(g.positions);
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+      globalMesh.geometry.dispose();
+      globalMesh.geometry = geometry;
+      counts.push(
+        `global=${allNodes.length}n/${g.edges}e (kNN left ${g.components} components, ${g.bridges} bridges added)`,
+      );
+    }
     console.info(`[emoArcs] k=${params.kNeighbours} ${counts.join(" ")}`);
   }
 
@@ -192,9 +308,23 @@ export async function createEmoArcLayer(options: {
   let selectedCat: string | null = null;
   function syncVisibility(): void {
     group.visible = layerVisible && params.networkMode !== "off";
-    const only = params.networkMode === "selected";
+    // "connected" is the resting-plus-selection view: the whole world joined while nothing is
+    // clicked, and only the clicked country's category once something is.
     for (const [key, mesh] of meshes) {
-      mesh.visible = !only || key === selectedCat;
+      const isGlobal = key === GLOBAL_KEY;
+      switch (params.networkMode) {
+        case "all":
+          mesh.visible = !isGlobal;
+          break;
+        case "selected":
+          mesh.visible = !isGlobal && key === selectedCat;
+          break;
+        case "connected":
+          mesh.visible = selectedCat === null ? isGlobal : !isGlobal && key === selectedCat;
+          break;
+        default:
+          mesh.visible = false;
+      }
     }
   }
 
