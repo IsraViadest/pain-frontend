@@ -1,0 +1,56 @@
+/* Emotional-pain label views. Text is DOM, positioned each frame over the WebGL canvas. */
+@import "./fonts.generated.css";
+
+/* Overlay sits above the canvas but below the production chrome (z-index 2). Only the labels
+   themselves take pointer events, so dragging the globe still works between them. */
+.emo-label-host {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  contain: layout paint;
+  --emo-font-px: 13px;
+  --emo-second-scale: 0.72;
+}
+
+.emo-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1.35; /* headroom for Thai, Lao, Devanagari and Tibetan ascenders/descenders */
+  pointer-events: auto;
+  cursor: default;
+  user-select: none;
+  /* Only transform and opacity are written per frame, so this stays on the compositor. */
+  will-change: transform, opacity;
+  /* --emo-grey runs 1 (full white, facing the camera) to 1 - edgeDesaturation (at the limb). */
+  --emo-grey: 1;
+  color: color-mix(in srgb, #ffffff calc(var(--emo-grey) * 100%), #6f8598);
+  text-shadow: 0 1px 3px rgba(0, 3, 18, 0.85);
+}
+
+.emo-label__native {
+  font-size: var(--emo-font-px);
+  font-weight: 600;
+}
+
+/* English on its own is the primary line; under a native line it drops back. No italic anywhere:
+   most Noto script faces have none, and synthetic oblique reads as broken in Arabic and Indic. */
+.emo-label__english {
+  font-size: var(--emo-font-px);
+  font-weight: 600;
+}
+
+.emo-label__english--secondary {
+  font-size: calc(var(--emo-font-px) * var(--emo-second-scale));
+  font-weight: 400;
+  opacity: 0.68;
+}
+
+.emo-label:focus-visible {
+  outline: 1px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 2px;
+}

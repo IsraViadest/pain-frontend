@@ -1,0 +1,156 @@
+/**
+ * Build subsetted Noto webfonts covering exactly the glyphs the emo label views can display.
+ *
+ * Run: npm run build:emo-fonts   (requires python3 with fonttools + brotli; see PREREQS)
+ *
+ * The outputs (public/emo/fonts/*.woff2 and src/emo/fonts.generated.css) are COMMITTED, so a
+ * normal `npm run build` and the pain-server Docker build never need python or the network.
+ * Re-run this only after build:emo-data changes what is displayed.
+ *
+ * WHY THIS EXISTS: the four brand faces are Latin-only except Apercu Pro, which adds Greek and
+ * Cyrillic. The lexicon needs 20 scripts. Without these subsets the labels fall back to whatever
+ * the viewer's OS happens to have, which is fine on macOS and shows tofu on many Windows and
+ * Linux machines.
+ *
+ * SCOPE: only the codepoints actually rendered by the current dataset (~148 across 19 scripts,
+ * ~38 KB total), not the full 195x15 lexicon (~640 codepoints, ~152 KB). This is deliberate and
+ * it couples the font build to the data build: if emo-data.json changes what is displayed, this
+ * script must be re-run or unseen glyphs render as tofu. The npm script `build:emo` runs both.
+ *
+ * Codepoints already covered by Apercu Pro are excluded, so Latin, Greek and Cyrillic keep the
+ * project's own typography and Noto only fills real gaps.
+ *
+ * Subsets are built with --layout-features='*' because Arabic contextual joining and Indic
+ * conjuncts live in GSUB; dropping features would silently break shaping. --no-hinting is used
+ * (macOS ignores TrueType hinting entirely and it costs bytes).
+ */
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const DATA = join(ROOT, "public/emo/emo-data.json");
+const BRAND = join(ROOT, "public/fonts/Apercu Pro Regular.otf");
+const OUT_FONTS = join(ROOT, "public/emo/fonts");
+const OUT_CSS = join(ROOT, "src/emo/fonts.generated.css");
+const CACHE = join(ROOT, "node_modules/.cache/emo-fonts");
+
+/** Script code -> google/fonts `ofl/<dir>` holding a Noto face for it. */
+const SCRIPT_SOURCE = {
+  Arab: "notosansarabic", Hebr: "notosanshebrew", Deva: "notosansdevanagari",
+  Beng: "notosansbengali", Thai: "notosansthai", Laoo: "notosanslao",
+  Khmr: "notosanskhmer", Mymr: "notosansmyanmar", Sinh: "notosanssinhala",
+  Tibt: "notoseriftibetan", Thaa: "notosansthaana", Ethi: "notosansethiopic",
+  Geor: "notosansgeorgian", Armn: "notosansarmenian", Kore: "notosanskr",
+  Jpan: "notosansjp", Hans: "notosanssc", Cyrl: "notosans", Latn: "notosans",
+  Grek: "notosans",
+};
+
+function py(code) {
+  return execFileSync("python3", ["-c", code], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+}
+
+// ---- 1. every string the views can render, grouped by script -------------------------------
+const data = JSON.parse(readFileSync(DATA, "utf8"));
+const byScript = new Map();
+const addTo = (script, text) => {
+  if (!byScript.has(script)) byScript.set(script, new Set());
+  const set = byScript.get(script);
+  for (const ch of text ?? "") if (!/\s/.test(ch)) set.add(ch.codePointAt(0));
+};
+for (const c of Object.values(data.countries)) {
+  addTo(c.script, c.term);      // native term, in its own script
+  addTo("Latn", c.en);          // English gloss, always Latin
+  addTo("Latn", c.name);        // country name (tooltips)
+}
+for (const c of data.categories) addTo("Latn", c.label);
+
+// ---- 2. drop anything Apercu Pro already covers ---------------------------------------------
+const brandCodepoints = new Set(JSON.parse(py(
+  `import json;from fontTools.ttLib import TTFont;` +
+  `f=TTFont(${JSON.stringify(BRAND)},fontNumber=0,lazy=True);` +
+  `print(json.dumps(sorted(f.getBestCmap().keys())))`
+)));
+const needed = new Map();
+for (const [script, set] of byScript) {
+  const miss = [...set].filter((c) => !brandCodepoints.has(c)).sort((a, b) => a - b);
+  if (miss.length) needed.set(script, miss);
+}
+
+// ---- 3. fetch a Noto source per script (cached outside git) ---------------------------------
+mkdirSync(CACHE, { recursive: true });
+async function sourceFor(dir) {
+  const listing = await (await fetch(`https://api.github.com/repos/google/fonts/contents/ofl/${dir}`,
+    { headers: { "User-Agent": "build-emo-fonts", Accept: "application/vnd.github+json" } })).json();
+  if (!Array.isArray(listing)) throw new Error(`cannot list ofl/${dir}: ${JSON.stringify(listing).slice(0, 160)}`);
+  // Upright only: google/fonts lists NotoSans-Italic[...] before NotoSans[...] alphabetically,
+  // and picking it silently renders every Latin fallback glyph in italic.
+  const fonts = listing.filter((f) => /\.(ttf|otf)$/i.test(f.name) && !/italic/i.test(f.name));
+  const variable = fonts.filter((f) => f.name.includes("[") && f.name.includes("wght"));
+  const regular = fonts.filter((f) => f.name.includes("Regular"));
+  const pick = (variable[0] ?? regular[0] ?? fonts[0]);
+  if (!pick) throw new Error(`no font file in ofl/${dir}`);
+  const dest = join(CACHE, pick.name);
+  if (!existsSync(dest)) {
+    process.stdout.write(`  downloading ${pick.name} … `);
+    const buf = Buffer.from(await (await fetch(pick.download_url)).arrayBuffer());
+    writeFileSync(dest, buf);
+    process.stdout.write(`${(buf.length / 1024 / 1024).toFixed(1)} MB\n`);
+  }
+  return dest;
+}
+
+// ---- 4. instance to wght=400, subset, emit woff2 ---------------------------------------------
+mkdirSync(OUT_FONTS, { recursive: true });
+const faces = [];
+let total = 0;
+for (const [script, codepoints] of [...needed].sort((a, b) => b[1].length - a[1].length)) {
+  const dir = SCRIPT_SOURCE[script];
+  if (!dir) throw new Error(`no Noto source mapped for script "${script}"`);
+  const src = await sourceFor(dir);
+  const pinned = join(CACHE, `${script}.400.ttf`);
+  if (!existsSync(pinned)) {
+    py(
+      `from fontTools.ttLib import TTFont;from fontTools.varLib import instancer;` +
+      `f=TTFont(${JSON.stringify(src)});` +
+      `ax={a.axisTag for a in f['fvar'].axes} if 'fvar' in f else set();` +
+      `loc={k:v for k,v in (('wght',400),('wdth',100)) if k in ax};` +
+      `f=instancer.instantiateVariableFont(f,loc,inplace=True,updateFontNames=False) if loc else f;` +
+      `f.save(${JSON.stringify(pinned)})`
+    );
+  }
+  const out = join(OUT_FONTS, `${script}.woff2`);
+  execFileSync("pyftsubset", [
+    pinned,
+    `--unicodes=${codepoints.map((c) => `U+${c.toString(16).toUpperCase().padStart(4, "0")}`).join(",")}`,
+    "--layout-features=*", "--no-hinting", "--flavor=woff2", `--output-file=${out}`,
+  ]);
+  const bytes = statSync(out).size;
+  total += bytes;
+  faces.push({ script, codepoints: codepoints.length, bytes });
+  console.log(`  ${script.padEnd(5)} ${String(codepoints.length).padStart(4)} cps  ${String(bytes).padStart(7)} B`);
+}
+
+// ---- 5. emit the CSS ------------------------------------------------------------------------
+const css = [
+  "/* GENERATED by scripts/build-emo-fonts.mjs. Do not edit; re-run `npm run build:emo`. */",
+  "/* Brand face first in every stack: Apercu Pro keeps Latin, Greek and Cyrillic, and Noto",
+  "   supplies only the characters it lacks. font-display:block avoids a flash of tofu. */",
+  "",
+  ...faces.map(({ script }) =>
+    `@font-face {\n  font-family: "NotoEmo-${script}";\n  src: url("/emo/fonts/${script}.woff2") format("woff2");\n  font-weight: 400;\n  font-style: normal;\n  font-display: block;\n}`),
+  "",
+  ...faces.map(({ script }) =>
+    `.emo-sc-${script} {\n  font-family: "Apercu Pro", "NotoEmo-${script}", system-ui, sans-serif;\n}`),
+  "",
+  "/* Scripts fully covered by the brand face need no Noto subset. */",
+  ...[...byScript.keys()].filter((s) => !needed.has(s)).map((s) =>
+    `.emo-sc-${s} {\n  font-family: "Apercu Pro", system-ui, sans-serif;\n}`),
+  "",
+].join("\n");
+mkdirSync(dirname(OUT_CSS), { recursive: true });
+writeFileSync(OUT_CSS, css);
+
+console.log(`[build-emo-fonts] ${faces.length} subsets, ${faces.reduce((n, f) => n + f.codepoints, 0)} codepoints, ${(total / 1024).toFixed(1)} KB total`);
+console.log(`[build-emo-fonts] wrote ${OUT_CSS}`);

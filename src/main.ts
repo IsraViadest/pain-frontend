@@ -53,6 +53,14 @@ import {
 } from "./ui/productionChrome";
 import { playPainSound } from "./sound/soundEngine";
 import { hideLegend, showLegend } from "./ui/legend";
+import "./emo/emo.css";
+import { loadEmoData } from "./emo/emoData";
+import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
+import {
+  shouldShowEmoViews,
+  readEmoParamsFromUrl,
+  applyEmoCaptureOverrides,
+} from "./emo/emoViewConfig";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -414,6 +422,25 @@ const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
   socioecopain: "#FFFF00",
 };
 
+// --- emotional-pain label views (opt-in: ?emoViews=1 or localStorage pain-emo-views=1) ---
+const emoViewsEnabled = shouldShowEmoViews();
+const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
+let emoLabelLayer: EmoLabelLayer | null = null;
+
+/**
+ * Show the DOM label views for the emotional layer and for all-layers mode, and suppress the
+ * incumbent sprite word cloud while they are up so the two never draw at once.
+ * Other single layers keep their existing visuals untouched.
+ */
+function syncEmoLayer(layerId: string): void {
+  if (!emoViewsEnabled || !emoLabelHost) return;
+  const active = layerId === "emopain" || layerId === "all-layers";
+  emoLabelHost.hidden = !active;
+  if (active) {
+    globe.setWordCloudEnabled(false);
+  }
+}
+
 /**
  * Apply layer visuals and auto-switch pain viz mode:
  * physpain → scars; all other / unknown ids → points.
@@ -425,6 +452,7 @@ function applyGlobeLayer(layerId: string): void {
   globe.setPainVisualizationMode(vizMode);
 
   globe.setWordCloudEnabled(layerId === "emopain");
+  syncEmoLayer(layerId);
 
   const layer = getMapLayerById(layerId);
   const meta: GlobeLayerDisplayMeta | undefined = layer
@@ -510,6 +538,7 @@ async function handleAllLayers(): Promise<void> {
   currentPainVizMode = PAIN_VIZ_MODE.scars;
   globe.setPainVisualizationMode(PAIN_VIZ_MODE.scars);
   globe.setWordCloudEnabled(true);
+  syncEmoLayer("all-layers");
   globe.setShowAllLayersMode(true, {
     physpainLayerId: phys?.id ?? "physpain",
     choroplethLayerId: socio?.id ?? "socioecopain",
@@ -578,11 +607,25 @@ async function loadPoints(): Promise<void> {
 // --- render loop + initial API bootstrap ---
 function loop(): void {
   globe.tick();
+  emoLabelLayer?.update();
   requestAnimationFrame(loop);
 }
 
 (async () => {
   initBackgroundMusic();
+  if (emoViewsEnabled && emoLabelHost) {
+    try {
+      emoLabelLayer = await createEmoLabelLayer({
+        host: emoLabelHost,
+        globe,
+        data: await loadEmoData(),
+        params: readEmoParamsFromUrl(),
+      });
+      applyEmoCaptureOverrides(globe);
+    } catch (e) {
+      console.error("[main] emo label views failed to start", e);
+    }
+  }
   try {
     const layers = await fetchLayers();
     await loadLayersIntoChrome(layers);
