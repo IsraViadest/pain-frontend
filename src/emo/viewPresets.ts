@@ -9,8 +9,20 @@
  * Naming is `v{round}-{letter}_{slug}`, from the figure-design-rounds convention. Round v1 holds
  * the control, the four language modes and the first networks. Round v2 is the network-shape
  * round: the non-crossing density ladder, a random network for contrast, and two category
- * variants. Round v3 is the density round: the overlap rule, and the category shells.
- * The registry accumulates; nothing here is ever edited.
+ * variants. Round v3 is the density round: the overlap rule, and the category shells. Round v4 is
+ * the operator's round, built from a written brief (docs/emo-views/brief.md) and from the choices
+ * made against it. The registry accumulates; nothing here is ever edited.
+ *
+ * ROUND v4 AND THE ONE-NAMED-CHANGE RULE. That rule was suspended for round v1 only, which is
+ * recorded here rather than claimed again: v1 shipped four language modes and the first networks
+ * together. Round v4 does not inherit the exemption. Its first entry, `v4-a_base-bilingual`, is
+ * openly a composite, because it is the operator's brief written as a single view rather than a
+ * comparison; every entry after it is `v4-a` plus one named change, and says which.
+ *
+ * WHAT ROUND v4 DELIBERATELY DOES NOT CONTAIN. The halo, the area-ordered declutter priority, and
+ * radial label displacement were all proposed in the brief with measurements, and were not chosen.
+ * They are recorded there, not here. Focal mode and the overlap rule are switched off throughout
+ * this round by instruction.
  *
  * THE CONTROL CONFOUNDS TWO CHANGES AT ONCE. `v1-control_english-sprites` is the incumbent
  * canvas word cloud, which draws 174 countries under the old database `word` (15 sets, 10 of
@@ -210,12 +222,215 @@ export const EMO_PRESETS: EmoPreset[] = [
       "legibility or only depth.",
     params: { labelMode: "bilingual", networkMode: "all", multiplexSpread: 0.012, arcWidth: 0.0015, arcOpacity: 0.4, declutterMode: "priority" },
   },
+  {
+    id: "v4-a_base-bilingual",
+    title: "Base: bilingual, attached, gentle zoom",
+    note:
+      "The round's baseline, and openly a composite rather than one named change: bilingual with " +
+      "the duplicate English line collapsed, a leader line from every label down to its own " +
+      "country, a much gentler zoom ramp (14px to 12px, and it only begins once you are inside " +
+      "2.2 radii rather than 2.8), and a selection that steps the rest of the world back to 75% " +
+      "instead of 25%. No world network at rest; click a country for its category.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+    },
+  },
+  {
+    id: "v4-b_world-gabriel",
+    title: "World network: Gabriel",
+    note:
+      "v4-a plus a resting network over every country, as the Gabriel graph: 360 edges, no " +
+      "crossings, one component. The sparser of the two non-crossing options left open.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "connected",
+      worldGraph: "gabriel",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+    },
+  },
+  {
+    id: "v4-c_world-delaunay",
+    title: "World network: full triangulation",
+    note:
+      "The same as v4-b with the world network as the full spherical Delaunay triangulation: 579 " +
+      "edges, still no crossings, the densest planar network there is. The denser of the two.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "connected",
+      worldGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+    },
+  },
+  {
+    id: "v4-d_category-gabriel",
+    title: "Category network: Gabriel",
+    note:
+      "v4-a with the clicked category joined by its own Gabriel graph instead of k=3 nearest " +
+      "neighbours. 275 edges across the 14 categories, none of them crossing.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "gabriel",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+    },
+  },
+  {
+    id: "v4-e_category-delaunay",
+    title: "Category network: triangulated",
+    note:
+      "The same with the clicked category triangulated: 501 edges over the 14 categories, which " +
+      "is exactly 3n-6 summed over them, and still nothing crosses.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+    },
+  },
+  {
+    id: "v4-f_category-complete",
+    title: "Category network: all to all",
+    note:
+      "The same with every member of the clicked category joined to every other, 1427 edges over " +
+      "the 14. The densest reading of what a category contains, and the one that crosses most.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "complete",
+      selectionDim: 0.75,
+      arcOpacity: 0.35,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+    },
+  },
+  {
+    id: "v4-g_violet-flat",
+    title: "Near-white violet tint",
+    note:
+      "v4-a with the near-white violet ramp: one band from violet through orchid to pink, so two " +
+      "categories side by side are told apart while the set still reads as white from a distance. " +
+      "Measured, it takes glyph saturation from 5.4% to 10.9%.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      colourMode: "violet",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+    },
+  },
+  {
+    id: "v4-h_multiplex-violet",
+    title: "Multiplex: closer labels, wider shells",
+    note:
+      "v4-g plus the 14 category shells, re-proportioned as asked: the labels sit closer to the " +
+      "surface (1.06 rather than 1.11) and the layers are pushed further apart (0.018 rather than " +
+      "0.012). arcLift drops to 1.03 to stay under the text, since the arc radius is a share of " +
+      "the label's height and a lower standoff would otherwise lift the arcs through it.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "all",
+      colourMode: "violet",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      standoffFar: 1.06,
+      standoffNear: 1.012,
+      arcLift: 1.03,
+      multiplexSpread: 0.018,
+      arcWidth: 0.0015,
+      arcOpacity: 0.4,
+    },
+  },
+  {
+    id: "v4-i_multiplex-wide",
+    title: "Multiplex: shells further apart",
+    note:
+      "v4-h at a shell spread of 0.028 rather than 0.018, so the fourteenth category rides at " +
+      "1.42 instead of 1.29. The stratification is unmistakable and the globe reads as an onion; " +
+      "the pair exists to show how far apart the layers want to be.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "all",
+      colourMode: "violet",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      standoffFar: 1.06,
+      standoffNear: 1.012,
+      arcLift: 1.03,
+      multiplexSpread: 0.028,
+      arcWidth: 0.0015,
+      arcOpacity: 0.4,
+    },
+  },
 ];
 
 /**
- * Opens on the bilingual pair, which is the treatment the operator judged best on 2026-09-03.
+ * Opens on the round v4 base, which is the operator's brief written as one view: bilingual with
+ * the duplicate line collapsed, leader lines, a gentle zoom ramp and a soft selection dim.
+ *
+ * This is a constant rather than a preset value, so changing it edits no shipped view.
+ * `v1-c_bilingual` was the previous default and remains reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v1-c_bilingual";
+export const DEFAULT_EMO_PRESET_ID = "v4-a_base-bilingual";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
