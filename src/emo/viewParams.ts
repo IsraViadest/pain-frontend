@@ -127,8 +127,31 @@ export interface EmoViewParams {
   leaderOpacityScale: number;
   /** Opacity multiplier applied to every label except the selected one. */
   selectionDim: number;
-  /** Alpha of the wash filling the selected country. */
+  /** Alpha of the wash filling the countries of the selected pain category. */
   selectionFill: number;
+  /**
+   * Width of the outline drawn round those countries, in texels of the 2048 by 1024 highlight
+   * map, which is about 1.7 screen pixels each at the gallery camera. 0 draws no outline, so a
+   * preset chooses a wash, a thickened border, or both.
+   */
+  selectionOutline: number;
+  /**
+   * How the highlight sits on the country's own colour. `wash` lays white over it, which is what
+   * shipped. `glow` adds a warm light to it instead, so the country's existing choropleth colour
+   * brightens rather than being covered.
+   */
+  selectionStyle: "wash" | "glow";
+  /**
+   * How a selection is made legible. `dim` steps every other label back, which is what shipped.
+   * `bold` leaves them alone and enlarges the selected category's labels instead. `both` does
+   * each.
+   *
+   * The 19 Noto subsets ship at weight 400 only, so a weight above that is synthesised for the
+   * non-Latin scripts. That is already true of the 600 every label uses, and unlike synthetic
+   * oblique, which is why decision 6 bans italic, emboldening does not break Arabic joining or
+   * Indic conjuncts. The size step is what carries most of the emphasis regardless.
+   */
+  selectionEmphasis: "dim" | "bold" | "both";
   /**
    * Radial separation between consecutive pain-category shells, in globe radii. Labels and arcs
    * both take it, so each category gains its own layer. 0 puts everything on one shell, which is
@@ -206,6 +229,10 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   leaderOpacityScale: 1,
   selectionDim: 0.25,
   selectionFill: 0.18,
+  // All three keep the behaviour that shipped: a white wash, no outline, and dimming the rest.
+  selectionOutline: 0,
+  selectionStyle: "wash",
+  selectionEmphasis: "dim",
   // Flat by default, so the 16 presets that predate the shells are unchanged.
   multiplexSpread: 0,
 
@@ -234,6 +261,8 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
   categoryGraph: ["knn", "complete", "gabriel", "delaunay"],
   leaderLines: ["off", "on"],
+  selectionStyle: ["wash", "glow"],
+  selectionEmphasis: ["dim", "bold", "both"],
   colourMode: ["white", "family", "category", "violet"],
   declutterMode: ["off", "priority"],
 };

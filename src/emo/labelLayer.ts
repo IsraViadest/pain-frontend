@@ -71,6 +71,8 @@ interface LabelEntry {
   declutterTarget: number;
   /** Last z-index written, so a label that has not changed depth bucket is not restyled. */
   zBucket: number;
+  /** Whether the emphasis class is currently on, so it is written only when it changes. */
+  emphasised: boolean;
 }
 
 export interface EmoLabelLayer {
@@ -200,6 +202,7 @@ export async function createEmoLabelLayer(options: {
       declutterAlpha: 1,
       declutterTarget: 1,
       zBucket: -1,
+      emphasised: false,
     });
   });
 
@@ -256,6 +259,9 @@ export async function createEmoLabelLayer(options: {
     // without hunting for empty globe between 195 labels.
     selected = selected === entry.iso3 ? null : entry.iso3;
     selectedCat = selected === null ? null : entry.cat;
+    // "bold" resizes a whole category's labels, and the declutter sweep's cached boxes are the
+    // only thing that would not notice.
+    measureDirty = true;
     options.onSelect?.(selected === null ? null : { iso3: entry.iso3, cat: entry.cat });
   };
   host.addEventListener("click", onClick);
@@ -277,6 +283,7 @@ export async function createEmoLabelLayer(options: {
     if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
     selected = null;
     selectedCat = null;
+    measureDirty = true;
     options.onSelect?.(null);
   };
   document.addEventListener("pointerdown", onPointerDown, true);
@@ -519,7 +526,17 @@ export async function createEmoLabelLayer(options: {
       // Dimming and the declutter fade multiply into the limb fade rather than fighting it:
       // opacity is written inline every frame, so a CSS rule for either would never win.
       // The whole category stays lit, not just the country clicked. Only the rest steps back.
-      const dim = selectedCat !== null && entry.cat !== selectedCat ? params.selectionDim : 1;
+      // Two ways of making a selection legible, and a preset can ask for either or both. `bold`
+      // is the operator's alternative to dimming: leave the rest alone and enlarge the category.
+      const inCategory = selectedCat !== null && entry.cat === selectedCat;
+      const emphasise = inCategory && params.selectionEmphasis !== "dim";
+      if (emphasise !== entry.emphasised) {
+        entry.emphasised = emphasise;
+        el.classList.toggle("emo-label--emphasis", emphasise);
+      }
+      const dimming = params.selectionEmphasis !== "bold";
+      const dim =
+        dimming && selectedCat !== null && !inCategory ? params.selectionDim : 1;
       // A plain ramp across the hemisphere, unlike `fade`, which only acts near the limb.
       const depth = Math.max(0, 1 - params.labelDepthFade * (1 - facing));
       el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;

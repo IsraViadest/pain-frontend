@@ -48,20 +48,39 @@
     0 0 calc(var(--emo-halo) * 2) rgba(0, 3, 18, 0.8);
 }
 
+/* One multiplier drives all three line sizes, so the emphasised state needs no rule per line and
+   no specificity fight with the secondary-line size below. */
+.emo-label {
+  --emo-emphasis: 1;
+}
+
+.emo-label--emphasis {
+  --emo-emphasis: 1.22;
+}
+
 .emo-label__native {
-  font-size: var(--emo-font-px);
+  font-size: calc(var(--emo-font-px) * var(--emo-emphasis));
   font-weight: 600;
+}
+
+/* Two classes, so this outranks the weight above. The 19 Noto subsets ship at weight 400 only,
+   so this is synthesised for the non-Latin scripts, as the 600 above already is. Emboldening
+   does not break Arabic joining or Indic conjuncts, which is why decision 6 bans italic and not
+   this. Most of the emphasis is carried by the size step regardless. */
+.emo-label--emphasis .emo-label__native,
+.emo-label--emphasis .emo-label__english {
+  font-weight: 800;
 }
 
 /* English on its own is the primary line; under a native line it drops back. No italic anywhere:
    most Noto script faces have none, and synthetic oblique reads as broken in Arabic and Indic. */
 .emo-label__english {
-  font-size: var(--emo-font-px);
+  font-size: calc(var(--emo-font-px) * var(--emo-emphasis));
   font-weight: 600;
 }
 
 .emo-label__english--secondary {
-  font-size: calc(var(--emo-font-px) * var(--emo-second-scale));
+  font-size: calc(var(--emo-font-px) * var(--emo-second-scale) * var(--emo-emphasis));
   font-weight: 400;
   opacity: 0.68;
 }

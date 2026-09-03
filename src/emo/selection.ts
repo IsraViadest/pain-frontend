@@ -1,13 +1,22 @@
 /**
- * The wash that fills every country sharing the pain category you clicked.
+ * The wash and the outline that mark every country sharing the pain category you clicked.
  *
- * It fills the whole category rather than the one country because that is what the selection
+ * It marks the whole category rather than the one country because that is what the selection
  * means: clicking a label asks "who else feels this", and the answer is a set. The network, the
- * undimmed labels and this wash therefore all describe the same countries.
+ * undimmed labels and this mark therefore all describe the same countries.
  *
  * Everything else about selection lives where it naturally belongs: the label layer receives the
- * click and dims its own labels, the arc layer decides which category network to show. This owns
- * only the one thing neither of them can draw, which is filled countries on the globe.
+ * click and emphasises its own labels, the arc layer decides which category network to show. This
+ * owns only the one thing neither of them can draw, which is marked countries on the globe.
+ *
+ * IT BORROWS THE CHOROPLETH SHELL'S GEOMETRY RATHER THAN MAKING ITS OWN. In all-layers mode the
+ * pain scars dent the globe inward, and GlobeView CPU-warps the choropleth shell's vertices to
+ * follow them so the country colours stay on the surface. A fresh sphere at a fixed radius does
+ * not, and the error is a parallax that grows with the angle from the view axis: measured with a
+ * near-opaque wash at the gallery camera, Iran's mark sat clear of Iran, over Iraq and the Gulf.
+ * Sharing the shell's geometry inherits the warp exactly and for free, and cannot drift from it,
+ * which duplicating GlobeView's scar field could. Both meshes test depth and neither writes it,
+ * so being coincident costs nothing and render order alone decides which is on top.
  *
  * The mesh is a child of `globe.earthContent`, so it spins with the globe for free, the same
  * arrangement the arc layer uses.
@@ -21,15 +30,47 @@ import {
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 
-/** Just above the choropleth shell at 1.001, so the two cannot z-fight. */
-const HIGHLIGHT_RADIUS = 1.0025;
-const HIGHLIGHT_COLOUR = "#ffffff";
+/** White covers the country's own colour; the warm tint adds to it. See `selectionStyle`. */
+const WASH_COLOUR = "#ffffff";
+const GLOW_COLOUR = "#ffe08a";
+
+/**
+ * The choropleth shell's signature in the scene graph, asserted rather than guessed.
+ *
+ * Three signals together, because each alone is ambiguous: the solid globe mesh is also a direct
+ * child of `earthContent` with the same sphere tessellation, and is told apart by its render
+ * order. If GlobeView ever changes any of them this throws, which is the point: silently missing
+ * the shell would put the mark back on an unwarped sphere, and the symptom is a highlight that
+ * looks merely a little off rather than an error.
+ */
+const SHELL_RENDER_ORDER = 1;
+const SHELL_WIDTH_SEGMENTS = 192;
+const SHELL_HEIGHT_SEGMENTS = 128;
 
 export interface EmoSelectionLayer {
-  /** Fill every country in this pain category, or clear the fill when passed null. */
+  /** Mark every country in this pain category, or clear the mark when passed null. */
   setSelectedCategory(cat: string | null): void;
   setParams(next: EmoViewParams): void;
   destroy(): void;
+}
+
+function findChoroplethShellGeometry(globe: GlobeView): THREE.BufferGeometry {
+  for (const child of globe.earthContent.children) {
+    if (!(child instanceof THREE.Mesh)) continue;
+    if (child.renderOrder !== SHELL_RENDER_ORDER) continue;
+    const parameters = (child.geometry as THREE.SphereGeometry).parameters as
+      | { widthSegments?: number; heightSegments?: number }
+      | undefined;
+    if (parameters?.widthSegments !== SHELL_WIDTH_SEGMENTS) continue;
+    if (parameters.heightSegments !== SHELL_HEIGHT_SEGMENTS) continue;
+    return child.geometry;
+  }
+  throw new Error(
+    "[emoSelection] No mesh in earthContent matches the choropleth shell (renderOrder " +
+      `${SHELL_RENDER_ORDER}, ${SHELL_WIDTH_SEGMENTS} by ${SHELL_HEIGHT_SEGMENTS} sphere). ` +
+      "The selection mark would silently go back to an unwarped sphere and sit clear of the " +
+      "countries it marks. Re-read GlobeView's choroplethShell.",
+  );
 }
 
 export async function createEmoSelectionLayer(options: {
@@ -55,7 +96,8 @@ export async function createEmoSelectionLayer(options: {
     depthWrite: false,
     side: THREE.FrontSide,
   });
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(HIGHLIGHT_RADIUS, 96, 48), material);
+  // Borrowed, not owned. destroy() must not dispose it; see the module docstring.
+  const mesh = new THREE.Mesh(findChoroplethShellGeometry(globe), material);
   mesh.renderOrder = 2;
   mesh.visible = false;
   globe.earthContent.add(mesh);
@@ -66,14 +108,21 @@ export async function createEmoSelectionLayer(options: {
     material.map?.dispose();
     material.map = null;
     const members = selectedCat === null ? [] : membersByCategory.get(selectedCat) ?? [];
-    if (members.length === 0) {
-      mesh.visible = false;
-      material.needsUpdate = true;
-      return;
-    }
-    const texture = createCountryHighlightTexture(members, HIGHLIGHT_COLOUR, params.selectionFill);
+    const glow = params.selectionStyle === "glow";
+    const texture =
+      members.length === 0
+        ? null
+        : createCountryHighlightTexture(
+            members,
+            glow ? GLOW_COLOUR : WASH_COLOUR,
+            params.selectionFill,
+            params.selectionOutline,
+          );
     material.map = texture;
-    // Microstates have a label point and no polygon, so a category made only of them yields null.
+    // Adding warm light brightens the country's own choropleth colour instead of covering it.
+    material.blending = glow ? THREE.AdditiveBlending : THREE.NormalBlending;
+    // Microstates have a label point and no polygon, so a category made only of them yields null,
+    // as does asking for neither a fill nor an outline.
     mesh.visible = texture !== null;
     material.needsUpdate = true;
   }
@@ -85,14 +134,16 @@ export async function createEmoSelectionLayer(options: {
       paint();
     },
     setParams(next: EmoViewParams): void {
-      const fillChanged = next.selectionFill !== params.selectionFill;
+      const markChanged =
+        next.selectionFill !== params.selectionFill ||
+        next.selectionOutline !== params.selectionOutline ||
+        next.selectionStyle !== params.selectionStyle;
       params = next;
-      if (fillChanged && selectedCat !== null) paint();
+      if (markChanged && selectedCat !== null) paint();
     },
     destroy(): void {
       material.map?.dispose();
       material.dispose();
-      mesh.geometry.dispose();
       globe.earthContent.remove(mesh);
     },
   };

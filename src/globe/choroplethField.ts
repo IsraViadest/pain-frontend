@@ -298,13 +298,39 @@ export function createChoroplethTexture(
   return tex;
 }
 
-/** Half the choropleth map's resolution: a selection wash is not a data surface. */
-const HIGHLIGHT_MAP_WIDTH = 1024;
-const HIGHLIGHT_MAP_HEIGHT = 512;
+/**
+ * The choropleth map's own resolution. It was half of it while the highlight was only a wash,
+ * where an edge a texel or two soft is invisible. An outline is a texel or two wide, so at half
+ * resolution the thinnest line available was already 3 screen pixels at the gallery camera and
+ * arrived as a staircase.
+ */
+const HIGHLIGHT_MAP_WIDTH = 2048;
+const HIGHLIGHT_MAP_HEIGHT = 1024;
+
+/** Trace every ring, outer and holes alike: a hole's edge is a border too. */
+function strokeGeometry(
+  ctx: CanvasRenderingContext2D,
+  geom: PolygonGeom | MultiPolygonGeom,
+  w: number,
+  h: number,
+): void {
+  const polygons = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  for (const rings of polygons) {
+    for (const ring of rings) {
+      if (!ring?.length) continue;
+      ctx.beginPath();
+      traceRing(ctx, ring, w, h);
+      ctx.stroke();
+    }
+  }
+}
 
 /**
- * A set of countries filled into one otherwise transparent equirectangular texture, for the
- * selection highlight in the emotional-pain views.
+ * A set of countries filled and/or outlined into one otherwise transparent equirectangular
+ * texture, for the selection highlight in the emotional-pain views.
+ *
+ * The two treatments are independent, so a caller can ask for a wash, for a thickened border, or
+ * for both. `outlineWidthPx` is in texels of the map below, not screen pixels.
  *
  * It takes a list rather than one country because selecting a pain category highlights every
  * country in it, and one texture for the whole set costs the same as one for a single country.
@@ -317,11 +343,13 @@ const HIGHLIGHT_MAP_HEIGHT = 512;
 export function createCountryHighlightTexture(
   iso3List: readonly string[],
   colorHex: string,
-  opacity: number,
+  fillOpacity: number,
+  outlineWidthPx: number,
 ): THREE.DataTexture | null {
   const keys = new Set(iso3List.map((c) => c.trim().toUpperCase()));
   const matches = countryGeometries.filter((c) => keys.has(c.key));
   if (matches.length === 0) return null;
+  if (fillOpacity <= 0 && outlineWidthPx <= 0) return null;
 
   const w = HIGHLIGHT_MAP_WIDTH;
   const h = HIGHLIGHT_MAP_HEIGHT;
@@ -333,8 +361,19 @@ export function createCountryHighlightTexture(
 
   ctx.clearRect(0, 0, w, h);
   const rgb = parseHexRgb(colorHex) ?? { r: 255, g: 255, b: 255 };
-  ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${Math.max(0, Math.min(1, opacity))})`;
-  for (const match of matches) fillGeometry(ctx, match.geometry, w, h);
+  if (fillOpacity > 0) {
+    ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${Math.max(0, Math.min(1, fillOpacity))})`;
+    for (const match of matches) fillGeometry(ctx, match.geometry, w, h);
+  }
+  // After the fill, never before: filling punches its holes with destination-out, which would
+  // erase any stroke already laid down there.
+  if (outlineWidthPx > 0) {
+    ctx.strokeStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+    ctx.lineWidth = outlineWidthPx;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    for (const match of matches) strokeGeometry(ctx, match.geometry, w, h);
+  }
 
   const { data } = ctx.getImageData(0, 0, w, h);
   const tex = new THREE.DataTexture(

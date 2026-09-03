@@ -81,6 +81,14 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Leader lines",
     hint: "A hairline from each country up to its own label, so a word over a crowded region is visibly attached. Takes the arc width and opacity, scaled by the two leader sliders.",
   },
+  selectionStyle: {
+    label: "Selection mark",
+    hint: "wash lays white over the country. glow adds warm light instead, so its own choropleth colour brightens rather than being covered.",
+  },
+  selectionEmphasis: {
+    label: "Selection emphasis",
+    hint: "dim steps every other label back. bold leaves them alone and enlarges the selected category's labels instead. both does each.",
+  },
   colourMode: {
     label: "Colour",
     hint: "family groups the 14 into 5 violets and pinks. category gives all 14 their own hue. violet is a near-white ramp, separable side by side and white from a distance.",
@@ -136,7 +144,7 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Network arcs",
     defaultOpen: false,
-    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines"],
+    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines", "selectionStyle", "selectionEmphasis"],
     sliders: [
       { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest neighbours each country links to. Only used by the knn and random rules." },
       { key: "randomSeed", label: "Random seed", min: 1, max: 200, step: 1, decimals: 0, hint: "Which random world network to draw. Click does reshuffleNetwork steps this for you." },
@@ -148,7 +156,8 @@ const SECTIONS: EmoSection[] = [
       { key: "leaderWidthScale", label: "Leader width", min: 0.1, max: 1, step: 0.05, decimals: 2, hint: "Leader width as a fraction of the arc width. Below 1 makes the network the bolder of the two." },
       { key: "leaderOpacityScale", label: "Leader opacity", min: 0.1, max: 1, step: 0.05, decimals: 2, hint: "Leader opacity as a fraction of the arc opacity. Below 1 makes the network the more solid of the two." },
       { key: "selectionDim", label: "Selection dim", min: 0, max: 1, step: 0.01, decimals: 2, hint: "Opacity of every label except the selected one, with Click does set to selectNetwork." },
-      { key: "selectionFill", label: "Selection fill", min: 0, max: 0.6, step: 0.01, decimals: 2, hint: "Alpha of the wash on the selected country. 43 microstates have no polygon and stay unfilled." },
+      { key: "selectionFill", label: "Selection fill", min: 0, max: 0.6, step: 0.01, decimals: 2, hint: "Alpha of the wash on the selected category. 0 leaves only the outline. 43 microstates have no polygon and stay unmarked." },
+      { key: "selectionOutline", label: "Selection outline", min: 0, max: 8, step: 1, decimals: 0, hint: "Thickness of the border drawn round the selected category, in texels of the 2048 by 1024 map, about 1.7 screen pixels each. 0 draws none." },
     ],
   },
   {
