@@ -98,8 +98,12 @@ export interface EmoViewParams {
    */
   multiplexSpread: number;
 
-  /** White is the default; colour is opt-in because the families do not carry clean meaning. */
-  colourMode: "white" | "family" | "category";
+  /**
+   * White is the default; colour is opt-in because the families do not carry clean meaning.
+   * `violet` is the near-white ramp: fourteen tints of one violet-to-pink band, separable side
+   * by side and reading as white from a distance.
+   */
+  colourMode: "white" | "family" | "category" | "violet";
   /** Global cap on visible labels, lowest score dropped first. 0 means no cap. */
   density: number;
   /**
@@ -183,7 +187,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
   categoryGraph: ["knn", "complete", "gabriel", "delaunay"],
   leaderLines: ["off", "on"],
-  colourMode: ["white", "family", "category"],
+  colourMode: ["white", "family", "category", "violet"],
   declutterMode: ["off", "priority"],
 };
 

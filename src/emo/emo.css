@@ -85,6 +85,26 @@
 .emo-label-host[data-colour="category"] .emo-label[data-cat="13_helplessness"] { --emo-tint: hsl(252 95% 80%); }
 .emo-label-host[data-colour="category"] .emo-label[data-cat="14_shame"] { --emo-tint: hsl(278 95% 80%); }
 
+/* "violet" is the near-white ramp: one narrow band from violet through orchid to pink, at a
+   lightness high enough that the set still reads as white from across the room. Two categories
+   side by side are told apart; a category is not identified from its hue alone, and is not meant
+   to be. That is the opposite trade from "category" above, which separates all fourteen at the
+   cost of putting yellow and green text on a yellow-green choropleth. */
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="01_pain"] { --emo-tint: hsl(250 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="02_hurt"] { --emo-tint: hsl(257 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="03_eco_anxiety"] { --emo-tint: hsl(265 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="04_uncertainty"] { --emo-tint: hsl(272 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="05_grief"] { --emo-tint: hsl(279 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="06_anger"] { --emo-tint: hsl(287 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="07_hardship"] { --emo-tint: hsl(294 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="08_displacement"] { --emo-tint: hsl(301 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="09_trauma"] { --emo-tint: hsl(308 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="10_loneliness"] { --emo-tint: hsl(316 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="11_depression"] { --emo-tint: hsl(323 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="12_fear"] { --emo-tint: hsl(330 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="13_helplessness"] { --emo-tint: hsl(338 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="14_shame"] { --emo-tint: hsl(345 60% 89%); }
+
 /* View panel. The box, rows and sliders reuse the globe debug panel's classes from style.css,
    which is left untouched; only the side differs, so the entry and panel mirror the debug ones
    in the opposite corner. Both sit at z-index 3, above the production chrome at 2. */

@@ -83,7 +83,7 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
   },
   colourMode: {
     label: "Colour",
-    hint: "family groups the 14 categories into 5 bright violets and pinks. category gives all 14 their own hue.",
+    hint: "family groups the 14 into 5 violets and pinks. category gives all 14 their own hue. violet is a near-white ramp, separable side by side and white from a distance.",
   },
   declutterMode: {
     label: "Declutter",
