@@ -158,6 +158,36 @@ a round that spends its budget on multi-script typography is spending it on a qu
 and because the two largest non-Latin blocks, Arabic and Cyrillic, are the two the brand face
 already covers in part.
 
+### 3.4 The screen holds 60 to 80 labels, and no candidate changes that
+
+Measured in real Chrome at the gallery camera (`cam=22,86,2.35`, viewport 1500 by 863) with an
+in-page greedy model that **reproduces the app's own count of 61 exactly**, which is what makes the
+rest of the row trustworthy.
+
+| approach | countries named |
+|---|---:|
+| bilingual, priority by score (what ships today) | 61 |
+| bilingual, priority by country area | 63 |
+| bilingual, falling back to one line when crowded | 69 |
+| bilingual, radial push clamped to the viewport | 75 |
+| native only, one line | 74 |
+| native only, one line, priority by area | 77 |
+
+**Every option lands between 61 and 77 of 195.** Naming the whole world at one camera is not
+reachable by placement at all, so the round's real question is *which* 60 to 80 countries and how
+readable they are, not how to fit more.
+
+Two supporting numbers. The globe's screen radius is **543 pixels against a half-viewport height of
+432**, so the disc already overflows the viewport vertically and the only empty space is left and
+right; a radial push sends 28 to 51 labels off screen before clamping. And **all 14 categories are
+represented in the kept set under both orders**, so a round-robin priority that guarantees category
+coverage would buy nothing. That idea is retired here rather than carried forward.
+
+The current order is worse than "arbitrary" in a specific way worth seeing. The first twelve labels
+the rule keeps, by score, are **ALB ARE AUT BGD BRN BTN CMR CYP DJI DNK IND IRQ**. That is
+alphabetical by ISO3, because 59 countries tie at 1.0000 and the sort is stable. By area they are
+**RUS CHN AUS IND KAZ COD DZA SAU SDN IDN LBY IRN**.
+
 ---
 
 ## 4. The candidate shortlist
@@ -205,10 +235,11 @@ is a continuous function of a label's own facing, directed radially outward from
 centre, has neither property. It changes smoothly as the globe turns and it is fully determined by
 geometry, so the same view always produces the same picture.
 
-The argument for it at all: section 18 measured that roughly 60 bilingual labels fit on this screen
-without touching, and that this is geometry rather than tuning. Every other candidate accepts that
-ceiling. This is the only one that raises it, and it decompresses exactly where compression is worst,
-because the radial direction points into empty space at the limb.
+The argument for it at all was that it is the only candidate that raises the measured ceiling.
+**Measured, that argument is much weaker than it looked.** See section 3.4: the gain is 61 to 75,
+and the preview render shows the displaced labels landing on the title, all four layer buttons and
+both bottom pills. There is no vertical room to push into, because the globe's screen radius is 543
+pixels against a half-viewport of 432.
 
 The two costs, stated rather than discovered later:
 
@@ -255,7 +286,11 @@ It is **not** proposed as a candidate because it is not a design question, it is
 operator's chosen default. It must ship as a parameter defaulting to off, because switching it on by
 default would silently change `v1-c_bilingual`, and presets are append-only.
 
-Expect a small secondary effect: 32 boxes lose a line, so more labels survive the overlap rule.
+**Measured, and it is not what I first assumed.** Collapsing the duplicate line frees no capacity:
+14 of the 32 are on screen at the gallery camera, and the drawn count stays at exactly 61 with the
+second line removed from all 14. The overlap rule is dominated by horizontal collisions between
+neighbouring labels, not by box height. The reason to do this is that "Grief" over "Grief" is wrong,
+not that it buys room.
 
 ---
 
