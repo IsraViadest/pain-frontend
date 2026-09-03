@@ -17,8 +17,9 @@
  * two parameters as the labels and the arcs. See facingFade.ts.
  *
  * THE FOOT GOES THROUGH THE SURFACE, NOT ONTO IT. In all-layers mode the pain scars dent the globe
- * inward, measured at up to about 0.08 of a radius where a country is deeply marked, so a foot
- * placed just above the undented sphere hangs in space over its own country. Rather than track the
+ * inward, by an amount inferred from the parallax of the misplaced selection wash rather than read
+ * from GlobeView's private scar field, and near 0.08 of a radius where a country is deeply marked,
+ * so a foot placed just above the undented sphere hangs in space over its own country. Rather than track the
  * dent, which would mean duplicating GlobeView's scar field, the line simply starts below every
  * possible dent and lets the depth buffer cut it: the globe mesh writes depth in the opaque pass,
  * as an invisible mask at 0.994 of the warped shell in all-layers mode and as the solid textured

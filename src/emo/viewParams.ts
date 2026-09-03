@@ -110,9 +110,11 @@ export interface EmoViewParams {
   /**
    * Radius the leader line starts at, in globe radii.
    *
-   * In all-layers mode the pain scars dent the surface inward, by up to about 0.08 of a radius
-   * where a country is deeply marked, and a foot sitting just above the undented sphere then
-   * leaves a visible gap between the line and the land it points at. A foot below the deepest
+   * In all-layers mode the pain scars dent the surface inward, and a foot sitting just above the
+   * undented sphere then leaves a visible gap between the line and the land it points at. The
+   * depth is inferred rather than read: the misplaced selection wash showed a parallax of roughly
+   * 50 px at about 1000 px per radius and 33 degrees off axis, which puts the surface near 0.92
+   * there. GlobeView's scar field is private, so this is an estimate from what was drawn. A foot below the deepest
    * dent closes that gap at every depth, because the globe writes depth before these lines draw
    * and clips whatever falls inside it. The line therefore runs to the country's centre through
    * the surface, and only the part outside the surface is ever seen.

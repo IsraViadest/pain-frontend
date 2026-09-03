@@ -339,6 +339,12 @@ was put; they are left as written so the reasoning can be judged against the out
 The three unchosen candidates are recorded in section 4 with their measurements. **They should not
 be re-proposed as though new.** Each was measured, previewed where possible, and declined.
 
+**Round v5 reopened one of them, at the operator's request.** The halo ships as `v5-h_halo`, with
+`labelHalo` as a parameter, shown with every facing label drawn rather than with the decluttered
+subset this brief's preview used. This table stays as written: it is the record of what round v4
+decided, not a standing verdict. The area-ordered priority and the radial displacement both
+still stand as declined.
+
 ### 8.2 Leader lines are for attribution, not capacity
 
 The single most useful correction in the round, and it came from the operator rather than from the
