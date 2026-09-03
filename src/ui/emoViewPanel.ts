@@ -179,6 +179,18 @@ const SECTIONS: EmoSection[] = [
   },
 ];
 
+/**
+ * The round after the highest one in the registry, for the suggested id in the copied snippet.
+ *
+ * Derived rather than written down: it was hardcoded to "v2-a_rename-me" and stayed that way
+ * through rounds v3, v4 and v5, which is a suggestion that collides with three shipped presets.
+ * A count or a name that has to be kept in step by hand is one that will not be.
+ */
+function nextRoundPresetId(): string {
+  const rounds = EMO_PRESETS.map((p) => Number(/^v(\d+)-/.exec(p.id)?.[1] ?? 0));
+  return `v${Math.max(0, ...rounds) + 1}-a_rename-me`;
+}
+
 /** A hotkey typed into a text field is text, not a shortcut. */
 function hotkeyTargetIgnoresShortcut(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -405,7 +417,7 @@ export function mountEmoViewPanel(
     // EmoPreset's `params`. Paste it into viewPresets.ts and the view becomes permanent.
     const text = JSON.stringify(
       {
-        id: "v2-a_rename-me",
+        id: nextRoundPresetId(),
         title: "Rename me",
         note: "What this preset varies, and why it exists.",
         params: diffEmoParams(DEFAULT_EMO_PARAMS, params),
