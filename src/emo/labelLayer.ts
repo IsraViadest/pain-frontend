@@ -63,6 +63,13 @@ interface LabelEntry {
   lines: number;
   measuredLines: number;
   measuredFontPx: number;
+  /**
+   * Whether the box was measured while emphasised. `selectionEmphasis: "bold"` enlarges a whole
+   * category, so a label that leaves the candidate set and comes back emphasised would otherwise
+   * be decluttered against the smaller box it had before the click. The click sets `measureDirty`
+   * once; this is what keeps it right afterwards.
+   */
+  measuredEmphasis: boolean;
   /** Measured box size in CSS pixels, valid for `measuredLines` at `measuredFontPx`. */
   boxW: number;
   boxH: number;
@@ -197,6 +204,7 @@ export async function createEmoLabelLayer(options: {
       lines: 0,
       measuredLines: -1,
       measuredFontPx: -1,
+      measuredEmphasis: false,
       boxW: 0,
       boxH: 0,
       declutterAlpha: 1,
@@ -331,7 +339,12 @@ export async function createEmoLabelLayer(options: {
     const candidates = entries.filter((e) => e.candidate);
     const stale =
       measureDirty ||
-      candidates.some((e) => e.measuredLines !== e.lines || e.measuredFontPx !== lastFontPx);
+      candidates.some(
+        (e) =>
+          e.measuredLines !== e.lines ||
+          e.measuredFontPx !== lastFontPx ||
+          e.measuredEmphasis !== e.emphasised,
+      );
     if (stale) {
       // One forced layout, then cheap reads: no style is written inside this loop.
       for (const entry of candidates) {
@@ -340,6 +353,7 @@ export async function createEmoLabelLayer(options: {
         entry.boxH = rect.height;
         entry.measuredLines = entry.lines;
         entry.measuredFontPx = lastFontPx;
+        entry.measuredEmphasis = entry.emphasised;
       }
       measureDirty = false;
     }
