@@ -29,6 +29,7 @@ import {
 } from "../globe/choroplethField";
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
+import type { EmoSelectionMotion } from "./selectionMotion";
 
 /** White covers the country's own colour; the warm tint adds to it. See `selectionStyle`. */
 const WASH_COLOUR = "#ffffff";
@@ -47,9 +48,18 @@ const SHELL_RENDER_ORDER = 1;
 const SHELL_WIDTH_SEGMENTS = 192;
 const SHELL_HEIGHT_SEGMENTS = 128;
 
+/** Arrival fraction at which a country counts as marked. The mark has no in-between state. */
+const ARRIVED_AT = 0.5;
+
 export interface EmoSelectionLayer {
   /** Mark every country in this pain category, or clear the mark when passed null. */
   setSelectedCategory(cat: string | null): void;
+  /**
+   * Call once per frame. Repaints only when the set of countries the wavefront has reached
+   * actually changes, which is at most once per depth step of the spread and never at all when
+   * there is no spread running.
+   */
+  update(): void;
   setParams(next: EmoViewParams): void;
   destroy(): void;
 }
@@ -77,8 +87,10 @@ export async function createEmoSelectionLayer(options: {
   globe: GlobeView;
   data: EmoData;
   params: EmoViewParams;
+  /** Read only for the wavefront, so a country is marked as the network reaches it. */
+  motion: EmoSelectionMotion;
 }): Promise<EmoSelectionLayer> {
-  const { globe, data } = options;
+  const { globe, data, motion } = options;
   let params = options.params;
 
   /** Which countries belong to each pain category, so a click resolves to a set in one lookup. */
@@ -103,11 +115,25 @@ export async function createEmoSelectionLayer(options: {
   globe.earthContent.add(mesh);
 
   let selectedCat: string | null = null;
+  /**
+   * How many of the category's countries the last painted texture covered, or -1 to force a
+   * repaint. The count is enough of a key because arrival is monotone within one sweep: a
+   * country the wave has reached never becomes unreached before the next selection.
+   */
+  let paintedCount = -1;
+
+  /** The countries of the selected category the wavefront has already reached. */
+  function arrivedMembers(): string[] {
+    if (selectedCat === null) return [];
+    const members = membersByCategory.get(selectedCat) ?? [];
+    return members.filter((iso3) => motion.arrivalOf(iso3) >= ARRIVED_AT);
+  }
 
   function paint(): void {
     material.map?.dispose();
     material.map = null;
-    const members = selectedCat === null ? [] : membersByCategory.get(selectedCat) ?? [];
+    const members = arrivedMembers();
+    paintedCount = members.length;
     const glow = params.selectionStyle === "glow";
     const texture =
       members.length === 0
@@ -131,6 +157,12 @@ export async function createEmoSelectionLayer(options: {
     setSelectedCategory(cat: string | null): void {
       if (cat === selectedCat) return;
       selectedCat = cat;
+      paintedCount = -1;
+      paint();
+    },
+    update(): void {
+      if (selectedCat === null) return;
+      if (arrivedMembers().length === paintedCount) return;
       paint();
     },
     setParams(next: EmoViewParams): void {
@@ -138,7 +170,12 @@ export async function createEmoSelectionLayer(options: {
         next.selectionFill !== params.selectionFill ||
         next.selectionOutline !== params.selectionOutline ||
         next.selectionStyle !== params.selectionStyle;
+      // A changed spread duration changes which countries count as reached, and nothing else here
+      // would notice: the member list and the mark's own look are both unchanged. Compared before
+      // the assignment, or it would be comparing the new parameters with themselves.
+      const spreadChanged = next.selectionSpreadMs !== params.selectionSpreadMs;
       params = next;
+      if (spreadChanged) paintedCount = -1;
       if (markChanged && selectedCat !== null) paint();
     },
     destroy(): void {

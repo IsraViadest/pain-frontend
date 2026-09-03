@@ -30,6 +30,7 @@ import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/country
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import { buildCategoryGraph, buildWorldGraph } from "./graphs";
+import { planSpread } from "./spread";
 import { applyEmoFacingFade, makeEmoFadeUniform, updateEmoFadeUniform } from "./facingFade";
 import { emoArcRadius, emoCategoryShells, emoLabelStandoff, emoSunkStandoff, emoZoomRamp } from "./layout";
 import type { EmoSelectionMotion } from "./selectionMotion";
@@ -95,10 +96,14 @@ export interface EmoArcLayer {
    */
   setVisible(visible: boolean): void;
   /**
-   * The category whose network to show in `networkMode: "selected"`. Ignored in the other
-   * modes, so a preset can carry a selection gesture without changing what is drawn by default.
+   * The category whose network to show in `networkMode: "selected"`, and the country the click
+   * came from. Ignored in the other modes, so a preset can carry a selection gesture without
+   * changing what is drawn by default.
+   *
+   * The country matters only to the spread: it is the root of the breadth-first search, so the
+   * same category clicked from two different members grows in two different orders.
    */
-  setSelectedCategory(cat: string | null): void;
+  setSelectedCategory(cat: string | null, originIso3?: string | null): void;
   destroy(): void;
 }
 
@@ -136,6 +141,8 @@ export async function createEmoArcLayer(options: {
 
   const resolution = new THREE.Vector2(1, 1);
   const meshes = new Map<string, LineSegments2>();
+  /** Sorted per-segment reveal times, 0 to 1, for whichever mesh currently carries a wavefront. */
+  const meshOrder = new Map<string, Float32Array>();
   const fadeUniform = makeEmoFadeUniform(params);
   // The world network spans every category, so it stays on the base shell rather than picking one.
   const categoryShell = emoCategoryShells(data);
@@ -167,12 +174,14 @@ export async function createEmoArcLayer(options: {
    * One arc, subdivided and trimmed, appended as independent segments because
    * LineSegmentsGeometry reads its input as disjoint point pairs.
    *
-   * Returns false for an arc too short to survive trimming, which is what keeps two countries
-   * with near-identical label points from producing a degenerate line.
+   * Returns the number of segments written, and 0 for an arc too short to survive trimming, which
+   * is what keeps two countries with near-identical label points from producing a degenerate line.
+   * Points run from `a` to `b`, so an arc handed its endpoints in wavefront order grows outward
+   * from the country the wave came from.
    */
-  function appendArc(a: THREE.Vector3, b: THREE.Vector3, out: number[]): boolean {
+  function appendArc(a: THREE.Vector3, b: THREE.Vector3, out: number[]): number {
     const omega = Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1));
-    if (omega < 1e-4 || omega > Math.PI - 1e-4) return false;
+    if (omega < 1e-4 || omega > Math.PI - 1e-4) return 0;
     // The trim is angular, because a trim expressed as a world distance would swallow a short arc
     // whole, and capped at a fraction of the arc, so a short arc is shortened and never removed.
     const trim = Math.min(THREE.MathUtils.degToRad(params.arcEndTrimDeg), omega * MAX_TRIM_FRACTION);
@@ -204,25 +213,87 @@ export async function createEmoArcLayer(options: {
       py = y;
       pz = z;
     }
-    return true;
+    return segments;
   }
 
-  /** Turn index pairs into arc geometry and hand it to a mesh. Returns the edges actually drawn. */
-  function setMeshEdges(key: string, nodes: ArcNode[], pairs: [number, number][]): number {
+  /**
+   * Turn index pairs into arc geometry and hand it to a mesh. Returns the edges actually drawn.
+   *
+   * With a `plan`, the segments are written in wavefront order rather than in edge order and the
+   * mesh gains a `revealAt` table, so drawing the first n of them is drawing the first n moments
+   * of the spread. That works because LineSegmentsGeometry is an InstancedBufferGeometry whose
+   * `instanceCount` the renderer honours: the animation is then one integer per frame, with no
+   * shader, no second geometry and no rebuild. Every edge is still present, so the settled
+   * picture is exactly the unordered one.
+   */
+  function setMeshEdges(
+    key: string,
+    nodes: ArcNode[],
+    pairs: [number, number][],
+    plan: { nodeDepth: number[]; span: number } | null,
+  ): number {
     const mesh = meshes.get(key);
     if (!mesh) return 0;
     const out: number[] = [];
+    /** Reveal time of each segment, in depth steps. Parallel to the segments in `out`. */
+    const revealSteps: number[] = [];
     let drawn = 0;
     for (const [a, b] of pairs) {
-      if (appendArc(nodes[a]!.dir, nodes[b]!.dir, out)) drawn += 1;
+      // The wave crosses an edge from whichever end it reaches first, so that is the end the arc
+      // is drawn from and the moment it starts growing.
+      const forward = plan === null || plan.nodeDepth[a]! <= plan.nodeDepth[b]!;
+      const from = forward ? a : b;
+      const to = forward ? b : a;
+      const written = appendArc(nodes[from]!.dir, nodes[to]!.dir, out);
+      if (written === 0) continue;
+      drawn += 1;
+      if (plan === null) continue;
+      const base = plan.nodeDepth[from]!;
+      for (let seg = 0; seg < written; seg++) revealSteps.push(base + seg / written);
     }
+
+    let positions: Float32Array;
+    if (plan === null) {
+      positions = new Float32Array(out);
+      meshOrder.delete(key);
+    } else {
+      // Gather into wavefront order through an index sort, rather than building one small object
+      // per segment: a dense category is 12000 segments and a click should not allocate 12000
+      // objects to draw them.
+      const order = revealSteps.map((_, i) => i);
+      order.sort((x, y) => revealSteps[x]! - revealSteps[y]!);
+      positions = new Float32Array(out.length);
+      const revealAt = new Float32Array(order.length);
+      for (let n = 0; n < order.length; n++) {
+        const src = order[n]! * 6;
+        for (let f = 0; f < 6; f++) positions[n * 6 + f] = out[src + f]!;
+        revealAt[n] = revealSteps[order[n]!]! / plan.span;
+      }
+      meshOrder.set(key, revealAt);
+    }
+
     const geometry = new LineSegmentsGeometry();
-    geometry.setPositions(new Float32Array(out));
+    geometry.setPositions(positions);
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
     mesh.geometry.dispose();
     mesh.geometry = geometry;
     return drawn;
+  }
+
+  /**
+   * How many of a mesh's segments are drawn at a given point in the sweep. The reveal times are
+   * sorted, so this is a binary search rather than a scan over 12000 of them every frame.
+   */
+  function segmentsRevealed(revealAt: Float32Array, front: number): number {
+    let lo = 0;
+    let hi = revealAt.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (revealAt[mid]! <= front) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
   }
 
   /** Regenerate every network. Cheap enough to run on a slider drag. */
@@ -231,7 +302,7 @@ export async function createEmoArcLayer(options: {
     let categoryEdges = 0;
     for (const [key, nodes] of byCategory) {
       const pairs = buildCategoryGraph(nodes.map((n) => n.dir), params.categoryGraph, k);
-      categoryEdges += setMeshEdges(key, nodes, pairs);
+      categoryEdges += setMeshEdges(key, nodes, pairs, null);
     }
     const world = buildWorldGraph(
       allNodes.map((n) => n.dir),
@@ -239,7 +310,11 @@ export async function createEmoArcLayer(options: {
       k,
       Math.round(params.randomSeed),
     );
-    const worldEdges = setMeshEdges(GLOBAL_KEY, allNodes, world.edges);
+    const worldEdges = setMeshEdges(GLOBAL_KEY, allNodes, world.edges, null);
+    // A rebuild throws away the wavefront ordering along with the geometry, and a slider drag
+    // rebuilds. Re-order without restarting the clock, so a selection survives a parameter change
+    // instead of silently becoming a network that can no longer spread.
+    if (selectedCat !== null && selectedOrigin !== null) orderSpread(false);
     // Counted off the geometry rather than off the loop, so the number reported is the number of
     // segments the GPU is actually given. Each one carries two line caps that can double-blend.
     let segments = 0;
@@ -256,6 +331,37 @@ export async function createEmoArcLayer(options: {
 
   let layerVisible = true;
   let selectedCat: string | null = null;
+  /** The country the selection came from, which is the root of the wavefront. */
+  let selectedOrigin: string | null = null;
+
+  /**
+   * Rebuild the selected category's geometry in wavefront order, and tell the motion when each
+   * of its countries is reached so the labels can come up with the front.
+   *
+   * `restart` separates the two things that ask for this. A click wants the animation to play; a
+   * slider drag has only destroyed the ordering by rebuilding the geometry and wants it back
+   * without replaying anything.
+   */
+  function orderSpread(restart: boolean): void {
+    if (selectedCat === null || selectedOrigin === null) return;
+    const nodes = byCategory.get(selectedCat);
+    if (!nodes) return;
+    const origin = nodes.findIndex((n) => n.iso3 === selectedOrigin);
+    const k = Math.max(1, Math.round(params.kNeighbours));
+    const pairs = buildCategoryGraph(nodes.map((n) => n.dir), params.categoryGraph, k);
+    const plan = planSpread(pairs, nodes.length, origin);
+    setMeshEdges(selectedCat, nodes, pairs, plan);
+    if (!restart) return;
+    const arrivals = new Map<string, number>(
+      nodes.map((n, i) => [n.iso3, plan.nodeDepth[i] ?? 0]),
+    );
+    motion.setSpread(arrivals, plan.span);
+    console.info(
+      `[emoArcs] spread from ${selectedOrigin} through ${selectedCat}: ${nodes.length} countries, ` +
+        `${plan.span} steps, ${meshOrder.get(selectedCat)?.length ?? 0} segments`,
+    );
+  }
+
   function syncVisibility(): void {
     group.visible = layerVisible && params.networkMode !== "off";
     // "connected" is the resting-plus-selection view: the whole world joined while nothing is
@@ -309,6 +415,16 @@ export async function createEmoArcLayer(options: {
             shellOf(key) * params.multiplexSpread +
             params.selectionLift * motion.emphasisOf(key),
         );
+        // The wavefront is one integer: how many of this mesh's segments, in reveal order, have
+        // been reached. Written every frame for every mesh rather than only the spreading one, so
+        // a network that was mid-sweep when the selection changed cannot be left half drawn.
+        const revealAt = meshOrder.get(key);
+        const geometry = mesh.geometry as LineSegmentsGeometry;
+        const total = geometry.attributes.instanceStart?.count ?? 0;
+        geometry.instanceCount =
+          revealAt && key === selectedCat
+            ? segmentsRevealed(revealAt, motion.arrivalFront())
+            : total;
       }
     },
     setParams(next: EmoViewParams): void {
@@ -333,10 +449,16 @@ export async function createEmoArcLayer(options: {
       layerVisible = visible;
       syncVisibility();
     },
-    setSelectedCategory(cat: string | null): void {
-      if (cat === selectedCat) return;
+    setSelectedCategory(cat: string | null, originIso3?: string | null): void {
+      const origin = originIso3 ?? null;
+      if (cat === selectedCat && origin === selectedOrigin) return;
       selectedCat = cat;
+      selectedOrigin = origin;
       syncVisibility();
+      // Ordered even when the network is not drawn, because `networkMode` can be switched on
+      // mid-selection and a mesh whose reveal table did not match its geometry would draw the
+      // wrong segments.
+      orderSpread(true);
     },
     destroy(): void {
       for (const mesh of meshes.values()) {

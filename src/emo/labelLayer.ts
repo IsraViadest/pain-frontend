@@ -584,11 +584,15 @@ export async function createEmoLabelLayer(options: {
       // The whole category stays lit, not just the country clicked. Only the rest steps back.
       // Two ways of making a selection legible, and a preset can ask for either or both. `bold`
       // is the operator's alternative to dimming: leave the rest alone and enlarge the category.
-      // The size follows the eased fraction rather than `inCategory`, so a category that has
-      // just been deselected shrinks back instead of snapping. The weight, which has no
-      // in-between, flips at the midpoint of that same move.
+      // How lit this label is. Two conditions multiplied: its category has to be the chosen one,
+      // and the wavefront has to have reached this particular country. Without a spread the
+      // second is 1 everywhere, which is the whole category coming up at once, as it did.
+      const lit = emphasisAt * motion.arrivalOf(entry.iso3);
+      // The size follows that eased fraction rather than a boolean, so a category that has just
+      // been deselected shrinks back instead of snapping. The weight, which has no in-between,
+      // flips at the midpoint of the same move.
       const wantsEmphasis = params.selectionEmphasis !== "dim";
-      const arrive = wantsEmphasis ? Math.round(emphasisAt * 1000) / 1000 : 0;
+      const arrive = wantsEmphasis ? Math.round(lit * 1000) / 1000 : 0;
       const emphasise = arrive > 0.5;
       if (emphasise !== entry.emphasised) {
         entry.emphasised = emphasise;
@@ -604,7 +608,13 @@ export async function createEmoLabelLayer(options: {
         el.style.setProperty("--emo-emphasis-second", grow(params.selectionEmphasisSecondScale));
       }
       const dimming = params.selectionEmphasis !== "bold";
-      const dim = dimming ? 1 + (params.selectionDim - 1) * recede : 1;
+      // Everything a selection has engaged but not lit steps back, which includes a country in
+      // the chosen category that the wave has not reached yet: until the network arrives it reads
+      // like the rest of the world, and it is the arrival that brings it forward. `emphasisAt`
+      // plus `recede` is 1 for every category while any selection is live and 0 at rest, so this
+      // is 0 at rest whatever the wave is doing.
+      const back = Math.min(1, Math.max(0, emphasisAt + recede - lit));
+      const dim = dimming ? 1 + (params.selectionDim - 1) * back : 1;
       // A plain ramp across the hemisphere, unlike `fade`, which only acts near the limb.
       const depth = Math.max(
         0,

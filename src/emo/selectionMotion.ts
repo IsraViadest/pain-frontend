@@ -36,6 +36,21 @@ const easeOutCubic = (t: number): number => 1 - (1 - t) * (1 - t) * (1 - t);
 /** Below this a value counts as having arrived, so a track stops asking to be redrawn. */
 const SETTLE_EPSILON = 1e-4;
 
+/**
+ * How long one country takes to come up once the wave reaches it, as a share of the whole sweep.
+ *
+ * A constant rather than a parameter: it trades the crispness of the wavefront against a country
+ * blinking on, and no view compares two values of it, so there would be nothing to look at. At
+ * a five-step sweep this is about a tenth of the total, which is long enough not to blink and
+ * short enough that the front still reads as a front.
+ */
+const ARRIVAL_WINDOW = 0.5;
+
+const clampedRamp = (v: number, from: number, to: number): number => {
+  const t = clamp01((v - from) / (to - from || 1));
+  return t * t * (3 - 2 * t);
+};
+
 interface Track {
   from: number;
   to: number;
@@ -64,6 +79,26 @@ export interface EmoSelectionMotion {
   emphasisOf(cat: string): number;
   recedeOf(cat: string): number;
   /**
+   * Start the wavefront. `arrivals` is each country's depth in steps and `span` the total, both
+   * from planSpread; the arc layer supplies them because it is the layer that owns the graph.
+   *
+   * Called after setSelection, which clears any previous wave. A selection with no network to
+   * spread through therefore never gets one, and `arrivalOf` answers 1 for every country, which
+   * is the behaviour of every preset that predates this.
+   */
+  setSpread(arrivals: ReadonlyMap<string, number>, span: number): void;
+  /**
+   * How far this country has come up, 0 before the wave reaches it and 1 once it has passed.
+   * 1 everywhere when no wave is running.
+   */
+  arrivalOf(iso3: string): number;
+  /**
+   * Where the wavefront is, 0 to 1, and 1 when no wave is running. The arc layer draws its
+   * segments up to this point; the labels read `arrivalOf` instead, which is this measured
+   * against one country's own depth.
+   */
+  arrivalFront(): number;
+  /**
    * Bumped whenever any value actually changed, so a layer that has to rebuild geometry can ask
    * "has this moved since I last looked" rather than "is it moving". The difference matters on
    * the settling frame: a track reaches its target and stops moving in the same tick, so a
@@ -85,6 +120,12 @@ export function createEmoSelectionMotion(options: {
 
   let revision = 0;
   let selected: string | null = null;
+  /** Depth in steps per country, or null when no wave is running. */
+  let arrivals: ReadonlyMap<string, number> | null = null;
+  let spreadSpan = 1;
+  let spreadStartMs = 0;
+  /** Normalised position of the wavefront, 0 to 1. Recomputed once per tick, never per label. */
+  let spreadFront = 1;
 
   function retarget(track: Track, to: number, now: number): void {
     if (track.to === to) return;
@@ -98,6 +139,16 @@ export function createEmoSelectionMotion(options: {
       const now = performance.now();
       const duration = params.selectionMotionMs;
       let changed = false;
+      if (arrivals !== null) {
+        const front =
+          params.selectionSpreadMs > 0
+            ? clamp01((now - spreadStartMs) / params.selectionSpreadMs)
+            : 1;
+        if (front !== spreadFront) {
+          spreadFront = front;
+          changed = true;
+        }
+      }
       for (const motion of motions.values()) {
         for (const track of [motion.emphasis, motion.recede]) {
           if (track.value === track.to) continue;
@@ -117,6 +168,11 @@ export function createEmoSelectionMotion(options: {
     setSelection(cat: string | null): void {
       if (cat === selected) return;
       selected = cat;
+      // A new selection has no wave until the arc layer supplies one, and a cleared selection
+      // never gets one. Either way every country reads as arrived, which is what a view with no
+      // network, or no spread duration, has always looked like.
+      arrivals = null;
+      spreadFront = 1;
       const now = performance.now();
       for (const [key, motion] of motions) {
         retarget(motion.emphasis, key === selected ? 1 : 0, now);
@@ -126,6 +182,8 @@ export function createEmoSelectionMotion(options: {
     },
     reset(): void {
       selected = null;
+      arrivals = null;
+      spreadFront = 1;
       for (const motion of motions.values()) {
         for (const track of [motion.emphasis, motion.recede]) {
           track.from = 0;
@@ -140,6 +198,23 @@ export function createEmoSelectionMotion(options: {
     },
     recedeOf(cat: string): number {
       return motions.get(cat)?.recede.value ?? 0;
+    },
+    setSpread(next: ReadonlyMap<string, number>, span: number): void {
+      arrivals = next;
+      spreadSpan = span > 0 ? span : 1;
+      spreadStartMs = performance.now();
+      spreadFront = params.selectionSpreadMs > 0 ? 0 : 1;
+      revision += 1;
+    },
+    arrivalFront(): number {
+      return arrivals === null ? 1 : spreadFront;
+    },
+    arrivalOf(iso3: string): number {
+      if (arrivals === null) return 1;
+      const depth = arrivals.get(iso3);
+      if (depth === undefined) return 1;
+      const at = depth / spreadSpan;
+      return clampedRamp(spreadFront, at, at + ARRIVAL_WINDOW / spreadSpan);
     },
     revision(): number {
       return revision;

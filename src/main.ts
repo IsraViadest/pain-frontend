@@ -660,6 +660,7 @@ function loop(): void {
   emoLabelLayer?.update();
   emoArcLayer?.update();
   emoLeaderLineLayer?.update();
+  emoSelectionLayer?.update();
   requestAnimationFrame(loop);
 }
 
@@ -677,11 +678,13 @@ function loop(): void {
         // The label layer owns the selection because it owns the click; the arcs and the
         // country fill are told from here.
         onSelect: (selection) => {
-          emoArcLayer?.setSelectedCategory(selection?.cat ?? null);
+          // Order matters here. setSelection clears any wave in flight, and the arc layer starts
+          // the new one, so the arcs go second or the wave they just planned is thrown away.
+          emoMotion?.setSelection(selection?.cat ?? null);
+          emoArcLayer?.setSelectedCategory(selection?.cat ?? null, selection?.iso3 ?? null);
           emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
           // The leader lines are not told directly: they follow the motion, which is the one
           // signal all three layers share, so they cannot disagree about what is selected.
-          emoMotion?.setSelection(selection?.cat ?? null);
         },
         // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
         onReshuffle: () => {
@@ -704,6 +707,7 @@ function loop(): void {
         globe,
         data: await loadEmoData(),
         params: emoView.params,
+        motion: emoMotion,
       });
       syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);

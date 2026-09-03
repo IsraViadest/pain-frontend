@@ -188,6 +188,19 @@ export interface EmoViewParams {
    */
   selectionMotionMs: number;
   /**
+   * How long the network takes to spread outward from the country that was clicked, in
+   * milliseconds. 0 draws the whole network at once, which is what shipped.
+   *
+   * The wave is a breadth-first search from that country: its own arcs grow first, then the arcs
+   * leaving whatever they reached, and so on, and each country's label comes up as the front
+   * passes it. So the number is the time for the whole sweep, not per step, and the operator's
+   * brief was "less than two seconds, maybe even less than one".
+   *
+   * Independent of `selectionMotionMs` on purpose. The step down is a change of state and wants
+   * to be over quickly; the spread is the thing being watched and wants long enough to be read.
+   */
+  selectionSpreadMs: number;
+  /**
    * Width of the outline drawn round those countries, in texels of the 2048 by 1024 highlight
    * map, which is about 1.7 screen pixels each at the gallery camera. 0 draws no outline, so a
    * preset chooses a wash, a thickened border, or both.
@@ -311,6 +324,7 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   // Both off, so every preset that predates them keeps the instant, flat selection that shipped.
   selectionSink: 0,
   selectionMotionMs: 0,
+  selectionSpreadMs: 0,
   // All three keep the behaviour that shipped: a white wash, no outline, and dimming the rest.
   selectionOutline: 0,
   selectionStyle: "wash",
