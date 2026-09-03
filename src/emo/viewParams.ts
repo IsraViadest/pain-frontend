@@ -182,6 +182,23 @@ export interface EmoViewParams {
    */
   selectionEmphasis: "dim" | "bold" | "both";
   /**
+   * How much larger an emphasised label's main lines are drawn, as a multiplier on the font size.
+   *
+   * Separate from `selectionEmphasis` because the enum decides whether to emphasise and this
+   * decides by how much. 1.22 is what shipped, and the operator's reading of it is that the step
+   * is larger than it needs to be, which is a value rather than a behaviour and so belongs here.
+   */
+  selectionEmphasisScale: number;
+  /**
+   * The same for the smaller English line under a native one.
+   *
+   * Its own number, because the operator asked for the second line to stay where it is while the
+   * word above it grows: the English gloss is a subtitle, and a subtitle that grows with its
+   * title has not been emphasised, it has just been zoomed. 1 leaves it alone; 1.22 is what
+   * shipped, when one multiplier drove all three lines.
+   */
+  selectionEmphasisSecondScale: number;
+  /**
    * Radial separation between consecutive pain-category shells, in globe radii. Labels and arcs
    * both take it, so each category gains its own layer. 0 puts everything on one shell, which is
    * how every preset shipped before this behaved.
@@ -266,6 +283,9 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   selectionOutline: 0,
   selectionStyle: "wash",
   selectionEmphasis: "dim",
+  // Both 1.22: exactly the single multiplier that drove all three lines before they split.
+  selectionEmphasisScale: 1.22,
+  selectionEmphasisSecondScale: 1.22,
   // Flat by default, so the 16 presets that predate the shells are unchanged.
   multiplexSpread: 0,
 

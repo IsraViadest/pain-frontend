@@ -48,14 +48,14 @@
     0 0 calc(var(--emo-halo) * 2) rgba(0, 3, 18, 0.8);
 }
 
-/* One multiplier drives all three line sizes, so the emphasised state needs no rule per line and
-   no specificity fight with the secondary-line size below. */
+/* Two multipliers, one for the main lines and one for the smaller English line beneath them, so
+   a preset can grow the word without growing its subtitle. Both are written inline by the label
+   layer, per label rather than per host, because the spread animation grows each label as the
+   wave reaches it and they therefore differ from one another mid-animation. These are the resting
+   values, which is what a label that is not emphasised keeps. */
 .emo-label {
   --emo-emphasis: 1;
-}
-
-.emo-label--emphasis {
-  --emo-emphasis: 1.22;
+  --emo-emphasis-second: 1;
 }
 
 .emo-label__native {
@@ -80,7 +80,7 @@
 }
 
 .emo-label__english--secondary {
-  font-size: calc(var(--emo-font-px) * var(--emo-second-scale) * var(--emo-emphasis));
+  font-size: calc(var(--emo-font-px) * var(--emo-second-scale) * var(--emo-emphasis-second));
   font-weight: 400;
   opacity: 0.68;
 }

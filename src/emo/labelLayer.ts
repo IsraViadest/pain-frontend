@@ -80,6 +80,13 @@ interface LabelEntry {
   zBucket: number;
   /** Whether the emphasis class is currently on, so it is written only when it changes. */
   emphasised: boolean;
+  /**
+   * The emphasis fraction the two size multipliers were last written for, or -1 when they must be
+   * rewritten regardless. -1 is outside the 0 to 1 range this ever takes, which is what makes it
+   * a real invalidation signal rather than a value that can be recomputed to itself. See
+   * failure 25.
+   */
+  emphasisArrive: number;
 }
 
 export interface EmoLabelLayer {
@@ -218,6 +225,7 @@ export async function createEmoLabelLayer(options: {
       declutterTarget: 1,
       zBucket: -1,
       emphasised: false,
+      emphasisArrive: -1,
     });
   });
 
@@ -571,6 +579,16 @@ export async function createEmoLabelLayer(options: {
         entry.emphasised = emphasise;
         el.classList.toggle("emo-label--emphasis", emphasise);
       }
+      // The size step is two multipliers written per label, not one written on the host: the main
+      // lines and the smaller English line beneath them scale by different amounts, so a preset
+      // can grow the word while its subtitle stays where it is. Written only on change.
+      const arrive = emphasise ? 1 : 0;
+      if (arrive !== entry.emphasisArrive) {
+        entry.emphasisArrive = arrive;
+        const grow = (scale: number): string => (1 + (scale - 1) * arrive).toFixed(3);
+        el.style.setProperty("--emo-emphasis", grow(params.selectionEmphasisScale));
+        el.style.setProperty("--emo-emphasis-second", grow(params.selectionEmphasisSecondScale));
+      }
       const dimming = params.selectionEmphasis !== "bold";
       const dim =
         dimming && selectedCat !== null && !inCategory ? params.selectionDim : 1;
@@ -609,6 +627,9 @@ export async function createEmoLabelLayer(options: {
       lastHaloPx = -1;
       // Any of these can change a box, and the next sweep is the only place that can find out.
       measureDirty = true;
+      // Either emphasis scale may have moved under a still selection, and nothing else would
+      // notice: the fraction they were written for has not changed, only the scale it multiplies.
+      for (const entry of entries) entry.emphasisArrive = -1;
       logNextSweep = true;
     },
     destroy(): void {
