@@ -24,8 +24,13 @@ import {
 const EMO_VIEWS_LS_KEY = "pain-emo-views";
 
 /**
- * Enable with `?emoViews=1` or `localStorage.setItem("pain-emo-views", "1")` then reload.
+ * Enable with `?ev=1` or `localStorage.setItem("pain-emo-views", "1")` then reload.
  * Off by default, so production is untouched until a preset is promoted deliberately.
+ *
+ * `?emoViews=1` is still accepted. It was the original spelling and PROGRESS.md, which is
+ * append-only and therefore cannot be rewritten, records many URLs that use it. Dropping it would
+ * kill working links in the archive, so the long form stays readable and the short one is what
+ * gets written and documented.
  */
 export function shouldShowEmoViews(): boolean {
   try {
@@ -34,7 +39,8 @@ export function shouldShowEmoViews(): boolean {
     /* private mode / quota */
   }
   try {
-    const v = new URLSearchParams(window.location.search).get("emoViews");
+    const q = new URLSearchParams(window.location.search);
+    const v = q.get("ev") ?? q.get("emoViews");
     return v === "1" || v === "true";
   } catch {
     return false;
@@ -156,7 +162,9 @@ export function resolveEmoViewFromUrl(): EmoViewSelection {
 export function buildEmoViewUrl(presetId: string, params: EmoViewParams): string {
   const url = new URL(window.location.href);
   const q = url.searchParams;
-  q.set("emoViews", "1");
+  q.set("ev", "1");
+  // A URL built here supersedes one that was typed, so the long form must not survive alongside it.
+  q.delete("emoViews");
   q.set("emoPreset", presetId);
   // The shorthands sit in an earlier layer than emoParams, so leaving stale ones behind would
   // produce a URL whose visible text disagrees with what it opens.

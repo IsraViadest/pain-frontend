@@ -427,7 +427,7 @@ const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
   socioecopain: "#FFFF00",
 };
 
-// --- emotional-pain label views (opt-in: ?emoViews=1 or localStorage pain-emo-views=1) ---
+// --- emotional-pain label views (opt-in: ?ev=1 or localStorage pain-emo-views=1) ---
 const emoViewsEnabled = shouldShowEmoViews();
 const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
 const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
