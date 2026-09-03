@@ -694,18 +694,235 @@ export const EMO_PRESETS: EmoPreset[] = [
       labelDepthFade: 0.7,
     },
   },
+  {
+    id: "v6-a_base",
+    title: "Base: the lift, the glow, the outline, the halo",
+    note:
+      "The round's baseline, and openly a composite because the operator's list is one. " +
+      "v5-e_mark-both plus the three things chosen or asked for after round v5: the " +
+      "category's labels enlarge and the rest dim rather than either alone, a symmetric " +
+      "halo at 16 percent of the font size in place of the drop shadow, and the selected " +
+      "category lifted 0.04 radii clear of the rest. The lift moves the clicked category's " +
+      "13 visible labels by 7 px near the middle of the disc and 20 to 29 px toward the " +
+      "limb, with their leader lines and arcs following. It does not put the network in " +
+      "front of the other text and nothing can: every DOM label paints over the WebGL " +
+      "canvas at every radius. What it does buy is order among the labels, measured as " +
+      "selected labels covered by a non-selected one falling from 3 of 13 to 1 of 13.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0.04,
+    },
+  },
+  {
+    id: "v6-b_no-lift",
+    title: "Base without the lift",
+    note:
+      "v6-a with selectionLift back at 0, so the lift can be judged against its own absence " +
+      "rather than against a preset that differs in three other ways as well. Everything " +
+      "else, the glow, the outline, the halo and the enlarged category, is identical.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+    },
+  },
+  {
+    id: "v6-c_dim-strong",
+    title: "Base, everything else stepped well back",
+    note:
+      "v6-a with selectionDim at 0.25 rather than 0.75, which is what rounds v1 to v3 used. " +
+      "It matters more than its position in this list suggests: the complaint it answers is " +
+      "that an arc crossing an unselected label is cut at the glyph strokes, and a label " +
+      "faint enough stops breaking the line that crosses it. If this is enough, the second " +
+      "2D rendering pass that would actually draw the network above the text never needs " +
+      "building.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.25,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0.04,
+    },
+  },
+  {
+    id: "v6-d_fade-linear",
+    title: "Base, depth fade linear in screen distance",
+    note:
+      "v6-a with labelDepthFadeCurve at 0.5. The shipped fade is linear in 1 minus facing, " +
+      "which is about the square of the distance from the centre of the disc, so this " +
+      "exponent is what makes it approximately linear in that distance instead. Measured " +
+      "across 144 visible labels it takes the mean painted opacity from 0.772 to 0.690, " +
+      "dimming every one of them, while the limb barely moves because the limb fade " +
+      "dominates there. This is the reading of the request that fades the middle distance " +
+      "more.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0.04,
+      labelDepthFadeCurve: 0.5,
+    },
+  },
+  {
+    id: "v6-e_fade-quadratic",
+    title: "Base, depth fade eased",
+    note:
+      "v6-a with labelDepthFadeCurve at 2, quadratic in 1 minus facing and so roughly " +
+      "quartic in distance from the middle. Mean painted opacity rises from 0.772 to 0.852 " +
+      "and the centre of the disc reaches a full 1.000, so the fade concentrates into the " +
+      "outer ring. This is the reading where the difference of the difference grows, which " +
+      "is how the operator described what they wanted.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0.04,
+      labelDepthFadeCurve: 2,
+    },
+  },
+  {
+    id: "v6-f_fade-cubic",
+    title: "Base, depth fade eased harder",
+    note:
+      "v6-a with labelDepthFadeCurve at 3. Mean painted opacity 0.890, and the fade is " +
+      "pushed into an even narrower band at the limb. The far end of the same trade as " +
+      "v6-e, kept so the three curves bracket the choice rather than offering two points on " +
+      "it.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0.04,
+      labelDepthFadeCurve: 3,
+    },
+  },
 ];
 
 /**
- * Opens on the round v5 base, which is the operator's second list written as one view: the v4
- * base with an opaque bolder network, leader lines that reach through the dented surface at their
- * own lighter weight, and a depth fade on the labels.
+ * Opens on the round v6 base: the round v5 mark the operator chose, the emphasis they chose, the
+ * halo they adopted, and the lift they asked for, all at once.
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
- * `v1-c_bilingual` and `v4-a_base-bilingual` were the previous defaults and remain reachable by
- * id, as everything here does.
+ * `v1-c_bilingual`, `v4-a_base-bilingual` and `v5-a_base-delaunay` were the previous defaults and
+ * remain reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v5-a_base-delaunay";
+export const DEFAULT_EMO_PRESET_ID = "v6-a_base";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
