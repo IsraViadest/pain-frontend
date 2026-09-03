@@ -57,6 +57,8 @@ const REBUILD_EPSILON = 1e-4;
 interface LeaderNode {
   dir: THREE.Vector3;
   shell: number;
+  /** This country's pain category, so the head can follow a selection lift that only it gets. */
+  cat: string;
 }
 
 export interface EmoLeaderLineLayer {
@@ -65,6 +67,11 @@ export interface EmoLeaderLineLayer {
   setParams(next: EmoViewParams): void;
   /** Whether the emotional views own the globe right now, independent of the `leaderLines` flag. */
   setVisible(visible: boolean): void;
+  /**
+   * The pain category currently selected, whose heads take `selectionLift`. The layer needs this
+   * only because of the lift: before it existed, a leader line did not care what was clicked.
+   */
+  setSelectedCategory(cat: string | null): void;
   destroy(): void;
 }
 
@@ -86,6 +93,7 @@ export async function createEmoLeaderLineLayer(options: {
     nodes.push({
       dir: latLngToVector3(centroid.lat, centroid.lng, 1).normalize(),
       shell: categoryShell.get(country.cat) ?? 0,
+      cat: country.cat,
     });
   }
 
@@ -118,12 +126,26 @@ export async function createEmoLeaderLineLayer(options: {
   // Tracked for the same reason as the spread: nothing else would notice a dragged slider, and a
   // control that does nothing is worse than no control.
   let lastFoot = Number.NaN;
+  let lastLift = Number.NaN;
+  /**
+   * The selection the current geometry was built for.
+   *
+   * Tracked separately from the lift because the two are not the same signal: clicking one
+   * category and then another leaves `selectionLift` at exactly the value it already had, so a
+   * condition watching only the number would leave the first category's lines standing at the
+   * lifted height and the second category's still on the surface. This is the fourth time in
+   * this feature that a value which is recomputed to the same number has been mistaken for an
+   * invalidation signal; see failure 25.
+   */
+  let lastSelectedCat: string | null | undefined;
+  let selectedCat: string | null = null;
 
   function rebuild(standoff: number): void {
     const foot = params.leaderFoot;
     for (let i = 0; i < nodes.length; i++) {
-      const { dir, shell } = nodes[i]!;
-      const head = Math.max(foot, standoff + shell * params.multiplexSpread - HEAD_GAP);
+      const { dir, shell, cat } = nodes[i]!;
+      const lift = cat === selectedCat ? params.selectionLift : 0;
+      const head = Math.max(foot, standoff + shell * params.multiplexSpread + lift - HEAD_GAP);
       const o = i * 6;
       positions[o] = dir.x * foot;
       positions[o + 1] = dir.y * foot;
@@ -146,6 +168,8 @@ export async function createEmoLeaderLineLayer(options: {
     lastStandoff = standoff;
     lastSpread = params.multiplexSpread;
     lastFoot = foot;
+    lastLift = params.selectionLift;
+    lastSelectedCat = selectedCat;
   }
 
   function syncVisibility(layerVisible: boolean): void {
@@ -171,7 +195,9 @@ export async function createEmoLeaderLineLayer(options: {
         !built ||
         Math.abs(standoff - lastStandoff) > REBUILD_EPSILON ||
         params.multiplexSpread !== lastSpread ||
-        params.leaderFoot !== lastFoot
+        params.leaderFoot !== lastFoot ||
+        params.selectionLift !== lastLift ||
+        selectedCat !== lastSelectedCat
       ) {
         rebuild(standoff);
       }
@@ -186,6 +212,9 @@ export async function createEmoLeaderLineLayer(options: {
     setVisible(next: boolean): void {
       visible = next;
       syncVisibility(visible);
+    },
+    setSelectedCategory(cat: string | null): void {
+      selectedCat = cat;
     },
     destroy(): void {
       geometry.dispose();

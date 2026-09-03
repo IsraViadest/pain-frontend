@@ -662,6 +662,9 @@ function loop(): void {
         onSelect: (selection) => {
           emoArcLayer?.setSelectedCategory(selection?.cat ?? null);
           emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
+          // The leader lines need it only for selectionLift, which raises the heads of the
+          // selected category alone.
+          emoLeaderLineLayer?.setSelectedCategory(selection?.cat ?? null);
         },
         // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
         onReshuffle: () => {

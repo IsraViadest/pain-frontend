@@ -295,7 +295,11 @@ export async function createEmoArcLayer(options: {
       // labels' own ramp, and each category is lifted onto its own shell above it.
       const base = emoArcRadius(emoZoomRamp(globe.camera.position.length(), params), params);
       for (const [key, mesh] of meshes) {
-        mesh.scale.setScalar(base + shellOf(key) * params.multiplexSpread);
+        // The selected category's network rises with its own labels. The lift is added raw
+        // rather than scaled by the arc's share of the standoff, so the gap the arcs keep under
+        // the text is exactly preserved and the network cannot rise through it.
+        const selectionLift = key === selectedCat ? params.selectionLift : 0;
+        mesh.scale.setScalar(base + shellOf(key) * params.multiplexSpread + selectionLift);
       }
     },
     setParams(next: EmoViewParams): void {

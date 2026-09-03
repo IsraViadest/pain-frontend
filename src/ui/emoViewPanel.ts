@@ -156,6 +156,7 @@ const SECTIONS: EmoSection[] = [
       { key: "leaderWidthScale", label: "Leader width", min: 0.1, max: 1, step: 0.05, decimals: 2, hint: "Leader width as a fraction of the arc width. Below 1 makes the network the bolder of the two." },
       { key: "leaderOpacityScale", label: "Leader opacity", min: 0.1, max: 1, step: 0.05, decimals: 2, hint: "Leader opacity as a fraction of the arc opacity. Below 1 makes the network the more solid of the two." },
       { key: "selectionDim", label: "Selection dim", min: 0, max: 1, step: 0.01, decimals: 2, hint: "Opacity of every label except the selected one, with Click does set to selectNetwork." },
+      { key: "selectionLift", label: "Selection lift", min: 0, max: 0.1, step: 0.005, decimals: 3, hint: "Extra radius for the selected category's labels, arcs and leader heads, in globe radii. Raises them clear of the rest and tends to paint them over their neighbours. It cannot put the arcs in front of the text: every DOM label paints over the WebGL canvas." },
       { key: "selectionFill", label: "Selection fill", min: 0, max: 0.6, step: 0.01, decimals: 2, hint: "Alpha of the wash on the selected category. 0 leaves only the outline. 43 microstates have no polygon and stay unmarked." },
       { key: "selectionOutline", label: "Selection outline", min: 0, max: 8, step: 1, decimals: 0, hint: "Thickness of the border drawn round the selected category, in texels of the 2048 by 1024 map, about 1.7 screen pixels each. 0 draws none." },
     ],

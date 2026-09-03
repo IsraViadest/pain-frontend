@@ -129,6 +129,23 @@ export interface EmoViewParams {
   leaderOpacityScale: number;
   /** Opacity multiplier applied to every label except the selected one. */
   selectionDim: number;
+  /**
+   * Extra radius given to the labels, arcs and leader-line heads of the selected pain category,
+   * in globe radii, while a selection is active.
+   *
+   * WHAT IT DOES AND WHAT IT CANNOT DO. It raises the selected category clear of the rest, and
+   * because a label's paint order is bucketed on `radius * facing`, a lifted label also tends to
+   * paint over its unlifted neighbours. It does not put the network in front of the text: the
+   * labels are DOM above a transparent WebGL canvas, so every label paints over every arc at
+   * every radius. See PROGRESS.md 21.2, recorded there as failure 33.
+   *
+   * The step is instant. An eased one cannot be a single number per layer, because clicking a
+   * second category mid-transition needs the first to fall while the second rises, which is
+   * per-category state in three layers rather than one scalar.
+   *
+   * 0 is the behaviour of every preset that predates it.
+   */
+  selectionLift: number;
   /** Alpha of the wash filling the countries of the selected pain category. */
   selectionFill: number;
   /**
@@ -230,6 +247,8 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   leaderWidthScale: 1,
   leaderOpacityScale: 1,
   selectionDim: 0.25,
+  // Flat by default, so every preset that predates the lift is unchanged.
+  selectionLift: 0,
   selectionFill: 0.18,
   // All three keep the behaviour that shipped: a white wash, no outline, and dimming the rest.
   selectionOutline: 0,

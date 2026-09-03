@@ -454,9 +454,16 @@ export async function createEmoLabelLayer(options: {
         continue;
       }
 
+      // Whether this label belongs to the category that was clicked. Computed here rather than
+      // beside the emphasis below, because the lift needs it before the projection.
+      const inCategory = selectedCat !== null && entry.cat === selectedCat;
       // Each pain category rides its own shell, so at a non-zero spread the globe gains 14
       // stratified layers of text. At spread 0 this is exactly the single shared standoff.
-      const lift = standoff + entry.shell * params.multiplexSpread;
+      // The selected category rides one step higher again, which also raises its depth bucket
+      // below, so it tends to paint over its unlifted neighbours. It does not put the arcs in
+      // front of the text; nothing can. See selectionLift in viewParams.ts.
+      const lift =
+        standoff + entry.shell * params.multiplexSpread + (inCategory ? params.selectionLift : 0);
       // Projected and laid out even while fully faded away, because the sweep needs a current
       // box and position to decide whether this label can come back.
       world.set(x * lift, dir.y * lift, z * lift).project(camera);
@@ -542,7 +549,6 @@ export async function createEmoLabelLayer(options: {
       // The whole category stays lit, not just the country clicked. Only the rest steps back.
       // Two ways of making a selection legible, and a preset can ask for either or both. `bold`
       // is the operator's alternative to dimming: leave the rest alone and enlarge the category.
-      const inCategory = selectedCat !== null && entry.cat === selectedCat;
       const emphasise = inCategory && params.selectionEmphasis !== "dim";
       if (emphasise !== entry.emphasised) {
         entry.emphasised = emphasise;
