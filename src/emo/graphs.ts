@@ -36,7 +36,7 @@ export type EmoWorldGraph =
   | "random";
 
 /** How to join the countries inside one pain category. */
-export type EmoCategoryGraph = "knn" | "complete";
+export type EmoCategoryGraph = "knn" | "complete" | "gabriel" | "delaunay";
 
 type Edge = [number, number];
 
@@ -250,13 +250,21 @@ export function buildWorldGraph(
   return { edges: [...edges, ...bridges], components, bridges: bridges.length, crossingFree };
 }
 
-/** The network inside one pain category. Never bridged: a category is not required to connect. */
+/**
+ * The network inside one pain category. Never bridged: a category is not required to connect.
+ *
+ * The same non-crossing family as the world graph is available here, computed over the category's
+ * own points rather than over all 195. A category holds 7 to 24 countries, and a hull needs 4
+ * points, so anything smaller falls back to all-to-all, which for 3 points is the triangulation.
+ */
 export function buildCategoryGraph(
   dirs: THREE.Vector3[],
   mode: EmoCategoryGraph,
   k: number,
 ): Edge[] {
-  if (mode !== "complete") return knnEdges(dirs, k);
+  if (mode === "knn") return knnEdges(dirs, k);
+  if (mode === "delaunay" && dirs.length >= 4) return delaunayEdges(dirs);
+  if (mode === "gabriel" && dirs.length >= 4) return gabrielFilter(dirs, delaunayEdges(dirs));
   const out: Edge[] = [];
   for (let i = 0; i < dirs.length; i++) {
     for (let j = i + 1; j < dirs.length; j++) out.push([i, j]);

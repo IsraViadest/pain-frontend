@@ -75,7 +75,7 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
   },
   categoryGraph: {
     label: "Category graph",
-    hint: "How countries sharing a pain category are joined. complete links all of them to all.",
+    hint: "How countries sharing a pain category are joined. complete links all to all; gabriel and delaunay never cross themselves.",
   },
   colourMode: {
     label: "Colour",

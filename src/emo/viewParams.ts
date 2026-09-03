@@ -61,7 +61,11 @@ export interface EmoViewParams {
    * are guaranteed not to cross themselves; `knn` and `random` are not. See graphs.ts.
    */
   worldGraph: EmoWorldGraph;
-  /** How countries inside one pain category are joined. `complete` links all of them to all. */
+  /**
+   * How countries inside one pain category are joined. `complete` links all of them to all;
+   * `gabriel` and `delaunay` are the same non-crossing rules the world graph offers, computed
+   * over that category's own points.
+   */
   categoryGraph: EmoCategoryGraph;
   /** How many nearest neighbours each country links to, for the two kNN-based rules. */
   kNeighbours: number;
@@ -170,7 +174,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   clickMode: ["off", "toggleLanguage", "selectNetwork", "reshuffleNetwork"],
   networkMode: ["off", "all", "selected", "connected"],
   worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
-  categoryGraph: ["knn", "complete"],
+  categoryGraph: ["knn", "complete", "gabriel", "delaunay"],
   colourMode: ["white", "family", "category"],
   declutterMode: ["off", "priority"],
 };
