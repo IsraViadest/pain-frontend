@@ -2,8 +2,9 @@
 
 Last Updated: 2026-09-03
 Version: 1.0
-Status: **written before the shortlist is approved.** No preset or parameter code exists for round
-v4 yet, and none may be written until the operator approves a shortlist.
+Status: **decided.** Sections 1 to 7 are the brief as written before the shortlist was approved,
+preserved unedited apart from one measured correction noted in place. Section 8 records what the
+operator chose and what was built. Round v4 exists; see `src/emo/viewPresets.ts`.
 
 This is the Phase 7 brief the plan asks for. It distils the five research lanes into the decisions
 they can actually support, adds three measurements taken while writing it, and proposes candidates.
@@ -316,3 +317,66 @@ not that it buys room.
    control confound and the round v1 suspension from section 1 of this brief.
 3. Only the new ids are shot: `node gallery.mjs 22,86,2.35 v4-`. Settled views are not re-shot.
 4. `npm run check` passes and the result is looked at in a real browser before any commit.
+
+
+---
+
+## 8. What was decided, and what was built
+
+Added after the approval gate. Sections 1 to 7 above are the brief as it stood when the shortlist
+was put; they are left as written so the reasoning can be judged against the outcome.
+
+### 8.1 Chosen from the shortlist
+
+| candidate | outcome |
+|---|---|
+| `v4-c` leader lines | **chosen**, and reframed. See 8.2 |
+| bilingual collapse | **chosen**, shipped as `identicalLines: "one"` |
+| `v4-a` halo | not chosen |
+| `v4-b` colour the shells | not chosen as proposed; replaced by a near-white violet ramp, see 8.3 |
+| `v4-d` priority by area | not chosen. Decluttering is off throughout round v4 |
+
+The three unchosen candidates are recorded in section 4 with their measurements. **They should not
+be re-proposed as though new.** Each was measured, previewed where possible, and declined.
+
+### 8.2 Leader lines are for attribution, not capacity
+
+The single most useful correction in the round, and it came from the operator rather than from the
+research. Every lane that mentions leader lines treats them as a way to displace labels so more of
+them fit; section 3.4 measured that at 61 to 75 of 195, and the preview put the displaced labels on
+the title, all four layer buttons and both bottom pills. On that evidence I recommended against.
+
+The operator's reason was different: "the labels floating above the countries are not often
+attributable that clearly". That is a legibility-of-attachment problem, not a capacity problem, and
+it needs no displacement at all. What shipped draws a hairline from each country up to its own
+label. Nothing moves, the chrome collision disappears, and decision 21 is untouched rather than
+reopened.
+
+**The lesson generalises past this feature.** A technique's documented purpose in the literature is
+not the only purpose it can serve, and measuring it against the literature's purpose can lead you
+to reject it for a job it was never being asked to do.
+
+### 8.3 Colour: a near-white band instead of fourteen hues
+
+The proposal was `colourMode: "category"`, which already existed. The operator rejected the premise
+rather than the candidate: the fourteen-hue ramp is "very different colors" where what is wanted is
+"very similar shades of violet ... mostly white with just a few hues of violet, pink", separable
+side by side and reading as white from a distance.
+
+That is a different encoding with a different trade, so it shipped as a new `colourMode: "violet"`
+rather than as an edit to the existing ramp, and both stay reachable. Four candidate ramps were
+rendered as swatches and as text on the dark ground before any values were committed. Measured on
+the globe, glyph-core pixels go from 5.4% mean saturation in white mode to 10.9% in violet.
+
+### 8.4 Seven further instructions, all built
+
+Bilingual everywhere and no focal mode; no decluttering for now, kept as an option; the clicked
+category to be joinable as Gabriel or Delaunay or all-to-all; the whole clicked category to stay
+lit and filled rather than only the country clicked, with everything else stepping back slightly
+rather than vanishing; a click on empty globe to clear; arcs to fade round the back rather than
+show through; and a gentler zoom ramp with a larger minimum and a later onset.
+
+Two of those were reported as bugs and were real: the arcs leak because the globe's depth mask sits
+at 0.994 while arcs ride at 1.05, and the selection lit only the clicked country. One was reported
+and **could not be reproduced**: label text is not selectable, and resisted a Range, a double
+click, a trusted drag and select-all. The selectable text was the panel's own prose.
