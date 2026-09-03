@@ -212,9 +212,21 @@ export function mountEmoViewPanel(
 
   header.append(title, minimise);
 
+  // Everything except the header scrolls, as one region, so the wheel does the same thing
+  // wherever the pointer sits in the panel.
+  //
+  // The switcher used to sit outside this, on the reasoning that it is the control that matters
+  // most and so should always be on screen. That held at five presets. At twenty the switcher
+  // alone is 921px inside a 673px panel, and because a flex item whose overflow is `visible` has
+  // its automatic minimum size resolve to its content, it could not shrink: it took the whole
+  // column, collapsed the scroll box to zero height, and left 305px of controls unreachable.
+  const scroll = document.createElement("div");
+  scroll.className = "emo-view-panel__scroll";
+  host.appendChild(scroll);
+
   // --- preset switcher ---
   const presetBlock = makeDetails("Views", true);
-  host.appendChild(presetBlock.el);
+  scroll.appendChild(presetBlock.el);
 
   const presetIntro = document.createElement("p");
   presetIntro.className = "globe-debug-panel__intro";
@@ -261,12 +273,6 @@ export function mountEmoViewPanel(
   }
 
   // --- parameter controls ---
-  // Everything below the switcher scrolls. The switcher itself does not: it is the control
-  // that matters most, and the parameter list only grows as later phases add to it.
-  const scroll = document.createElement("div");
-  scroll.className = "emo-view-panel__scroll";
-  host.appendChild(scroll);
-
   for (const section of SECTIONS) {
     const block = makeDetails(section.summary, section.defaultOpen);
     scroll.appendChild(block.el);

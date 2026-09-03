@@ -117,7 +117,13 @@
   display: none;
 }
 
+/* flex and min-height are load-bearing, not tidiness. A flex item whose overflow is not `visible`
+   has its automatic minimum size resolve to 0, so without these this box collapsed to zero height:
+   its 622px of controls spilled out and were clipped by the host's overflow, leaving 305px of the
+   panel unreachable and nothing for the wheel to scroll. */
 .emo-view-panel__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
 }
