@@ -34,10 +34,32 @@ import { applyEmoFacingFade, makeEmoFadeUniform, updateEmoFadeUniform } from "./
 import { emoArcRadius, emoCategoryShells, emoZoomRamp } from "./layout";
 
 /**
- * Subdivisions per arc. A constant, not a parameter: it trades vertex count against visible
- * faceting and no view depends on the value, so there is nothing to compare between presets.
+ * Degrees of arc per subdivision. A constant, not a parameter: it trades vertex count against
+ * visible faceting and no view depends on the value, so there is nothing to compare between
+ * presets.
+ *
+ * WHY THIS REPLACED A FIXED 24 SUBDIVISIONS. Every join between two segments is a place where two
+ * rounded line caps overlap, and at an opacity below 1 that lens of doubled coverage blends twice:
+ * 0.55 over 0.55 paints 0.80, which is a 45 percent brightness step. That is the bright dotting
+ * visible along the arcs and absent from the single-segment leader lines. A fixed 24 subdivisions
+ * put those joins about 3 screen pixels apart on a 5 degree world arc, which is why the dots read
+ * as a bead chain rather than as noise.
+ *
+ * Two degrees is far below the point where faceting could be seen: the sagitta of a 2 degree chord
+ * on the unit sphere is 1.5e-4 radii, which at the gallery camera's 543 pixels per radius is 0.08
+ * of a pixel. So this spaces the joins roughly eight times further apart on the short arcs and
+ * costs nothing visible.
+ *
+ * IT REDUCES THE DOTS, IT DOES NOT REMOVE THEM. The overlap is inherent to drawing a polyline as
+ * capped segments, so any arc below full opacity still shows faint joins, just fewer of them. The
+ * fix for the dots themselves is `arcOpacity: 1`, where the blend is a replace and two coats of
+ * the same colour are one.
  */
-const ARC_SEGMENTS = 24;
+const ARC_SEGMENT_DEG = 2;
+
+/** Floor and ceiling on the subdivision count, so neither a 1 degree nor a 170 degree arc is odd. */
+const ARC_SEGMENTS_MIN = 2;
+const ARC_SEGMENTS_MAX = 96;
 
 /** Arcs stay white like the labels; colour remains opt-in and is a label concern for now. */
 const ARC_COLOUR = 0xffffff;
@@ -154,12 +176,21 @@ export async function createEmoArcLayer(options: {
     const t0 = trim / omega;
     const t1 = 1 - t0;
 
+    // Subdivide the span that is actually drawn, not the untrimmed arc, so a heavily trimmed
+    // short arc does not keep the subdivision count of the long one it was cut down from.
+    const drawnDeg = THREE.MathUtils.radToDeg((t1 - t0) * omega);
+    const segments = THREE.MathUtils.clamp(
+      Math.ceil(drawnDeg / ARC_SEGMENT_DEG),
+      ARC_SEGMENTS_MIN,
+      ARC_SEGMENTS_MAX,
+    );
+
     const sinOmega = Math.sin(omega);
     let px = 0;
     let py = 0;
     let pz = 0;
-    for (let s = 0; s <= ARC_SEGMENTS; s++) {
-      const t = t0 + ((t1 - t0) * s) / ARC_SEGMENTS;
+    for (let s = 0; s <= segments; s++) {
+      const t = t0 + ((t1 - t0) * s) / segments;
       const wa = Math.sin((1 - t) * omega) / sinOmega;
       const wb = Math.sin(t * omega) / sinOmega;
       const x = a.x * wa + b.x * wb;
@@ -206,10 +237,17 @@ export async function createEmoArcLayer(options: {
       Math.round(params.randomSeed),
     );
     const worldEdges = setMeshEdges(GLOBAL_KEY, allNodes, world.edges);
+    // Counted off the geometry rather than off the loop, so the number reported is the number of
+    // segments the GPU is actually given. Each one carries two line caps that can double-blend.
+    let segments = 0;
+    for (const mesh of meshes.values()) {
+      segments += mesh.geometry.attributes.instanceStart?.count ?? 0;
+    }
     console.info(
       `[emoArcs] category=${params.categoryGraph} k=${k} ${categoryEdges}e | ` +
         `world=${params.worldGraph} ${worldEdges}e, rule left ${world.components} components, ` +
-        `${world.bridges} bridges added, crossing-free ${world.crossingFree}`,
+        `${world.bridges} bridges added, crossing-free ${world.crossingFree} | ` +
+        `${segments} segments at ${ARC_SEGMENT_DEG} deg each`,
     );
   }
 
