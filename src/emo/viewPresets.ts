@@ -11,7 +11,20 @@
  * round: the non-crossing density ladder, a random network for contrast, and two category
  * variants. Round v3 is the density round: the overlap rule, and the category shells. Round v4 is
  * the operator's round, built from a written brief (docs/emo-views/brief.md) and from the choices
- * made against it. The registry accumulates; nothing here is ever edited.
+ * made against it. Round v5 is the operator's second round, built from their own list of what was
+ * wrong with v4 and what to try instead. The registry accumulates; nothing here is ever edited.
+ *
+ * WHAT ROUND v5 INHERITS WITHOUT ASKING. Four defects were fixed in the code rather than in a
+ * parameter, so they apply to every preset here including the older ones: arcs no longer bead at
+ * their segment joins, labels paint in depth order instead of score order, the selection mark
+ * follows the scar-dented surface instead of floating on an undented sphere, and a leader line
+ * can run through the surface to the country's centre. Only the last of those is opt-in, because
+ * it has a sensible other value. A preset is a set of values, and a fix is not a value.
+ *
+ * WHAT THE OPERATOR RULED OUT BEFORE THIS ROUND, so it is not re-proposed: a resting world
+ * network of any shape, on the grounds that joining countries by proximity alone says nothing
+ * (v4-b and v4-c stay reachable), and the all-to-all category network as too dense (v4-f, same).
+ * The category networks of v4-d and v4-e are the starting point instead.
  *
  * ROUND v4 AND THE ONE-NAMED-CHANGE RULE. That rule was suspended for round v1 only, which is
  * recorded here rather than claimed again: v1 shipped four language modes and the first networks
@@ -421,16 +434,278 @@ export const EMO_PRESETS: EmoPreset[] = [
       arcOpacity: 0.4,
     },
   },
+  {
+    id: "v5-a_base-delaunay",
+    title: "Base: opaque network, attached labels, depth fade",
+    note:
+      "The round's baseline, and openly a composite rather than one named change, because it is " +
+      "the operator's list written as a single view. v4-e plus four things they asked for: the " +
+      "network opaque and slightly bolder, which is also what removes the last of the bead " +
+      "chain at the arc joins; leader lines at 45% of its width and 50% of its opacity, so the " +
+      "two read as different kinds of line; a leader foot at 0.7 so the line runs through the " +
+      "dented surface to the country's centre; and a depth fade that thins the labels receding " +
+      "toward the horizon, which is where they pile up.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+    },
+  },
+  {
+    id: "v5-b_base-gabriel",
+    title: "Base, sparser category network",
+    note:
+      "v5-a with the clicked category joined by Gabriel instead of the full triangulation: 275 " +
+      "edges over the 14 rather than 501. The sparser half of the pair the operator preferred.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "gabriel",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+    },
+  },
+  {
+    id: "v5-c_mark-glow",
+    title: "Selection brightens the country's own colour",
+    note:
+      "v5-a with the selection adding warm light to the country instead of laying white over " +
+      "it, so its existing choropleth colour brightens rather than being covered. The alpha " +
+      "rises from 0.18 to 0.4 in the same breath, because additive and normal blending are not " +
+      "on one scale and 0.18 of added light is invisible: one change, two fields.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.4,
+    },
+  },
+  {
+    id: "v5-d_mark-outline",
+    title: "Selection thickens the border instead of filling",
+    note:
+      "v5-a with no wash at all and a 3 texel outline round every country in the category, about " +
+      "5 screen pixels at the gallery camera. The country keeps its own colour untouched and is " +
+      "marked by its edge.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionFill: 0,
+      selectionOutline: 3,
+    },
+  },
+  {
+    id: "v5-e_mark-both",
+    title: "Selection glows and is outlined",
+    note:
+      "v5-a with both treatments at once: a warm glow inside a 2 texel outline. The third of the " +
+      "three the operator asked to compare.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+    },
+  },
+  {
+    id: "v5-f_emphasis-bold",
+    title: "Selection enlarges its category instead of dimming the rest",
+    note:
+      "v5-a with nothing dimmed. The clicked category's labels go from 14px weight 600 to " +
+      "17.1px weight 800 and every other label is left exactly as it was, measured on painted " +
+      "styles. selectionDim is inert here and is left at 0.75 rather than removed, so the " +
+      "difference from v5-a is one field.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionEmphasis: "bold",
+    },
+  },
+  {
+    id: "v5-g_emphasis-both",
+    title: "Selection enlarges its category and dims the rest",
+    note:
+      "v5-a with both: the category enlarged and everything else stepped back to 75%. The " +
+      "strongest of the three selection readings, and the one to check for whether emphasis and " +
+      "dimming together are more than either alone or simply too much.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      selectionEmphasis: "both",
+    },
+  },
+  {
+    id: "v5-h_halo",
+    title: "Halo instead of drop shadow",
+    note:
+      "v5-a with a symmetric halo at 16% of the font size replacing the directional drop shadow, " +
+      "which darkens below a glyph and leaves its top edge unprotected over the bright " +
+      "choropleth. Proposed in the round v4 brief, previewed, and not chosen then; shown here " +
+      "because the operator asked to see it, and with every facing label drawn rather than the " +
+      "decluttered subset the preview used. The preview's exact CSS was never recorded, so this " +
+      "is the brief's design and not a reproduction of that image.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelHalo: 0.16,
+    },
+  },
+  {
+    id: "v5-i_depth-fade-strong",
+    title: "Base, stronger depth fade",
+    note:
+      "v5-a with the depth fade raised from 0.45 to 0.7, so a label at the horizon keeps 30% of " +
+      "its opacity rather than 55%. The far side of the trade between reading the whole globe " +
+      "and reading the part of it facing you.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.7,
+    },
+  },
 ];
 
 /**
- * Opens on the round v4 base, which is the operator's brief written as one view: bilingual with
- * the duplicate line collapsed, leader lines, a gentle zoom ramp and a soft selection dim.
+ * Opens on the round v5 base, which is the operator's second list written as one view: the v4
+ * base with an opaque bolder network, leader lines that reach through the dented surface at their
+ * own lighter weight, and a depth fade on the labels.
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
- * `v1-c_bilingual` was the previous default and remains reachable by id, as everything here does.
+ * `v1-c_bilingual` and `v4-a_base-bilingual` were the previous defaults and remain reachable by
+ * id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v4-a_base-bilingual";
+export const DEFAULT_EMO_PRESET_ID = "v5-a_base-delaunay";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
