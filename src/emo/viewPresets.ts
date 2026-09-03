@@ -166,6 +166,24 @@ export const EMO_PRESETS: EmoPreset[] = [
     params: { labelMode: "bilingual", networkMode: "selected", categoryGraph: "complete", clickMode: "selectNetwork", arcOpacity: 0.35 },
   },
   {
+    id: "v3-a_declutter-priority",
+    title: "Declutter: no overlap",
+    note:
+      "The same bilingual pair, with any label whose box collides with a stronger-scoring one " +
+      "faded out instead of drawn over. Labels are never moved. 61 of 144 survive at the " +
+      "gallery camera, with zero collisions left, and a hidden label stops swallowing clicks.",
+    params: { labelMode: "bilingual", declutterMode: "priority" },
+  },
+  {
+    id: "v3-b_declutter-dense",
+    title: "Declutter: allowed to touch",
+    note:
+      "The same rule with the required gap set to minus 6 pixels, so labels may overlap a " +
+      "little rather than not at all. 77 survive instead of 61: more of the world is named, " +
+      "and some pairs collide. The legibility-versus-coverage trade, as one number.",
+    params: { labelMode: "bilingual", declutterMode: "priority", declutterPad: -6 },
+  },
+  {
     id: "v2-g_category-k6",
     title: "Category: k=6",
     note:

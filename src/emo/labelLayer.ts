@@ -47,6 +47,22 @@ interface LabelEntry {
   /** Per-label language override set by clickMode "toggleLanguage". */
   toggled: boolean;
   visible: boolean;
+
+  /** Screen position written this frame, in CSS pixels. The declutter sweep reads these. */
+  sx: number;
+  sy: number;
+  /** Whether the facing and density tests passed this frame, so the sweep should consider it. */
+  candidate: boolean;
+  /** Bit 1 = native line drawn, bit 2 = English line drawn. Identifies which box was measured. */
+  lines: number;
+  measuredLines: number;
+  measuredFontPx: number;
+  /** Measured box size in CSS pixels, valid for `measuredLines` at `measuredFontPx`. */
+  boxW: number;
+  boxH: number;
+  /** Eased toward the sweep's 0 or 1 decision, so a decluttered label fades out of the way. */
+  declutterAlpha: number;
+  declutterTarget: number;
 }
 
 export interface EmoLabelLayer {
@@ -61,6 +77,19 @@ const smoothstep = (v: number): number => v * v * (3 - 2 * v);
 /** 0 at `from`, 1 at `to`, eased. Works whether `from` is above or below `to`. */
 const ramp = (value: number, from: number, to: number): number =>
   smoothstep(clamp01((value - from) / (to - from || 1)));
+
+/**
+ * How often the declutter sweep runs, in milliseconds.
+ *
+ * The overlap test is quadratic in the candidate labels, roughly 10k box comparisons at this
+ * camera. That is nothing ten times a second and wasteful a hundred and twenty times a second,
+ * and the globe rotates by about a tenth of a degree between sweeps, so nothing is missed.
+ */
+const DECLUTTER_SWEEP_MS = 100;
+/** How long a label takes to fade out of, or back into, the decluttered set. */
+const DECLUTTER_FADE_MS = 180;
+/** Below this the label is not painted, which also stops it swallowing clicks meant for others. */
+const DECLUTTER_ALPHA_MIN = 0.01;
 
 /**
  * Build the label layer. Resolves once country centroids are loaded, since every label needs
@@ -134,6 +163,16 @@ export async function createEmoLabelLayer(options: {
       hasNative,
       toggled: false,
       visible: false,
+      sx: 0,
+      sy: 0,
+      candidate: false,
+      lines: 0,
+      measuredLines: -1,
+      measuredFontPx: -1,
+      boxW: 0,
+      boxH: 0,
+      declutterAlpha: 1,
+      declutterTarget: 1,
     });
   });
 
@@ -189,6 +228,90 @@ export async function createEmoLabelLayer(options: {
   let lastFontPx = -1;
   let lastSecondScale = -1;
 
+  /**
+   * Set whenever anything that changes a label's measured box changes: a parameter, the English
+   * strings, or a font subset arriving after first paint. Resetting `lastFontPx` cannot stand in
+   * for this, because update() restores it to the same quantised value before a sweep reads it.
+   */
+  let measureDirty = true;
+  /** One log line per view rather than ten a second, so the drawn count can be compared. */
+  let logNextSweep = true;
+  let lastFrameMs = -1;
+  let lastSweepMs = -1;
+
+  // A script subset that arrives after first paint changes every box in that script, and nothing
+  // else would notice: those widths were measured against the fallback face.
+  const onFontsLoaded = (): void => {
+    measureDirty = true;
+  };
+  document.fonts.addEventListener("loadingdone", onFontsLoaded);
+
+  /**
+   * Hide every candidate whose screen box collides with one already kept, strongest score first.
+   *
+   * Greedy in a fixed priority order, which is what keeps the result steady as the globe turns:
+   * the same geometry always yields the same set. Labels are never moved, only hidden, because a
+   * label that slides on every frame of a rotation reads as jitter rather than as placement.
+   *
+   * Measuring is the only expensive part, so it happens here, at the sweep rate, and only when a
+   * box could actually have changed. Nothing else in this module calls getBoundingClientRect.
+   */
+  function declutterSweep(): void {
+    // Every box measures zero while the host is not rendered, and a zero box collides with
+    // nothing, so sweeping then would silently clear the whole set.
+    if (host.getBoundingClientRect().width === 0) return;
+
+    const candidates = entries.filter((e) => e.candidate);
+    const stale =
+      measureDirty ||
+      candidates.some((e) => e.measuredLines !== e.lines || e.measuredFontPx !== lastFontPx);
+    if (stale) {
+      // One forced layout, then cheap reads: no style is written inside this loop.
+      for (const entry of candidates) {
+        const rect = entry.el.getBoundingClientRect();
+        entry.boxW = rect.width;
+        entry.boxH = rect.height;
+        entry.measuredLines = entry.lines;
+        entry.measuredFontPx = lastFontPx;
+      }
+      measureDirty = false;
+    }
+
+    const pad = params.declutterPad;
+    const kept: LabelEntry[] = [];
+    // The selected country is never decluttered away, so it goes first and wins every collision.
+    const chosen = selected === null ? undefined : candidates.find((e) => e.iso3 === selected);
+    if (chosen) {
+      chosen.declutterTarget = 1;
+      kept.push(chosen);
+    }
+    let hidden = 0;
+    for (const entry of candidates) {
+      if (entry === chosen) continue;
+      let clash = false;
+      for (const other of kept) {
+        if (
+          Math.abs(entry.sx - other.sx) < (entry.boxW + other.boxW) / 2 + pad &&
+          Math.abs(entry.sy - other.sy) < (entry.boxH + other.boxH) / 2 + pad
+        ) {
+          clash = true;
+          break;
+        }
+      }
+      entry.declutterTarget = clash ? 0 : 1;
+      if (clash) hidden += 1;
+      else kept.push(entry);
+    }
+
+    if (logNextSweep) {
+      logNextSweep = false;
+      console.info(
+        `[emoLabels] declutter=priority pad=${pad}px, ${candidates.length} candidates, ` +
+          `${kept.length} drawn, ${hidden} hidden`,
+      );
+    }
+  }
+
   function update(): void {
     const camera = globe.camera;
     const canvas = globe.renderer.domElement;
@@ -222,14 +345,21 @@ export async function createEmoLabelLayer(options: {
     const focalOuterCos = Math.cos(((params.focalConeDeg + params.focalBlendDeg) * Math.PI) / 180);
     const cap = params.density > 0 ? params.density : Number.POSITIVE_INFINITY;
 
+    const now = performance.now();
+    // Wall-clock, so the fade takes the same time at 60 Hz as at 120. The first frame snaps.
+    const fadeStep = lastFrameMs < 0 ? 1 : Math.min(1, (now - lastFrameMs) / DECLUTTER_FADE_MS);
+    lastFrameMs = now;
+    const declutterOn = params.declutterMode === "priority";
+
     for (const entry of entries) {
       const { dir, el } = entry;
       // Rotate the direction by the globe's spin, then project.
       const x = dir.x * cosY + dir.z * sinY;
       const z = -dir.x * sinY + dir.z * cosY;
       const facing = x * camDir.x + dir.y * camDir.y + z * camDir.z;
+      entry.candidate = facing >= params.facingMin && entry.rank < cap;
 
-      if (facing < params.facingMin || entry.rank >= cap) {
+      if (!entry.candidate) {
         if (entry.visible) {
           el.style.visibility = "hidden";
           entry.visible = false;
@@ -237,15 +367,13 @@ export async function createEmoLabelLayer(options: {
         continue;
       }
 
+      // Projected and laid out even while fully faded away, because the sweep needs a current
+      // box and position to decide whether this label can come back.
       world.set(x * standoff, dir.y * standoff, z * standoff).project(camera);
       const sx = (world.x * 0.5 + 0.5) * w;
       const sy = (-world.y * 0.5 + 0.5) * h;
-
-      const fade = ramp(facing, params.facingMin, params.fadeStart);
-      const grey = 1 - params.edgeDesaturation * (1 - fade);
-      // Dimming multiplies the fade rather than fighting it: opacity is written inline every
-      // frame, so a CSS rule for this would never win.
-      const dim = selected !== null && entry.iso3 !== selected ? params.selectionDim : 1;
+      entry.sx = sx;
+      entry.sy = sy;
 
       // Which language this label shows right now.
       let showNative: boolean;
@@ -287,14 +415,33 @@ export async function createEmoLabelLayer(options: {
       entry.nativeEl.style.display = showNative ? "" : "none";
       entry.englishEl.style.display = showEnglish ? "" : "none";
       entry.englishEl.classList.toggle("emo-label__english--secondary", showNative && showEnglish);
+      entry.lines = (showNative ? 1 : 0) | (showEnglish ? 2 : 0);
 
-      if (!entry.visible) {
-        el.style.visibility = "visible";
-        entry.visible = true;
+      const goal = declutterOn ? entry.declutterTarget : 1;
+      entry.declutterAlpha += (goal - entry.declutterAlpha) * fadeStep;
+
+      // One decision, one writer. Nothing else in this loop touches visibility, so the facing
+      // cull and the declutter cannot end up fighting over the same style.
+      const paint = entry.declutterAlpha > DECLUTTER_ALPHA_MIN;
+      if (paint !== entry.visible) {
+        el.style.visibility = paint ? "visible" : "hidden";
+        entry.visible = paint;
       }
+      if (!paint) continue;
+
+      const fade = ramp(facing, params.facingMin, params.fadeStart);
+      const grey = 1 - params.edgeDesaturation * (1 - fade);
+      // Dimming and the declutter fade multiply into the limb fade rather than fighting it:
+      // opacity is written inline every frame, so a CSS rule for either would never win.
+      const dim = selected !== null && entry.iso3 !== selected ? params.selectionDim : 1;
       el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;
-      el.style.opacity = (fade * dim).toFixed(3);
+      el.style.opacity = (fade * dim * entry.declutterAlpha).toFixed(3);
       el.style.setProperty("--emo-grey", grey.toFixed(3));
+    }
+
+    if (declutterOn && now - lastSweepMs >= DECLUTTER_SWEEP_MS) {
+      lastSweepMs = now;
+      declutterSweep();
     }
   }
 
@@ -314,9 +461,13 @@ export async function createEmoLabelLayer(options: {
       host.dataset.colour = next.colourMode;
       lastFontPx = -1;
       lastSecondScale = -1;
+      // Any of these can change a box, and the next sweep is the only place that can find out.
+      measureDirty = true;
+      logNextSweep = true;
     },
     destroy(): void {
       host.removeEventListener("click", onClick);
+      document.fonts.removeEventListener("loadingdone", onFontsLoaded);
       for (const entry of entries) entry.el.remove();
       entries.length = 0;
     },

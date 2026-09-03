@@ -77,6 +77,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Colour",
     hint: "family groups the 14 categories into 5 bright violets and pinks. category gives all 14 their own hue.",
   },
+  declutterMode: {
+    label: "Declutter",
+    hint: "priority fades out a label whose box collides with a stronger-scoring one. Labels are never moved.",
+  },
 };
 
 const SECTIONS: EmoSection[] = [
@@ -137,9 +141,10 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Appearance and density",
     defaultOpen: false,
-    selects: ["colourMode"],
+    selects: ["colourMode", "declutterMode"],
     sliders: [
       { key: "density", label: "Density cap", min: 0, max: 195, step: 1, decimals: 0, hint: "Maximum labels drawn, weakest score dropped first. 0 means no cap." },
+      { key: "declutterPad", label: "Declutter gap", min: -10, max: 14, step: 1, decimals: 0, hint: "Clear space demanded between two label boxes, in pixels. Negative lets them overlap, which keeps more on screen." },
     ],
   },
 ];

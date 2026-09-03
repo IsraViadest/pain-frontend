@@ -75,6 +75,17 @@ export interface EmoViewParams {
   colourMode: "white" | "family" | "category";
   /** Global cap on visible labels, lowest score dropped first. 0 means no cap. */
   density: number;
+  /**
+   * `priority` hides a label whose screen box collides with a stronger-scoring one. Labels are
+   * never moved: no production globe library repositions them, because a label that slides on
+   * every frame of a rotation reads as jitter rather than as placement.
+   */
+  declutterMode: "off" | "priority";
+  /**
+   * Minimum clear space required between two label boxes, in CSS pixels. Negative lets them
+   * overlap by that much, which keeps more labels on screen at the cost of some collision.
+   */
+  declutterPad: number;
 }
 
 export const DEFAULT_EMO_PARAMS: EmoViewParams = {
@@ -117,6 +128,10 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
 
   colourMode: "white",
   density: 0,
+  // Off by default so every preset shipped before this existed renders exactly as it did.
+  declutterMode: "off",
+  // Two labels whose boxes touch read as one word, so the default asks for a visible gap.
+  declutterPad: 4,
 };
 
 /**
@@ -135,6 +150,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
   categoryGraph: ["knn", "complete"],
   colourMode: ["white", "family", "category"],
+  declutterMode: ["off", "priority"],
 };
 
 /** The parameters whose value is one of a fixed set of strings. */
