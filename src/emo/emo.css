@@ -109,6 +109,14 @@
   max-height: min(78vh, 720px);
   overflow: hidden;
   background: #0b0d14;
+  /* A drag that starts on a preset name and ends on the globe rubber-bands the panel's prose,
+     which reads as a glitch rather than as a selection. The labels themselves were already
+     immune. The snippet box is the one thing here that exists to be copied, so it opts back in. */
+  user-select: none;
+}
+
+.emo-view-panel__snippet {
+  user-select: text;
 }
 
 /* The display rule above outranks the user-agent stylesheet's [hidden] { display: none }, so
