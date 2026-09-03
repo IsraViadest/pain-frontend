@@ -130,12 +130,20 @@ const SECTIONS: EmoSection[] = [
     sliders: [
       { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest neighbours each country links to. Only used by the knn and random rules." },
       { key: "randomSeed", label: "Random seed", min: 1, max: 200, step: 1, decimals: 0, hint: "Which random world network to draw. Click does reshuffleNetwork steps this for you." },
-      { key: "arcLift", label: "Arc lift", min: 1, max: 1.2, step: 0.005, decimals: 3, hint: "Radius the arcs ride at. Keep below the label standoff or they cross the text." },
+      { key: "arcLift", label: "Arc lift", min: 1, max: 1.2, step: 0.005, decimals: 3, hint: "Arc radius at the far end of the zoom ramp. Arcs follow the labels in from there, so below Standoff far keeps them under the text at every zoom." },
       { key: "arcEndTrimDeg", label: "End trim", min: 0, max: 8, step: 0.1, decimals: 1, hint: "Degrees removed at each end, so a line stops short of the label it points at." },
       { key: "arcWidth", label: "Arc width", min: 0.0005, max: 0.012, step: 0.0005, decimals: 4, hint: "World units, so a fraction of the globe radius rather than pixels." },
       { key: "arcOpacity", label: "Arc opacity", min: 0.05, max: 1, step: 0.01, decimals: 2, hint: "Lower this before lowering width when the network reads as clutter." },
       { key: "selectionDim", label: "Selection dim", min: 0, max: 1, step: 0.01, decimals: 2, hint: "Opacity of every label except the selected one, with Click does set to selectNetwork." },
       { key: "selectionFill", label: "Selection fill", min: 0, max: 0.6, step: 0.01, decimals: 2, hint: "Alpha of the wash on the selected country. 43 microstates have no polygon and stay unfilled." },
+    ],
+  },
+  {
+    summary: "Category shells",
+    defaultOpen: false,
+    selects: [],
+    sliders: [
+      { key: "multiplexSpread", label: "Shell spread", min: 0, max: 0.03, step: 0.001, decimals: 3, hint: "Radial gap between consecutive pain categories, in globe radii. Labels and their arcs rise together, so the globe gains 14 stratified layers. 0 is flat." },
     ],
   },
   {

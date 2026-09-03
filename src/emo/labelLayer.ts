@@ -18,6 +18,7 @@ import { latLngToVector3 } from "../globe/latLng";
 import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/countryCentroids";
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
+import { emoCategoryShells, emoLabelStandoff, emoZoomRamp, ramp } from "./layout";
 
 /**
  * Which country is selected, and the category whose network that reveals.
@@ -43,6 +44,8 @@ interface LabelEntry {
   score: number;
   /** Rank by score, 0 = strongest. Used by the density cap. */
   rank: number;
+  /** This country's pain category as a shell index, 0 to 13. See layout.ts. */
+  shell: number;
   hasNative: boolean;
   /** Per-label language override set by clickMode "toggleLanguage". */
   toggled: boolean;
@@ -71,12 +74,6 @@ export interface EmoLabelLayer {
   setParams(next: EmoViewParams): void;
   destroy(): void;
 }
-
-const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
-const smoothstep = (v: number): number => v * v * (3 - 2 * v);
-/** 0 at `from`, 1 at `to`, eased. Works whether `from` is above or below `to`. */
-const ramp = (value: number, from: number, to: number): number =>
-  smoothstep(clamp01((value - from) / (to - from || 1)));
 
 /**
  * How often the declutter sweep runs, in milliseconds.
@@ -115,6 +112,7 @@ export async function createEmoLabelLayer(options: {
 
   const categoryLabel = new Map(data.categories.map((c) => [c.key, c.label]));
   const categoryFamily = new Map(data.categories.map((c) => [c.key, c.family]));
+  const categoryShell = emoCategoryShells(data);
 
   const ranked = Object.entries(data.countries).sort((a, b) => b[1].score - a[1].score);
   const entries: LabelEntry[] = [];
@@ -160,6 +158,7 @@ export async function createEmoLabelLayer(options: {
       englishGloss,
       score: country.score,
       rank,
+      shell: categoryShell.get(country.cat) ?? 0,
       hasNative,
       toggled: false,
       visible: false,
@@ -323,10 +322,9 @@ export async function createEmoLabelLayer(options: {
     const sinY = Math.sin(spin);
     const cosY = Math.cos(spin);
 
-    const camLen = camera.position.length();
-    // 0 when the camera is far, 1 when it is at the near stop.
-    const near = ramp(camLen, params.cameraFar, params.cameraNear);
-    const standoff = params.standoffFar + (params.standoffNear - params.standoffFar) * near;
+    // The same ramp the arcs ride, so the two cannot drift apart. See layout.ts.
+    const near = emoZoomRamp(camera.position.length(), params);
+    const standoff = emoLabelStandoff(near, params);
     const fontPx = params.fontPxFar + (params.fontPxNear - params.fontPxFar) * near;
 
     // One style write drives every label's size, so zooming costs no per-label layout.
@@ -367,9 +365,12 @@ export async function createEmoLabelLayer(options: {
         continue;
       }
 
+      // Each pain category rides its own shell, so at a non-zero spread the globe gains 14
+      // stratified layers of text. At spread 0 this is exactly the single shared standoff.
+      const lift = standoff + entry.shell * params.multiplexSpread;
       // Projected and laid out even while fully faded away, because the sweep needs a current
       // box and position to decide whether this label can come back.
-      world.set(x * standoff, dir.y * standoff, z * standoff).project(camera);
+      world.set(x * lift, dir.y * lift, z * lift).project(camera);
       const sx = (world.x * 0.5 + 0.5) * w;
       const sy = (-world.y * 0.5 + 0.5) * h;
       entry.sx = sx;

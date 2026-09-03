@@ -59,7 +59,11 @@ export interface EmoViewParams {
   kNeighbours: number;
   /** Seed for `worldGraph: "random"`, so a random network is still reproducible. */
   randomSeed: number;
-  /** Radius the arcs ride at. Below the label standoff, or arcs cross through the text. */
+  /**
+   * Radius the arcs ride at when the camera is at the far stop. They follow the same zoom ramp
+   * as the labels from there, keeping their share of the height above the surface, so keeping
+   * this below `standoffFar` keeps the arcs under the text at every zoom. See layout.ts.
+   */
   arcLift: number;
   /** Degrees of arc removed at each end, so a line stops short of the label it points at. */
   arcEndTrimDeg: number;
@@ -70,6 +74,12 @@ export interface EmoViewParams {
   selectionDim: number;
   /** Alpha of the wash filling the selected country. */
   selectionFill: number;
+  /**
+   * Radial separation between consecutive pain-category shells, in globe radii. Labels and arcs
+   * both take it, so each category gains its own layer. 0 puts everything on one shell, which is
+   * how every preset shipped before this behaved.
+   */
+  multiplexSpread: number;
 
   /** White is the default; colour is opt-in because the families do not carry clean meaning. */
   colourMode: "white" | "family" | "category";
@@ -117,14 +127,15 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   // The workspace default seed, so a random network is the same one every reload.
   randomSeed: 43,
   // Just under the far standoff of 1.11, so arcs pass beneath the labels rather than through
-  // them. They do not follow the zoom ramp, so they separate from the labels on approach; that
-  // is a composition question for the multiplex phase, not a defect here.
+  // them, and they hold that share of the height all the way in.
   arcLift: 1.06,
   arcEndTrimDeg: 1.5,
   arcWidth: 0.0025,
   arcOpacity: 0.55,
   selectionDim: 0.25,
   selectionFill: 0.18,
+  // Flat by default, so the 16 presets that predate the shells are unchanged.
+  multiplexSpread: 0,
 
   colourMode: "white",
   density: 0,

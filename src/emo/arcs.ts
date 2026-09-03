@@ -13,6 +13,12 @@
  * The group is a child of `globe.earthContent`, which is the object the globe's auto-spin rotates.
  * That is why this needs no change to GlobeView and cannot be forgotten in `syncWorldRotation()`,
  * which is the documented trap for anything added to the scene directly.
+ *
+ * RADIUS IS A SCALE, NOT A COORDINATE. Every arc is built on the unit sphere and each category's
+ * mesh is scaled to its radius once per frame. An arc at constant radius is a curve on a sphere,
+ * so a uniform scale about the origin moves it to another radius exactly, which is what lets the
+ * arcs follow the labels' zoom ramp and sit on 14 separate category shells without rebuilding any
+ * geometry. See layout.ts for the ramp itself.
  */
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -24,6 +30,7 @@ import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/country
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import { buildCategoryGraph, buildWorldGraph } from "./graphs";
+import { emoArcRadius, emoCategoryShells, emoZoomRamp } from "./layout";
 
 /**
  * Subdivisions per arc. A constant, not a parameter: it trades vertex count against visible
@@ -103,6 +110,9 @@ export async function createEmoArcLayer(options: {
 
   const resolution = new THREE.Vector2(1, 1);
   const meshes = new Map<string, LineSegments2>();
+  // The world network spans every category, so it stays on the base shell rather than picking one.
+  const categoryShell = emoCategoryShells(data);
+  const shellOf = (key: string): number => categoryShell.get(key) ?? 0;
 
   for (const key of [...byCategory.keys(), GLOBAL_KEY]) {
     const material = new LineMaterial({
@@ -147,9 +157,9 @@ export async function createEmoArcLayer(options: {
       const t = t0 + ((t1 - t0) * s) / ARC_SEGMENTS;
       const wa = Math.sin((1 - t) * omega) / sinOmega;
       const wb = Math.sin(t * omega) / sinOmega;
-      const x = (a.x * wa + b.x * wb) * params.arcLift;
-      const y = (a.y * wa + b.y * wb) * params.arcLift;
-      const z = (a.z * wa + b.z * wb) * params.arcLift;
+      const x = a.x * wa + b.x * wb;
+      const y = a.y * wa + b.y * wb;
+      const z = a.z * wa + b.z * wb;
       if (s > 0) out.push(px, py, pz, x, y, z);
       px = x;
       py = y;
@@ -238,11 +248,17 @@ export async function createEmoArcLayer(options: {
           (mesh.material as LineMaterial).resolution.copy(resolution);
         }
       }
+      // The geometry is on the unit sphere, so the radius is the scale. The base follows the
+      // labels' own ramp, and each category is lifted onto its own shell above it.
+      const base = emoArcRadius(emoZoomRamp(globe.camera.position.length(), params), params);
+      for (const [key, mesh] of meshes) {
+        mesh.scale.setScalar(base + shellOf(key) * params.multiplexSpread);
+      }
     },
     setParams(next: EmoViewParams): void {
+      // arcLift is absent on purpose: it is now applied as a per-frame scale, not baked in.
       const geometryChanged =
         next.kNeighbours !== params.kNeighbours ||
-        next.arcLift !== params.arcLift ||
         next.arcEndTrimDeg !== params.arcEndTrimDeg ||
         next.worldGraph !== params.worldGraph ||
         next.categoryGraph !== params.categoryGraph ||

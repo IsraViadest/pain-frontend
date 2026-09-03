@@ -9,7 +9,8 @@
  * Naming is `v{round}-{letter}_{slug}`, from the figure-design-rounds convention. Round v1 holds
  * the control, the four language modes and the first networks. Round v2 is the network-shape
  * round: the non-crossing density ladder, a random network for contrast, and two category
- * variants. The registry accumulates; nothing here is ever edited.
+ * variants. Round v3 is the density round: the overlap rule, and the category shells.
+ * The registry accumulates; nothing here is ever edited.
  *
  * THE CONTROL CONFOUNDS TWO CHANGES AT ONCE. `v1-control_english-sprites` is the incumbent
  * canvas word cloud, which draws 174 countries under the old database `word` (15 sets, 10 of
@@ -166,6 +167,13 @@ export const EMO_PRESETS: EmoPreset[] = [
     params: { labelMode: "bilingual", networkMode: "selected", categoryGraph: "complete", clickMode: "selectNetwork", arcOpacity: 0.35 },
   },
   {
+    id: "v2-g_category-k6",
+    title: "Category: k=6",
+    note:
+      "The same category networks at six neighbours instead of three, for comparison against " +
+      "v1-e (k=3) and v1-f (k=1).",
+    params: { labelMode: "bilingual", networkMode: "all", kNeighbours: 6 },
+  },  {
     id: "v3-a_declutter-priority",
     title: "Declutter: no overlap",
     note:
@@ -184,12 +192,23 @@ export const EMO_PRESETS: EmoPreset[] = [
     params: { labelMode: "bilingual", declutterMode: "priority", declutterPad: -6 },
   },
   {
-    id: "v2-g_category-k6",
-    title: "Category: k=6",
+    id: "v3-c_multiplex-shells",
+    title: "Multiplex: 14 category shells",
     note:
-      "The same category networks at six neighbours instead of three, for comparison against " +
-      "v1-e (k=3) and v1-f (k=1).",
-    params: { labelMode: "bilingual", networkMode: "all", kNeighbours: 6 },
+      "Every category network drawn at once, each on its own shell, with its labels riding the " +
+      "same shell above it. Shell order is the category number 01 to 14, deliberately not a " +
+      "semantic ordering. Arcs now follow the labels' zoom ramp, so the layers hold together " +
+      "as the camera comes in instead of crossing over each other.",
+    params: { labelMode: "bilingual", networkMode: "all", multiplexSpread: 0.012, arcWidth: 0.0015, arcOpacity: 0.4 },
+  },
+  {
+    id: "v3-d_multiplex-declutter",
+    title: "Multiplex, decluttered",
+    note:
+      "The shells with the overlap rule on. Stratifying by category moves labels apart on " +
+      "screen as well as in radius, so this is the pairing that shows whether the shells buy " +
+      "legibility or only depth.",
+    params: { labelMode: "bilingual", networkMode: "all", multiplexSpread: 0.012, arcWidth: 0.0015, arcOpacity: 0.4, declutterMode: "priority" },
   },
 ];
 
