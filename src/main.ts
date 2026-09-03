@@ -657,7 +657,7 @@ function loop(): void {
         // country fill are told from here.
         onSelect: (selection) => {
           emoArcLayer?.setSelectedCategory(selection?.cat ?? null);
-          emoSelectionLayer?.setSelected(selection?.iso3 ?? null);
+          emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
         },
         // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
         onReshuffle: () => {
@@ -669,7 +669,11 @@ function loop(): void {
         data: await loadEmoData(),
         params: emoView.params,
       });
-      emoSelectionLayer = await createEmoSelectionLayer({ globe, params: emoView.params });
+      emoSelectionLayer = await createEmoSelectionLayer({
+        globe,
+        data: await loadEmoData(),
+        params: emoView.params,
+      });
       syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);
       emoPanel = mountEmoViewPanel(emoPanelHost, {

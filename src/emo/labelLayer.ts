@@ -207,6 +207,11 @@ export async function createEmoLabelLayer(options: {
   host.dataset.colour = params.colourMode;
 
   let selected: string | null = null;
+  /**
+   * The pain category of the selected country. Every label in it stays fully lit, because the
+   * selection asks "who else feels this" and the answer is a set, not one country.
+   */
+  let selectedCat: string | null = null;
 
   const onClick = (ev: MouseEvent): void => {
     if (params.clickMode === "off") return;
@@ -226,6 +231,7 @@ export async function createEmoLabelLayer(options: {
     // Clicking the selected country again clears the selection, so there is always a way out
     // without hunting for empty globe between 195 labels.
     selected = selected === entry.iso3 ? null : entry.iso3;
+    selectedCat = selected === null ? null : entry.cat;
     options.onSelect?.(selected === null ? null : { iso3: entry.iso3, cat: entry.cat });
   };
   host.addEventListener("click", onClick);
@@ -246,6 +252,7 @@ export async function createEmoLabelLayer(options: {
     if (ev.target !== globe.renderer.domElement) return;
     if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
     selected = null;
+    selectedCat = null;
     options.onSelect?.(null);
   };
   document.addEventListener("pointerdown", onPointerDown, true);
@@ -463,7 +470,8 @@ export async function createEmoLabelLayer(options: {
       const grey = 1 - params.edgeDesaturation * (1 - fade);
       // Dimming and the declutter fade multiply into the limb fade rather than fighting it:
       // opacity is written inline every frame, so a CSS rule for either would never win.
-      const dim = selected !== null && entry.iso3 !== selected ? params.selectionDim : 1;
+      // The whole category stays lit, not just the country clicked. Only the rest steps back.
+      const dim = selectedCat !== null && entry.cat !== selectedCat ? params.selectionDim : 1;
       el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;
       el.style.opacity = (fade * dim * entry.declutterAlpha).toFixed(3);
       el.style.setProperty("--emo-grey", grey.toFixed(3));
@@ -482,6 +490,7 @@ export async function createEmoLabelLayer(options: {
       // A preset that does not select must not leave a stale selection dimming the globe.
       if (next.clickMode !== "selectNetwork" && selected !== null) {
         selected = null;
+        selectedCat = null;
         options.onSelect?.(null);
       }
       params = next;

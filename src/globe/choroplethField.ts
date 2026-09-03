@@ -303,21 +303,25 @@ const HIGHLIGHT_MAP_WIDTH = 1024;
 const HIGHLIGHT_MAP_HEIGHT = 512;
 
 /**
- * One country filled into an otherwise transparent equirectangular texture, for the selection
- * highlight in the emotional-pain views.
+ * A set of countries filled into one otherwise transparent equirectangular texture, for the
+ * selection highlight in the emotional-pain views.
  *
- * Returns null when the country has no polygon here. `countryCentroids.ts` carries 43 manual
- * label points for microstates that Natural Earth 1:110m has no geometry for, so such a country
- * can hold a label and still have nothing to fill. That is a graceful degradation, not an error.
+ * It takes a list rather than one country because selecting a pain category highlights every
+ * country in it, and one texture for the whole set costs the same as one for a single country.
+ *
+ * Returns null when none of them has a polygon here, and quietly omits the ones that do not.
+ * `countryCentroids.ts` carries 43 manual label points for microstates that Natural Earth 1:110m
+ * has no geometry for, so such a country can hold a label and still have nothing to fill. That is
+ * a graceful degradation, not an error.
  */
 export function createCountryHighlightTexture(
-  iso3: string,
+  iso3List: readonly string[],
   colorHex: string,
   opacity: number,
 ): THREE.DataTexture | null {
-  const key = iso3.trim().toUpperCase();
-  const match = countryGeometries.find((c) => c.key === key);
-  if (!match) return null;
+  const keys = new Set(iso3List.map((c) => c.trim().toUpperCase()));
+  const matches = countryGeometries.filter((c) => keys.has(c.key));
+  if (matches.length === 0) return null;
 
   const w = HIGHLIGHT_MAP_WIDTH;
   const h = HIGHLIGHT_MAP_HEIGHT;
@@ -330,7 +334,7 @@ export function createCountryHighlightTexture(
   ctx.clearRect(0, 0, w, h);
   const rgb = parseHexRgb(colorHex) ?? { r: 255, g: 255, b: 255 };
   ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${Math.max(0, Math.min(1, opacity))})`;
-  fillGeometry(ctx, match.geometry, w, h);
+  for (const match of matches) fillGeometry(ctx, match.geometry, w, h);
 
   const { data } = ctx.getImageData(0, 0, w, h);
   const tex = new THREE.DataTexture(
