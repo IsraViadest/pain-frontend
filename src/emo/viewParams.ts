@@ -55,6 +55,16 @@ export interface EmoViewParams {
    */
   labelDepthFade: number;
   /**
+   * Exponent applied to `(1 - facing)` before the depth fade above multiplies it.
+   *
+   * THE SHIPPED FADE IS ALREADY ACCELERATING, by more than it looks. `1 - facing` is
+   * `1 - cos(theta)`, which is about `theta^2 / 2`, and the screen distance from the centre of
+   * the disc is `rho = R sin(theta)`. So the fade that reads as linear is already quadratic in
+   * distance from the middle. That makes 0.5 the approximately-linear option, 1 what shipped,
+   * and 2 a strong ease-in. Default 1, so no preset that predates it moves.
+   */
+  labelDepthFadeCurve: number;
+  /**
    * Halo width as a fraction of the font size, replacing the directional drop shadow.
    *
    * The shipped `text-shadow: 0 1px 3px` darkens below a glyph and leaves its top edge
@@ -221,6 +231,8 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   edgeDesaturation: 0.55,
   // Both off, so every preset that predates them renders exactly as it did.
   labelDepthFade: 0,
+  // 1 is the shipped curve: linear in (1 - facing), so quadratic in screen distance.
+  labelDepthFadeCurve: 1,
   labelHalo: 0,
 
   focalConeDeg: 26,

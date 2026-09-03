@@ -129,6 +129,7 @@ const SECTIONS: EmoSection[] = [
       { key: "fadeStart", label: "Fade start", min: 0, max: 0.9, step: 0.01, decimals: 2, hint: "Facing value at which a label reaches full opacity." },
       { key: "edgeDesaturation", label: "Edge grey", min: 0, max: 1, step: 0.01, decimals: 2, hint: "How far a label greys out toward the limb. 0 keeps full colour." },
       { key: "labelDepthFade", label: "Depth fade", min: 0, max: 0.9, step: 0.05, decimals: 2, hint: "Extra transparency across the whole hemisphere, unlike Fade start which only acts at the limb. A label at the horizon keeps 1 minus this. Helps the crowding on the sides." },
+      { key: "labelDepthFadeCurve", label: "Depth curve", min: 0.25, max: 4, step: 0.25, decimals: 2, hint: "Exponent on the depth fade above. 1 is what shipped, which is already quadratic in screen distance because 1 minus facing goes as the square of it. 0.5 is approximately linear in distance from the middle; 2 is a strong ease-in." },
       { key: "labelHalo", label: "Halo", min: 0, max: 0.5, step: 0.01, decimals: 2, hint: "Symmetric surround instead of the drop shadow, as a fraction of the font size. 0 keeps the shadow." },
     ],
   },

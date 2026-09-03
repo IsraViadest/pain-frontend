@@ -558,7 +558,10 @@ export async function createEmoLabelLayer(options: {
       const dim =
         dimming && selectedCat !== null && !inCategory ? params.selectionDim : 1;
       // A plain ramp across the hemisphere, unlike `fade`, which only acts near the limb.
-      const depth = Math.max(0, 1 - params.labelDepthFade * (1 - facing));
+      const depth = Math.max(
+        0,
+        1 - params.labelDepthFade * Math.pow(1 - facing, params.labelDepthFadeCurve),
+      );
       el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;
       el.style.opacity = (fade * dim * depth * entry.declutterAlpha).toFixed(3);
       el.style.setProperty("--emo-grey", grey.toFixed(3));
