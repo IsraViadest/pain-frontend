@@ -89,6 +89,14 @@ const DECLUTTER_FADE_MS = 180;
 const DECLUTTER_ALPHA_MIN = 0.01;
 
 /**
+ * How far the pointer may travel between press and release and still count as a click.
+ *
+ * Rotating the globe ends in a `click` on the canvas, so without this the selection would be
+ * cleared by the very drag used to bring the network into view.
+ */
+const DRAG_SLOP_PX = 6;
+
+/**
  * Build the label layer. Resolves once country centroids are loaded, since every label needs
  * a lat/lng and the centroid table is fetched lazily.
  */
@@ -221,6 +229,27 @@ export async function createEmoLabelLayer(options: {
     options.onSelect?.(selected === null ? null : { iso3: entry.iso3, cat: entry.cat });
   };
   host.addEventListener("click", onClick);
+
+  // Clicking empty globe clears the selection. The handler above cannot do it: the host is
+  // pointer-events: none, so a click that misses a label never reaches it and lands on the canvas.
+  // A label click calls stopPropagation, so the two never both fire.
+  let downX = 0;
+  let downY = 0;
+  const onPointerDown = (ev: PointerEvent): void => {
+    downX = ev.clientX;
+    downY = ev.clientY;
+  };
+  const onDocumentClick = (ev: MouseEvent): void => {
+    if (params.clickMode !== "selectNetwork" || selected === null) return;
+    // Only the globe itself clears. Clicking a panel or the page's own chrome leaves the
+    // selection alone, which is what makes the network survive a trip to the controls.
+    if (ev.target !== globe.renderer.domElement) return;
+    if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
+    selected = null;
+    options.onSelect?.(null);
+  };
+  document.addEventListener("pointerdown", onPointerDown, true);
+  document.addEventListener("click", onDocumentClick);
 
   const world = new THREE.Vector3();
   const camDir = new THREE.Vector3();
@@ -468,6 +497,8 @@ export async function createEmoLabelLayer(options: {
     },
     destroy(): void {
       host.removeEventListener("click", onClick);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("click", onDocumentClick);
       document.fonts.removeEventListener("loadingdone", onFontsLoaded);
       for (const entry of entries) entry.el.remove();
       entries.length = 0;
