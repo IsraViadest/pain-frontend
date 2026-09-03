@@ -38,6 +38,9 @@ interface LabelEntry {
   el: HTMLElement;
   nativeEl: HTMLElement;
   englishEl: HTMLElement;
+  /** Whether the two lines currently carry the same word. Depends on `englishText`, so it is
+   *  recomputed whenever the English strings are rewritten. */
+  linesIdentical: boolean;
   /** The two English strings a label can show, so `englishText` switches without a rebuild. */
   englishCategory: string;
   englishGloss: string;
@@ -162,6 +165,7 @@ export async function createEmoLabelLayer(options: {
       el,
       nativeEl,
       englishEl,
+      linesIdentical: false,
       englishCategory,
       englishGloss,
       score: country.score,
@@ -199,6 +203,8 @@ export async function createEmoLabelLayer(options: {
       const english = params.englishText === "gloss" ? entry.englishGloss : entry.englishCategory;
       entry.englishEl.textContent = english;
       if (!entry.hasNative) entry.nativeEl.textContent = english;
+      entry.linesIdentical =
+        (entry.nativeEl.textContent ?? "").trim().toLowerCase() === english.trim().toLowerCase();
     }
   }
 
@@ -449,6 +455,12 @@ export async function createEmoLabelLayer(options: {
         showEnglish = wasNative || !entry.hasNative;
       }
 
+      // Both lines saying the same word is not a bilingual pair, it is the word twice. The native
+      // line is the one kept, so the label keeps its weight and its script class.
+      if (params.identicalLines === "one" && entry.linesIdentical && showNative && showEnglish) {
+        showEnglish = false;
+      }
+
       entry.nativeEl.style.display = showNative ? "" : "none";
       entry.englishEl.style.display = showEnglish ? "" : "none";
       entry.englishEl.classList.toggle("emo-label__english--secondary", showNative && showEnglish);
@@ -486,7 +498,8 @@ export async function createEmoLabelLayer(options: {
   return {
     update,
     setParams(next: EmoViewParams): void {
-      const englishChanged = next.englishText !== params.englishText;
+      const englishChanged =
+        next.englishText !== params.englishText || next.identicalLines !== params.identicalLines;
       // A preset that does not select must not leave a stale selection dimming the globe.
       if (next.clickMode !== "selectNetwork" && selected !== null) {
         selected = null;

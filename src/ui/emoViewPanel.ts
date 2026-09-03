@@ -57,6 +57,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "English text",
     hint: "The category label, or the gloss of the native term. 155 of 195 differ, and glosses are much longer.",
   },
+  identicalLines: {
+    label: "Same word twice",
+    hint: "32 of 195 labels carry the same word on both lines: 29 English-speaking countries plus the 3 lexicon gaps. one draws it once.",
+  },
   clickMode: {
     label: "Click does",
     hint: "toggleLanguage swaps one label. selectNetwork shows that country's category network. reshuffleNetwork redraws a new random world network.",
@@ -87,7 +91,7 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Language and interaction",
     defaultOpen: true,
-    selects: ["labelMode", "englishText", "clickMode"],
+    selects: ["labelMode", "englishText", "identicalLines", "clickMode"],
     sliders: [],
   },
   {

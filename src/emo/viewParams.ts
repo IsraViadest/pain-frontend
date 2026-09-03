@@ -13,6 +13,14 @@ export interface EmoViewParams {
   /** Which English string to use: the short category label, or the gloss of the native term. */
   englishText: "category" | "gloss";
   /**
+   * What a bilingual label does when both of its lines carry the same word.
+   *
+   * 32 of the 195 countries are in that position: 29 whose primary language is English, plus the
+   * 3 lexicon gaps that fall back to it. `one` draws the native line alone rather than printing
+   * "Grief" above "Grief". It frees no room, measured; it just stops the label saying it twice.
+   */
+  identicalLines: "both" | "one";
+  /**
    * What a click does. These compete for the same target, so a preset picks one.
    * `reshuffleNetwork` redraws a random world network with the next seed.
    */
@@ -101,6 +109,8 @@ export interface EmoViewParams {
 export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   labelMode: "english",
   englishText: "category",
+  // Off by default, so every preset that predates it renders exactly as it did.
+  identicalLines: "both",
   clickMode: "off",
 
   // Matches the incumbent word cloud's 1.11 standoff at the far end, and descends toward the
@@ -156,6 +166,7 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
 export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] } = {
   labelMode: ["english", "native", "bilingual", "focal"],
   englishText: ["category", "gloss"],
+  identicalLines: ["both", "one"],
   clickMode: ["off", "toggleLanguage", "selectNetwork", "reshuffleNetwork"],
   networkMode: ["off", "all", "selected", "connected"],
   worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
