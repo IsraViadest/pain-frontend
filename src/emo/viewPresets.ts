@@ -12,7 +12,22 @@
  * variants. Round v3 is the density round: the overlap rule, and the category shells. Round v4 is
  * the operator's round, built from a written brief (docs/emo-views/brief.md) and from the choices
  * made against it. Round v5 is the operator's second round, built from their own list of what was
- * wrong with v4 and what to try instead. The registry accumulates; nothing here is ever edited.
+ * wrong with v4 and what to try instead. Round v6 answers four questions with one named change
+ * each. Round v7 is the operator's third round: the answers to those four, plus the inversion of
+ * the lift into a sink and the network spreading out from whatever is clicked. The registry
+ * accumulates; nothing here is ever edited.
+ *
+ * WHAT ROUND v7 SETTLES, so it is not asked again. The depth fade is cubic (v6-f). `selectionDim`
+ * stays at 0.75, because 0.25 was judged too strong, which also leaves the second rendering pass
+ * unbuilt. The lift is not the shape of the gesture: the chosen category holds its height and the
+ * world steps back from it instead, because a lift pushes the thing being looked at out of frame
+ * when the camera is close. The step is eased, not instant.
+ *
+ * WHAT ROUND v7 INHERITS WITHOUT ASKING. Two fixes apply to every preset here, older ones
+ * included, because a fix is not a value: the page's chrome no longer takes a text selection, and
+ * a selection is cleared when the globe leaves the emotional layer instead of staying drawn on
+ * the environmental, physical and socio-economic ones. Every animated parameter defaults to 0, so
+ * every preset that predates this round is unchanged, verified at 0.00 percent of pixels.
  *
  * WHAT ROUND v5 INHERITS WITHOUT ASKING. Four defects were fixed in the code rather than in a
  * parameter, so they apply to every preset here including the older ones: arcs no longer bead at
@@ -912,17 +927,269 @@ export const EMO_PRESETS: EmoPreset[] = [
       labelDepthFadeCurve: 3,
     },
   },
+  {
+    id: "v7-a_base",
+    title: "Round v7 base: the world steps back",
+    note:
+      "v6-f's cubic depth fade, which the operator chose, with the lift replaced by its inverse. " +
+      "The clicked category holds its height and everything else sinks 0.4 of its own height " +
+      "toward the planet over 320 ms, so zooming in and clicking no longer pushes the thing " +
+      "being looked at out of frame: India moves 0.00 px, measured, while its neighbours move " +
+      "4.7 px near the middle of the disc and 28 to 30 px at the limb. The network then grows " +
+      "outward from that country breadth first over 900 ms, and each label comes up as the " +
+      "front reaches it. Arcs raised from 1.060 to 1.100, which a measured 32.48 px label puts " +
+      "on the lower third of the word and just above the leader tip at 1.098. The emphasis step " +
+      "is cut from 1.22 to 1.12 and the English subtitle no longer grows at all.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+    },
+  },
+  {
+    id: "v7-b_arcs-lower",
+    title: "Base, network just under the leader tip",
+    note:
+      "v7-a with arcLift at 1.090 rather than 1.100, which is the other side of a 0.010 radius, " +
+      "about 5 screen pixels. The brief asked for two things that the measured label height " +
+      "makes almost the same point: above the leader tip at 1.098, and on the lower third of the " +
+      "word at 1.100. This is the reading that keeps the network clear of the text instead.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.09,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+    },
+  },
+  {
+    id: "v7-c_big-type",
+    title: "Base at the old emphasised size",
+    note:
+      "v7-a with the resting type at the size an emphasised label used to be drawn at: 14 by 1.22 " +
+      "is 17.08, so 17 and 14.5 replace 14 and 12. The operator asked to see the default at the " +
+      "boldened size. It is a real trade rather than a free improvement: bigger type is more " +
+      "legible per label and collides more, and decluttering stays off through this round, so " +
+      "every facing label is still drawn.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 17,
+      fontPxNear: 14.5,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+    },
+  },
+  {
+    id: "v7-d_sink-deep",
+    title: "Base, the world steps further back",
+    note:
+      "v7-a with selectionSink at 0.65 rather than 0.4, so the unchosen categories give up nearly " +
+      "two thirds of their height instead of two fifths. The separation is bought entirely at the " +
+      "limb, where a radial move is in the plane of the screen; near the middle of the disc it is " +
+      "along the view axis and shows as almost nothing whatever the value.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.65,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+    },
+  },
+  {
+    id: "v7-e_spread-fast",
+    title: "Base, the network arrives sooner",
+    note:
+      "v7-a with the sweep at 450 ms and the step down at 220 ms. The brief said under two " +
+      "seconds and maybe under one; this is the fast end of that. At four depth steps the " +
+      "wavefront moves every 113 ms here against every 225 ms in v7-a, which is the difference " +
+      "between reading the spread and simply noticing it.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 220,
+      selectionSpreadMs: 450,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+    },
+  },
+  {
+    id: "v7-f_no-motion",
+    title: "Base with nothing animated",
+    note:
+      "v7-a with both durations at 0, so the step down and the whole network land in one frame. " +
+      "It exists so the animation is judged against its own absence rather than against the " +
+      "older lift, the way v6-b did for the lift. At rest it is pixel identical to v7-a, which " +
+      "is what makes it a fair control: only the gesture differs.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 0,
+      selectionSpreadMs: 0,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+    },
+  },
 ];
 
 /**
- * Opens on the round v6 base: the round v5 mark the operator chose, the emphasis they chose, the
- * halo they adopted, and the lift they asked for, all at once.
+ * Opens on the round v7 base: the cubic depth fade the operator chose, the lift inverted into a
+ * sink, both eased, and the network spreading out from whatever is clicked.
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
- * `v1-c_bilingual`, `v4-a_base-bilingual` and `v5-a_base-delaunay` were the previous defaults and
- * remain reachable by id, as everything here does.
+ * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay` and `v6-a_base` were the previous
+ * defaults and remain reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v6-a_base";
+export const DEFAULT_EMO_PRESET_ID = "v7-a_base";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
