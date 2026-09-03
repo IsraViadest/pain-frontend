@@ -77,6 +77,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Category graph",
     hint: "How countries sharing a pain category are joined. complete links all to all; gabriel and delaunay never cross themselves.",
   },
+  leaderLines: {
+    label: "Leader lines",
+    hint: "A hairline from each country up to its own label, so a word over a crowded region is visibly attached. Uses the arc width and opacity.",
+  },
   colourMode: {
     label: "Colour",
     hint: "family groups the 14 categories into 5 bright violets and pinks. category gives all 14 their own hue.",
@@ -130,7 +134,7 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Network arcs",
     defaultOpen: false,
-    selects: ["networkMode", "worldGraph", "categoryGraph"],
+    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines"],
     sliders: [
       { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest neighbours each country links to. Only used by the knn and random rules." },
       { key: "randomSeed", label: "Random seed", min: 1, max: 200, step: 1, decimals: 0, hint: "Which random world network to draw. Click does reshuffleNetwork steps this for you." },

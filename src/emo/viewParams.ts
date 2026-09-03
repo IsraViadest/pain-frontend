@@ -82,6 +82,11 @@ export interface EmoViewParams {
   /** Arc width in world units, so it is a fraction of the globe radius rather than pixels. */
   arcWidth: number;
   arcOpacity: number;
+  /**
+   * A hairline from each country up to its own label, so a word floating over a crowded region
+   * is visibly attached to the country it names. Uses `arcWidth` and `arcOpacity`.
+   */
+  leaderLines: "off" | "on";
   /** Opacity multiplier applied to every label except the selected one. */
   selectionDim: number;
   /** Alpha of the wash filling the selected country. */
@@ -146,6 +151,8 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   arcEndTrimDeg: 1.5,
   arcWidth: 0.0025,
   arcOpacity: 0.55,
+  // Off by default, so every preset that predates them renders exactly as it did.
+  leaderLines: "off",
   selectionDim: 0.25,
   selectionFill: 0.18,
   // Flat by default, so the 16 presets that predate the shells are unchanged.
@@ -175,6 +182,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   networkMode: ["off", "all", "selected", "connected"],
   worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
   categoryGraph: ["knn", "complete", "gabriel", "delaunay"],
+  leaderLines: ["off", "on"],
   colourMode: ["white", "family", "category"],
   declutterMode: ["off", "priority"],
 };

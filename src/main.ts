@@ -58,6 +58,7 @@ import { loadEmoData } from "./emo/emoData";
 import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
 import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
 import { createEmoSelectionLayer, type EmoSelectionLayer } from "./emo/selection";
+import { createEmoLeaderLineLayer, type EmoLeaderLineLayer } from "./emo/leaderLines";
 import {
   shouldShowEmoViews,
   shouldOpenEmoPanel,
@@ -434,6 +435,7 @@ const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
 const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
 let emoLabelLayer: EmoLabelLayer | null = null;
 let emoArcLayer: EmoArcLayer | null = null;
+let emoLeaderLineLayer: EmoLeaderLineLayer | null = null;
 let emoSelectionLayer: EmoSelectionLayer | null = null;
 const emoView = resolveEmoViewFromUrl();
 let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
@@ -455,6 +457,7 @@ function syncEmoLayer(layerId: string): void {
   const sprites = active && emoPreset?.useIncumbentSprites === true;
   emoLabelHost.hidden = !active || sprites;
   emoArcLayer?.setVisible(active && !sprites);
+  emoLeaderLineLayer?.setVisible(active && !sprites);
   if (active) {
     globe.setWordCloudEnabled(sprites);
   }
@@ -641,6 +644,7 @@ function loop(): void {
   globe.tick();
   emoLabelLayer?.update();
   emoArcLayer?.update();
+  emoLeaderLineLayer?.update();
   requestAnimationFrame(loop);
 }
 
@@ -669,6 +673,11 @@ function loop(): void {
         data: await loadEmoData(),
         params: emoView.params,
       });
+      emoLeaderLineLayer = await createEmoLeaderLineLayer({
+        globe,
+        data: await loadEmoData(),
+        params: emoView.params,
+      });
       emoSelectionLayer = await createEmoSelectionLayer({
         globe,
         data: await loadEmoData(),
@@ -684,6 +693,7 @@ function loop(): void {
           emoParams = params;
           emoLabelLayer?.setParams(params);
           emoArcLayer?.setParams(params);
+          emoLeaderLineLayer?.setParams(params);
           emoSelectionLayer?.setParams(params);
           syncEmoLayer(lastLayerId);
         },
