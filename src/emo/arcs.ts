@@ -30,6 +30,7 @@ import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/country
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import { buildCategoryGraph, buildWorldGraph } from "./graphs";
+import { applyEmoFacingFade, makeEmoFadeUniform, updateEmoFadeUniform } from "./facingFade";
 import { emoArcRadius, emoCategoryShells, emoZoomRamp } from "./layout";
 
 /**
@@ -110,6 +111,7 @@ export async function createEmoArcLayer(options: {
 
   const resolution = new THREE.Vector2(1, 1);
   const meshes = new Map<string, LineSegments2>();
+  const fadeUniform = makeEmoFadeUniform(params);
   // The world network spans every category, so it stays on the base shell rather than picking one.
   const categoryShell = emoCategoryShells(data);
   const shellOf = (key: string): number => categoryShell.get(key) ?? 0;
@@ -127,6 +129,9 @@ export async function createEmoArcLayer(options: {
       depthTest: true,
       depthWrite: false,
     });
+    // Depth alone leaks a ring of far-side arc past the globe's silhouette, so the alpha follows
+    // the labels' own limb fade. See facingFade.ts for why the depth mask cannot cover it.
+    applyEmoFacingFade(material, fadeUniform);
     const mesh = new LineSegments2(new LineSegmentsGeometry(), material);
     mesh.renderOrder = 3;
     group.add(mesh);
@@ -264,6 +269,7 @@ export async function createEmoArcLayer(options: {
         next.categoryGraph !== params.categoryGraph ||
         next.randomSeed !== params.randomSeed;
       params = next;
+      updateEmoFadeUniform(fadeUniform, next);
       syncVisibility();
       for (const mesh of meshes.values()) {
         const material = mesh.material as LineMaterial;
