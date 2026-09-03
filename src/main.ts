@@ -59,6 +59,7 @@ import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
 import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
 import { createEmoSelectionLayer, type EmoSelectionLayer } from "./emo/selection";
 import { createEmoLeaderLineLayer, type EmoLeaderLineLayer } from "./emo/leaderLines";
+import { createEmoSelectionMotion, type EmoSelectionMotion } from "./emo/selectionMotion";
 import {
   shouldShowEmoViews,
   shouldOpenEmoPanel,
@@ -437,6 +438,7 @@ let emoLabelLayer: EmoLabelLayer | null = null;
 let emoArcLayer: EmoArcLayer | null = null;
 let emoLeaderLineLayer: EmoLeaderLineLayer | null = null;
 let emoSelectionLayer: EmoSelectionLayer | null = null;
+let emoMotion: EmoSelectionMotion | null = null;
 const emoView = resolveEmoViewFromUrl();
 let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 let emoParams = emoView.params;
@@ -460,7 +462,12 @@ function syncEmoLayer(layerId: string): void {
   // the leader lines are scene objects, and a selection made here would otherwise still be
   // marking countries on an environmental or physical globe that never asked for it. Coming back
   // therefore starts clean, and the country has to be clicked again.
-  if (!active || sprites) emoLabelLayer?.clearSelection();
+  if (!active || sprites) {
+    emoLabelLayer?.clearSelection();
+    // Snap rather than ease. A layer switch is not a gesture on the globe, and easing it would
+    // leave a half-sunk world on screen for anyone who switched back inside the transition.
+    emoMotion?.reset();
+  }
   emoLabelHost.hidden = !active || sprites;
   emoArcLayer?.setVisible(active && !sprites);
   emoLeaderLineLayer?.setVisible(active && !sprites);
@@ -648,6 +655,8 @@ async function loadPoints(): Promise<void> {
 // --- render loop + initial API bootstrap ---
 function loop(): void {
   globe.tick();
+  // Before the three layers, so none of them sees a different instant of the same animation.
+  emoMotion?.tick();
   emoLabelLayer?.update();
   emoArcLayer?.update();
   emoLeaderLineLayer?.update();
@@ -658,19 +667,21 @@ function loop(): void {
   initBackgroundMusic();
   if (emoViewsEnabled && emoLabelHost && emoPanelHost && emoPanelToggle) {
     try {
+      emoMotion = createEmoSelectionMotion({ data: await loadEmoData(), params: emoView.params });
       emoLabelLayer = await createEmoLabelLayer({
         host: emoLabelHost,
         globe,
         data: await loadEmoData(),
         params: emoView.params,
+        motion: emoMotion,
         // The label layer owns the selection because it owns the click; the arcs and the
         // country fill are told from here.
         onSelect: (selection) => {
           emoArcLayer?.setSelectedCategory(selection?.cat ?? null);
           emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
-          // The leader lines need it only for selectionLift, which raises the heads of the
-          // selected category alone.
-          emoLeaderLineLayer?.setSelectedCategory(selection?.cat ?? null);
+          // The leader lines are not told directly: they follow the motion, which is the one
+          // signal all three layers share, so they cannot disagree about what is selected.
+          emoMotion?.setSelection(selection?.cat ?? null);
         },
         // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
         onReshuffle: () => {
@@ -681,11 +692,13 @@ function loop(): void {
         globe,
         data: await loadEmoData(),
         params: emoView.params,
+        motion: emoMotion,
       });
       emoLeaderLineLayer = await createEmoLeaderLineLayer({
         globe,
         data: await loadEmoData(),
         params: emoView.params,
+        motion: emoMotion,
       });
       emoSelectionLayer = await createEmoSelectionLayer({
         globe,
@@ -704,6 +717,7 @@ function loop(): void {
           emoArcLayer?.setParams(params);
           emoLeaderLineLayer?.setParams(params);
           emoSelectionLayer?.setParams(params);
+          emoMotion?.setParams(params);
           syncEmoLayer(lastLayerId);
         },
         onMinimise: () => setEmoPanelOpen(false),

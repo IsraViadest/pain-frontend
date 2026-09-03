@@ -27,15 +27,28 @@ export function emoLabelStandoff(near: number, params: EmoViewParams): number {
 }
 
 /**
- * Radius the base shell's arcs ride at.
+ * The same standoff after a selection has stepped this category back toward the planet.
+ *
+ * `sink` is the fraction of the label's own height above the surface that is given up, not a
+ * radius, which is what makes it scale free: 1 lands the label on the surface at every zoom, and
+ * no value can push it inside. A fixed offset cannot have both properties, because
+ * `standoffNear` leaves only 0.015 of a radius to give up while `standoffFar` leaves 0.11.
+ */
+export function emoSunkStandoff(standoff: number, sink: number): number {
+  return 1 + (standoff - 1) * (1 - sink);
+}
+
+/**
+ * Radius the base shell's arcs ride at, for a standoff the labels are already using.
  *
  * Expressed as the arc's share of the label's height above the surface rather than as a fixed
  * radius, so the arc keeps its place under the text at every zoom instead of rising through it.
- * `arcLift` therefore still means exactly what it says at the far end of the ramp.
+ * `arcLift` therefore still means exactly what it says at the far end of the ramp. It takes the
+ * standoff rather than the ramp position so that a sunk category's arcs sink with its labels.
  */
-export function emoArcRadius(near: number, params: EmoViewParams): number {
+export function emoArcRadius(standoff: number, params: EmoViewParams): number {
   const share = (params.arcLift - 1) / (params.standoffFar - 1 || 1);
-  return 1 + (emoLabelStandoff(near, params) - 1) * share;
+  return 1 + (standoff - 1) * share;
 }
 
 /**

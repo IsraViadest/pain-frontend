@@ -31,7 +31,8 @@ import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import { buildCategoryGraph, buildWorldGraph } from "./graphs";
 import { applyEmoFacingFade, makeEmoFadeUniform, updateEmoFadeUniform } from "./facingFade";
-import { emoArcRadius, emoCategoryShells, emoZoomRamp } from "./layout";
+import { emoArcRadius, emoCategoryShells, emoLabelStandoff, emoSunkStandoff, emoZoomRamp } from "./layout";
+import type { EmoSelectionMotion } from "./selectionMotion";
 
 /**
  * Degrees of arc per subdivision. A constant, not a parameter: it trades vertex count against
@@ -109,8 +110,10 @@ export async function createEmoArcLayer(options: {
   globe: GlobeView;
   data: EmoData;
   params: EmoViewParams;
+  /** The eased per-category state a selection puts the globe into. See selectionMotion.ts. */
+  motion: EmoSelectionMotion;
 }): Promise<EmoArcLayer> {
-  const { globe, data } = options;
+  const { globe, data, motion } = options;
   let params = options.params;
 
   await ensureCountryCentroidsLoaded();
@@ -293,13 +296,19 @@ export async function createEmoArcLayer(options: {
       }
       // The geometry is on the unit sphere, so the radius is the scale. The base follows the
       // labels' own ramp, and each category is lifted onto its own shell above it.
-      const base = emoArcRadius(emoZoomRamp(globe.camera.position.length(), params), params);
+      const standoff = emoLabelStandoff(emoZoomRamp(globe.camera.position.length(), params), params);
       for (const [key, mesh] of meshes) {
-        // The selected category's network rises with its own labels. The lift is added raw
-        // rather than scaled by the arc's share of the standoff, so the gap the arcs keep under
-        // the text is exactly preserved and the network cannot rise through it.
-        const selectionLift = key === selectedCat ? params.selectionLift : 0;
-        mesh.scale.setScalar(base + shellOf(key) * params.multiplexSpread + selectionLift);
+        // Each category's network follows its own labels exactly: down with them while another
+        // category is chosen, up with them while this one is. The lift is added raw rather than
+        // scaled by the arc's share of the standoff, so the gap the arcs keep under the text is
+        // exactly preserved and the network cannot rise through it. The world mesh is not a
+        // category, so both fractions read 0 for it and it stays on the base shell.
+        const sunk = emoSunkStandoff(standoff, params.selectionSink * motion.recedeOf(key));
+        mesh.scale.setScalar(
+          emoArcRadius(sunk, params) +
+            shellOf(key) * params.multiplexSpread +
+            params.selectionLift * motion.emphasisOf(key),
+        );
       }
     },
     setParams(next: EmoViewParams): void {

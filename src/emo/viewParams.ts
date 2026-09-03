@@ -159,6 +159,35 @@ export interface EmoViewParams {
   /** Alpha of the wash filling the countries of the selected pain category. */
   selectionFill: number;
   /**
+   * How far every OTHER pain category steps down toward the planet while one is selected, as a
+   * fraction of the label's own height above the surface.
+   *
+   * THE INVERSE OF THE LIFT, AND THE OPERATOR'S PREFERRED READING OF IT. `selectionLift` raises
+   * the chosen category, which pushes it out of frame when the camera is close: the thing being
+   * looked at is the thing that moves. This lowers everything else instead, so the chosen
+   * category stays exactly where it was and the world steps back from it.
+   *
+   * A FRACTION, NOT A RADIUS, and deliberately unlike `selectionLift`. A fixed offset large
+   * enough to read at the far stop would push labels through the surface at the near one, where
+   * `standoffNear` leaves only 0.015 of a radius to give up. Expressed as a share of that height,
+   * 1 lands the labels on the surface at every zoom and no value can push them inside it. The
+   * cost is honest and worth stating: the step is subtle when the camera is close, because the
+   * labels are already close to the ground there, and the dim and the size step carry the
+   * distinction at that range instead.
+   *
+   * 0 is the behaviour of every preset that predates it.
+   */
+  selectionSink: number;
+  /**
+   * How long the step down, the step up and the dim take, in milliseconds.
+   *
+   * 0 is the instant jump that shipped, so every preset that predates this is unchanged. The
+   * curve is ease-out cubic, retargeted from wherever a track currently is, so clicking a second
+   * category mid-move continues from the real position rather than snapping back. See
+   * selectionMotion.ts for why this is per-category state and not one number.
+   */
+  selectionMotionMs: number;
+  /**
    * Width of the outline drawn round those countries, in texels of the 2048 by 1024 highlight
    * map, which is about 1.7 screen pixels each at the gallery camera. 0 draws no outline, so a
    * preset chooses a wash, a thickened border, or both.
@@ -279,6 +308,9 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   // Flat by default, so every preset that predates the lift is unchanged.
   selectionLift: 0,
   selectionFill: 0.18,
+  // Both off, so every preset that predates them keeps the instant, flat selection that shipped.
+  selectionSink: 0,
+  selectionMotionMs: 0,
   // All three keep the behaviour that shipped: a white wash, no outline, and dimming the rest.
   selectionOutline: 0,
   selectionStyle: "wash",

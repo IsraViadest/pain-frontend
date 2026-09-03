@@ -40,7 +40,8 @@ import { latLngToVector3 } from "../globe/latLng";
 import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/countryCentroids";
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
-import { emoCategoryShells, emoLabelStandoff, emoZoomRamp } from "./layout";
+import { emoCategoryShells, emoLabelStandoff, emoSunkStandoff, emoZoomRamp } from "./layout";
+import type { EmoSelectionMotion } from "./selectionMotion";
 import { applyEmoFacingFade, makeEmoFadeUniform, updateEmoFadeUniform } from "./facingFade";
 
 
@@ -67,11 +68,6 @@ export interface EmoLeaderLineLayer {
   setParams(next: EmoViewParams): void;
   /** Whether the emotional views own the globe right now, independent of the `leaderLines` flag. */
   setVisible(visible: boolean): void;
-  /**
-   * The pain category currently selected, whose heads take `selectionLift`. The layer needs this
-   * only because of the lift: before it existed, a leader line did not care what was clicked.
-   */
-  setSelectedCategory(cat: string | null): void;
   destroy(): void;
 }
 
@@ -79,8 +75,10 @@ export async function createEmoLeaderLineLayer(options: {
   globe: GlobeView;
   data: EmoData;
   params: EmoViewParams;
+  /** The eased per-category state a selection puts the globe into. See selectionMotion.ts. */
+  motion: EmoSelectionMotion;
 }): Promise<EmoLeaderLineLayer> {
-  const { globe, data } = options;
+  const { globe, data, motion } = options;
   let params = options.params;
 
   await ensureCountryCentroidsLoaded();
@@ -127,25 +125,32 @@ export async function createEmoLeaderLineLayer(options: {
   // control that does nothing is worse than no control.
   let lastFoot = Number.NaN;
   let lastLift = Number.NaN;
+  let lastSink = Number.NaN;
   /**
-   * The selection the current geometry was built for.
+   * The motion revision the current geometry was built at, which is this layer's whole selection
+   * signal. It replaced a locally tracked selected category, because two signals for one fact is
+   * how they come to disagree.
    *
-   * Tracked separately from the lift because the two are not the same signal: clicking one
-   * category and then another leaves `selectionLift` at exactly the value it already had, so a
-   * condition watching only the number would leave the first category's lines standing at the
-   * lifted height and the second category's still on the surface. This is the fourth time in
-   * this feature that a value which is recomputed to the same number has been mistaken for an
-   * invalidation signal; see failure 25.
+   * A revision rather than an "is it moving" flag, because the two differ on exactly the frame
+   * that matters: a track reaches its target and stops moving in the same tick, so a condition
+   * asking whether it is moving would skip the rebuild that lands the final position and leave
+   * every head one frame short. That is failure 25 again, in its fifth guise in this feature.
    */
-  let lastSelectedCat: string | null | undefined;
-  let selectedCat: string | null = null;
+  let lastMotionRevision = -1;
 
   function rebuild(standoff: number): void {
     const foot = params.leaderFoot;
     for (let i = 0; i < nodes.length; i++) {
       const { dir, shell, cat } = nodes[i]!;
-      const lift = cat === selectedCat ? params.selectionLift : 0;
-      const head = Math.max(foot, standoff + shell * params.multiplexSpread + lift - HEAD_GAP);
+      // A head follows its own label, which is what makes "leave the leader lines where they are"
+      // true only of the chosen category: everything else sinks, and a head that stayed put would
+      // leave its tip standing through the text it used to point at.
+      const sunk = emoSunkStandoff(standoff, params.selectionSink * motion.recedeOf(cat));
+      const head = Math.max(
+        foot,
+        sunk + shell * params.multiplexSpread + params.selectionLift * motion.emphasisOf(cat) -
+          HEAD_GAP,
+      );
       const o = i * 6;
       positions[o] = dir.x * foot;
       positions[o + 1] = dir.y * foot;
@@ -169,7 +174,8 @@ export async function createEmoLeaderLineLayer(options: {
     lastSpread = params.multiplexSpread;
     lastFoot = foot;
     lastLift = params.selectionLift;
-    lastSelectedCat = selectedCat;
+    lastSink = params.selectionSink;
+    lastMotionRevision = motion.revision();
   }
 
   function syncVisibility(layerVisible: boolean): void {
@@ -197,7 +203,8 @@ export async function createEmoLeaderLineLayer(options: {
         params.multiplexSpread !== lastSpread ||
         params.leaderFoot !== lastFoot ||
         params.selectionLift !== lastLift ||
-        selectedCat !== lastSelectedCat
+        params.selectionSink !== lastSink ||
+        motion.revision() !== lastMotionRevision
       ) {
         rebuild(standoff);
       }
@@ -212,9 +219,6 @@ export async function createEmoLeaderLineLayer(options: {
     setVisible(next: boolean): void {
       visible = next;
       syncVisibility(visible);
-    },
-    setSelectedCategory(cat: string | null): void {
-      selectedCat = cat;
     },
     destroy(): void {
       geometry.dispose();

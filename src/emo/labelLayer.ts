@@ -18,7 +18,8 @@ import { latLngToVector3 } from "../globe/latLng";
 import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/countryCentroids";
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
-import { emoCategoryShells, emoLabelStandoff, emoZoomRamp, ramp } from "./layout";
+import { emoCategoryShells, emoLabelStandoff, emoSunkStandoff, emoZoomRamp, ramp } from "./layout";
+import type { EmoSelectionMotion } from "./selectionMotion";
 
 /**
  * Which country is selected, and the category whose network that reveals.
@@ -146,6 +147,8 @@ export async function createEmoLabelLayer(options: {
   globe: GlobeView;
   data: EmoData;
   params: EmoViewParams;
+  /** The eased per-category state a selection puts the globe into. See selectionMotion.ts. */
+  motion: EmoSelectionMotion;
   /**
    * Fired when `clickMode: "selectNetwork"` changes the selection. The layer owns the selection,
    * because it owns the click; the arc layer and the country fill are told through this.
@@ -154,7 +157,7 @@ export async function createEmoLabelLayer(options: {
   /** Fired when `clickMode: "reshuffleNetwork"` asks for a different random world network. */
   onReshuffle?: () => void;
 }): Promise<EmoLabelLayer> {
-  const { host, globe, data } = options;
+  const { host, globe, data, motion } = options;
   let params = options.params;
 
   await ensureCountryCentroidsLoaded();
@@ -334,6 +337,8 @@ export async function createEmoLabelLayer(options: {
    * for this, because update() restores it to the same quantised value before a sweep reads it.
    */
   let measureDirty = true;
+  /** The motion revision the cached label boxes were measured at. See the sweep below. */
+  let lastMotionRevision = -1;
   /** One log line per view rather than ten a second, so the drawn count can be compared. */
   let logNextSweep = true;
   let lastFrameMs = -1;
@@ -479,16 +484,21 @@ export async function createEmoLabelLayer(options: {
         continue;
       }
 
-      // Whether this label belongs to the category that was clicked. Computed here rather than
-      // beside the emphasis below, because the lift needs it before the projection.
-      const inCategory = selectedCat !== null && entry.cat === selectedCat;
       // Each pain category rides its own shell, so at a non-zero spread the globe gains 14
       // stratified layers of text. At spread 0 this is exactly the single shared standoff.
-      // The selected category rides one step higher again, which also raises its depth bucket
-      // below, so it tends to paint over its unlifted neighbours. It does not put the arcs in
-      // front of the text; nothing can. See selectionLift in viewParams.ts.
+      // A lifted category also raises its depth bucket below, so it tends to paint over its
+      // unlifted neighbours. It does not put the arcs in front of the text; nothing can. See
+      // selectionLift in viewParams.ts.
+      //
+      // Two eased per-category fractions decide where this label sits: `recede` steps it down
+      // toward the planet while some other category is chosen, and `emphasis` raises it while
+      // this one is. Both are 0 at rest, so a preset with neither is exactly what shipped.
+      const recede = motion.recedeOf(entry.cat);
+      const emphasisAt = motion.emphasisOf(entry.cat);
       const lift =
-        standoff + entry.shell * params.multiplexSpread + (inCategory ? params.selectionLift : 0);
+        emoSunkStandoff(standoff, params.selectionSink * recede) +
+        entry.shell * params.multiplexSpread +
+        params.selectionLift * emphasisAt;
       // Projected and laid out even while fully faded away, because the sweep needs a current
       // box and position to decide whether this label can come back.
       world.set(x * lift, dir.y * lift, z * lift).project(camera);
@@ -574,7 +584,12 @@ export async function createEmoLabelLayer(options: {
       // The whole category stays lit, not just the country clicked. Only the rest steps back.
       // Two ways of making a selection legible, and a preset can ask for either or both. `bold`
       // is the operator's alternative to dimming: leave the rest alone and enlarge the category.
-      const emphasise = inCategory && params.selectionEmphasis !== "dim";
+      // The size follows the eased fraction rather than `inCategory`, so a category that has
+      // just been deselected shrinks back instead of snapping. The weight, which has no
+      // in-between, flips at the midpoint of that same move.
+      const wantsEmphasis = params.selectionEmphasis !== "dim";
+      const arrive = wantsEmphasis ? Math.round(emphasisAt * 1000) / 1000 : 0;
+      const emphasise = arrive > 0.5;
       if (emphasise !== entry.emphasised) {
         entry.emphasised = emphasise;
         el.classList.toggle("emo-label--emphasis", emphasise);
@@ -582,7 +597,6 @@ export async function createEmoLabelLayer(options: {
       // The size step is two multipliers written per label, not one written on the host: the main
       // lines and the smaller English line beneath them scale by different amounts, so a preset
       // can grow the word while its subtitle stays where it is. Written only on change.
-      const arrive = emphasise ? 1 : 0;
       if (arrive !== entry.emphasisArrive) {
         entry.emphasisArrive = arrive;
         const grow = (scale: number): string => (1 + (scale - 1) * arrive).toFixed(3);
@@ -590,8 +604,7 @@ export async function createEmoLabelLayer(options: {
         el.style.setProperty("--emo-emphasis-second", grow(params.selectionEmphasisSecondScale));
       }
       const dimming = params.selectionEmphasis !== "bold";
-      const dim =
-        dimming && selectedCat !== null && !inCategory ? params.selectionDim : 1;
+      const dim = dimming ? 1 + (params.selectionDim - 1) * recede : 1;
       // A plain ramp across the hemisphere, unlike `fade`, which only acts near the limb.
       const depth = Math.max(
         0,
@@ -600,6 +613,13 @@ export async function createEmoLabelLayer(options: {
       el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;
       el.style.opacity = (fade * dim * depth * entry.declutterAlpha).toFixed(3);
       el.style.setProperty("--emo-grey", grey.toFixed(3));
+    }
+
+    // Every box in a moving category is the wrong size until the move settles, and the sweep's
+    // cached measurements are the only thing that would not notice.
+    if (motion.revision() !== lastMotionRevision) {
+      lastMotionRevision = motion.revision();
+      measureDirty = true;
     }
 
     if (declutterOn && now - lastSweepMs >= DECLUTTER_SWEEP_MS) {
