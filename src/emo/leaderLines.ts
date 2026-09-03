@@ -15,6 +15,20 @@
  *
  * Parented to `globe.earthContent` so it inherits the spin, and faded round the back on the same
  * two parameters as the labels and the arcs. See facingFade.ts.
+ *
+ * THE FOOT GOES THROUGH THE SURFACE, NOT ONTO IT. In all-layers mode the pain scars dent the globe
+ * inward, measured at up to about 0.08 of a radius where a country is deeply marked, so a foot
+ * placed just above the undented sphere hangs in space over its own country. Rather than track the
+ * dent, which would mean duplicating GlobeView's scar field, the line simply starts below every
+ * possible dent and lets the depth buffer cut it: the globe mesh writes depth in the opaque pass,
+ * as an invisible mask at 0.994 of the warped shell in all-layers mode and as the solid textured
+ * sphere otherwise, and these lines test against it. The line therefore always reaches the centre
+ * of the country and is never seen inside it. `leaderFoot` is the parameter, and 1.004 keeps the
+ * old behaviour for every preset that predates it.
+ *
+ * The one case this does not cover is documented rather than handled: if the choropleth fails to
+ * load in all-layers mode, `getAutoGlobeVisible()` turns the globe mesh off, nothing writes depth,
+ * and a foot below the surface would show through the planet.
  */
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -28,8 +42,6 @@ import type { EmoViewParams } from "./viewParams";
 import { emoCategoryShells, emoLabelStandoff, emoZoomRamp } from "./layout";
 import { applyEmoFacingFade, makeEmoFadeUniform, updateEmoFadeUniform } from "./facingFade";
 
-/** Clear of the choropleth at 1.001 and the selection wash at 1.0025, so nothing z-fights. */
-const FOOT_RADIUS = 1.004;
 
 /**
  * How far below the label's own radius the line stops, in globe radii. At the gallery camera the
@@ -80,11 +92,11 @@ export async function createEmoLeaderLineLayer(options: {
   const fadeUniform = makeEmoFadeUniform(params);
   const material = new LineMaterial({
     color: 0xffffff,
-    linewidth: params.arcWidth,
+    linewidth: params.arcWidth * params.leaderWidthScale,
     worldUnits: true,
     resolution,
     transparent: true,
-    opacity: params.arcOpacity,
+    opacity: Math.min(1, params.arcOpacity * params.leaderOpacityScale),
     depthTest: true,
     depthWrite: false,
   });
@@ -102,15 +114,19 @@ export async function createEmoLeaderLineLayer(options: {
   let built = false;
   let lastStandoff = Number.NaN;
   let lastSpread = Number.NaN;
+  // Tracked for the same reason as the spread: nothing else would notice a dragged slider, and a
+  // control that does nothing is worse than no control.
+  let lastFoot = Number.NaN;
 
   function rebuild(standoff: number): void {
+    const foot = params.leaderFoot;
     for (let i = 0; i < nodes.length; i++) {
       const { dir, shell } = nodes[i]!;
-      const head = Math.max(FOOT_RADIUS, standoff + shell * params.multiplexSpread - HEAD_GAP);
+      const head = Math.max(foot, standoff + shell * params.multiplexSpread - HEAD_GAP);
       const o = i * 6;
-      positions[o] = dir.x * FOOT_RADIUS;
-      positions[o + 1] = dir.y * FOOT_RADIUS;
-      positions[o + 2] = dir.z * FOOT_RADIUS;
+      positions[o] = dir.x * foot;
+      positions[o + 1] = dir.y * foot;
+      positions[o + 2] = dir.z * foot;
       positions[o + 3] = dir.x * head;
       positions[o + 4] = dir.y * head;
       positions[o + 5] = dir.z * head;
@@ -128,6 +144,7 @@ export async function createEmoLeaderLineLayer(options: {
     geometry.computeBoundingSphere();
     lastStandoff = standoff;
     lastSpread = params.multiplexSpread;
+    lastFoot = foot;
   }
 
   function syncVisibility(layerVisible: boolean): void {
@@ -152,7 +169,8 @@ export async function createEmoLeaderLineLayer(options: {
       if (
         !built ||
         Math.abs(standoff - lastStandoff) > REBUILD_EPSILON ||
-        params.multiplexSpread !== lastSpread
+        params.multiplexSpread !== lastSpread ||
+        params.leaderFoot !== lastFoot
       ) {
         rebuild(standoff);
       }
@@ -160,8 +178,8 @@ export async function createEmoLeaderLineLayer(options: {
     setParams(next: EmoViewParams): void {
       params = next;
       updateEmoFadeUniform(fadeUniform, next);
-      material.linewidth = next.arcWidth;
-      material.opacity = next.arcOpacity;
+      material.linewidth = next.arcWidth * next.leaderWidthScale;
+      material.opacity = Math.min(1, next.arcOpacity * next.leaderOpacityScale);
       syncVisibility(visible);
     },
     setVisible(next: boolean): void {

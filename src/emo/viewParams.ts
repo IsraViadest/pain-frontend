@@ -84,9 +84,28 @@ export interface EmoViewParams {
   arcOpacity: number;
   /**
    * A hairline from each country up to its own label, so a word floating over a crowded region
-   * is visibly attached to the country it names. Uses `arcWidth` and `arcOpacity`.
+   * is visibly attached to the country it names. Takes `arcWidth` and `arcOpacity` scaled by the
+   * two `leader*Scale` values below.
    */
   leaderLines: "off" | "on";
+  /**
+   * Radius the leader line starts at, in globe radii.
+   *
+   * In all-layers mode the pain scars dent the surface inward, by up to about 0.08 of a radius
+   * where a country is deeply marked, and a foot sitting just above the undented sphere then
+   * leaves a visible gap between the line and the land it points at. A foot below the deepest
+   * dent closes that gap at every depth, because the globe writes depth before these lines draw
+   * and clips whatever falls inside it. The line therefore runs to the country's centre through
+   * the surface, and only the part outside the surface is ever seen.
+   */
+  leaderFoot: number;
+  /**
+   * Leader width and opacity as fractions of the network's own, so the two read as different
+   * kinds of line rather than as one line of two lengths. 1 makes them identical, which is how
+   * every preset that predates these behaved.
+   */
+  leaderWidthScale: number;
+  leaderOpacityScale: number;
   /** Opacity multiplier applied to every label except the selected one. */
   selectionDim: number;
   /** Alpha of the wash filling the selected country. */
@@ -157,6 +176,12 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   arcOpacity: 0.55,
   // Off by default, so every preset that predates them renders exactly as it did.
   leaderLines: "off",
+  // Just clear of the choropleth at 1.001 and the selection wash at 1.0025. Above every dent,
+  // which is the behaviour every preset before this shipped with.
+  leaderFoot: 1.004,
+  // 1 and 1: the leader is exactly the network's line, as it was.
+  leaderWidthScale: 1,
+  leaderOpacityScale: 1,
   selectionDim: 0.25,
   selectionFill: 0.18,
   // Flat by default, so the 16 presets that predate the shells are unchanged.
