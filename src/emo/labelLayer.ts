@@ -69,6 +69,8 @@ interface LabelEntry {
   /** Eased toward the sweep's 0 or 1 decision, so a decluttered label fades out of the way. */
   declutterAlpha: number;
   declutterTarget: number;
+  /** Last z-index written, so a label that has not changed depth bucket is not restyled. */
+  zBucket: number;
 }
 
 export interface EmoLabelLayer {
@@ -90,6 +92,19 @@ const DECLUTTER_SWEEP_MS = 100;
 const DECLUTTER_FADE_MS = 180;
 /** Below this the label is not painted, which also stops it swallowing clicks meant for others. */
 const DECLUTTER_ALPHA_MIN = 0.01;
+
+/**
+ * Depth buckets per globe radius, for the z-index that decides which of two overlapping labels
+ * is in front.
+ *
+ * Coarse on purpose. The defect is a far label painting over a near one, which is a large
+ * difference in depth, and a per-frame z-index write on 195 elements re-sorts the compositor. At
+ * this granularity a label crosses a bucket every several frames of a rotation rather than every
+ * frame. The 0.3 offset keeps the value positive for a label at a negative facing, which
+ * `facingMin` allows.
+ */
+const Z_BUCKETS_PER_RADIUS = 100;
+const Z_DEPTH_OFFSET = 0.3;
 
 /**
  * How far the pointer may travel between press and release and still count as a click.
@@ -184,6 +199,7 @@ export async function createEmoLabelLayer(options: {
       boxH: 0,
       declutterAlpha: 1,
       declutterTarget: 1,
+      zBucket: -1,
     });
   });
 
@@ -211,6 +227,8 @@ export async function createEmoLabelLayer(options: {
   applyEnglishText();
   // Colour is opt-in (decision 3). The host attribute selects a palette; see emo.css.
   host.dataset.colour = params.colourMode;
+  // The halo is opt-in the same way: the attribute switches the rule, the property sizes it.
+  host.dataset.halo = params.labelHalo > 0 ? "on" : "off";
 
   let selected: string | null = null;
   /**
@@ -268,6 +286,7 @@ export async function createEmoLabelLayer(options: {
   const camDir = new THREE.Vector3();
   let lastFontPx = -1;
   let lastSecondScale = -1;
+  let lastHaloPx = -1;
 
   /**
    * Set whenever anything that changes a label's measured box changes: a parameter, the English
@@ -379,6 +398,13 @@ export async function createEmoLabelLayer(options: {
       host.style.setProperty("--emo-second-scale", String(params.secondLineScale));
       lastSecondScale = params.secondLineScale;
     }
+    // A fraction of the font size, so the halo keeps its proportion as the labels shrink on
+    // approach. text-shadow does not affect layout, so no box needs remeasuring for it.
+    const haloPx = Math.round(quantised * params.labelHalo * 100) / 100;
+    if (haloPx !== lastHaloPx) {
+      host.style.setProperty("--emo-halo", `${haloPx}px`);
+      lastHaloPx = haloPx;
+    }
 
     camDir.copy(camera.position).normalize();
     const focalCos = Math.cos((params.focalConeDeg * Math.PI) / 180);
@@ -417,6 +443,16 @@ export async function createEmoLabelLayer(options: {
       const sy = (-world.y * 0.5 + 0.5) * h;
       entry.sx = sx;
       entry.sy = sy;
+
+      // Nearer labels paint over further ones. Without this the order is the DOM order, which is
+      // classifier score, so a label on the far side of the hemisphere could sit on top of one
+      // in front of it. `lift * facing` is the distance along the view axis, and the host's
+      // `contain: paint` keeps the whole range of indices inside this layer.
+      const bucket = Math.round((lift * facing + Z_DEPTH_OFFSET) * Z_BUCKETS_PER_RADIUS);
+      if (bucket !== entry.zBucket) {
+        entry.zBucket = bucket;
+        el.style.zIndex = String(bucket);
+      }
 
       // Which language this label shows right now.
       let showNative: boolean;
@@ -484,8 +520,10 @@ export async function createEmoLabelLayer(options: {
       // opacity is written inline every frame, so a CSS rule for either would never win.
       // The whole category stays lit, not just the country clicked. Only the rest steps back.
       const dim = selectedCat !== null && entry.cat !== selectedCat ? params.selectionDim : 1;
+      // A plain ramp across the hemisphere, unlike `fade`, which only acts near the limb.
+      const depth = Math.max(0, 1 - params.labelDepthFade * (1 - facing));
       el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%)`;
-      el.style.opacity = (fade * dim * entry.declutterAlpha).toFixed(3);
+      el.style.opacity = (fade * dim * depth * entry.declutterAlpha).toFixed(3);
       el.style.setProperty("--emo-grey", grey.toFixed(3));
     }
 
@@ -511,8 +549,10 @@ export async function createEmoLabelLayer(options: {
       // tick would be felt.
       if (englishChanged) applyEnglishText();
       host.dataset.colour = next.colourMode;
+      host.dataset.halo = next.labelHalo > 0 ? "on" : "off";
       lastFontPx = -1;
       lastSecondScale = -1;
+      lastHaloPx = -1;
       // Any of these can change a box, and the next sweep is the only place that can find out.
       measureDirty = true;
       logNextSweep = true;

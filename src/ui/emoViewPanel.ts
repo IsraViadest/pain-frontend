@@ -120,6 +120,8 @@ const SECTIONS: EmoSection[] = [
       { key: "facingMin", label: "Facing min", min: -0.2, max: 0.6, step: 0.01, decimals: 2, hint: "Hide a label once it faces this far from the camera. 0 is the horizon." },
       { key: "fadeStart", label: "Fade start", min: 0, max: 0.9, step: 0.01, decimals: 2, hint: "Facing value at which a label reaches full opacity." },
       { key: "edgeDesaturation", label: "Edge grey", min: 0, max: 1, step: 0.01, decimals: 2, hint: "How far a label greys out toward the limb. 0 keeps full colour." },
+      { key: "labelDepthFade", label: "Depth fade", min: 0, max: 0.9, step: 0.05, decimals: 2, hint: "Extra transparency across the whole hemisphere, unlike Fade start which only acts at the limb. A label at the horizon keeps 1 minus this. Helps the crowding on the sides." },
+      { key: "labelHalo", label: "Halo", min: 0, max: 0.5, step: 0.01, decimals: 2, hint: "Symmetric surround instead of the drop shadow, as a fraction of the font size. 0 keeps the shadow." },
     ],
   },
   {

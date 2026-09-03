@@ -44,6 +44,25 @@ export interface EmoViewParams {
   fadeStart: number;
   /** How grey a label goes at the limb, 0 keeps full colour. */
   edgeDesaturation: number;
+  /**
+   * Extra transparency with distance from the viewer, on top of the limb fade above.
+   *
+   * `fadeStart` only acts in the last stretch before a label is culled, so labels stay at full
+   * strength across most of the disc and the ones receding toward the horizon compete on equal
+   * terms with the ones facing the camera. This is a plain ramp across the whole hemisphere
+   * instead: at the centre a label keeps full opacity, and at the horizon it keeps 1 minus this.
+   * 0 is the behaviour of every preset that predates it.
+   */
+  labelDepthFade: number;
+  /**
+   * Halo width as a fraction of the font size, replacing the directional drop shadow.
+   *
+   * The shipped `text-shadow: 0 1px 3px` darkens below a glyph and leaves its top edge
+   * unprotected, which is weakest over the bright choropleth. Above 0 this becomes a symmetric
+   * surround at this fraction of the current font size. 0 keeps the drop shadow, so every preset
+   * that predates it is unchanged.
+   */
+  labelHalo: number;
 
   /** Half-angle in degrees of the focal cone used by `labelMode: "focal"`. */
   focalConeDeg: number;
@@ -158,6 +177,9 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   facingMin: 0.05,
   fadeStart: 0.28,
   edgeDesaturation: 0.55,
+  // Both off, so every preset that predates them renders exactly as it did.
+  labelDepthFade: 0,
+  labelHalo: 0,
 
   focalConeDeg: 26,
   focalBlendDeg: 12,

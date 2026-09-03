@@ -35,6 +35,19 @@
   text-shadow: 0 1px 3px rgba(0, 3, 18, 0.85);
 }
 
+/* The halo, opt-in through labelHalo. The shipped drop shadow above is directional: it darkens
+   below a glyph and leaves its top edge unprotected, which is the weakest case over the bright
+   choropleth, where the globe is brightest. This surrounds every stroke instead. Three stacked
+   shadows rather than one, because a single soft shadow at this radius is too thin to separate
+   white text from yellow land; they composite into one even surround. --emo-halo is written by
+   the label layer as a fraction of the current font size, so it holds its proportion on zoom. */
+.emo-label-host[data-halo="on"] .emo-label {
+  text-shadow:
+    0 0 var(--emo-halo) rgba(0, 3, 18, 0.95),
+    0 0 var(--emo-halo) rgba(0, 3, 18, 0.95),
+    0 0 calc(var(--emo-halo) * 2) rgba(0, 3, 18, 0.8);
+}
+
 .emo-label__native {
   font-size: var(--emo-font-px);
   font-weight: 600;
