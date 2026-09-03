@@ -86,6 +86,13 @@ export interface EmoLabelLayer {
   /** Call once per frame, after globe.tick(). */
   update(): void;
   setParams(next: EmoViewParams): void;
+  /**
+   * Drop the selection and tell everyone who mirrors it, as though the country had been clicked
+   * a second time. Called when the globe leaves the emotional layer: the labels go away with the
+   * layer, but the mark, the network and the leader lines are scene objects that would otherwise
+   * still be sitting on an environmental or physical globe that never asked for them.
+   */
+  clearSelection(): void;
   destroy(): void;
 }
 
@@ -248,6 +255,19 @@ export async function createEmoLabelLayer(options: {
    */
   let selectedCat: string | null = null;
 
+  /**
+   * One writer for the three facts that make up a selection, so a path that forgets one cannot
+   * exist. `measureDirty` is part of it because `selectionEmphasis: "bold"` resizes a whole
+   * category, and the declutter sweep's cached boxes are the only thing that would not notice.
+   */
+  function clearSelection(): void {
+    if (selected === null && selectedCat === null) return;
+    selected = null;
+    selectedCat = null;
+    measureDirty = true;
+    options.onSelect?.(null);
+  }
+
   const onClick = (ev: MouseEvent): void => {
     if (params.clickMode === "off") return;
     const target = (ev.target as HTMLElement).closest(".emo-label");
@@ -289,10 +309,7 @@ export async function createEmoLabelLayer(options: {
     // selection alone, which is what makes the network survive a trip to the controls.
     if (ev.target !== globe.renderer.domElement) return;
     if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
-    selected = null;
-    selectedCat = null;
-    measureDirty = true;
-    options.onSelect?.(null);
+    clearSelection();
   };
   document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("click", onDocumentClick);
@@ -575,15 +592,12 @@ export async function createEmoLabelLayer(options: {
 
   return {
     update,
+    clearSelection,
     setParams(next: EmoViewParams): void {
       const englishChanged =
         next.englishText !== params.englishText || next.identicalLines !== params.identicalLines;
       // A preset that does not select must not leave a stale selection dimming the globe.
-      if (next.clickMode !== "selectNetwork" && selected !== null) {
-        selected = null;
-        selectedCat = null;
-        options.onSelect?.(null);
-      }
+      if (next.clickMode !== "selectNetwork") clearSelection();
       params = next;
       // Only on change: a slider drag calls this every input event, and 195 text writes per
       // tick would be felt.

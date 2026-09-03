@@ -455,6 +455,12 @@ function syncEmoLayer(layerId: string): void {
   if (!emoViewsEnabled || !emoLabelHost) return;
   const active = layerId === "emopain" || layerId === "all-layers";
   const sprites = active && emoPreset?.useIncumbentSprites === true;
+  // Leaving the emotional layer returns the globe to its default state rather than to the state
+  // it happened to be left in. Hiding the labels is not enough: the country mark, the network and
+  // the leader lines are scene objects, and a selection made here would otherwise still be
+  // marking countries on an environmental or physical globe that never asked for it. Coming back
+  // therefore starts clean, and the country has to be clicked again.
+  if (!active || sprites) emoLabelLayer?.clearSelection();
   emoLabelHost.hidden = !active || sprites;
   emoArcLayer?.setVisible(active && !sprites);
   emoLeaderLineLayer?.setVisible(active && !sprites);
