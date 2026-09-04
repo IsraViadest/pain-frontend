@@ -265,13 +265,16 @@
     border-radius: 0 0 10px 10px;
   }
 
-  /* Either row can be the only one, and then it is a plain box rather than half an L. */
-  .emo-legend__row--wide:has(+ .emo-legend__row--corner:empty)::before {
+  /* Either row can be the only one, and then it is a plain box rather than half an L. The layer
+     sets the class rather than the stylesheet deducing it: the corner's case is one `+` away, but
+     the wide row's would need `:has()`, and a browser without it would silently paint the single
+     box with two square corners and its bottom cut short. See open question 22. */
+  .emo-legend__row--wide.emo-legend__row--only::before {
     bottom: calc(-1 * var(--emo-legend-inset));
     border-radius: 10px;
   }
 
-  .emo-legend__row--wide:empty + .emo-legend__row--corner::before {
+  .emo-legend__row--corner.emo-legend__row--only::before {
     top: calc(-1 * var(--emo-legend-inset));
     border-radius: 10px;
   }

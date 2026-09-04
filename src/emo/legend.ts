@@ -280,7 +280,9 @@ export async function createEmoLegend(options: {
    * height is its content: a split that rewrote the DOM every time it was asked would keep
    * resizing the thing that asked. A no-op second pass is what ends that.
    */
-  let splitKey = "";
+  // Null rather than "", so the first call always runs: an empty corner produces the key "" and
+  // would otherwise be indistinguishable from "nothing has happened yet".
+  let splitKey: string | null = null;
   function setSplit(corner: readonly HTMLButtonElement[]): void {
     const key = corner.map((el) => el.dataset.cat).join(",");
     if (key === splitKey) return;
@@ -288,6 +290,12 @@ export async function createEmoLegend(options: {
     const inCorner = new Set(corner);
     wideRow.append(...ordered.filter((el) => !inCorner.has(el)));
     cornerRow.append(...corner);
+    // Which row is the only one, said in a class rather than asked of the stylesheet. A row that
+    // is alone is a plain box and rounds on all four corners; half an L rounds on two. The CSS
+    // for that is one `+` away for the corner row and needs `:has()` for the wide one, and the
+    // operator's browser is not known (open question 22), so both are told rather than deduced.
+    wideRow.classList.toggle("emo-legend__row--only", cornerRow.children.length === 0);
+    cornerRow.classList.toggle("emo-legend__row--only", wideRow.children.length === 0);
   }
 
   /**
