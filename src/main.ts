@@ -53,6 +53,7 @@ import {
 } from "./ui/productionChrome";
 import { playPainSound } from "./sound/soundEngine";
 import { hideLegend, showLegend } from "./ui/legend";
+import { installTextSelectionGuard } from "./ui/textSelectionGuard";
 import "./emo/emo.css";
 import { loadEmoData } from "./emo/emoData";
 import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
@@ -139,6 +140,11 @@ document.documentElement.dataset.theme = initialTheme;
 if (isDebugScarVisual()) {
   document.documentElement.dataset.scarDebug = "true";
 }
+
+// The page is dragged and looked at, not read. `body { user-select: none }` states that and
+// browsers enforce it only for gestures they consider the user's own, so Select All still
+// marks the words in some of them. See ui/textSelectionGuard.ts.
+installTextSelectionGuard();
 
 // --- Globe + optional debug panel (see index.html) ---
 const globe = new GlobeView(canvas);
