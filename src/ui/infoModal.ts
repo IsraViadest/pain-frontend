@@ -22,10 +22,27 @@ export const INFO_MODAL_ABOUT: Readonly<{ title: string; body: string }> = {
 `.trim(),
 };
 
-/** Placeholder copy for the Data Sources info modal. */
+/** Data Sources info modal — body is HTML (same render path as {@link INFO_MODAL_ABOUT}). */
 export const INFO_MODAL_DATA_SOURCES: Readonly<{ title: string; body: string }> = {
   title: "Data Sources",
-  body: "Coming soon.",
+  body: `
+<h2 style="font-family: 'Atelier', serif;">How the layers are visualized</h2>
+
+<p>The PAIN project turns real-world data into the <strong>PPP (Personal-Planetary-Pain) Map</strong> where areas on the Earth's body are affected by how much "pain" they carry — emotional, environmental, physical, or socioeconomic. For each layer, the raw data is converted into a simple score from 0 to 1 (low = less pain, high = more pain), so that often disparate data sets are homogenized and layered together on one map.</p>
+
+<h3>Emotional Layer — how we describe pain</h3>
+<p>This layer examines how strongly country-based texts express overlapping forms of distress, including fear, anxiety, grief, loneliness, helplessness, trauma, anger, shame, uncertainty, displacement, and climate-related distress. The main source is <a href="https://huggingface.co/datasets/stanford-oval/ccnews" target="_blank" rel="noopener noreferrer">Stanford OVAL CC-News</a>. Smaller sources add <a href="https://www.consumerfinance.gov/data-research/consumer-complaints/" target="_blank" rel="noopener noreferrer">CFPB consumer complaints</a>, the <a href="https://www.cs.cmu.edu/~ark/GeoText/" target="_blank" rel="noopener noreferrer">CMU GeoText corpus</a>, <a href="https://huggingface.co/datasets/yachay/text_coordinates_seasons" target="_blank" rel="noopener noreferrer">Yachay Text Coordinates</a>, <a href="https://www.kaggle.com/datasets/wjia26/twittersentimentbycountry" target="_blank" rel="noopener noreferrer">World Twitter Sentiment by Country</a>, and <a href="https://zenodo.org/records/14804269" target="_blank" rel="noopener noreferrer">DEMOTEC participatory-budgeting tweets</a>. A custom multilingual classifier model based on <a href="https://huggingface.co/BAAI/bge-m3" target="_blank" rel="noopener noreferrer">BGE-M3</a> trained on synthetically generated examples of emotional pain adds a score to the texts, and aggregates the results by country. On the PPP Map, the strongest signals are presented as emotion words positioned over countries in their native languages.</p>
+
+<h3>Environmental Layer — the planet's distress</h3>
+<p><strong>Emissions (CO₂):</strong> Sourced from <a href="https://climatetrace.org/data" target="_blank" rel="noopener noreferrer">Climate TRACE</a>, this layer shows how much greenhouse gas each region produces, from sources like agriculture, transport, power plants, and industry. On the PPP Map, CO₂ appears as <strong>white smog clouds hovering above the Earth's surface.</strong> The denser the clouds, the larger the emissions value.</p>
+<p><strong>Temperature:</strong> Sourced from <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener noreferrer">Berkeley Earth</a>, this layer shows how much each place has warmed in the last decade compared to 1850, averaging the temperature change across 2015–2025 for each location, then normalizing it between two fixed reference points: 1°C and 5°C of warming. A place warming by 1°C scores at 0; a place warming by 5°C scores at 1. On the PPP Map, warming appears as a <strong>red haze over the Earth's surface.</strong> The denser the red, the larger the temperature increase.</p>
+
+<h3>Physical Layer — pain in our bodies</h3>
+<p>This layer represents global health data about painful, body-wide conditions (such as back pain, neck pain, migraine, and arthritis) from the <a href="https://www.healthdata.org/research-analysis/gbd" target="_blank" rel="noopener noreferrer">Institute for Health Metrics and Evaluation IHME Global Burden of Disease</a> dataset. Because the original data sets are country-based, the project spreads each country's cases across the map based on <a href="https://data.worldpop.org/GIS/Population_Density/Global_2000_2020_1km_UNadj" target="_blank" rel="noopener noreferrer">WorldPop</a> population data, so pain tends to aggregate more in cities and densely populated regions. On the PPP Map, physical pain appears as <strong>scar dents etched into the Earth's surface.</strong> The deeper the dent, the higher the pain value.</p>
+
+<h3>Socioeconomic Layer — wealth and hardship</h3>
+<p>This layer uses each country's GDP (the size of its economy), drawn from the <a href="https://datacatalog.worldbank.org/search/dataset/0038130/gdp-ranking" target="_blank" rel="noopener noreferrer">World Bank's GDP rankings</a>. Because the gap between the richest and poorest countries is so vast (the difference between trillions and millions), the project uses a logarithmic scale so that smaller economies aren't swallowed up by giant ones. This is represented as country-based data on a <strong>choropleth scale from transparent to light yellow.</strong> Lighter shades indicate poorer countries and greater levels of pain.</p>
+`.trim(),
 };
 
 let modalEl: HTMLElement | null = null;
