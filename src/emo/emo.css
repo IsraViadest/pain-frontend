@@ -156,20 +156,62 @@
 
    It shares the left side with the views panel, which sits above it at z-index 3, so ?ev=2 is
    where the legend is actually looked at. */
+/* The strip spans the space the page leaves free on the left: from the sound toggle under the
+   title down to the about and data-sources buttons. The layer measures those two and writes the
+   bounds here, so the words spread out to fill whatever is between them rather than clustering
+   round the middle. The fallbacks are what the strip does before the chrome has mounted. */
 .emo-legend {
   position: fixed;
   left: 18px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: var(--emo-legend-top, 22vh);
+  bottom: var(--emo-legend-bottom, 12vh);
   z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.55em;
-  max-height: 92vh;
+  /* The layer solves the gap and the end padding together so that the words fill the height with
+     twice a gap kept clear at each end, and stop spreading once the gap reaches its floor. That
+     is why this is flex-start with an explicit gap rather than space-between, which has no floor
+     and would keep compressing until the words touched. */
+  justify-content: flex-start;
+  gap: var(--emo-legend-gap, 0.4em);
+  padding: var(--emo-legend-pad, 0) 0;
   overflow: hidden;
   overscroll-behavior: contain;
   font-size: var(--emo-legend-font-px, 15px);
+}
+
+/* Narrow screens have no room for a full-height strip: the title alone takes the top third and
+   the chrome the page keeps moves to the bottom left. The words wrap into a box instead, spaced
+   out along each line so the block reads as one field of words rather than as a ragged list.
+
+   The background exists only here. Over the globe the words carry their own text shadow and need
+   nothing behind them, but a box of small words at this size does, and it is kept mostly see
+   through so the globe still reads underneath it. */
+@media (max-width: 768px) {
+  .emo-legend {
+    top: auto;
+    /* The same measured bound the wide layout uses, which on a narrow screen is the share pill
+       rather than the buttons that have slid away to the left. */
+    bottom: var(--emo-legend-bottom, 20px);
+    left: 20px;
+    right: auto;
+    width: min(64vw, 250px);
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    align-content: flex-start;
+    justify-content: space-between;
+    gap: 0.35em 0.5em;
+    padding: 9px 11px;
+    border-radius: 10px;
+    background: rgba(0, 0, 8, 0.34);
+  }
+
+  /* The page's own legend occupies this corner when it is open, so the box steps above it. */
+  #app:has(#ui-legend.legend--visible) .emo-legend {
+    bottom: calc(20px + 15vh + 14px);
+  }
 }
 
 .emo-legend[hidden] {

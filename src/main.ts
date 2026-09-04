@@ -478,7 +478,11 @@ function syncEmoLayer(layerId: string): void {
     emoMotion?.reset();
   }
   emoLabelHost.hidden = !active || sprites;
-  emoLegend?.setVisible(active && !sprites);
+  // The legend is held to the emotional layer alone, not to all-layers mode. The operator's
+  // reason: all-layers is the whole globe at once and the strip is a key to one of its four
+  // layers, so it belongs where that layer is the subject. The labels and the network still run
+  // in both, which is decision 7 and is not reopened here.
+  emoLegend?.setVisible(layerId === "emopain" && !sprites);
   emoArcLayer?.setVisible(active && !sprites);
   emoLeaderLineLayer?.setVisible(active && !sprites);
   // Which globe is underneath decides how far a leader line may reach down. In all-layers mode
@@ -733,6 +737,9 @@ function loop(): void {
           // A legend click is a click on a country, taking the same path as one on the globe.
           // There is no second selection route, so nothing can drift out of step with it.
           onPick: (iso3) => emoLabelLayer?.selectCountry(iso3),
+          // Clicking the word whose network is still arriving does nothing. The legend asks
+          // before it rolls, so a blocked click does not walk the seeded sequence.
+          isBusy: (cat) => emoMotion?.isBuilding(cat) === true,
         });
       }
       syncEmoLayer(lastLayerId);

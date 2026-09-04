@@ -17,6 +17,17 @@
  * THE ORDER IS THE OPERATOR'S, AND IT IS COMPUTED RATHER THAN WRITTEN DOWN. Long words at the top
  * and the bottom, short ones in the middle, because the globe is widest across its equator and the
  * strip should not crowd it there. See `legendOrder`.
+ *
+ * IT SPANS THE CHROME RATHER THAN CENTRING ITSELF. The strip fills the gap between the sound
+ * toggle at the end of the title block and the about and data-sources buttons at the bottom left,
+ * which is the space the page leaves free on that side. Those two are measured rather than
+ * recomputed from their own `clamp()` font sizes, because a second copy of that arithmetic is a
+ * second thing to keep in step; a ResizeObserver on both also covers the chrome mounting after
+ * this does, since their size goes from nothing to something.
+ *
+ * The bounds are written as custom properties and not as `top` and `bottom`. The narrow layout
+ * replaces the whole arrangement with a wrapped box, and an inline `top` would outrank the rule
+ * that does it.
  */
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
@@ -31,6 +42,35 @@ type EmoCategoryRecord = EmoData["categories"][number];
  * clicks walk the sequence and give the different member each time that the operator asked for.
  */
 const LEGEND_SEED = 43;
+
+/**
+ * The chrome the legend fits between, and the clearance it keeps from it.
+ *
+ * Two things sit along the bottom and the lower of them wins, because they swap places between
+ * the two layouts: the about and data-sources buttons are the neighbours on a wide screen, and on
+ * a narrow one they slide off to the left and the share pill, which is much wider there, is what
+ * the box would otherwise sit on top of.
+ */
+const CHROME_ABOVE = "#ui-title";
+const CHROME_BELOW = ["#ui-bottom-left", "#ui-share-pain"];
+const CHROME_GAP_PX = 18;
+
+/**
+ * Space kept clear above the first word and below the last, as a multiple of the space between
+ * two words. The operator asked for at least twice, so the block reads as one group rather than
+ * as a list that runs into the chrome at both ends.
+ */
+const END_PAD_IN_GAPS = 2;
+
+/**
+ * Bounds on the space between two words, as a multiple of the legend's own font size.
+ *
+ * The floor is the point of the exercise: on a short screen the words stop spreading apart to
+ * fill the height and simply stop, rather than being packed until they touch. The ceiling keeps
+ * a very tall window from turning the strip into fourteen unrelated words.
+ */
+const MIN_GAP_EM = 0.3;
+const MAX_GAP_EM = 3;
 
 /**
  * Longest first, laid alternately at the top and the bottom of the list, so the lengths fall to a
@@ -69,6 +109,14 @@ export async function createEmoLegend(options: {
   params: EmoViewParams;
   /** Fired with a country drawn at random from the category that was clicked. */
   onPick: (iso3: string) => void;
+  /**
+   * Whether this category's network is still being built, in which case the click does nothing.
+   *
+   * ASKED BEFORE THE ROLL, NOT AFTER IT. The pick walks one seeded sequence, so a blocked click
+   * that had already drawn a number would leave the sequence in a different place and the run of
+   * countries a category gives would stop being reproducible from a cold load.
+   */
+  isBusy?: (cat: string) => boolean;
 }): Promise<EmoLegendLayer> {
   const { host, data } = options;
   let params = options.params;
@@ -121,6 +169,9 @@ export async function createEmoLegend(options: {
   function applyParams(): void {
     host.style.setProperty("--emo-legend-font-px", `${params.legendFontPx}px`);
     paint();
+    // The size decides both the words' own height and the bounds on the gap, so the spacing has
+    // to be solved again rather than left at the answer for the previous size.
+    syncBounds();
   }
 
   const onClick = (ev: MouseEvent): void => {
@@ -129,6 +180,9 @@ export async function createEmoLegend(options: {
     if (cat === undefined) return;
     const list = members.get(cat);
     if (!list || list.length === 0) return;
+    // Clicking the category that is still arriving does nothing at all. Only once its network has
+    // finished does the same word mean "show me another one of these". Tested before the roll.
+    if (options.isBusy?.(cat) === true) return;
     // Always a fresh pick, never a toggle. Clicking a category again means "show me another one
     // of these", and the roll can land on the country already selected, where a toggle would read
     // the gesture as "clear".
@@ -138,11 +192,75 @@ export async function createEmoLegend(options: {
 
   let layerVisible = true;
   function syncVisibility(): void {
+    const wasHidden = host.hidden;
     host.hidden = !(layerVisible && params.legend === "on");
+    // A hidden host gives its words no height, so the spacing cannot be solved while it is off
+    // screen and has to be solved again the moment it comes back. The observer below also
+    // catches this; both are here because between them they cover the two ways it can happen,
+    // and solving the same numbers twice costs nothing.
+    if (wasHidden && !host.hidden) syncBounds();
   }
+
+  /** Fit the legend between the sound toggle and whatever sits lowest along the bottom. */
+  function syncBounds(): void {
+    const above = document.querySelector(CHROME_ABOVE);
+    if (above === null) return;
+    const top = above.getBoundingClientRect().bottom;
+    let bottom = Number.POSITIVE_INFINITY;
+    for (const selector of CHROME_BELOW) {
+      const el = document.querySelector(selector);
+      if (el === null) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.height > 0) bottom = Math.min(bottom, rect.top);
+    }
+    // Either can read 0 before the chrome has mounted, which would collapse the legend onto
+    // itself. The stylesheet's own fallback is better than a measurement of something that is
+    // not there yet.
+    if (top <= 0 || !Number.isFinite(bottom) || bottom <= top) return;
+    host.style.setProperty("--emo-legend-top", `${Math.round(top + CHROME_GAP_PX)}px`);
+    host.style.setProperty(
+      "--emo-legend-bottom",
+      `${Math.round(window.innerHeight - bottom + CHROME_GAP_PX)}px`,
+    );
+
+    // Spread the words through that height, keeping twice a gap clear at each end.
+    //
+    //   available = words + (n - 1) gaps + 2 * END_PAD_IN_GAPS gaps
+    //
+    // solved for the gap, then held between a floor and a ceiling. Below the floor the block
+    // simply overflows the box, which `overflow: hidden` cuts: words that stop arriving is a
+    // better failure than words that sit on top of each other.
+    const items = [...host.children];
+    const first = items[0];
+    if (first === undefined) return;
+    const wordHeight = first.getBoundingClientRect().height;
+    if (wordHeight <= 0) return;
+    const available = bottom - top - 2 * CHROME_GAP_PX;
+    const slack = available - items.length * wordHeight;
+    const raw = slack / (items.length - 1 + 2 * END_PAD_IN_GAPS);
+    const gap = Math.min(
+      MAX_GAP_EM * params.legendFontPx,
+      Math.max(MIN_GAP_EM * params.legendFontPx, raw),
+    );
+    host.style.setProperty("--emo-legend-gap", `${gap.toFixed(1)}px`);
+    host.style.setProperty("--emo-legend-pad", `${(gap * END_PAD_IN_GAPS).toFixed(1)}px`);
+  }
+
+  const bounds = new ResizeObserver(syncBounds);
+  for (const selector of [CHROME_ABOVE, ...CHROME_BELOW]) {
+    const el = document.querySelector(selector);
+    if (el !== null) bounds.observe(el);
+  }
+  // The legend's own box too, which is how a font that arrives after first paint, or the strip
+  // becoming visible at all, gets the spacing solved with real word heights rather than with the
+  // zero a hidden element reports. Writing the gap cannot resize this box on a wide screen, since
+  // its height is fixed by the two bounds above, so there is no loop to fall into.
+  bounds.observe(host);
+  window.addEventListener("resize", syncBounds);
 
   applyParams();
   syncVisibility();
+  syncBounds();
 
   return {
     setParams(next: EmoViewParams): void {
@@ -160,6 +278,8 @@ export async function createEmoLegend(options: {
       paint();
     },
     destroy(): void {
+      bounds.disconnect();
+      window.removeEventListener("resize", syncBounds);
       host.removeEventListener("click", onClick);
       for (const el of items.values()) el.remove();
       items.clear();
