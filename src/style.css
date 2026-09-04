@@ -36,7 +36,7 @@
 /* ——— Dark (default) ——— */
 :root,
 [data-theme="dark"] {
-  --bg-page: #050608;
+  --bg-page: #060606;
   --bg-page-mid: #0a0c12;
   --text-primary: #e8eaef;
   --text-muted: #b4bac8;

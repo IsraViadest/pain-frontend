@@ -118,6 +118,14 @@ function getInitialTheme(): VisualTheme {
   }
 }
 
+function persistTheme(theme: VisualTheme): void {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 const initialTheme = getInitialTheme();
 document.documentElement.dataset.theme = initialTheme;
 
@@ -241,6 +249,23 @@ let wordCloudEnabled = false;
 globe.setWordCloudEnabled(wordCloudEnabled);
 
 // --- Production chrome event handlers ---
+function syncThemeToggle(themeBtn: HTMLButtonElement): void {
+  const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
+  themeBtn.textContent = t === "blue" ? "dark mode" : "blue mode";
+  themeBtn.setAttribute("aria-pressed", t === "blue" ? "true" : "false");
+}
+
+function wireThemeToggle(themeBtn: HTMLButtonElement): void {
+  themeBtn.addEventListener("click", () => {
+    const next: VisualTheme =
+      document.documentElement.dataset.theme === "blue" ? "dark" : "blue";
+    document.documentElement.dataset.theme = next;
+    persistTheme(next);
+    globe.setVisualTheme(next);
+    syncThemeToggle(themeBtn);
+  });
+}
+
 function getCurrentMapLayer(): MapLayer | undefined {
   return getMapLayerById(lastLayerId);
 }
@@ -548,6 +573,8 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
       );
     },
   });
+  const themeBtn = document.querySelector<HTMLButtonElement>("#theme-toggle");
+  if (themeBtn) wireThemeToggle(themeBtn);
 }
 
 async function loadPoints(): Promise<void> {

@@ -165,6 +165,24 @@ export async function mountProductionChrome(
   });
   document.addEventListener("backgroundMusicStateChanged", syncSoundToggle);
 
+  const themeToggleBtn = document.createElement("button");
+  themeToggleBtn.type = "button";
+  themeToggleBtn.id = "theme-toggle";
+  themeToggleBtn.className = "ui-title__sound-toggle";
+  {
+    const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
+    themeToggleBtn.textContent = t === "blue" ? "dark mode" : "blue mode";
+    themeToggleBtn.setAttribute("aria-pressed", t === "blue" ? "true" : "false");
+  }
+
+  const titleToggles = document.createElement("div");
+  titleToggles.style.display = "flex";
+  titleToggles.style.flexDirection = "row";
+  titleToggles.style.alignItems = "center";
+  titleToggles.style.gap = "8px"; // gap between sound and theme toggles
+  titleToggles.style.alignSelf = "flex-start";
+  titleToggles.append(soundToggleBtn, themeToggleBtn);
+
   const hamburgerBtn = await createHamburgerButton();
   let allLayersMode = false;
 
@@ -196,7 +214,7 @@ export async function mountProductionChrome(
   titleTopRow.className = "ui-title__top-row";
   titleTopRow.append(heading, hamburgerBtn);
 
-  titleHost.append(titleTopRow, subtitle, soundToggleBtn);
+  titleHost.append(titleTopRow, subtitle, titleToggles);
 
   const layerButtons = new Map<string, HTMLButtonElement>();
   let activeLayerId = layers[0]?.id ?? "";
