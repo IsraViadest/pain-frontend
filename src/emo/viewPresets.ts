@@ -2192,13 +2192,70 @@ export const EMO_PRESETS: EmoPreset[] = [
       selectionRetractSpeed: 2,
     },
   },
+  {
+    id: "v13-a_base",
+    title: "Round v13: more of each hop given to the arc",
+    note:
+      "v12-a_base with selectionLeaderShare 0.3 rather than 0.5, which the operator chose after " +
+      "seeing the two values photographed side by side. A depth step of the spread is split: the " +
+      "arc crosses in the first 1 - share of it and the far country's leader line comes down " +
+      "during the rest. At 0.3 the arc crosses over the first 70 percent, more deliberately, and " +
+      "the line drops over the last 30, more sharply. Three things move with it and one does " +
+      "not: the arc's own speed, the moment the word lights (arrivalOf ramps from arcLandsAt, so " +
+      "at the shipped selectionSpreadMs of 900 over a span of 4 the word lights 41 ms later, " +
+      "measured), and the leader's descent. The country's mark does not move at all, because " +
+      "markArrivalOf is measured from the end of the step. v10-e_arc-led held this same value on " +
+      "the round v10 base and stays reachable, but it is not this preset: it also carries a " +
+      "leaderFoot of 0.7, no marker, and a teardown at ten times the build, all three of which " +
+      "have been settled since.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.8,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionMarkerDeg: 0.9,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "split",
+      selectionLeaderMs: 260,
+      selectionLeaderShare: 0.3,
+      selectionRetractSpeed: 2,
+    },
+  },
 ];
 
 /**
- * Opens on `v12-a_base`: `v11-a_retract-2x`, which is the round v10 base with the teardown at
- * twice the build rate that the operator chose off the speed ladder, plus the two values their
- * next message asked for. The leader foot rises to 0.8, which is exactly the deepest dent the
- * scar field can make, and the 29 countries with no polygon get a mark of their own.
+ * Opens on `v13-a_base`: `v12-a_base` with `selectionLeaderShare` at 0.3, which the operator chose
+ * after the two values were photographed side by side. Each hop of the spread now gives 70 percent
+ * of its time to the arc crossing and 30 to the far country's line coming down.
  *
  * ONE THING THIS SPEED MAKES VISIBLE, STATED RATHER THAN FIXED. The label sizes and the world's
  * step back forward run on `selectionMotionMs`, 320 ms, whatever the retract speed, so the world
@@ -2208,10 +2265,10 @@ export const EMO_PRESETS: EmoPreset[] = [
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
  * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay`, `v6-a_base`, `v7-a_base`,
- * `v9-a_base`, `v10-a_base` and `v11-a_retract-2x` were the previous defaults and remain
- * reachable by id, as everything here does.
+ * `v9-a_base`, `v10-a_base`, `v11-a_retract-2x` and `v12-a_base` were the previous defaults and
+ * remain reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v12-a_base";
+export const DEFAULT_EMO_PRESET_ID = "v13-a_base";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
