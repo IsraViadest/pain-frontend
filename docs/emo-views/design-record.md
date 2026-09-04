@@ -60,7 +60,7 @@ is still reachable by id, which is the point of an append-only registry.
 | what | value | the alternative, still reachable |
 |---|---|---|
 | Language | bilingual, native above English | `v1-a_english-dom` English only, `v1-b_native` native only, `v1-d_focal` camera-aware |
-| Identical lines | collapse to one, for the 29 English-primary countries | `v4-a_base-bilingual` draws both |
+| Identical lines | collapse to one, for the 29 English-primary countries | `v1-c_bilingual` and every preset before the parameter existed draw both |
 | Category network | Delaunay within the clicked category | `v4-d_category-gabriel` sparser, `v4-f_category-complete` all-to-all, ruled out as too dense |
 | Resting world network | **none** | `v4-b_world-gabriel`, `v4-c_world-delaunay`. Ruled out: a network built from proximity alone says nothing |
 | Selection mark | glow, fill and outline together | `v5-c_mark-glow`, `v5-d_mark-outline` each alone |
