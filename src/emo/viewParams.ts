@@ -131,6 +131,22 @@ export interface EmoViewParams {
    */
   leaderFoot: number;
   /**
+   * The same radius for the emotional-pain layer on its own, where the globe draws no surface.
+   *
+   * TWO FEET, BECAUSE THERE ARE TWO GLOBES. `leaderFoot` works by being buried: the line starts
+   * below the deepest scar dent and the globe's own depth write cuts away everything inside the
+   * surface. That depends on something being there to write depth, and in all-layers mode the
+   * base mesh is exactly that, an invisible mask at 0.994 of the warped shell. On the emotional
+   * layer alone the mesh is hidden outright, `GLOBE_SHELL_VISIBLE_IN_SCAR_MODE` is false and the
+   * display mode is not `texture`, so nothing writes depth and the whole buried length draws.
+   * At `leaderFoot: 0.7` that is 0.3 of a radius of line reaching out of the planet, which is
+   * what the operator saw as spears crossing the disc.
+   *
+   * So this layer gets a foot that needs no mask: just outside the undented sphere the borders
+   * are drawn on, which lands the tip on the country rather than through it.
+   */
+  leaderFootEmoOnly: number;
+  /**
    * Leader width and opacity as fractions of the network's own, so the two read as different
    * kinds of line rather than as one line of two lengths. 1 makes them identical, which is how
    * every preset that predates these behaved.
@@ -314,6 +330,8 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   // Just clear of the choropleth at 1.001 and the selection wash at 1.0025. Above every dent,
   // which is the behaviour every preset before this shipped with.
   leaderFoot: 1.004,
+  // Just outside the sphere the country borders ride on, so the tip meets the surface.
+  leaderFootEmoOnly: 1.002,
   // 1 and 1: the leader is exactly the network's line, as it was.
   leaderWidthScale: 1,
   leaderOpacityScale: 1,

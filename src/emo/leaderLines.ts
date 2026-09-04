@@ -27,9 +27,17 @@
  * of the country and is never seen inside it. `leaderFoot` is the parameter, and 1.004 keeps the
  * old behaviour for every preset that predates it.
  *
- * The one case this does not cover is documented rather than handled: if the choropleth fails to
- * load in all-layers mode, `getAutoGlobeVisible()` turns the globe mesh off, nothing writes depth,
- * and a foot below the surface would show through the planet.
+ * WHICH IS WHY THERE ARE TWO FEET. That whole arrangement rests on something writing depth, and
+ * on the emotional-pain layer by itself nothing does: the base mesh is hidden rather than turned
+ * into a mask, so the buried length draws in full and reads as a spear across the disc. This was
+ * written down as an edge case ("if the choropleth fails to load") when it is in fact the default
+ * in one of the two modes the feature ships in. `leaderFootEmoOnly` is the foot for that mode and
+ * needs no mask, sitting just outside the undented sphere instead of below every dent.
+ *
+ * The mode arrives through `setDepthMasked`, called from the same `syncEmoLayer` that already
+ * decides whether these lines are drawn at all, so there is one source of truth for which globe
+ * is on screen. The parameter is named for the layer the operator sees and the method for the
+ * mechanism that makes the two differ; they are the same fact from opposite ends.
  */
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -68,6 +76,12 @@ export interface EmoLeaderLineLayer {
   setParams(next: EmoViewParams): void;
   /** Whether the emotional views own the globe right now, independent of the `leaderLines` flag. */
   setVisible(visible: boolean): void;
+  /**
+   * Whether something in front of these lines writes depth, which decides which foot is used.
+   * True in all-layers mode, where the base globe is an invisible depth mask; false on the
+   * emotional layer alone, where the base globe is simply hidden.
+   */
+  setDepthMasked(masked: boolean): void;
   destroy(): void;
 }
 
@@ -121,8 +135,14 @@ export async function createEmoLeaderLineLayer(options: {
   let built = false;
   let lastStandoff = Number.NaN;
   let lastSpread = Number.NaN;
-  // Tracked for the same reason as the spread: nothing else would notice a dragged slider, and a
-  // control that does nothing is worse than no control.
+  /**
+   * The foot the current geometry was built at, which is the EFFECTIVE foot and not the parameter.
+   *
+   * Watching `params.leaderFoot` here would be trap 25 in its sixth guise: a layer switch changes
+   * which of the two feet applies without changing either parameter, so a condition asking
+   * whether the parameter moved would keep the old geometry until something else happened to
+   * force a rebuild, and the spears would survive the fix that was meant to remove them.
+   */
   let lastFoot = Number.NaN;
   let lastLift = Number.NaN;
   let lastSink = Number.NaN;
@@ -138,8 +158,7 @@ export async function createEmoLeaderLineLayer(options: {
    */
   let lastMotionRevision = -1;
 
-  function rebuild(standoff: number): void {
-    const foot = params.leaderFoot;
+  function rebuild(standoff: number, foot: number): void {
     for (let i = 0; i < nodes.length; i++) {
       const { dir, shell, cat } = nodes[i]!;
       // A head follows its own label, which is what makes "leave the leader lines where they are"
@@ -173,6 +192,7 @@ export async function createEmoLeaderLineLayer(options: {
     lastStandoff = standoff;
     lastSpread = params.multiplexSpread;
     lastFoot = foot;
+
     lastLift = params.selectionLift;
     lastSink = params.selectionSink;
     lastMotionRevision = motion.revision();
@@ -184,6 +204,14 @@ export async function createEmoLeaderLineLayer(options: {
 
   let visible = true;
   syncVisibility(visible);
+
+  /**
+   * Which foot applies right now. Defaults to masked, because all-layers is the mode the page
+   * boots into and the mode every gallery capture is taken in.
+   */
+  let depthMasked = true;
+  const effectiveFoot = (): number =>
+    depthMasked ? params.leaderFoot : params.leaderFootEmoOnly;
 
   return {
     update(): void {
@@ -197,16 +225,17 @@ export async function createEmoLeaderLineLayer(options: {
       }
       if (!mesh.visible && built) return;
       const standoff = emoLabelStandoff(emoZoomRamp(globe.camera.position.length(), params), params);
+      const foot = effectiveFoot();
       if (
         !built ||
         Math.abs(standoff - lastStandoff) > REBUILD_EPSILON ||
         params.multiplexSpread !== lastSpread ||
-        params.leaderFoot !== lastFoot ||
+        foot !== lastFoot ||
         params.selectionLift !== lastLift ||
         params.selectionSink !== lastSink ||
         motion.revision() !== lastMotionRevision
       ) {
-        rebuild(standoff);
+        rebuild(standoff, foot);
       }
     },
     setParams(next: EmoViewParams): void {
@@ -215,6 +244,12 @@ export async function createEmoLeaderLineLayer(options: {
       material.linewidth = next.arcWidth * next.leaderWidthScale;
       material.opacity = Math.min(1, next.arcOpacity * next.leaderOpacityScale);
       syncVisibility(visible);
+    },
+    setDepthMasked(masked: boolean): void {
+      // No rebuild here. update() compares the effective foot against the one the geometry holds,
+      // so the next frame does it, and doing it here as well would be a second place for the two
+      // to disagree.
+      depthMasked = masked;
     },
     setVisible(next: boolean): void {
       visible = next;

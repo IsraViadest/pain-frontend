@@ -477,6 +477,11 @@ function syncEmoLayer(layerId: string): void {
   emoLabelHost.hidden = !active || sprites;
   emoArcLayer?.setVisible(active && !sprites);
   emoLeaderLineLayer?.setVisible(active && !sprites);
+  // Which globe is underneath decides how far a leader line may reach down. In all-layers mode
+  // the base mesh is an invisible depth mask, so a line can be buried below the scar dents and
+  // be cut back to the surface; on the emotional layer alone that mesh is hidden and nothing
+  // cuts anything, so the same line reaches out of the planet as a spear. See leaderLines.ts.
+  emoLeaderLineLayer?.setDepthMasked(layerId === "all-layers");
   if (active) {
     globe.setWordCloudEnabled(sprites);
   }
