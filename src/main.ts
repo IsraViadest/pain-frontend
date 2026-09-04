@@ -70,6 +70,11 @@ let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
 let chrome: ProductionChrome | null = null;
 /** Layer list from last successful fetchLayers (for all-layers Promise.all). */
 let cachedLayers: MapLayer[] = [];
+/**
+ * Session cache of fetched layer points (layerId → PainPoint[]).
+ * Cleared on page reload; never invalidated mid-session (pain-server data is stable within a visit).
+ */
+const pointCache = new Map<string, PainPoint[]>();
 /** True while concurrent multi-layer visuals are shown. */
 let showAllLayersActive = false;
 /** In-flight {@link loadPoints} fetch; aborted on the next layer switch. */
@@ -509,8 +514,8 @@ function handleLayerChange(layerId: string): void {
 }
 
 /**
- * Fetch every layer in parallel and stack visuals:
- * physpain scars, socio choropleth shell, env CO2 haze, emo word clouds.
+ * Stack all-layer visuals (phys scars, socio choropleth, env CO2 haze, emo word clouds).
+ * Uncached layers are fetched in parallel; layers already in {@link pointCache} are reused.
  */
 async function handleAllLayers(): Promise<void> {
   if (cachedLayers.length === 0) {
@@ -542,10 +547,25 @@ async function handleAllLayers(): Promise<void> {
     lexiconBucket: resolveLayerLexiconBucket(emo?.id ?? "emopain"),
   });
 
-  const pointLists = await Promise.all(
-    cachedLayers.map((layer) => fetchPoints(layer.id)),
+  // Skip GET /init/:layer for ids already in pointCache (prior single-layer or all-layers visit).
+  const cachedPoints: PainPoint[] = [];
+  const layersToFetch: MapLayer[] = [];
+  for (const layer of cachedLayers) {
+    const hit = pointCache.get(layer.id);
+    if (hit) {
+      cachedPoints.push(...hit);
+    } else {
+      layersToFetch.push(layer);
+    }
+  }
+  const fetchedLists = await Promise.all(
+    layersToFetch.map((layer) => fetchPoints(layer.id)),
   );
-  const allPoints: PainPoint[] = pointLists.flat();
+  for (let i = 0; i < layersToFetch.length; i++) {
+    const points = fetchedLists[i] ?? [];
+    pointCache.set(layersToFetch[i]!.id, points);
+  }
+  const allPoints: PainPoint[] = [...cachedPoints, ...fetchedLists.flat()];
   globe.setMarkers(allPoints);
   syncWordCloudToggle();
   setStatus(
@@ -580,11 +600,20 @@ async function loadLayersIntoChrome(layers: MapLayer[]): Promise<void> {
 async function loadPoints(): Promise<void> {
   const layer = lastLayerId;
   if (!layer) return;
+  const cached = pointCache.get(layer);
+  if (cached) {
+    globe.setMarkers(cached);
+    setStatus(
+      `${cached.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
+    );
+    return;
+  }
   const controller = new AbortController();
   loadPointsAbortController = controller;
   try {
     const points = await fetchPoints(layer, controller.signal);
     if (controller.signal.aborted) return;
+    pointCache.set(layer, points);
     globe.setMarkers(points);
     setStatus(
       `${points.length} point(s) for “${layer}” — scar map rebuilds on load (see console)`,
