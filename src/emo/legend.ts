@@ -25,6 +25,13 @@
  * second thing to keep in step; a ResizeObserver on both also covers the chrome mounting after
  * this does, since their size goes from nothing to something.
  *
+ * ONLY THE CHROME THAT IS ON SCREEN COUNTS. A narrow screen slides the about and data-sources
+ * buttons off to the left with a transform, which moves their box without hiding it, so measuring
+ * them held the legend 146 px above the bottom of a screen where nothing was in the way. Anything
+ * whose box lies outside the viewport horizontally is skipped. The one case this does not cover
+ * is the mobile menu sliding those buttons back in: a transform changes no box, so no observer
+ * fires, and the legend keeps the bounds it had until something else asks for them.
+ *
  * The bounds are written as custom properties and not as `top` and `bottom`. The narrow layout
  * replaces the whole arrangement with a wrapped box, and an inline `top` would outrank the rule
  * that does it.
@@ -211,7 +218,14 @@ export async function createEmoLegend(options: {
       const el = document.querySelector(selector);
       if (el === null) continue;
       const rect = el.getBoundingClientRect();
-      if (rect.height > 0) bottom = Math.min(bottom, rect.top);
+      if (rect.height <= 0) continue;
+      // A BOX CAN BE HONEST AND STILL BE SOMEWHERE NOBODY CAN SEE IT. On a narrow screen the page
+      // slides #ui-bottom-left away with translateX(-200%) rather than hiding it, so it still has
+      // a height and still reports a top. The legend was measuring an element at left -296 and
+      // stopping 146 px above the bottom of the screen for no reason the operator could see,
+      // which is what "it looks like it is floating too high" was.
+      if (rect.right <= 0 || rect.left >= window.innerWidth) continue;
+      bottom = Math.min(bottom, rect.top);
     }
     // Either can read 0 before the chrome has mounted, which would collapse the legend onto
     // itself. The stylesheet's own fallback is better than a measurement of something that is
