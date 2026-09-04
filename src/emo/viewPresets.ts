@@ -27,7 +27,11 @@
  * included, because a fix is not a value: the page's chrome no longer takes a text selection, and
  * a selection is cleared when the globe leaves the emotional layer instead of staying drawn on
  * the environmental, physical and socio-economic ones. Every animated parameter defaults to 0, so
- * every preset that predates this round is unchanged, verified at 0.00 percent of pixels.
+ * every preset that predates this round is unchanged. Verified two ways, because the gallery is
+ * not a reliable baseline for the older frames: `v6-a` re-shot against its own gallery frames
+ * comes out at 0.00 percent both at rest and after a click, and `v5-a`, whose gallery frame
+ * differs by 19.43 percent through failure 32's scar banding, comes out at 0.00 percent against a
+ * stash of the same commit without these changes.
  *
  * WHAT ROUND v5 INHERITS WITHOUT ASKING. Four defects were fixed in the code rather than in a
  * parameter, so they apply to every preset here including the older ones: arcs no longer bead at

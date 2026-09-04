@@ -85,6 +85,13 @@ export interface EmoSelectionMotion {
    * Called after setSelection, which clears any previous wave. A selection with no network to
    * spread through therefore never gets one, and `arrivalOf` answers 1 for every country, which
    * is the behaviour of every preset that predates this.
+   *
+   * THE FALLBACK ASSUMES THE TWO LAYERS AGREE ON WHO EXISTS. `arrivalOf` also answers 1 for a
+   * country the map does not mention, which is right for a view with no wave and wrong for a
+   * country that should have been in one: it would light at once while its neighbours waited.
+   * The arc layer builds this map from the countries that have a centroid, and the label layer
+   * draws exactly that same set, so today they cannot disagree. Nothing enforces it. If either
+   * layer ever gains or loses a country the other keeps, this is where it will show.
    */
   setSpread(arrivals: ReadonlyMap<string, number>, span: number): void;
   /**
