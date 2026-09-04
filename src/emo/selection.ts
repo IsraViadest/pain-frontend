@@ -51,6 +51,14 @@ const SHELL_HEIGHT_SEGMENTS = 128;
 /** Arrival fraction at which a country counts as marked. The mark has no in-between state. */
 const ARRIVED_AT = 0.5;
 
+/**
+ * IT FOLLOWS THE LEADER LINE, NOT THE NETWORK. The operator's order is that the arc reaches a
+ * country, its leader line then comes down from its word to claim it, and only once that line is
+ * there does the country light up. `markArrivalOf` is the wavefront pushed back by exactly one
+ * leader's growth, and with no lead-in configured it is the wavefront itself, which is what every
+ * preset before round v10 marked on.
+ */
+
 export interface EmoSelectionLayer {
   /** Mark every country in this pain category, or clear the mark when passed null. */
   setSelectedCategory(cat: string | null): void;
@@ -116,24 +124,52 @@ export async function createEmoSelectionLayer(options: {
 
   let selectedCat: string | null = null;
   /**
-   * How many of the category's countries the last painted texture covered, or -1 to force a
-   * repaint. The count is enough of a key because arrival is monotone within one sweep: a
-   * country the wave has reached never becomes unreached before the next selection.
+   * A count of the marked countries per category the last painted texture covered, or null to
+   * force a repaint.
+   *
+   * NULL RATHER THAN THE EMPTY STRING, because the empty string is a real key: it is what nothing
+   * marked produces, which is exactly the state a cleared selection has to reach. A sentinel that
+   * a real state can also produce is not a dirty flag, and here it would have left the last mark
+   * painted on the globe after the selection was cleared.
+   *
+   * A count is enough of a key because arrival is monotone within one wave: a country a wave has
+   * reached never becomes unreached while that wave runs, in either direction. It has to be a
+   * count PER CATEGORY rather than one total, because a category being taken apart and a category
+   * being built can be on screen together, and one losing a country while the other gains one
+   * leaves a single total unchanged over two different sets.
    */
-  let paintedCount = -1;
+  let paintedKey: string | null = null;
 
-  /** The countries of the selected category the wavefront has already reached. */
-  function arrivedMembers(): string[] {
-    if (selectedCat === null) return [];
-    const members = membersByCategory.get(selectedCat) ?? [];
-    return members.filter((iso3) => motion.arrivalOf(iso3) >= ARRIVED_AT);
+  /** Every category with a mark on screen: the chosen one, and any still taking itself apart. */
+  function markedCategories(): string[] {
+    const cats = selectedCat === null ? [] : [selectedCat];
+    for (const cat of motion.retreatingCategories()) {
+      if (!cats.includes(cat)) cats.push(cat);
+    }
+    return cats;
+  }
+
+  /** The countries currently marked, and the key that says whether that set has changed. */
+  function arrivedMembers(): { members: string[]; key: string } {
+    const members: string[] = [];
+    let key = "";
+    for (const cat of markedCategories()) {
+      let count = 0;
+      for (const iso3 of membersByCategory.get(cat) ?? []) {
+        if (motion.markArrivalOf(iso3) < ARRIVED_AT) continue;
+        members.push(iso3);
+        count += 1;
+      }
+      key += `${cat}:${count}|`;
+    }
+    return { members, key };
   }
 
   function paint(): void {
     material.map?.dispose();
     material.map = null;
-    const members = arrivedMembers();
-    paintedCount = members.length;
+    const { members, key } = arrivedMembers();
+    paintedKey = key;
     const glow = params.selectionStyle === "glow";
     const texture =
       members.length === 0
@@ -157,12 +193,16 @@ export async function createEmoSelectionLayer(options: {
     setSelectedCategory(cat: string | null): void {
       if (cat === selectedCat) return;
       selectedCat = cat;
-      paintedCount = -1;
-      paint();
+      // No repaint here. update() runs on the next frame and paints whatever is actually marked,
+      // which now includes a category that has stopped being chosen and is still on screen while
+      // it takes its mark off country by country. Clearing here would remove it in one step.
+      paintedKey = null;
     },
     update(): void {
-      if (selectedCat === null) return;
-      if (arrivedMembers().length === paintedCount) return;
+      // The key alone decides. Recomputing the members costs a pass over one category's country
+      // list and happens only on the frames the mark actually changes, which is at most once per
+      // depth step of a spread and never at all when nothing is moving.
+      if (arrivedMembers().key === paintedKey) return;
       paint();
     },
     setParams(next: EmoViewParams): void {
@@ -173,9 +213,11 @@ export async function createEmoSelectionLayer(options: {
       // A changed spread duration changes which countries count as reached, and nothing else here
       // would notice: the member list and the mark's own look are both unchanged. Compared before
       // the assignment, or it would be comparing the new parameters with themselves.
-      const spreadChanged = next.selectionSpreadMs !== params.selectionSpreadMs;
+      const spreadChanged =
+        next.selectionSpreadMs !== params.selectionSpreadMs ||
+        next.selectionLeaderMs !== params.selectionLeaderMs;
       params = next;
-      if (spreadChanged) paintedCount = -1;
+      if (spreadChanged) paintedKey = null;
       if (markChanged && selectedCat !== null) paint();
     },
     destroy(): void {

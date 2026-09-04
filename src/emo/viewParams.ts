@@ -184,6 +184,19 @@ export interface EmoViewParams {
    * affected: the rest of the world's leader lines are not part of a wave.
    */
   leaderSpread: "off" | "on";
+  /**
+   * Which end of a growing leader line moves, once `leaderSpread` is on.
+   *
+   * `foot` grows every one of them out of the ground toward its word, which is what round v9
+   * shipped. `split` grows only the country that was clicked that way, and grows every other
+   * country's line downward from its word to the ground instead, which is the operator's reading:
+   * the first line is the gesture leaving the country you chose, and every line after it is the
+   * network arriving at a country and reaching down to claim it.
+   *
+   * The direction is the only difference. The line occupies the same space either way, and at
+   * either end of the growth the picture is identical, so this can only be judged in motion.
+   */
+  leaderSpreadFrom: "foot" | "split";
   /** Opacity multiplier applied to every label except the selected one. */
   selectionDim: number;
   /**
@@ -247,6 +260,56 @@ export interface EmoViewParams {
    * to be over quickly; the spread is the thing being watched and wants long enough to be read.
    */
   selectionSpreadMs: number;
+  /**
+   * How long the chosen country's own leader line takes to reach its word before the network
+   * starts to spread, in milliseconds. It is also how long every other country's leader takes
+   * once the network reaches it.
+   *
+   * THE GESTURE IS TWO PHASES, AND THIS IS THE FIRST. The operator's order is that the line
+   * grows out of the country that was clicked, and only once it has arrived at the word does that
+   * country light up and the network begin. Each country the network then reaches repeats it in
+   * miniature: the arc lands, its line reaches down, and only then does the country light.
+   *
+   * IT IS ALSO THE BUDGET FOR TAKING THE PREVIOUS NETWORK APART. Clicking a second category
+   * reverses the first one at `selectionRetractSpeed` times the speed it was built, and that
+   * happens while this line is growing. At the round v10 values a full network unbuilds in 116 ms
+   * against 260 ms of lead-in, so the screen is clear well before the new network starts. Nothing
+   * enforces the ordering through this number, though: a wave that would otherwise overlap its
+   * own predecessor holds until the mesh it needs is empty.
+   *
+   * 0 removes the phase entirely, which is what every preset before round v10 does: the leader
+   * lines then follow the wavefront exactly as they did.
+   */
+  selectionLeaderMs: number;
+  /**
+   * How many times faster than its construction a network is taken apart when it is replaced or
+   * cleared.
+   *
+   * The operator asked for the deconstruction to be "simply the construction, but in reverse",
+   * so it is exactly that: the same wave, the same order, the same two phases, running backward.
+   * The network unspreads toward the country it grew from and that country's leader line is the
+   * last thing to go, which is the first thing that happened, reversed.
+   *
+   * 0 removes the network the instant the selection changes, which is what every preset before
+   * round v10 does.
+   */
+  selectionRetractSpeed: number;
+  /**
+   * How much of each depth step of the spread belongs to the leader line coming down, rather
+   * than to the arc that reaches that country.
+   *
+   * THE ORDER INSIDE ONE STEP. The wave reaches a country, its line comes down from its word, and
+   * only then does the next hop leave. Without this reservation the two overlap: a leader taking
+   * roughly a third of the whole sweep is longer than a step of a four step sweep, so the next
+   * country was already connected while the previous line was still descending, which is what
+   * the operator saw. Expressed as a share of a step rather than as a duration, because a step is
+   * what it has to fit inside, and the number of steps is a property of the graph rather than of
+   * the view. Half gives the line and the arc the same time.
+   *
+   * 0 gives the whole step to the arc, which is what every preset before round v10 does. The
+   * ceiling is 0.9, since the arc needs some of the step to cross in.
+   */
+  selectionLeaderShare: number;
   /**
    * The shape of one country's own fade as the wavefront passes it.
    *
@@ -405,6 +468,8 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   leaderSelectedWidthScale: 1,
   leaderSelectedOpacityScale: 1,
   leaderSpread: "off",
+  // Every growing leader out of the ground, which is how round v9 drew them.
+  leaderSpreadFrom: "foot",
   selectionDim: 0.25,
   // Flat by default, so every preset that predates the lift is unchanged.
   selectionLift: 0,
@@ -413,6 +478,11 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   selectionSink: 0,
   selectionMotionMs: 0,
   selectionSpreadMs: 0,
+  // Both 0: no lead-in phase and no reverse, so every preset before round v10 is unchanged.
+  selectionLeaderMs: 0,
+  selectionRetractSpeed: 0,
+  // The whole step to the arcs, so no preset that predates the descent moves.
+  selectionLeaderShare: 0,
   // The shape and width that shipped as constants, so no preset built before these moves.
   selectionSpreadEase: "smooth",
   selectionSpreadWindow: 0.5,
@@ -456,6 +526,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   categoryGraph: ["knn", "complete", "gabriel", "delaunay"],
   leaderLines: ["off", "on"],
   leaderSpread: ["off", "on"],
+  leaderSpreadFrom: ["foot", "split"],
   legend: ["off", "on"],
   selectionStyle: ["wash", "glow"],
   selectionEmphasis: ["dim", "bold", "both"],

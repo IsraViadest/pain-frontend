@@ -85,6 +85,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Leaders spread",
     hint: "on grows the chosen category's leader lines out of the ground with the wavefront, instead of having them there from the start. The rest of the world is never part of a wave.",
   },
+  leaderSpreadFrom: {
+    label: "Leaders grow from",
+    hint: "Which end of a growing leader moves. foot sends every one of them up out of the ground, which is what round v9 drew. split sends only the country you clicked up, and brings every other country's line down from its word instead.",
+  },
   selectionStyle: {
     label: "Selection mark",
     hint: "wash lays white over the country. glow adds warm light instead, so its own choropleth colour brightens rather than being covered.",
@@ -157,7 +161,7 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Network arcs",
     defaultOpen: false,
-    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines", "leaderSpread", "selectionStyle", "selectionEmphasis", "selectionSpreadEase"],
+    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines", "leaderSpread", "leaderSpreadFrom", "selectionStyle", "selectionEmphasis", "selectionSpreadEase"],
     sliders: [
       { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest neighbours each country links to. Only used by the knn and random rules." },
       { key: "randomSeed", label: "Random seed", min: 1, max: 200, step: 1, decimals: 0, hint: "Which random world network to draw. Click does reshuffleNetwork steps this for you." },
@@ -177,6 +181,9 @@ const SECTIONS: EmoSection[] = [
       { key: "selectionSink", label: "Selection sink", min: 0, max: 1, step: 0.02, decimals: 2, hint: "How far every other category steps down toward the planet while one is selected, as a share of the label's own height above the surface. The inverse of Selection lift: the chosen category stays put and the world steps back from it, so zooming in and clicking does not push it out of frame. 1 lands them on the surface." },
       { key: "selectionMotionMs", label: "Motion ms", min: 0, max: 1600, step: 20, decimals: 0, hint: "How long the step down, the step up and the dim take. 0 is the instant jump that shipped. Ease-out cubic, retargeted from wherever a category currently is." },
       { key: "selectionSpreadMs", label: "Spread ms", min: 0, max: 2500, step: 50, decimals: 0, hint: "How long the network takes to grow outward from the country clicked, breadth first. Each country's label comes up as the front passes it. 0 draws it all at once, which is what shipped." },
+      { key: "selectionLeaderMs", label: "Leader ms", min: 0, max: 1200, step: 20, decimals: 0, hint: "How long the clicked country's own leader line takes to reach its word before the network starts, and how long every other country's takes once the network reaches it. It is also the budget for taking the previous network apart, which happens while it grows. 0 removes the phase, which is what shipped." },
+      { key: "selectionRetractSpeed", label: "Retract speed", min: 0, max: 20, step: 0.5, decimals: 1, hint: "How many times faster than its construction a network is taken apart when it is replaced or cleared. It is the same wave in reverse, so it unspreads toward the country it grew from and that country's leader is the last thing to go. 0 removes it instantly, which is what shipped." },
+      { key: "selectionLeaderShare", label: "Leader share", min: 0, max: 0.9, step: 0.05, decimals: 2, hint: "How much of each depth step of the spread is reserved for the leader line coming down at the far end, rather than for the arc that reaches it. The next hop leaves only at the end of the step, so a country is never still being connected to while its own line is on the way down. 0.5 gives the two the same time; 0 is what shipped." },
       { key: "selectionSpreadWindow", label: "Spread window", min: 0.05, max: 3, step: 0.05, decimals: 2, hint: "How long one country takes to come up once the front reaches it, in depth steps. Wider is a gentler fade and a softer front; 0.5 is what shipped, and a five step sweep makes that about a tenth of the total." },
       { key: "selectionEmphasisScale", label: "Emphasis size", min: 1, max: 1.6, step: 0.01, decimals: 2, hint: "How much larger an emphasised label's main lines are drawn. 1.22 is what shipped. Only acts with Selection emphasis set to bold or both." },
       { key: "selectionEmphasisSecondScale", label: "Emphasis second", min: 1, max: 1.6, step: 0.01, decimals: 2, hint: "The same for the smaller English line under a native one. 1 leaves the subtitle where it is while the word above it grows." },

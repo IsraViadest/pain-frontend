@@ -14,6 +14,14 @@
  * That is why this needs no change to GlobeView and cannot be forgotten in `syncWorldRotation()`,
  * which is the documented trap for anything added to the scene directly.
  *
+ * ONE MESH PER CATEGORY, WHICH IS WHY A REPLACED NETWORK HAS TO FINISH LEAVING. A wavefront is
+ * drawn by writing the segments in the order the wave reaches them and then drawing the first n
+ * of them, so the ordering and the mesh are one thing. A second click on the same category needs
+ * a different ordering, and the outgoing network is still using the old one to take itself apart,
+ * so the new ordering is held in `pendingPlan` until the motion says its wave has left the lead-in
+ * and the mesh is free. That is also what keeps a newly chosen category from flashing whole during
+ * the lead-in: a mesh with no ordering yet draws all of its segments.
+ *
  * RADIUS IS A SCALE, NOT A COORDINATE. Every arc is built on the unit sphere and each category's
  * mesh is scaled to its radius once per frame. An arc at constant radius is a curve on a sphere,
  * so a uniform scale about the origin moves it to another radius exactly, which is what lets the
@@ -33,7 +41,7 @@ import { buildCategoryGraph, buildWorldGraph } from "./graphs";
 import { planSpread } from "./spread";
 import { applyEmoFacingFade, makeEmoFadeUniform, updateEmoFadeUniform } from "./facingFade";
 import { emoArcRadius, emoCategoryShells, emoLabelStandoff, emoSunkStandoff, emoZoomRamp } from "./layout";
-import type { EmoSelectionMotion } from "./selectionMotion";
+import { clampLeaderShare, type EmoSelectionMotion } from "./selectionMotion";
 
 /**
  * Degrees of arc per subdivision. A constant, not a parameter: it trades vertex count against
@@ -249,7 +257,11 @@ export async function createEmoArcLayer(options: {
       drawn += 1;
       if (plan === null) continue;
       const base = plan.nodeDepth[from]!;
-      for (let seg = 0; seg < written; seg++) revealSteps.push(base + seg / written);
+      // The arc crosses in the first part of its depth step and the rest of the step belongs to
+      // the leader line coming down at the far end, so the next hop cannot start before that line
+      // has landed. At a share of 0 this is the whole step, which is what every earlier round did.
+      const arcShare = 1 - clampLeaderShare(params.selectionLeaderShare);
+      for (let seg = 0; seg < written; seg++) revealSteps.push(base + (arcShare * seg) / written);
     }
 
     let positions: Float32Array;
@@ -284,13 +296,20 @@ export async function createEmoArcLayer(options: {
   /**
    * How many of a mesh's segments are drawn at a given point in the sweep. The reveal times are
    * sorted, so this is a binary search rather than a scan over 12000 of them every frame.
+   *
+   * STRICTLY BEFORE THE FRONT, NOT AT IT. Every edge leaving the country that was clicked has its
+   * first segment at a reveal time of exactly 0, so a test of `<=` draws a stub of every one of
+   * them while the front is still at 0. That was invisible for one frame in every round before
+   * this one and is plainly visible now, because the lead-in holds the front at 0 for as long as
+   * the first leader line takes to grow. The settled picture is unaffected: no reveal time can
+   * reach 1, since the last segment of the deepest edge lands short of it.
    */
   function segmentsRevealed(revealAt: Float32Array, front: number): number {
     let lo = 0;
     let hi = revealAt.length;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      if (revealAt[mid]! <= front) lo = mid + 1;
+      if (revealAt[mid]! < front) lo = mid + 1;
       else hi = mid;
     }
     return lo;
@@ -335,6 +354,24 @@ export async function createEmoArcLayer(options: {
   let selectedOrigin: string | null = null;
 
   /**
+   * A wavefront ordering computed at click time and not yet written into its mesh.
+   *
+   * It waits because the mesh may still be drawing the previous wave of the same category in the
+   * previous order while that one unbuilds itself. `atGeneration` is the motion's spread
+   * generation when this was stashed, so the plan lands on the frame that number changes, which
+   * is the frame the new wave leaves its lead-in.
+   */
+  let pendingPlan:
+    | {
+        cat: string;
+        nodes: ArcNode[];
+        pairs: [number, number][];
+        plan: { nodeDepth: number[]; span: number };
+        atGeneration: number;
+      }
+    | null = null;
+
+  /**
    * Rebuild the selected category's geometry in wavefront order, and tell the motion when each
    * of its countries is reached so the labels can come up with the front.
    *
@@ -346,41 +383,67 @@ export async function createEmoArcLayer(options: {
     if (selectedCat === null || selectedOrigin === null) return;
     const nodes = byCategory.get(selectedCat);
     if (!nodes) return;
+    const cat = selectedCat;
     const origin = nodes.findIndex((n) => n.iso3 === selectedOrigin);
     const k = Math.max(1, Math.round(params.kNeighbours));
     const pairs = buildCategoryGraph(nodes.map((n) => n.dir), params.categoryGraph, k);
     const plan = planSpread(pairs, nodes.length, origin);
-    setMeshEdges(selectedCat, nodes, pairs, plan);
-    if (!restart) return;
+    if (!restart) {
+      // A slider drag has destroyed the ordering by rebuilding the geometry and wants it back
+      // without replaying anything. If a click is already waiting on the mesh, keep waiting:
+      // writing now would put the new order under the outgoing wave's own front.
+      if (pendingPlan === null) setMeshEdges(cat, nodes, pairs, plan);
+      else pendingPlan = { ...pendingPlan, nodes, pairs, plan };
+      return;
+    }
     const arrivals = new Map<string, number>(
       nodes.map((n, i) => [n.iso3, plan.nodeDepth[i] ?? 0]),
     );
-    motion.setSpread(arrivals, plan.span);
+    motion.setSpread(cat, selectedOrigin, arrivals, plan.span);
+    // setSpread has just sent the outgoing wave into retreat, so this asks whether the mesh this
+    // ordering needs is the one that wave is still unbuilding itself on. Only then is there
+    // anything to wait for: a different category has its own mesh, and its new ordering can land
+    // at once, where its front of 0 draws none of it until the lead-in is over.
+    if (motion.retreatingCategories().includes(cat)) {
+      pendingPlan = { cat, nodes, pairs, plan, atGeneration: motion.spreadGeneration() };
+    } else {
+      pendingPlan = null;
+      setMeshEdges(cat, nodes, pairs, plan);
+    }
     console.info(
-      `[emoArcs] spread from ${selectedOrigin} through ${selectedCat}: ${nodes.length} countries, ` +
-        `${plan.span} steps, ${meshOrder.get(selectedCat)?.length ?? 0} segments`,
+      `[emoArcs] spread from ${selectedOrigin} through ${cat}: ${nodes.length} countries, ` +
+        `${plan.span} steps, depth ${Math.max(...plan.nodeDepth)}`,
     );
   }
 
   function syncVisibility(): void {
     group.visible = layerVisible && params.networkMode !== "off";
-    // "connected" is the resting-plus-selection view: the whole world joined while nothing is
-    // clicked, and only the clicked country's category once something is.
-    for (const [key, mesh] of meshes) {
-      const isGlobal = key === GLOBAL_KEY;
-      switch (params.networkMode) {
-        case "all":
-          mesh.visible = !isGlobal;
-          break;
-        case "selected":
-          mesh.visible = !isGlobal && key === selectedCat;
-          break;
-        case "connected":
-          mesh.visible = selectedCat === null ? isGlobal : !isGlobal && key === selectedCat;
-          break;
-        default:
-          mesh.visible = false;
-      }
+    // Also written here, not only per frame in update(). A LineSegments2 is born visible, and
+    // between being added to the scene and the first update() every category network and the
+    // world network would draw at once, which is the flash on reload.
+    for (const [key, mesh] of meshes) mesh.visible = shouldShow(key);
+  }
+
+  /**
+   * Whether one mesh is drawn this frame. Asked per frame rather than on selection changes,
+   * because a category that has just stopped being selected is still on screen while it takes
+   * itself apart, and nothing calls back when that finishes.
+   *
+   * "connected" is the resting-plus-selection view: the whole world joined while nothing is
+   * clicked, and only the clicked country's category once something is.
+   */
+  function shouldShow(key: string): boolean {
+    const isGlobal = key === GLOBAL_KEY;
+    const engaged = key === selectedCat || motion.retreatingCategories().includes(key);
+    switch (params.networkMode) {
+      case "all":
+        return !isGlobal;
+      case "selected":
+        return !isGlobal && engaged;
+      case "connected":
+        return isGlobal ? selectedCat === null : engaged;
+      default:
+        return false;
     }
   }
 
@@ -400,10 +463,17 @@ export async function createEmoArcLayer(options: {
           (mesh.material as LineMaterial).resolution.copy(resolution);
         }
       }
+      // A held-back wavefront ordering lands on the frame the motion says its wave has started,
+      // which is the frame the mesh it needs is finally empty. See pendingPlan.
+      if (pendingPlan !== null && motion.spreadGeneration() !== pendingPlan.atGeneration) {
+        setMeshEdges(pendingPlan.cat, pendingPlan.nodes, pendingPlan.pairs, pendingPlan.plan);
+        pendingPlan = null;
+      }
       // The geometry is on the unit sphere, so the radius is the scale. The base follows the
       // labels' own ramp, and each category is lifted onto its own shell above it.
       const standoff = emoLabelStandoff(emoZoomRamp(globe.camera.position.length(), params), params);
       for (const [key, mesh] of meshes) {
+        mesh.visible = shouldShow(key);
         // Each category's network follows its own labels exactly: down with them while another
         // category is chosen, up with them while this one is. The lift is added raw rather than
         // scaled by the arc's share of the standoff, so the gap the arcs keep under the text is
@@ -417,19 +487,26 @@ export async function createEmoArcLayer(options: {
         );
         // The wavefront is one integer: how many of this mesh's segments, in reveal order, have
         // been reached. Written every frame for every mesh rather than only the spreading one, so
-        // a network that was mid-sweep when the selection changed cannot be left half drawn.
+        // a network that was mid-sweep when the selection changed cannot be left half drawn, and
+        // so a category taking itself apart draws the same segments it drew on the way up.
+        //
+        // A category whose new ordering has not landed yet keeps drawing the outgoing wave in the
+        // outgoing order, which is exactly what it should do while that wave unbuilds itself.
         const revealAt = meshOrder.get(key);
         const geometry = mesh.geometry as LineSegmentsGeometry;
         const total = geometry.attributes.instanceStart?.count ?? 0;
-        geometry.instanceCount =
-          revealAt && key === selectedCat
-            ? segmentsRevealed(revealAt, motion.arrivalFront())
-            : total;
+        geometry.instanceCount = revealAt
+          ? segmentsRevealed(revealAt, motion.arrivalFrontOf(key))
+          : total;
       }
     },
     setParams(next: EmoViewParams): void {
       // arcLift is absent on purpose: it is now applied as a per-frame scale, not baked in.
       const geometryChanged =
+        // The share decides how much of a depth step the arcs get, and the reveal times are
+        // baked into the geometry, so a change to it has to re-order. Compared before the
+        // assignment below, like its neighbours.
+        next.selectionLeaderShare !== params.selectionLeaderShare ||
         next.kNeighbours !== params.kNeighbours ||
         next.arcEndTrimDeg !== params.arcEndTrimDeg ||
         next.worldGraph !== params.worldGraph ||
@@ -454,6 +531,10 @@ export async function createEmoArcLayer(options: {
       if (cat === selectedCat && origin === selectedOrigin) return;
       selectedCat = cat;
       selectedOrigin = origin;
+      // Whatever was waiting belonged to the gesture this one replaces, and its generation will
+      // never arrive now. The mesh keeps the geometry it has, which is the one its own retreat
+      // is drawing from.
+      pendingPlan = null;
       syncVisibility();
       // Ordered even when the network is not drawn, because `networkMode` can be switched on
       // mid-selection and a mesh whose reveal table did not match its geometry would draw the

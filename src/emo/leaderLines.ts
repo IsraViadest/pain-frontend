@@ -47,6 +47,18 @@
  * written to remove. The split is invisible until a preset asks for it: with both
  * `leaderSelected*Scale` at 1 the two materials are identical, and two meshes drawing disjoint
  * white segments at one opacity composite to exactly what one mesh drawing all of them does.
+ *
+ * A GROWING LEADER IS A SPLIT LINE, NOT A SHORT ONE, AND THAT IS WHY IT READS AS AN OVERLAY.
+ * The operator's complaint about round v9 was that clicking a category emptied the leader lines
+ * of every country in it until the wave arrived: the heavy line was drawn instead of the ordinary
+ * one rather than over it. The line is now always complete. The part that has grown is written to
+ * the heavy mesh and the part that has not is written to the ordinary one, so the two together
+ * are exactly the line that was always there and the heavy section advances along it.
+ *
+ * Implemented as a split rather than as one line drawn twice on purpose. Drawing the full line in
+ * both meshes would read the same only where the heavy line is opaque; at any lower opacity the
+ * two coats blend and the chosen leaders brighten, which would change what every preset from v9-b
+ * onward looks like. Disjoint parts composite to exactly one line and move nothing.
  */
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -71,6 +83,32 @@ const HEAD_GAP = 0.012;
 
 /** Rebuild only when the head has moved by more than this, which a still camera never does. */
 const REBUILD_EPSILON = 1e-4;
+
+/**
+ * Shortest piece of line worth writing, in globe radii.
+ *
+ * A segment still paints its two round caps whatever its length, so a piece of zero length is a
+ * dot the width of the line sitting on the country. At the start of a growth every chosen leader
+ * would carry one, which is why the version before this skipped an unarrived country outright.
+ */
+const MIN_SEGMENT = 1e-4;
+
+/**
+ * Radius a growing line grows out of, rather than out of its own foot.
+ *
+ * A GROWTH MEASURED FROM THE FOOT IS MOSTLY INVISIBLE. `leaderFoot` is 0.7 in every preset that
+ * has leader lines, because the line has to start below the deepest scar dent and let the globe's
+ * own depth write cut it back to the surface. The visible line is therefore the last quarter of
+ * it: at a head of 1.09 the growth only leaves the planet at 77 percent, so three quarters of the
+ * time the operator was watching went by underground.
+ *
+ * The undented surface is the best anchor available here. The real one is 1 minus the scar dent
+ * at that country, which is private to GlobeView, and the error is at most the 0.08 of a radius a
+ * deep dent reaches, against the 0.09 the whole visible line spans. So the buried part is written
+ * once at the ordinary weight, where it is either clipped away or fills a dent, and the growth
+ * runs over what is actually seen.
+ */
+const GROWTH_FLOOR = 1;
 
 interface LeaderNode {
   /** Country code, so a spreading leader can ask the wavefront whether it has been reached. */
@@ -140,7 +178,7 @@ export async function createEmoLeaderLineLayer(options: {
     count: number;
   }
 
-  function makeLeaderMesh(name: string): LeaderMesh {
+  function makeLeaderMesh(name: string, slots: number): LeaderMesh {
     const material = new LineMaterial({
       color: 0xffffff,
       linewidth: params.arcWidth * params.leaderWidthScale,
@@ -158,11 +196,19 @@ export async function createEmoLeaderLineLayer(options: {
     globe.earthContent.add(mesh);
     // setPositions keeps a Float32Array by reference rather than copying it, so this array stays
     // the geometry's own storage and a rebuild is a write plus a needsUpdate rather than an alloc.
-    return { mesh, material, positions: new Float32Array(nodes.length * 6), built: false, count: 0 };
+    return {
+      mesh,
+      material,
+      positions: new Float32Array(nodes.length * slots * 6),
+      built: false,
+      count: 0,
+    };
   }
 
-  const rest = makeLeaderMesh("emo-leader-lines");
-  const chosen = makeLeaderMesh("emo-leader-lines-selected");
+  // Two slots for the ordinary mesh, because a growing line puts two pieces in it: the buried
+  // stub below the surface and whatever of the line above it the heavy part has not reached.
+  const rest = makeLeaderMesh("emo-leader-lines", 2);
+  const chosen = makeLeaderMesh("emo-leader-lines-selected", 1);
   const both = [rest, chosen];
 
   /** Width and opacity of the two materials, from the four scales. Called on every change. */
@@ -209,9 +255,31 @@ export async function createEmoLeaderLineLayer(options: {
    * moved. That is trap 25's shape, so it gets its own comparison.
    */
   let lastLeaderSpread = params.leaderSpread;
+  /**
+   * The growth direction the current geometry was built at.
+   *
+   * Its own comparison for the same reason as the one above: it changes which end of a line is
+   * written without moving the standoff, the foot or the motion, so nothing else here would
+   * notice and a panel toggle would appear to do nothing until something forced a rebuild.
+   */
+  let lastLeaderSpreadFrom = params.leaderSpreadFrom;
+
+  /** One radial piece of one country's line, skipped when it is too short to be a line. */
+  function writePart(part: LeaderMesh, dir: THREE.Vector3, from: number, to: number): void {
+    if (to - from < MIN_SEGMENT) return;
+    const o = part.count * 6;
+    part.count += 1;
+    part.positions[o] = dir.x * from;
+    part.positions[o + 1] = dir.y * from;
+    part.positions[o + 2] = dir.z * from;
+    part.positions[o + 3] = dir.x * to;
+    part.positions[o + 4] = dir.y * to;
+    part.positions[o + 5] = dir.z * to;
+  }
 
   function rebuild(standoff: number, foot: number): void {
     const spreading = params.leaderSpread === "on";
+    const splitEnds = params.leaderSpreadFrom === "split";
     rest.count = 0;
     chosen.count = 0;
     for (const node of nodes) {
@@ -226,24 +294,28 @@ export async function createEmoLeaderLineLayer(options: {
         foot,
         sunk + shell * params.multiplexSpread + params.selectionLift * emphasis - HEAD_GAP,
       );
-      let head = full;
-      if (isChosen && spreading) {
-        const arrival = motion.arrivalOf(iso3);
-        // Not written at all rather than written with both ends equal: a zero-length segment
-        // still paints its round cap, which would leave a dot on the surface of every country
-        // the wave has yet to reach.
-        if (arrival <= 0) continue;
-        head = foot + (full - foot) * arrival;
+      if (!isChosen || !spreading) {
+        writePart(isChosen ? chosen : rest, dir, foot, full);
+        continue;
       }
-      const target = isChosen ? chosen : rest;
-      const o = target.count * 6;
-      target.count += 1;
-      target.positions[o] = dir.x * foot;
-      target.positions[o + 1] = dir.y * foot;
-      target.positions[o + 2] = dir.z * foot;
-      target.positions[o + 3] = dir.x * head;
-      target.positions[o + 4] = dir.y * head;
-      target.positions[o + 5] = dir.z * head;
+      // Whatever is below the surface is written once and never grows: it is there to be clipped
+      // by the globe, or to fill a scar dent, and counting it as part of the growth is what made
+      // three quarters of the animation happen inside the planet. See GROWTH_FLOOR.
+      const base = Math.min(full, Math.max(foot, GROWTH_FLOOR));
+      writePart(rest, dir, foot, base);
+      // The heavy part advances and the ordinary part is what is left of the same line, so the
+      // country never loses the line it had. See the module docstring.
+      const grown = (full - base) * motion.leaderArrivalOf(iso3);
+      // The country the wave came from sends its line up out of the ground; everything the wave
+      // then reaches has the line come down to it from its word. `foot` keeps both ends growing
+      // out of the ground, which is what round v9 drew.
+      if (!splitEnds || motion.isSpreadOrigin(iso3)) {
+        writePart(chosen, dir, base, base + grown);
+        writePart(rest, dir, base + grown, full);
+      } else {
+        writePart(chosen, dir, full - grown, full);
+        writePart(rest, dir, base, full - grown);
+      }
     }
     for (const part of both) {
       const geometry = part.mesh.geometry as LineSegmentsGeometry;
@@ -270,6 +342,7 @@ export async function createEmoLeaderLineLayer(options: {
     lastLift = params.selectionLift;
     lastSink = params.selectionSink;
     lastLeaderSpread = params.leaderSpread;
+    lastLeaderSpreadFrom = params.leaderSpreadFrom;
     lastMotionRevision = motion.revision();
   }
 
@@ -311,6 +384,7 @@ export async function createEmoLeaderLineLayer(options: {
         params.selectionLift !== lastLift ||
         params.selectionSink !== lastSink ||
         params.leaderSpread !== lastLeaderSpread ||
+        params.leaderSpreadFrom !== lastLeaderSpreadFrom ||
         motion.revision() !== lastMotionRevision
       ) {
         rebuild(standoff, foot);
