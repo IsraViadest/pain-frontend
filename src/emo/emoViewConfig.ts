@@ -23,9 +23,25 @@ import {
 
 const EMO_VIEWS_LS_KEY = "pain-emo-views";
 
+/** The `ev` value, or null when the gate is off or unreadable. `emoViews` is the old spelling. */
+function emoGateValue(): string | null {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    return q.get("ev") ?? q.get("emoViews");
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Enable with `?ev=1` or `localStorage.setItem("pain-emo-views", "1")` then reload.
  * Off by default, so production is untouched until a preset is promoted deliberately.
+ *
+ * `?ev=2` IS THE SAME VIEWS WITH THE PANEL CLOSED, and it exists because the two things the
+ * operator wants to look at are on top of each other: the panel sits on the left, and so does the
+ * category legend. `?emoPanel=0` already did this and stays; the second gate value is the short
+ * spelling, so looking at a view without the controls is one character rather than a second
+ * parameter to remember. The entry button is still there, so the panel is one click away.
  *
  * `?emoViews=1` is still accepted. It was the original spelling and PROGRESS.md, which is
  * append-only and therefore cannot be rewritten, records many URLs that use it. Dropping it would
@@ -38,27 +54,27 @@ export function shouldShowEmoViews(): boolean {
   } catch {
     /* private mode / quota */
   }
-  try {
-    const q = new URLSearchParams(window.location.search);
-    const v = q.get("ev") ?? q.get("emoViews");
-    return v === "1" || v === "true";
-  } catch {
-    return false;
-  }
+  const v = emoGateValue();
+  return v === "1" || v === "2" || v === "true";
 }
 
 /**
  * Whether the views panel starts open. `?emoPanel=0` starts it hidden, which is what the
  * gallery capture uses: the panel covers a third of the globe, so a screenshot taken with it
- * open is not a picture of the view. The entry button still restores it.
+ * open is not a picture of the view. `?ev=2` is the shorthand for the same thing.
+ *
+ * The explicit parameter wins over the gate's shorthand in both directions, so `?ev=2&emoPanel=1`
+ * opens the panel: a value someone typed beats one they implied. The entry button restores it
+ * either way.
  */
 export function shouldOpenEmoPanel(): boolean {
   try {
     const v = new URLSearchParams(window.location.search).get("emoPanel");
-    return v !== "0" && v !== "false";
+    if (v !== null) return v !== "0" && v !== "false";
   } catch {
     return true;
   }
+  return emoGateValue() !== "2";
 }
 
 /** One enum parameter, validated against its allowed values because these are hand-typed. */
@@ -162,7 +178,11 @@ export function resolveEmoViewFromUrl(): EmoViewSelection {
 export function buildEmoViewUrl(presetId: string, params: EmoViewParams): string {
   const url = new URL(window.location.href);
   const q = url.searchParams;
-  q.set("ev", "1");
+  // The gate's own value is carried through, not rewritten. A URL built from an `ev=2` page that
+  // came back as `ev=1` would reopen the panel over the view the operator was looking at, which
+  // is exactly the thing `ev=2` exists to avoid.
+  const gate = q.get("ev") ?? q.get("emoViews");
+  q.set("ev", gate === "2" ? "2" : "1");
   // A URL built here supersedes one that was typed, so the long form must not survive alongside it.
   q.delete("emoViews");
   q.set("emoPreset", presetId);
