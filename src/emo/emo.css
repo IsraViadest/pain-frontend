@@ -21,8 +21,12 @@
   white-space: nowrap;
   text-align: center;
   line-height: 1.35; /* headroom for Thai, Lao, Devanagari and Tibetan ascenders/descenders */
-  pointer-events: auto;
-  cursor: default;
+  /* The overlay never takes a pointer event. A label that did was invisible to OrbitControls,
+     because the canvas is not its ancestor, so a wheel or a drag beginning over one of 144
+     labels neither zoomed nor rotated, and the wheel then rubber-banded the page instead. The
+     label layer resolves a click by hit-testing under the attribute below, for the length of
+     one elementFromPoint call. */
+  pointer-events: none;
   user-select: none;
   /* Only transform and opacity are written per frame, so this stays on the compositor. */
   will-change: transform, opacity;
@@ -83,6 +87,12 @@
   font-size: calc(var(--emo-font-px) * var(--emo-second-scale) * var(--emo-emphasis-second));
   font-weight: 400;
   opacity: 0.68;
+}
+
+/* Set for the duration of a single hit test and removed again, so nothing is ever painted with
+   it on. See labelAt() in labelLayer.ts. */
+.emo-label-host[data-hit="on"] .emo-label {
+  pointer-events: auto;
 }
 
 .emo-label:focus-visible {

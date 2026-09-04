@@ -185,6 +185,10 @@ export async function createEmoLabelLayer(options: {
     el.dataset.iso3 = iso3;
     el.dataset.cat = country.cat;
     el.dataset.family = categoryFamily.get(country.cat) ?? "";
+    // Dormant, and deliberately kept. The overlay takes no pointer events, so nothing hovers a
+    // label and the browser never shows this. It is the only place the country's own NAME
+    // appears anywhere in this feature, so it stays as the record of what a label stands for,
+    // ready for whatever surfaces it. Losing the tooltip is the price of the pass-through.
     el.title = `${country.name}: ${englishCategory}\n${
       hasNative ? `${country.term} (${country.langEn}): ${country.en}` : "no term in this language; showing English"
     }`;
@@ -279,13 +283,63 @@ export async function createEmoLabelLayer(options: {
     options.onSelect?.(null);
   }
 
-  const onClick = (ev: MouseEvent): void => {
+  /**
+   * Select this country, without the click handler's toggle.
+   *
+   * Split out of the click so the legend can reach it: a legend click re-rolls a random member
+   * of the same category, and that roll can land on the country already selected, where a toggle
+   * would read the gesture as "clear" when it meant "again".
+   */
+  function selectEntry(entry: LabelEntry): void {
+    selected = entry.iso3;
+    selectedCat = entry.cat;
+    // "bold" resizes a whole category's labels, and the declutter sweep's cached boxes are the
+    // only thing that would not notice.
+    measureDirty = true;
+    options.onSelect?.({ iso3: entry.iso3, cat: entry.cat });
+  }
+
+  /**
+   * Which label is under this point, with the overlay made clickable for the length of the call.
+   *
+   * THE OVERLAY IS INPUT-TRANSPARENT, AND THAT IS THE WHOLE REASON THIS EXISTS. The labels used
+   * to take pointer events so that a click could land on one, and the cost was silent: the canvas
+   * is not their ancestor, so every wheel and every drag that began over one of 144 labels never
+   * reached OrbitControls. Zoom and rotation simply died over most of the disc, and the wheel
+   * then fell through to the document, which rubber-banded the page. Measured: a wheel dispatched
+   * at a label centre came back with defaultPrevented false where the same wheel on the canvas
+   * came back true, and a pointer drag from a label centre moved no label at all.
+   *
+   * So the labels are pointer-events: none, the globe receives every gesture natively, and a
+   * click is resolved here instead. `elementFromPoint` skips a hidden element, so a decluttered
+   * label can no longer swallow a click meant for the one actually drawn over it.
+   */
+  function labelAt(x: number, y: number): LabelEntry | undefined {
+    host.dataset.hit = "on";
+    const hit = document.elementFromPoint(x, y)?.closest(".emo-label") ?? null;
+    delete host.dataset.hit;
+    return hit === null ? undefined : entries.find((e) => e.el === hit);
+  }
+
+  // A drag that rotates the globe ends in a click on the canvas, so the slop test is what keeps
+  // the gesture used to bring a network into view from also selecting whatever it ended on.
+  let downX = 0;
+  let downY = 0;
+  const onPointerDown = (ev: PointerEvent): void => {
+    downX = ev.clientX;
+    downY = ev.clientY;
+  };
+  const onDocumentClick = (ev: MouseEvent): void => {
     if (params.clickMode === "off") return;
-    const target = (ev.target as HTMLElement).closest(".emo-label");
-    if (!target) return;
-    const entry = entries.find((e) => e.el === target);
-    if (!entry) return;
-    ev.stopPropagation();
+    // Only the globe. Clicking a panel or the page's own chrome leaves the selection alone,
+    // which is what makes the network survive a trip to the controls.
+    if (ev.target !== globe.renderer.domElement) return;
+    if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
+    const entry = labelAt(ev.clientX, ev.clientY);
+    if (!entry) {
+      if (params.clickMode === "selectNetwork") clearSelection();
+      return;
+    }
     if (params.clickMode === "toggleLanguage") {
       entry.toggled = !entry.toggled;
       return;
@@ -296,31 +350,8 @@ export async function createEmoLabelLayer(options: {
     }
     // Clicking the selected country again clears the selection, so there is always a way out
     // without hunting for empty globe between 195 labels.
-    selected = selected === entry.iso3 ? null : entry.iso3;
-    selectedCat = selected === null ? null : entry.cat;
-    // "bold" resizes a whole category's labels, and the declutter sweep's cached boxes are the
-    // only thing that would not notice.
-    measureDirty = true;
-    options.onSelect?.(selected === null ? null : { iso3: entry.iso3, cat: entry.cat });
-  };
-  host.addEventListener("click", onClick);
-
-  // Clicking empty globe clears the selection. The handler above cannot do it: the host is
-  // pointer-events: none, so a click that misses a label never reaches it and lands on the canvas.
-  // A label click calls stopPropagation, so the two never both fire.
-  let downX = 0;
-  let downY = 0;
-  const onPointerDown = (ev: PointerEvent): void => {
-    downX = ev.clientX;
-    downY = ev.clientY;
-  };
-  const onDocumentClick = (ev: MouseEvent): void => {
-    if (params.clickMode !== "selectNetwork" || selected === null) return;
-    // Only the globe itself clears. Clicking a panel or the page's own chrome leaves the
-    // selection alone, which is what makes the network survive a trip to the controls.
-    if (ev.target !== globe.renderer.domElement) return;
-    if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
-    clearSelection();
+    if (selected === entry.iso3) clearSelection();
+    else selectEntry(entry);
   };
   document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("click", onDocumentClick);
@@ -663,7 +694,6 @@ export async function createEmoLabelLayer(options: {
       logNextSweep = true;
     },
     destroy(): void {
-      host.removeEventListener("click", onClick);
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("click", onDocumentClick);
       document.fonts.removeEventListener("loadingdone", onFontsLoaded);
