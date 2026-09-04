@@ -14,8 +14,24 @@
  * made against it. Round v5 is the operator's second round, built from their own list of what was
  * wrong with v4 and what to try instead. Round v6 answers four questions with one named change
  * each. Round v7 is the operator's third round: the answers to those four, plus the inversion of
- * the lift into a sink and the network spreading out from whatever is clicked. The registry
- * accumulates; nothing here is ever edited.
+ * the lift into a sink and the network spreading out from whatever is clicked. Round v8 varies
+ * only how that spread arrives and whether the world steps back at all. The registry accumulates;
+ * nothing here is ever edited.
+ *
+ * ROUND v8 HAS NO BASE OF ITS OWN, ON PURPOSE. The operator changed no values this round: they
+ * reported two defects and asked for variants of one thing. `v7-a_base` is therefore still the
+ * base, and each v8 preset is v7-a plus one named change, except `v8-c`, which carries two and
+ * says why in its own note. Adding a `v8-a_base` identical to `v7-a_base` would have put a second
+ * name on one view, which is the opposite of what an append-only registry is for.
+ *
+ * WHAT ROUND v8 INHERITS WITHOUT ASKING. Two more fixes apply to every preset here, older ones
+ * included. Select All no longer marks the words: `user-select: none` governs what a user gesture
+ * may start and not what the browser's own Select All may do, so the page now removes the
+ * selection at the event level instead. And the leader lines have a second foot for the
+ * emotional-pain layer alone, where the globe writes no depth and so cannot cut a buried line
+ * back to the surface; `leaderFoot: 0.7` was drawing 0.3 of a radius of spear out of the planet
+ * there. Neither changes all-layers mode: v7-a re-shot at rest and settled after a click both
+ * differ from their gallery frames by 0.00 percent.
  *
  * WHAT ROUND v7 SETTLES, so it is not asked again. The depth fade is cubic (v6-f). `selectionDim`
  * stays at 0.75, because 0.25 was judged too strong, which also leaves the second rendering pass
@@ -1181,6 +1197,178 @@ export const EMO_PRESETS: EmoPreset[] = [
       selectionSpreadMs: 0,
       selectionEmphasisScale: 1.12,
       selectionEmphasisSecondScale: 1,
+    },
+  },
+  {
+    id: "v8-a_spread-linear",
+    title: "Round v8: the arrival ramp made linear",
+    note:
+      "v7-a with selectionSpreadEase set to linear. The wavefront was already linear in time, " +
+      "so this is not a different wave: it is the shape of one country's own fade as the front " +
+      "passes it. Measured at 250 ms intervals through a stretched sweep, this rises in equal " +
+      "steps of 0.100 where the smooth version traces smoothstep, 0.028 0.104 0.215 0.352 0.500. " +
+      "It starts and stops abruptly, which should read as a harder edge on the front.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      selectionSpreadEase: "linear",
+    },
+  },
+  {
+    id: "v8-b_spread-gentle",
+    title: "Round v8: a gentler arrival, three times as wide",
+    note:
+      "v7-a with selectionSpreadWindow at 1.5 rather than 0.5, keeping the smooth shape. Each " +
+      "country takes three times as long to come up once the front reaches it, so more of the " +
+      "category is part way up at any instant and the front reads as a soft gradient rather " +
+      "than as an edge. The sweep still finishes in the same 900 ms; only the individual fades " +
+      "overlap more.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      selectionSpreadWindow: 1.5,
+    },
+  },
+  {
+    id: "v8-c_spread-linear-gentle",
+    title: "Round v8: linear and gentle together",
+    note:
+      "The one preset in this round that carries two changes rather than one, and it is " +
+      "deliberate: linear and gentler were offered as alternatives to each other, so the four " +
+      "corners of the pair are what actually answers the question. v7-a is smooth and narrow, " +
+      "v8-a is linear and narrow, v8-b is smooth and wide, and this is linear and wide.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      selectionDim: 0.75,
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0.4,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      selectionSpreadEase: "linear",
+      selectionSpreadWindow: 1.5,
+    },
+  },
+  {
+    id: "v8-d_hold-dim",
+    title: "Round v8: nothing steps back, everything dims a little more",
+    note:
+      "v7-a with the sink switched off and the dim deepened instead. Nothing outside the " +
+      "chosen category moves at all, so every leader line keeps the length it had: measured, " +
+      "131 of the 179 labels outside the category move under the 0.4 sink, up to 30.54 px at " +
+      "the limb, and 0 of them move here. The separation is carried by opacity alone, at 0.55. " +
+      "That value is a guess bracketed by two judgements rather than a measurement: 0.75 was " +
+      "judged not enough this round, and 0.25 was judged too strong in round v6.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 12,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      selectionSink: 0,
+      selectionDim: 0.55,
     },
   },
 ];
