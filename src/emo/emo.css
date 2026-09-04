@@ -199,6 +199,14 @@
   .emo-legend {
     /* Read back by legend.ts. The breakpoint is written once, and this is where. */
     --emo-legend-narrow: 1;
+    /* ONE RHYTHM FOR THE WHOLE BLOCK. The space between two lines of one row and the space
+       between the two rows are the same number, so the L reads as a single field of words with a
+       rectangular hole cut out of it rather than as two stacked boxes. It was 22 px within a row
+       and 54 px across the join, because each row's own 8 px of vertical padding landed there on
+       top of the column gap. */
+    --emo-legend-row-gap: 0.28em;
+    /* Breathing room round the words, drawn rather than reserved. See the background below. */
+    --emo-legend-inset: 8px;
     top: auto;
     /* The share pill's own distance from the bottom of the screen, measured by the layer, so the
        words end on the same edge the pill does. */
@@ -209,14 +217,16 @@
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-end;
-    gap: 6px;
-    padding: 0;
+    gap: var(--emo-legend-row-gap);
+    /* The inset lives here rather than on the rows, so that the backgrounds below can reach into
+       it without `overflow: hidden` on this element clipping them: overflow clips to the padding
+       box, and the padding is inside it. */
+    padding: var(--emo-legend-inset) 0;
     background: none;
   }
 
-  /* Each row carries its own background, which is what keeps the dark box behind the words and
-     nowhere else. Together the two of them are the L. */
   .emo-legend__row {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
@@ -224,10 +234,46 @@
     justify-content: space-between;
     box-sizing: border-box;
     width: 100%;
-    gap: 0.28em 0.4em;
-    padding: 8px 10px;
-    border-radius: 10px;
+    gap: var(--emo-legend-row-gap) 0.4em;
+    /* No vertical padding: it would land between the two rows and break the one rhythm. */
+    padding: 0 10px;
+  }
+
+  /* THE BACKGROUND IS ONE L, DRAWN AS TWO PIECES THAT EXACTLY ABUT.
+     The dark box has to be behind the words and never behind the share pill, and it also has to
+     be continuous, so the two pieces meet at the corner row's top edge with neither a gap nor an
+     overlap: at this alpha an overlap reads as a darker band straight across the join, and a gap
+     as a bright line. Which is why the wide piece reaches down by exactly the row gap. */
+  .emo-legend__row::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: -1;
     background: rgba(0, 0, 8, 0.34);
+  }
+
+  .emo-legend__row--wide::before {
+    top: calc(-1 * var(--emo-legend-inset));
+    bottom: calc(-1 * var(--emo-legend-row-gap));
+    border-radius: 10px 10px 0 0;
+  }
+
+  .emo-legend__row--corner::before {
+    top: 0;
+    bottom: calc(-1 * var(--emo-legend-inset));
+    border-radius: 0 0 10px 10px;
+  }
+
+  /* Either row can be the only one, and then it is a plain box rather than half an L. */
+  .emo-legend__row--wide:has(+ .emo-legend__row--corner:empty)::before {
+    bottom: calc(-1 * var(--emo-legend-inset));
+    border-radius: 10px;
+  }
+
+  .emo-legend__row--wide:empty + .emo-legend__row--corner::before {
+    top: calc(-1 * var(--emo-legend-inset));
+    border-radius: 10px;
   }
 
   /* One row holds everything whenever the words fit beside the pill, and an empty box would
@@ -236,9 +282,10 @@
     display: none;
   }
 
-  /* The row beside the share pill: as wide as the space to its left, and held to exactly the
-     pill's height, so the full-width row above starts at the pill's top edge and no dark box is
-     ever drawn behind the pill. */
+  /* The row beside the share pill: as wide as the space to its left, and exactly as tall as a
+     whole number of lines at the shared rhythm, rounded up so that it always covers the pill's
+     own height. That is what keeps the full-width row above it clear of the pill: the join sits
+     at or above the pill's top edge by construction rather than by measurement. */
   .emo-legend__row--corner {
     width: var(--emo-legend-corner-w, 100%);
     min-height: var(--emo-legend-corner-h, 0);

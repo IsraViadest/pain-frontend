@@ -49,6 +49,22 @@
  * as it was before they existed: the buttons are still the host's own flex children. Which row a
  * word belongs to is therefore a narrow-layout question only, and the wide layout puts all of
  * them back in order.
+ *
+ * THE TWO ROWS SHARE ONE RHYTHM, WHICH IS WHAT MAKES THEM READ AS ONE FIELD OF WORDS. Two boxes
+ * are the only structure that can cut this notch, but two boxes are not what the operator should
+ * see: the block should look like plain text with a rectangular area it may not enter. So the
+ * space between the last line of one row and the first line of the other is the same number as
+ * the space between two lines of either, and neither row carries vertical padding, because a row
+ * that did would add it at exactly that join. Measured at 430 by 900 it was 22 px inside a row
+ * and 54 px across the join. The breathing room round the words is drawn instead of reserved:
+ * each row's background is a pseudo-element that reaches beyond it, and the two reach exactly as
+ * far as each other so the L is continuous with neither a seam nor a doubled alpha.
+ *
+ * THE CORNER IS A WHOLE NUMBER OF LINES, ROUNDED UP TO COVER THE PILL. Holding it to exactly the
+ * pill's height cost it a line, because its own padding came out of that height: 70 px of pill
+ * less 16 of padding left room for two lines of 22 where three fit. Rounding up rather than down
+ * is also what keeps the join at or above the pill's top edge, so the full-width background above
+ * cannot reach behind the pill; that is now true by construction rather than by measurement.
  */
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
@@ -321,9 +337,11 @@ export async function createEmoLegend(options: {
     const hostRect = host.getBoundingClientRect();
     const style = getComputedStyle(cornerRow);
     const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
     const gapX = parseFloat(style.columnGap) || 0;
     const gapY = parseFloat(style.rowGap) || 0;
+    // The host owns the vertical inset now, because a row that owned it would put it between the
+    // two rows as well and that is what broke the rhythm.
+    const insetY = parseFloat(getComputedStyle(host).paddingBottom) || 0;
     const wordHeight = ordered[0]?.getBoundingClientRect().height ?? 0;
     if (wordHeight <= 0 || hostRect.width <= 0) return;
 
@@ -336,15 +354,24 @@ export async function createEmoLegend(options: {
       setSplit(ordered);
       return;
     }
-    // The corner is held to exactly the pill's height whatever it holds, so the full-width row
-    // above it starts at the pill's top edge and its background cannot reach behind the pill.
-    const lines = Math.max(1, Math.floor((pill.height - padY + gapY) / (wordHeight + gapY)));
+    // AS MANY WHOLE LINES AS IT TAKES TO COVER THE PILL, ROUNDED UP, NOT AS MANY AS FIT INSIDE IT.
+    //
+    // The corner used to be held to exactly the pill's height and its own 8 px of padding was
+    // taken out of that, which cost it a line: 70 px of pill minus 16 of padding left room for
+    // two lines of 22 where three fit. It now spans a whole number of lines at the block's one
+    // rhythm, chosen so that the band is never shorter than the pill, which is what keeps the
+    // join at or above the pill's top edge and so keeps the full-width background clear of it.
+    // The `+ gapY` is the trailing gap the last line does not have, so the comparison is between
+    // heights of the same kind.
+    const pitch = wordHeight + gapY;
+    const lines = Math.max(1, Math.ceil((pill.height - insetY + gapY) / pitch));
+    const band = lines * pitch - gapY;
     const width = Math.max(0, beside);
     const corner = width >= NARROW_BOX_MIN_W / 4 ? packCorner(width, lines, gapX, padX) : [];
     host.style.setProperty("--emo-legend-corner-w", `${Math.round(width)}px`);
     host.style.setProperty(
       "--emo-legend-corner-h",
-      corner.length === 0 ? "0px" : `${Math.round(pill.height)}px`,
+      corner.length === 0 ? "0px" : `${band.toFixed(1)}px`,
     );
     setSplit(corner);
   }
