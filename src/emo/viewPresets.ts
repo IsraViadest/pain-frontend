@@ -2139,14 +2139,28 @@ export const EMO_PRESETS: EmoPreset[] = [
 ];
 
 /**
- * Opens on the round v10 base: round v9's spread with the boldest chosen leader lines, and the
- * whole selection played as a sequence that reverses when it is cleared.
+ * Opens on `v11-a_retract-2x`: the round v10 base, which is round v9's spread with the boldest
+ * chosen leader lines and the whole selection played as a sequence, with the teardown at twice
+ * the build rate rather than ten times it. The operator watched the speed ladder and chose this
+ * one: 580 ms for a full network, where the reverse can be read rather than only inferred.
+ *
+ * NO NEW PRESET WAS MINTED FOR THE CHOICE, BECAUSE THERE IS NOTHING TO COMPOSE. Every earlier
+ * default combined values from several presets and so needed an entry of its own. This one is a
+ * single existing preset chosen unchanged, and a duplicate of it under a new id would be a second
+ * name for the same view.
+ *
+ * ONE THING THIS SPEED MAKES VISIBLE, STATED RATHER THAN FIXED. The label sizes and the world's
+ * step back forward run on `selectionMotionMs`, 320 ms, whatever the retract speed, so the world
+ * is fully back at rest while the network still has about 260 ms of leaving to do. It is named in
+ * this preset's own note and in open question 41, and the operator watched this speed and judged
+ * it good, so it is a known property of the chosen view and not a defect to be quietly removed.
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
- * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay`, `v6-a_base`, `v7-a_base` and
- * `v9-a_base` were the previous defaults and remain reachable by id, as everything here does.
+ * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay`, `v6-a_base`, `v7-a_base`,
+ * `v9-a_base` and `v10-a_base` were the previous defaults and remain reachable by id, as
+ * everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v10-a_base";
+export const DEFAULT_EMO_PRESET_ID = "v11-a_retract-2x";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
