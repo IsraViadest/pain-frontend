@@ -21,6 +21,11 @@
  * selection would break the survey's own answer boxes on some engines while looking correct on
  * others. Which element has focus is unambiguous everywhere.
  *
+ * In practice that means copying still works from every field, the views panel's own preset
+ * snippet included, because clicking into a field focuses it before any selection is made there.
+ * What it does not preserve is selecting the page's prose, which `body { user-select: none }`
+ * already forbade. This changes the enforcement, not the policy.
+ *
  * This is production chrome, not part of the emotional-pain views, so it is installed
  * unconditionally and not behind the `?ev=1` gate.
  */
