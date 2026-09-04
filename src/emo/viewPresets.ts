@@ -1711,17 +1711,271 @@ export const EMO_PRESETS: EmoPreset[] = [
       leaderSelectedOpacityScale: 2,
     },
   },
+  {
+    id: "v10-a_base",
+    title: "Round v10: the sequence, and the boldest chosen lines",
+    note:
+      "The operator's sixth round, as one view. v9-f is the starting point, which is the spread " +
+      "with heavier chosen leaders, and their choice of the boldest rung of the v9 ladder for those " +
+      "leaders: leaderSelectedWidthScale 3 against the network's own 0.003. The country colours " +
+      "stay, so this is v9-f and v9-d together rather than v9-g. On top of that is the whole " +
+      "sequence: the clicked country's line goes up to its word over 260 ms, then the country " +
+      "lights and the network starts; every country the network reaches has its line come down from " +
+      "its word instead, over half of its own depth step, and lights when that line lands; and " +
+      "clicking away or clicking another category takes the network apart in reverse at ten times " +
+      "the speed, which is 116 ms for a full one against the 260 ms the next line takes to grow. " +
+      "The whole gesture is 1160 ms.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "split",
+      selectionLeaderMs: 260,
+      selectionLeaderShare: 0.5,
+      selectionRetractSpeed: 10,
+    },
+  },
+  {
+    id: "v10-b_grow-from-foot",
+    title: "Round v10: every line grows out of the ground",
+    note:
+      "leaderSpreadFrom back to foot, which is round v9's direction. It exists because the brief " +
+      "says both things: twice in detail that the other countries' lines should come down from the " +
+      "word, and once in a summary line that they should grow from the bottom. Two against one is " +
+      "why v10-a splits them, and this is the other reading, so the answer can be had by looking " +
+      "rather than by asking.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "foot",
+      selectionLeaderMs: 260,
+      selectionLeaderShare: 0.5,
+      selectionRetractSpeed: 10,
+    },
+  },
+  {
+    id: "v10-c_retract-slow",
+    title: "Round v10: a teardown that can be followed",
+    note:
+      "selectionRetractSpeed 4 rather than 10. Ten times the build speed empties a full network in " +
+      "116 ms, which is comfortably inside the next line's 260 ms and may be too fast to read as " +
+      "anything but a cut. This takes 290 ms, which is longer than the line it hides behind, so the " +
+      "last of the old network is still leaving as the new one begins. That overlap is the trade, " +
+      "and it is why both exist.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "split",
+      selectionLeaderMs: 260,
+      selectionLeaderShare: 0.5,
+      selectionRetractSpeed: 4,
+    },
+  },
+  {
+    id: "v10-d_under-a-second",
+    title: "Round v10: the whole gesture inside a second",
+    note:
+      "The operator's own bound from round v7 was under two seconds and ideally under one, and " +
+      "v10-a is 1160 ms. This is 800: a 180 ms opening line and a 620 ms spread. Two numbers rather " +
+      "than one, because they are one quantity split in the same proportion. The retract falls with " +
+      "them, to 80 ms.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 620,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "split",
+      selectionLeaderMs: 180,
+      selectionLeaderShare: 0.5,
+      selectionRetractSpeed: 10,
+    },
+  },
+  {
+    id: "v10-e_arc-led",
+    title: "Round v10: more of the step to the arc",
+    note:
+      "selectionLeaderShare 0.3 rather than 0.5. The share decides how a depth step is divided " +
+      "between the arc crossing to a country and that country's line coming down, and the " +
+      "operator's words were that the two might take the same time. This gives the arc most of it, " +
+      "so the wave travels visibly faster and each line drops more sharply. The ordering is " +
+      "unchanged at any share: the next hop still leaves only once the line has landed.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "split",
+      selectionLeaderMs: 260,
+      selectionLeaderShare: 0.3,
+      selectionRetractSpeed: 10,
+    },
+  },
 ];
 
 /**
- * Opens on the round v9 base: v8-d's hold-and-dim selection, which the operator judged ideal,
- * plus type that grows on approach and the clickable category legend.
+ * Opens on the round v10 base: round v9's spread with the boldest chosen leader lines, and the
+ * whole selection played as a sequence that reverses when it is cleared.
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
- * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay`, `v6-a_base` and `v7-a_base` were
- * the previous defaults and remain reachable by id, as everything here does.
+ * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay`, `v6-a_base`, `v7-a_base` and
+ * `v9-a_base` were the previous defaults and remain reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v9-a_base";
+export const DEFAULT_EMO_PRESET_ID = "v10-a_base";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
