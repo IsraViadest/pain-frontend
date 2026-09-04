@@ -18,6 +18,24 @@
  * only how that spread arrives and whether the world steps back at all. The registry accumulates;
  * nothing here is ever edited.
  *
+ * ROUND v11 HAS NO BASE OF ITS OWN, like round v8. The operator changed no value: they reported
+ * three defects and asked to see the teardown slowed down enough to check it. `v10-a_base` is
+ * therefore still the base, and each v11 preset is it plus one named change, the teardown speed.
+ *
+ * WHAT ROUND v11 INHERITS WITHOUT ASKING. Three fixes apply to every preset here. A chosen leader
+ * line now spans exactly what the ordinary one spans on each layer, where before it began at the
+ * undented sphere and left a thin stub of ordinary line over any country the pain scars had
+ * dented. A network that has finished retreating keeps its wave until its category has finished
+ * fading, which removes the flash of every leader line in the category returning to its full
+ * length and heavy weight for the 200 ms after the network had gone. And a leader belongs to the
+ * heavy mesh while its category is chosen OR still leaving, which is what stops a teardown slower
+ * than the emphasis fade from dropping every heavy line partway through. Only the first moves a
+ * frame, and the five it moved were re-shot; on the emotional layer it is provably inert, because
+ * `leaderFootEmoOnly` sits above the growth floor, and a clicked frame before and after differs
+ * by a maximum delta of 1 of 255.
+ *
+ * Rounds v10 and v11 are written up in `docs/emo-label-views/PROGRESS.md`, sections 27 and 28.
+ *
  * ROUND v9 IS THE OPERATOR'S FIFTH. Its base, `v9-a_base`, is openly a composite: v8-d, which
  * they judged ideal, plus the two things they asked for that are not variations. Every entry
  * after it is v9-a plus one named change, except `v9-f`, which carries two and says why.

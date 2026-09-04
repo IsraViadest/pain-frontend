@@ -161,11 +161,19 @@ export interface EmoViewParams {
    * chosen category's lines are, not how heavy they are. The opacity product is clamped at 1, so
    * a view whose leaders rest at half the network's opacity reaches solid at 2.
    *
-   * WHICH LINES THESE ARE IS ONE SIGNAL, NOT TWO. Membership is `emphasisOf(category) > 0` and
-   * nothing else, the same eased fraction the labels and the arcs read. That has a visible
-   * consequence worth knowing rather than discovering: on deselect the fraction eases to 0 over
-   * `selectionMotionMs`, so the heavy lines hold for that long and then step back to the resting
-   * weight at the instant it reaches 0.
+   * WHICH LINES THESE ARE IS READ FROM THE MOTION, NEVER TRACKED LOCALLY. Membership is the
+   * category being chosen OR still taking itself apart.
+   *
+   * THE SECOND HALF OF THAT IS NOT REDUNDANT, AND ONLY A SLOW RETREAT SHOWS IT. Emphasis fades
+   * over `selectionMotionMs` while a retreat runs at `selectionRetractSpeed` times the build, and
+   * nothing ties the two together. At ten times the build a full retreat is 116 ms and finishes
+   * inside the 320 ms fade, which is why `emphasisOf(category) > 0` was enough for three rounds;
+   * at one time it is 1160 ms, the fade ends first, and every heavy line in the category would
+   * snap back to its whole length at the ordinary weight while the arcs and the marks carried on
+   * leaving. The lines belong to the wave for as long as the wave exists.
+   *
+   * On deselect the weight still steps rather than eases, now at the instant the wave is dropped
+   * rather than at the instant emphasis reaches 0.
    */
   leaderSelectedWidthScale: number;
   leaderSelectedOpacityScale: number;
