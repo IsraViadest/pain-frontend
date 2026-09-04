@@ -18,6 +18,28 @@
  * only how that spread arrives and whether the world steps back at all. The registry accumulates;
  * nothing here is ever edited.
  *
+ * ROUND v9 IS THE OPERATOR'S FIFTH. Its base, `v9-a_base`, is openly a composite: v8-d, which
+ * they judged ideal, plus the two things they asked for that are not variations. Every entry
+ * after it is v9-a plus one named change, except `v9-f`, which carries two and says why.
+ *
+ * WHAT ROUND v9 INHERITS WITHOUT ASKING, and it is the largest such set yet, because all of it is
+ * one report. The label overlay no longer takes pointer events at all: a label used to swallow
+ * every wheel and every drag that began over it, because the canvas is not its ancestor, so zoom
+ * and rotation were dead over most of the disc and the wheel then rubber-banded the page. A click
+ * is resolved by hit testing instead, which also stops a decluttered label swallowing a click
+ * meant for the one drawn over it, and puts the drag-slop test in front of selection as well as
+ * clearing. The views panel contains its own overscroll rather than handing the rest of a wheel
+ * to the document. And `?ev=2` is `?ev=1` with the controls closed, which is where the legend can
+ * be seen at all, since both live on the left. None of it is a value, so no preset moves:
+ * v8-d_hold-dim measured against a stash of the same commit differs at rest by a mean of 0.106
+ * with a maximum delta of 2 of 255, and after a click by 0.009 and 2, where the same measurement
+ * between a resting and a clicked frame reports 10.524 and 254.
+ *
+ * ONE CAPTURE RECIPE DIED WITH THAT FIX. `el.click()` on a label no longer selects anything,
+ * because the handler now requires the event to have landed on the canvas. The gallery's
+ * `--after-clicking-india` frames are taken with a pointerdown and a click dispatched on the
+ * canvas at the label's own centre.
+ *
  * ROUND v8 HAS NO BASE OF ITS OWN, ON PURPOSE. The operator changed no values this round: they
  * reported two defects and asked for variants of one thing. `v7-a_base` is therefore still the
  * base, and each v8 preset is v7-a plus one named change, except `v8-c`, which carries two and
@@ -1371,17 +1393,335 @@ export const EMO_PRESETS: EmoPreset[] = [
       selectionDim: 0.55,
     },
   },
+  {
+    id: "v9-a_base",
+    title: "Round v9: hold and dim, bigger type on approach, and the category legend",
+    note:
+      "The operator's fifth brief written as one view, and openly a composite of v8-d plus two " +
+      "named changes. v8-d was chosen as ideal, so nothing about the selection moves: nothing " +
+      "steps back, the separation is carried by opacity at 0.55, and the network still spreads " +
+      "out from whatever is clicked over 900 ms. " +
+      "THE ZOOM RAMP NOW INVERTS, which is the literal ask and is worth reading as deliberate: " +
+      "fontPxNear rises from 12 to 20 while fontPxFar stays at 14, so labels GROW on approach " +
+      "where every earlier preset shrank. It shows only inside the ramp, which starts at " +
+      "cameraFar 2.2, so the gallery camera at 2.35 is outside it and cannot show the change; " +
+      "1.6 is a camera that can. " +
+      "The legend is the 14 category names down the left, each one clickable. It shares that side " +
+      "with the views panel, so ?ev=2 is where it is actually looked at.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+    },
+  },
+  {
+    id: "v9-b_leader-bold",
+    title: "Round v9: the chosen category's leader lines a little heavier",
+    note:
+      "v9-a with leaderSelectedWidthScale 1.5 and leaderSelectedOpacityScale 1.4, so the leaders " +
+      "of the chosen category alone go from 0.00135 to 0.002025 in width and from 0.50 to 0.70 in " +
+      "opacity. That is 68 percent of the network's own 0.003, so the network is still the bolder " +
+      "of the two and the leaders have simply stopped being a hairline. The rest of the world's " +
+      "leaders do not move.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSelectedWidthScale: 1.5,
+      leaderSelectedOpacityScale: 1.4,
+    },
+  },
+  {
+    id: "v9-c_leader-bolder",
+    title: "Round v9: the chosen leaders at exactly the network's weight",
+    note:
+      "The middle rung, and the one with a landmark behind it rather than a taste: at " +
+      "leaderSelectedWidthScale 2.2 the chosen leaders are 0.00297 wide against the arcs' 0.003, " +
+      "and at opacity scale 2 the product clamps to a solid 1. So the line up to a label and the " +
+      "line across to its neighbour are the same line, and the whole selected structure reads as " +
+      "one object.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSelectedWidthScale: 2.2,
+      leaderSelectedOpacityScale: 2,
+    },
+  },
+  {
+    id: "v9-d_leader-boldest",
+    title: "Round v9: the chosen leaders heavier than the network itself",
+    note:
+      "The far rung. leaderSelectedWidthScale 3 puts the chosen leaders at 0.00405 against the " +
+      "arcs' 0.003, so they are 135 percent of the network and the attachment to the ground reads " +
+      "as the stronger line. Deliberately past the point the operator asked for, because a ladder " +
+      "that stops at the answer cannot show that it was the answer.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+    },
+  },
+  {
+    id: "v9-e_leader-spread",
+    title: "Round v9: the leader lines grow with the wavefront",
+    note:
+      "v9-a with leaderSpread on and nothing else. The arcs already spread out from the country " +
+      "clicked; this makes the lines tying them to the ground do the same, so a country's whole " +
+      "attachment arrives at once instead of the line standing under a label that has not come up " +
+      "yet. Each leader grows out of the surface toward its label rather than appearing whole. " +
+      "Best clicked rather than judged from a still: settled, this is pixel-identical to v9-a.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+    },
+  },
+  {
+    id: "v9-f_leader-spread-bold",
+    title: "Round v9: growing and heavier together",
+    note:
+      "The one preset in this round carrying two changes, and it is deliberate: a hairline growing " +
+      "out of the ground is the case where the growth is hardest to see, so the pair the operator " +
+      "is most likely to want is the spread at a weight that can be followed. This is v9-e's " +
+      "leaderSpread with v9-c's weights. If it works, v9-c and v9-e are what say which half did it.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 2.2,
+      leaderSelectedOpacityScale: 2,
+    },
+  },
+  {
+    id: "v9-g_leader-only",
+    title: "Round v9: the lines alone, with no mark on the countries",
+    note:
+      "The operator's third leader variant: heavier, solid leader lines and no colouring of the " +
+      "country at all. selectionFill and selectionOutline both go to 0, so the glow and the two " +
+      "texel border of every preset since v5-e are gone and the selection is carried entirely by " +
+      "the lines, the labels and the opacity of everything else. It is also the only view here in " +
+      "which the 43 microstates that have no polygon are not a special case, since nothing is " +
+      "filled for anyone.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.7,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0,
+      selectionOutline: 0,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSelectedWidthScale: 2.2,
+      leaderSelectedOpacityScale: 2,
+    },
+  },
 ];
 
 /**
- * Opens on the round v7 base: the cubic depth fade the operator chose, the lift inverted into a
- * sink, both eased, and the network spreading out from whatever is clicked.
+ * Opens on the round v9 base: v8-d's hold-and-dim selection, which the operator judged ideal,
+ * plus type that grows on approach and the clickable category legend.
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
- * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay` and `v6-a_base` were the previous
- * defaults and remain reachable by id, as everything here does.
+ * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay`, `v6-a_base` and `v7-a_base` were
+ * the previous defaults and remain reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v7-a_base";
+export const DEFAULT_EMO_PRESET_ID = "v9-a_base";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);
