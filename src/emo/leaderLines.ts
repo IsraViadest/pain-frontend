@@ -395,6 +395,31 @@ export async function createEmoLeaderLineLayer(options: {
   const effectiveFoot = (): number =>
     depthMasked ? params.leaderFoot : params.leaderFootEmoOnly;
 
+  /**
+   * Rebuild if the geometry no longer matches what the parameters, the camera and the layer ask
+   * for. One function, called from `update()` every frame and from `setDepthMasked` at the instant
+   * the layer changes, so there is still exactly one place that decides when a rebuild is due.
+   */
+  function syncGeometry(): void {
+    const built = rest.built && chosen.built;
+    if (!rest.mesh.visible && built) return;
+    const standoff = emoLabelStandoff(emoZoomRamp(globe.camera.position.length(), params), params);
+    const foot = effectiveFoot();
+    if (
+      !built ||
+      Math.abs(standoff - lastStandoff) > REBUILD_EPSILON ||
+      params.multiplexSpread !== lastSpread ||
+      foot !== lastFoot ||
+      params.selectionLift !== lastLift ||
+      params.selectionSink !== lastSink ||
+      params.leaderSpread !== lastLeaderSpread ||
+      params.leaderSpreadFrom !== lastLeaderSpreadFrom ||
+      motion.revision() !== lastMotionRevision
+    ) {
+      rebuild(standoff, foot);
+    }
+  }
+
   return {
     update(): void {
       const canvas = globe.renderer.domElement;
@@ -405,23 +430,7 @@ export async function createEmoLeaderLineLayer(options: {
         resolution.set(w, h);
         for (const part of both) part.material.resolution.copy(resolution);
       }
-      const built = rest.built && chosen.built;
-      if (!rest.mesh.visible && built) return;
-      const standoff = emoLabelStandoff(emoZoomRamp(globe.camera.position.length(), params), params);
-      const foot = effectiveFoot();
-      if (
-        !built ||
-        Math.abs(standoff - lastStandoff) > REBUILD_EPSILON ||
-        params.multiplexSpread !== lastSpread ||
-        foot !== lastFoot ||
-        params.selectionLift !== lastLift ||
-        params.selectionSink !== lastSink ||
-        params.leaderSpread !== lastLeaderSpread ||
-        params.leaderSpreadFrom !== lastLeaderSpreadFrom ||
-        motion.revision() !== lastMotionRevision
-      ) {
-        rebuild(standoff, foot);
-      }
+      syncGeometry();
     },
     setParams(next: EmoViewParams): void {
       params = next;
@@ -433,10 +442,19 @@ export async function createEmoLeaderLineLayer(options: {
       syncVisibility(visible);
     },
     setDepthMasked(masked: boolean): void {
-      // No rebuild here. update() compares the effective foot against the one the geometry holds,
-      // so the next frame does it, and doing it here as well would be a second place for the two
-      // to disagree.
+      if (masked === depthMasked) return;
       depthMasked = masked;
+      // REBUILT HERE AND NOW, NOT ON THE NEXT FRAME, AND THIS IS THE WHOLE POINT OF THE CALL.
+      //
+      // The render loop draws the globe and only then updates these layers, so a rebuild left to
+      // update() lands one frame late: for that frame every line draws its whole buried length
+      // across a globe that has already stopped cutting it, which is a disc crossed by hairlines.
+      // Photographed at 60 ms after a layer button click, before this existed.
+      //
+      // It is not a second place that decides when to rebuild. syncGeometry is the same function
+      // update() calls and compares the same effective foot against the same geometry, so the two
+      // cannot disagree; this only asks the question earlier.
+      syncGeometry();
     },
     setVisible(next: boolean): void {
       visible = next;

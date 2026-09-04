@@ -565,6 +565,15 @@ function handleLayerChange(layerId: string): void {
   }
   loadPointsAbortController?.abort();
   if (showAllLayersActive) {
+    // BEFORE THE GLOBE CHANGES, NOT 150 MS AFTER IT. All-layers mode is what makes the base mesh
+    // an invisible depth mask, and that mask is the only thing cutting the buried part of every
+    // leader line back to the surface. The rest of this switch is debounced by
+    // LAYER_CHANGE_DEBOUNCE_MS to coalesce rapid clicks, so leaving the foot to the deferred
+    // syncEmoLayer drew every line's whole buried length across the disc for that window.
+    // Photographed at 60 ms after the click: hairlines over the ocean and the land; at 1500 ms,
+    // none. The layer this belongs to rebuilds its geometry inside the call rather than on its
+    // next frame, because the render loop draws before it updates these layers.
+    emoLeaderLineLayer?.setDepthMasked(false);
     showAllLayersActive = false;
     globe.setShowAllLayersMode(false);
     chrome?.setAllLayersActive(false);
