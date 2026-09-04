@@ -170,6 +170,11 @@
   flex-direction: column;
   max-height: min(78vh, 720px);
   overflow: hidden;
+  /* A wheel that reaches the end of the list inside chains to the document, and the document has
+     nothing to scroll, so macOS rubber-bands the whole page instead. `overflow: hidden` already
+     makes this box a scroll container, which is what lets this apply to it: the gesture stops
+     here rather than travelling outward. */
+  overscroll-behavior: contain;
   background: #0b0d14;
   /* A drag that starts on a preset name and ends on the globe rubber-bands the panel's prose,
      which reads as a glitch rather than as a selection. The labels themselves were already
@@ -195,6 +200,9 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* The scrolling box itself, for the same reason as the host above: reaching the top or the
+     bottom of 51 controls must not hand the rest of the gesture to the page. */
+  overscroll-behavior: contain;
   padding-right: 2px;
 }
 
