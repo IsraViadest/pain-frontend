@@ -2250,12 +2250,68 @@ export const EMO_PRESETS: EmoPreset[] = [
       selectionRetractSpeed: 2,
     },
   },
+  {
+    id: "v14-a_base",
+    title: "Round v14: a second click on the same legend word puts it away",
+    note:
+      "v13-a_base with legendRepeatClick set to clear. The operator's round v10 brief asked for " +
+      "the opposite in so many words, that a repeat click on a fully built category should build " +
+      "another random network, and one truncated sentence in the same brief read the other way. " +
+      "Both readings were put to them with the trade stated and they chose clear. Nothing else " +
+      "about the legend moves: a click on a different word still selects, and a click while that " +
+      "category's own network is still arriving still does nothing, so a half-built network is " +
+      "neither rerolled nor put away. The setting is a parameter defaulting to reroll, so every " +
+      "preset from v9 onward keeps the behaviour it shipped with and v13-a_base remains the " +
+      "rerolling version.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.8,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionMarkerDeg: 0.9,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      legendRepeatClick: "clear",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "split",
+      selectionLeaderMs: 260,
+      selectionLeaderShare: 0.3,
+      selectionRetractSpeed: 2,
+    },
+  },
 ];
 
 /**
- * Opens on `v13-a_base`: `v12-a_base` with `selectionLeaderShare` at 0.3, which the operator chose
- * after the two values were photographed side by side. Each hop of the spread now gives 70 percent
- * of its time to the arc crossing and 30 to the far country's line coming down.
+ * Opens on `v14-a_base`: `v13-a_base`, which is `v12-a_base` with `selectionLeaderShare` at 0.3
+ * so each hop gives 70 percent of its time to the arc and 30 to the far country's line, plus
+ * `legendRepeatClick: "clear"`, so a second click on the word already selected puts it away.
  *
  * ONE THING THIS SPEED MAKES VISIBLE, STATED RATHER THAN FIXED. The label sizes and the world's
  * step back forward run on `selectionMotionMs`, 320 ms, whatever the retract speed, so the world
@@ -2268,7 +2324,7 @@ export const EMO_PRESETS: EmoPreset[] = [
  * `v9-a_base`, `v10-a_base`, `v11-a_retract-2x` and `v12-a_base` were the previous defaults and
  * remain reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v13-a_base";
+export const DEFAULT_EMO_PRESET_ID = "v14-a_base";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);

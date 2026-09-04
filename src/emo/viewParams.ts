@@ -405,6 +405,23 @@ export interface EmoViewParams {
    */
   legendOpacity: number;
   /**
+   * What a second click on the word whose category is already selected does.
+   *
+   * `reroll` picks another country from that category at random, which is what the operator's
+   * round v10 brief asked for in so many words: "Only if the network is fully constructed should
+   * button click on the same category create a new random network." `clear` puts the selection
+   * away instead, which is the reading they chose after both were put to them, and which is the
+   * other reading of one truncated sentence in the same brief.
+   *
+   * The two cannot be combined. A roll can land on the country already selected, so a gesture
+   * that means both would read "show me another one" as "clear" whenever it did.
+   *
+   * Neither affects a click on a DIFFERENT word, which always selects, nor a click while that
+   * category's own network is still arriving, which always does nothing. Defaults to `reroll`,
+   * so no preset that predates the choice moves.
+   */
+  legendRepeatClick: "reroll" | "clear";
+  /**
    * Radial separation between consecutive pain-category shells, in globe radii. Labels and arcs
    * both take it, so each category gains its own layer. 0 puts everything on one shell, which is
    * how every preset shipped before this behaved.
@@ -518,6 +535,7 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   legend: "off",
   legendFontPx: 15,
   legendOpacity: 0.55,
+  legendRepeatClick: "reroll",
   // Flat by default, so the 16 presets that predate the shells are unchanged.
   multiplexSpread: 0,
 
@@ -549,6 +567,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   leaderSpread: ["off", "on"],
   leaderSpreadFrom: ["foot", "split"],
   legend: ["off", "on"],
+  legendRepeatClick: ["reroll", "clear"],
   selectionStyle: ["wash", "glow"],
   selectionEmphasis: ["dim", "bold", "both"],
   selectionSpreadEase: ["smooth", "linear"],

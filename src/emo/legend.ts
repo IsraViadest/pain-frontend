@@ -171,6 +171,12 @@ export async function createEmoLegend(options: {
   /** Fired with a country drawn at random from the category that was clicked. */
   onPick: (iso3: string) => void;
   /**
+   * Fired instead of `onPick` when `legendRepeatClick` is `clear` and the word clicked is the one
+   * already selected. Separate from `onPick` because putting a selection away is not a selection
+   * of anything, so there is no country to name.
+   */
+  onClear: () => void;
+  /**
    * Whether this category's network is still being built, in which case the click does nothing.
    *
    * ASKED BEFORE THE ROLL, NOT AFTER IT. The pick walks one seeded sequence, so a blocked click
@@ -252,12 +258,18 @@ export async function createEmoLegend(options: {
     if (cat === undefined) return;
     const list = members.get(cat);
     if (!list || list.length === 0) return;
-    // Clicking the category that is still arriving does nothing at all. Only once its network has
-    // finished does the same word mean "show me another one of these". Tested before the roll.
+    // Clicking the category that is still arriving does nothing at all, whichever way the repeat
+    // click is set: a half-built network is neither something to reroll nor something to put away
+    // while it is still arriving. Tested before the roll, so a blocked click does not walk the
+    // seeded sequence.
     if (options.isBusy?.(cat) === true) return;
-    // Always a fresh pick, never a toggle. Clicking a category again means "show me another one
-    // of these", and the roll can land on the country already selected, where a toggle would read
-    // the gesture as "clear".
+    // A second click on the word already selected is the only case the two settings differ in.
+    // They cannot be combined: a roll can land on the country already selected, so a gesture
+    // meaning both would read "show me another one of these" as "clear" whenever it did.
+    if (params.legendRepeatClick === "clear" && cat === selectedCat) {
+      options.onClear();
+      return;
+    }
     options.onPick(list[Math.floor(random() * list.length)]!);
   };
   host.addEventListener("click", onClick);

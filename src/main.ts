@@ -746,6 +746,9 @@ function loop(): void {
           // A legend click is a click on a country, taking the same path as one on the globe.
           // There is no second selection route, so nothing can drift out of step with it.
           onPick: (iso3) => emoLabelLayer?.selectCountry(iso3),
+          // Under `legendRepeatClick: "clear"`, a second click on the word already selected puts
+          // the selection away by the same route a click on empty globe takes.
+          onClear: () => emoLabelLayer?.clearSelection(),
           // Clicking the word whose network is still arriving does nothing. The legend asks
           // before it rolls, so a blocked click does not walk the seeded sequence.
           isBusy: (cat) => emoMotion?.isBuilding(cat) === true,

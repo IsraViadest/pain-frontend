@@ -105,6 +105,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Category legend",
     hint: "The 14 pain categories listed down the left, each one clickable: it selects a country of that category at random, so everything behaves as it does from a click on the globe. It shares the left side with this panel, so use ?ev=2 to see it.",
   },
+  legendRepeatClick: {
+    label: "Repeat legend click",
+    hint: "What a second click on the word whose category is already selected does. reroll picks another country of that category at random; clear puts the selection away instead. A click on a different word always selects, and a click while that category's network is still arriving always does nothing.",
+  },
   colourMode: {
     label: "Colour",
     hint: "family groups the 14 into 5 violets and pinks. category gives all 14 their own hue. violet is a near-white ramp, separable side by side and white from a distance.",
@@ -194,7 +198,7 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Category legend",
     defaultOpen: false,
-    selects: ["legend"],
+    selects: ["legend", "legendRepeatClick"],
     sliders: [
       { key: "legendFontPx", label: "Legend size", min: 9, max: 30, step: 0.5, decimals: 1, hint: "Legend text size in CSS pixels. Fixed on screen, so unlike the labels it does not follow the zoom ramp." },
       { key: "legendOpacity", label: "Legend opacity", min: 0.15, max: 1, step: 0.05, decimals: 2, hint: "How white the words are while nothing is selected. The chosen one then goes to full white and the rest take Selection dim on top of this." },
