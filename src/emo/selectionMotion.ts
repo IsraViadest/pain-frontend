@@ -50,6 +50,18 @@
  * click during a retreat is allowed: A can be retreating while B grows and C is clicked. Each wave
  * carries its own category, so a country is only ever in one of them and every per-country
  * question below is answered by finding that one wave.
+ *
+ * A WAVE THAT HAS FINISHED LEAVING IS NOT THE SAME AS NO WAVE AT ALL, AND FORGETTING IT TOO EARLY
+ * PUT THE WHOLE NETWORK BACK ON SCREEN. Every per-country reader here answers 1 when no wave
+ * covers the country, which is right for a globe at rest and wrong for a category whose wave has
+ * just finished retracting: its emphasis is still fading over `selectionMotionMs`, so for the rest
+ * of that fade the leaders read "fully grown" and snapped back to their whole length at the heavy
+ * weight, and the labels back to their emphasised size. Measured on v10-a: 13 of 13 visible
+ * labels dropped to 1.000 between 71 and 93 ms and every one of them jumped back to 1.033 at
+ * 117 ms, which is the frame the retreat completed. It reads as the entire category flashing back
+ * on after the network has gone, and it is the last thing on screen, which is what "they stay
+ * longest" and "everywhere at once" both describe. So a finished wave is kept until its category
+ * has finished fading, and every reader keeps answering 0 for it.
  */
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
@@ -310,6 +322,18 @@ export function createEmoSelectionMotion(options: {
   }
 
   /**
+   * Whether this category is on its way out and has not arrived: its emphasis is heading for 0 and
+   * has not reached it.
+   *
+   * It terminates either way. The fade ends and the value reaches 0, or the category is chosen
+   * again and the target becomes 1, and both answers are false, so a kept wave is always dropped.
+   */
+  function fadingOut(cat: string): boolean {
+    const track = motions.get(cat)?.emphasis;
+    return track !== undefined && track.to === 0 && track.value > 0;
+  }
+
+  /**
    * Send whatever is growing into retreat, or drop it outright when no retract speed is set.
    * Idempotent, because it is called from both entry points a new selection can arrive through.
    */
@@ -427,11 +451,18 @@ export function createEmoSelectionMotion(options: {
       }
       for (let i = retreating.length - 1; i >= 0; i--) {
         const w = retreating[i]!;
-        step(w, dt, now);
-        changed = true;
-        if (w.p <= 0) {
+        if (w.p > 0) {
+          step(w, dt, now);
+          changed = true;
+        }
+        // Kept past the end of its own retreat while its category is still fading, so that every
+        // reader below keeps answering 0 rather than the 1 that means "no wave here". See the
+        // module docstring. The revision is bumped on the way out as well, because the frame the
+        // wave is dropped is the frame the leader lines go back to being ordinary lines.
+        if (w.p <= 0 && !fadingOut(w.cat)) {
           retreating.splice(i, 1);
           syncRetreatingCats();
+          changed = true;
         }
       }
 

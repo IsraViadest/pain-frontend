@@ -41,10 +41,19 @@
  *
  * TWO MESHES, BECAUSE A LINE WIDTH IS A MATERIAL AND NOT A VERTEX. LineMaterial carries one
  * `linewidth` for everything it draws, so the chosen pain category's leaders can only be heavier
- * than the rest by being a second mesh with a second material. Membership is
- * `motion.emphasisOf(category) > 0`, which is the one selection signal this module has ever read;
- * a locally tracked category would be the two-signal problem the revision counter below was
- * written to remove. The split is invisible until a preset asks for it: with both
+ * than the rest by being a second mesh with a second material. Membership is the category being
+ * chosen OR still taking itself apart, both read from the motion; a locally tracked category
+ * would be the two-signal problem the revision counter below was written to remove.
+ *
+ * THE SECOND HALF OF THAT TEST IS NOT REDUNDANT, AND ONLY A SLOW RETREAT SHOWS IT. Emphasis fades
+ * over `selectionMotionMs` and a retreat runs at `selectionRetractSpeed` times the build, and
+ * nothing ties the two together. At ten times the build a full retreat is 116 ms and finishes
+ * well inside the 320 ms fade, so emphasis alone was enough; at two times or one it is 580 or
+ * 1160 ms, emphasis reaches 0 while the wave is still retracting, and every leader in the
+ * category would snap back to its whole length at the ordinary weight while the arcs and the
+ * marks carried on leaving. The lines belong to the wave for as long as the wave exists.
+ *
+ * The split is invisible until a preset asks for it: with both
  * `leaderSelected*Scale` at 1 the two materials are identical, and two meshes drawing disjoint
  * white segments at one opacity composite to exactly what one mesh drawing all of them does.
  *
@@ -288,12 +297,15 @@ export async function createEmoLeaderLineLayer(options: {
   function rebuild(standoff: number, foot: number): void {
     const spreading = params.leaderSpread === "on";
     const splitEnds = params.leaderSpreadFrom === "split";
+    // Read once rather than per country. It is empty or holds one entry in every view that
+    // exists, so a scan of it is cheaper than the Set that would replace it.
+    const leaving = motion.retreatingCategories();
     rest.count = 0;
     chosen.count = 0;
     for (const node of nodes) {
       const { iso3, dir, shell, cat } = node;
       const emphasis = motion.emphasisOf(cat);
-      const isChosen = emphasis > 0;
+      const isChosen = emphasis > 0 || leaving.includes(cat);
       // A head follows its own label, which is what makes "leave the leader lines where they are"
       // true only of the chosen category: everything else sinks, and a head that stayed put would
       // leave its tip standing through the text it used to point at.
