@@ -104,9 +104,17 @@ const MIN_SEGMENT = 1e-4;
  *
  * The undented surface is the best anchor available here. The real one is 1 minus the scar dent
  * at that country, which is private to GlobeView, and the error is at most the 0.08 of a radius a
- * deep dent reaches, against the 0.09 the whole visible line spans. So the buried part is written
- * once at the ordinary weight, where it is either clipped away or fills a dent, and the growth
- * runs over what is actually seen.
+ * deep dent reaches, against the 0.09 the whole visible line spans. So the growth runs over what
+ * is actually seen.
+ *
+ * IT IS THE TIMING ANCHOR AND NOT THE END OF THE LINE. The part below it belongs to whichever
+ * weight the rest of that country's line is drawn at, so a finished heavy line spans exactly what
+ * the ordinary one spans: through the surface in all-layers mode, and down to the surface on the
+ * emotional layer, where `leaderFootEmoOnly` is above this and the part below it is empty. An
+ * earlier version wrote it at the ordinary weight always, which left the heavy line starting at
+ * the undented sphere while the country's own surface was up to 0.08 of a radius below it, so a
+ * scarred country showed a thin stub between its own ground and the line that was supposed to
+ * point at it.
  */
 const GROWTH_FLOOR = 1;
 
@@ -205,9 +213,9 @@ export async function createEmoLeaderLineLayer(options: {
     };
   }
 
-  // Two slots for the ordinary mesh, because a growing line puts two pieces in it: the buried
-  // stub below the surface and whatever of the line above it the heavy part has not reached.
-  const rest = makeLeaderMesh("emo-leader-lines", 2);
+  // One slot each: whatever weight a country's line is split into, each mesh receives at most one
+  // contiguous piece of it, because the piece below GROWTH_FLOOR now joins the piece above it.
+  const rest = makeLeaderMesh("emo-leader-lines", 1);
   const chosen = makeLeaderMesh("emo-leader-lines-selected", 1);
   const both = [rest, chosen];
 
@@ -298,23 +306,36 @@ export async function createEmoLeaderLineLayer(options: {
         writePart(isChosen ? chosen : rest, dir, foot, full);
         continue;
       }
-      // Whatever is below the surface is written once and never grows: it is there to be clipped
-      // by the globe, or to fill a scar dent, and counting it as part of the growth is what made
-      // three quarters of the animation happen inside the planet. See GROWTH_FLOOR.
+      // What is below the surface never grows: it is there to be clipped by the globe, or to fill
+      // a scar dent, and counting it as part of the growth is what made three quarters of the
+      // animation happen inside the planet. It is drawn, but at the weight of whatever piece of
+      // the same line reaches it. See GROWTH_FLOOR.
       const base = Math.min(full, Math.max(foot, GROWTH_FLOOR));
-      writePart(rest, dir, foot, base);
+      const arrival = motion.leaderArrivalOf(iso3);
+      if (arrival <= 0) {
+        // Nothing of this line has grown yet, or a retreat has taken all of it back. Either way
+        // the country has exactly the line it has when no selection touches it.
+        writePart(rest, dir, foot, full);
+        continue;
+      }
       // The heavy part advances and the ordinary part is what is left of the same line, so the
       // country never loses the line it had. See the module docstring.
-      const grown = (full - base) * motion.leaderArrivalOf(iso3);
+      const grown = (full - base) * arrival;
       // The country the wave came from sends its line up out of the ground; everything the wave
       // then reaches has the line come down to it from its word. `foot` keeps both ends growing
       // out of the ground, which is what round v9 drew.
       if (!splitEnds || motion.isSpreadOrigin(iso3)) {
-        writePart(chosen, dir, base, base + grown);
+        // Growing out of the ground, so the buried part is part of the heavy line from the first
+        // frame: that is the end the line is leaving from.
+        writePart(chosen, dir, foot, base + grown);
         writePart(rest, dir, base + grown, full);
       } else {
-        writePart(chosen, dir, full - grown, full);
-        writePart(rest, dir, base, full - grown);
+        // Coming down from the word. The buried part joins the heavy line at the instant the tip
+        // reaches the floor, which is the instant the line lands and the country lights.
+        const tip = full - grown;
+        const landed = tip <= base + MIN_SEGMENT;
+        writePart(chosen, dir, landed ? foot : tip, full);
+        if (!landed) writePart(rest, dir, foot, tip);
       }
     }
     for (const part of both) {
