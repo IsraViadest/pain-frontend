@@ -2136,31 +2136,82 @@ export const EMO_PRESETS: EmoPreset[] = [
       selectionRetractSpeed: 0.5,
     },
   },
+  {
+    id: "v12-a_base",
+    title: "Round v12: the operator's seventh round",
+    note:
+      "The teardown speed the operator chose, plus the two values their next message asked for. " +
+      "leaderFoot 0.8 rather than 0.7: the deepest dent the scar field can make is at radius 0.8, " +
+      "since a displacement of 0.4 with a bias of -0.2 bottoms out there, so 0.7 buried a third of " +
+      "the line below anything the globe could ever cut. selectionMarkerDeg 0.9 marks the 29 " +
+      "countries Natural Earth 1:110m has no polygon for, which until now had an arc arrive, a " +
+      "leader line land and a label come forward while the country itself never lit. Everything " +
+      "else is v11-a_retract-2x unchanged, which is v10-a_base with the teardown at twice the " +
+      "build rate. The round's two fixes carry to every preset and are not values: the leader foot " +
+      "is raised before the globe stops cutting it rather than 150 ms after, and the narrow legend " +
+      "is one field of words at one rhythm.",
+    params: {
+      labelMode: "bilingual",
+      identicalLines: "one",
+      leaderLines: "on",
+      clickMode: "selectNetwork",
+      networkMode: "selected",
+      categoryGraph: "delaunay",
+      fontPxFar: 14,
+      fontPxNear: 20,
+      cameraFar: 2.2,
+      cameraNear: 1.35,
+      arcWidth: 0.003,
+      arcOpacity: 1,
+      arcLift: 1.1,
+      leaderFoot: 0.8,
+      leaderWidthScale: 0.45,
+      leaderOpacityScale: 0.5,
+      labelDepthFade: 0.45,
+      labelDepthFadeCurve: 3,
+      selectionStyle: "glow",
+      selectionFill: 0.35,
+      selectionOutline: 2,
+      selectionMarkerDeg: 0.9,
+      selectionEmphasis: "both",
+      labelHalo: 0.16,
+      selectionLift: 0,
+      selectionSink: 0,
+      selectionDim: 0.55,
+      selectionMotionMs: 320,
+      selectionSpreadMs: 900,
+      selectionEmphasisScale: 1.12,
+      selectionEmphasisSecondScale: 1,
+      legend: "on",
+      leaderSpread: "on",
+      leaderSelectedWidthScale: 3,
+      leaderSelectedOpacityScale: 2,
+      leaderSpreadFrom: "split",
+      selectionLeaderMs: 260,
+      selectionLeaderShare: 0.5,
+      selectionRetractSpeed: 2,
+    },
+  },
 ];
 
 /**
- * Opens on `v11-a_retract-2x`: the round v10 base, which is round v9's spread with the boldest
- * chosen leader lines and the whole selection played as a sequence, with the teardown at twice
- * the build rate rather than ten times it. The operator watched the speed ladder and chose this
- * one: 580 ms for a full network, where the reverse can be read rather than only inferred.
- *
- * NO NEW PRESET WAS MINTED FOR THE CHOICE, BECAUSE THERE IS NOTHING TO COMPOSE. Every earlier
- * default combined values from several presets and so needed an entry of its own. This one is a
- * single existing preset chosen unchanged, and a duplicate of it under a new id would be a second
- * name for the same view.
+ * Opens on `v12-a_base`: `v11-a_retract-2x`, which is the round v10 base with the teardown at
+ * twice the build rate that the operator chose off the speed ladder, plus the two values their
+ * next message asked for. The leader foot rises to 0.8, which is exactly the deepest dent the
+ * scar field can make, and the 29 countries with no polygon get a mark of their own.
  *
  * ONE THING THIS SPEED MAKES VISIBLE, STATED RATHER THAN FIXED. The label sizes and the world's
  * step back forward run on `selectionMotionMs`, 320 ms, whatever the retract speed, so the world
  * is fully back at rest while the network still has about 260 ms of leaving to do. It is named in
- * this preset's own note and in open question 41, and the operator watched this speed and judged
- * it good, so it is a known property of the chosen view and not a defect to be quietly removed.
+ * `v11-a`'s own note and in open question 41, and the operator watched this speed and judged it
+ * good, so it is a known property of the chosen view and not a defect to be quietly removed.
  *
  * This is a constant rather than a preset value, so changing it edits no shipped view.
  * `v1-c_bilingual`, `v4-a_base-bilingual`, `v5-a_base-delaunay`, `v6-a_base`, `v7-a_base`,
- * `v9-a_base` and `v10-a_base` were the previous defaults and remain reachable by id, as
- * everything here does.
+ * `v9-a_base`, `v10-a_base` and `v11-a_retract-2x` were the previous defaults and remain
+ * reachable by id, as everything here does.
  */
-export const DEFAULT_EMO_PRESET_ID = "v11-a_retract-2x";
+export const DEFAULT_EMO_PRESET_ID = "v12-a_base";
 
 export function findEmoPreset(id: string): EmoPreset | undefined {
   return EMO_PRESETS.find((p) => p.id === id);

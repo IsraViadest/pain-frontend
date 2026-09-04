@@ -326,6 +326,48 @@ function strokeGeometry(
 }
 
 /**
+ * A round mark of a given great-circle radius at one point, drawn into the equirectangular map.
+ *
+ * ROUND ON THE GLOBE, NOT ROUND ON THE MAP. Equirectangular squeezes longitude toward the poles,
+ * so a circle in texel space arrives as a flat smear at high latitude. Dividing the horizontal
+ * radius by the cosine of the latitude undoes that; the cosine is floored so a point very near a
+ * pole gives a wide mark rather than an infinite one.
+ *
+ * Drawn three times, one map width apart, because a mark near the antimeridian straddles the seam
+ * and Kiribati, Tuvalu, Samoa and Tonga all sit there. Two of the three fall outside the canvas
+ * and cost nothing.
+ */
+function traceMarker(
+  ctx: CanvasRenderingContext2D,
+  point: { lat: number; lng: number },
+  radiusDeg: number,
+  w: number,
+  h: number,
+  paint: (ctx: CanvasRenderingContext2D) => void,
+): void {
+  const [x, y] = lngLatToCanvas(point.lng, point.lat, w, h);
+  const ry = (radiusDeg / 180) * h;
+  const rx = ry / Math.max(0.15, Math.cos((point.lat * Math.PI) / 180));
+  for (const dx of [-w, 0, w]) {
+    ctx.beginPath();
+    ctx.ellipse(x + dx, y, rx, ry, 0, 0, Math.PI * 2);
+    paint(ctx);
+  }
+}
+
+/**
+ * Whether Natural Earth 1:110m has a polygon for this country at all.
+ *
+ * Exported so a caller can tell the two kinds of country apart before asking for a highlight, and
+ * supply a label point for the ones it cannot fill. Asking here rather than keeping a second list
+ * is what stops the two from drifting when the source data changes.
+ */
+export function hasCountryGeometry(iso3: string): boolean {
+  const key = iso3.trim().toUpperCase();
+  return countryGeometries.some((c) => c.key === key);
+}
+
+/**
  * A set of countries filled and/or outlined into one otherwise transparent equirectangular
  * texture, for the selection highlight in the emotional-pain views.
  *
@@ -335,20 +377,29 @@ function strokeGeometry(
  * It takes a list rather than one country because selecting a pain category highlights every
  * country in it, and one texture for the whole set costs the same as one for a single country.
  *
- * Returns null when none of them has a polygon here, and quietly omits the ones that do not.
- * `countryCentroids.ts` carries 43 manual label points for microstates that Natural Earth 1:110m
- * has no geometry for, so such a country can hold a label and still have nothing to fill. That is
- * a graceful degradation, not an error.
+ * COUNTRIES WITH NO POLYGON GET A DISC INSTEAD, IF THE CALLER ASKS FOR ONE. Natural Earth 1:110m
+ * has no geometry for 29 of the 195 countries the emotional views label, all of them small island
+ * states and city states, so a leader line could land on one and nothing would light up. `markers`
+ * are their label points and `markerRadiusDeg` the great-circle radius to draw there, which is
+ * deliberately a size rather than a shape: even with a polygon, Malta is about one texel across on
+ * the map below, so the mark has to be given a size rather than inherit one. At 0 nothing is drawn
+ * and the behaviour is exactly what shipped before this existed.
+ *
+ * Returns null when there is nothing at all to draw, and quietly omits any country that has
+ * neither a polygon nor a marker.
  */
 export function createCountryHighlightTexture(
   iso3List: readonly string[],
   colorHex: string,
   fillOpacity: number,
   outlineWidthPx: number,
+  markers: readonly { lat: number; lng: number }[],
+  markerRadiusDeg: number,
 ): THREE.DataTexture | null {
   const keys = new Set(iso3List.map((c) => c.trim().toUpperCase()));
   const matches = countryGeometries.filter((c) => keys.has(c.key));
-  if (matches.length === 0) return null;
+  const discs = markerRadiusDeg > 0 ? markers : [];
+  if (matches.length === 0 && discs.length === 0) return null;
   if (fillOpacity <= 0 && outlineWidthPx <= 0) return null;
 
   const w = HIGHLIGHT_MAP_WIDTH;
@@ -364,6 +415,7 @@ export function createCountryHighlightTexture(
   if (fillOpacity > 0) {
     ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${Math.max(0, Math.min(1, fillOpacity))})`;
     for (const match of matches) fillGeometry(ctx, match.geometry, w, h);
+    for (const marker of discs) traceMarker(ctx, marker, markerRadiusDeg, w, h, (p) => p.fill());
   }
   // After the fill, never before: filling punches its holes with destination-out, which would
   // erase any stroke already laid down there.
@@ -373,6 +425,7 @@ export function createCountryHighlightTexture(
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     for (const match of matches) strokeGeometry(ctx, match.geometry, w, h);
+    for (const marker of discs) traceMarker(ctx, marker, markerRadiusDeg, w, h, (p) => p.stroke());
   }
 
   const { data } = ctx.getImageData(0, 0, w, h);

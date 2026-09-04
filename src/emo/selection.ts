@@ -26,7 +26,9 @@ import type { GlobeView } from "../globe/GlobeView";
 import {
   ensureChoroplethCountriesLoaded,
   createCountryHighlightTexture,
+  hasCountryGeometry,
 } from "../globe/choroplethField";
+import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/countryCentroids";
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import type { EmoSelectionMotion } from "./selectionMotion";
@@ -110,6 +112,9 @@ export async function createEmoSelectionLayer(options: {
   }
 
   await ensureChoroplethCountriesLoaded();
+  // The label points, for the countries the polygons do not cover. Same source the labels, the
+  // arcs and the leader lines use, so a disc lands exactly where the line that reached it ends.
+  await ensureCountryCentroidsLoaded();
 
   const material = new THREE.MeshBasicMaterial({
     transparent: true,
@@ -171,6 +176,15 @@ export async function createEmoSelectionLayer(options: {
     const { members, key } = arrivedMembers();
     paintedKey = key;
     const glow = params.selectionStyle === "glow";
+    // Split rather than filtered afterwards: a country either has a polygon to fill or a point to
+    // put a disc at, and asking `hasCountryGeometry` is what keeps the two lists from overlapping
+    // or from leaving a country in neither.
+    const discs: { lat: number; lng: number }[] = [];
+    for (const iso3 of members) {
+      if (hasCountryGeometry(iso3)) continue;
+      const centroid = getCountryCentroid(iso3);
+      if (centroid) discs.push({ lat: centroid.lat, lng: centroid.lng });
+    }
     const texture =
       members.length === 0
         ? null
@@ -179,12 +193,14 @@ export async function createEmoSelectionLayer(options: {
             glow ? GLOW_COLOUR : WASH_COLOUR,
             params.selectionFill,
             params.selectionOutline,
+            discs,
+            params.selectionMarkerDeg,
           );
     material.map = texture;
     // Adding warm light brightens the country's own choropleth colour instead of covering it.
     material.blending = glow ? THREE.AdditiveBlending : THREE.NormalBlending;
-    // Microstates have a label point and no polygon, so a category made only of them yields null,
-    // as does asking for neither a fill nor an outline.
+    // A category made only of countries with no polygon yields null while `selectionMarkerDeg` is
+    // 0, as does asking for neither a fill nor an outline.
     mesh.visible = texture !== null;
     material.needsUpdate = true;
   }
@@ -209,6 +225,7 @@ export async function createEmoSelectionLayer(options: {
       const markChanged =
         next.selectionFill !== params.selectionFill ||
         next.selectionOutline !== params.selectionOutline ||
+        next.selectionMarkerDeg !== params.selectionMarkerDeg ||
         next.selectionStyle !== params.selectionStyle;
       // A changed spread duration changes which countries count as reached, and nothing else here
       // would notice: the member list and the mark's own look are both unchanged. Compared before

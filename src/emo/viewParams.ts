@@ -341,6 +341,17 @@ export interface EmoViewParams {
    */
   selectionOutline: number;
   /**
+   * Great-circle radius of the disc drawn for a country that has no polygon, in degrees.
+   *
+   * Natural Earth 1:110m has no geometry for 29 of the 195 countries these views label, all of
+   * them small island or city states, so the selection wash and outline silently skipped them: the
+   * arc arrived, the leader line landed, the label came forward, and the country never lit. A size
+   * has to be given rather than inherited, because even with a polygon Malta is about one texel
+   * across on the 2048 by 1024 highlight map. 0 draws nothing, which is what every preset built
+   * before this did.
+   */
+  selectionMarkerDeg: number;
+  /**
    * How the highlight sits on the country's own colour. `wash` lays white over it, which is what
    * shipped. `glow` adds a warm light to it instead, so the country's existing choropleth colour
    * brightens rather than being covered.
@@ -496,6 +507,8 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   selectionSpreadWindow: 0.5,
   // All three keep the behaviour that shipped: a white wash, no outline, and dimming the rest.
   selectionOutline: 0,
+  // 0 keeps the shipped behaviour: a country with no polygon is simply not marked.
+  selectionMarkerDeg: 0,
   selectionStyle: "wash",
   selectionEmphasis: "dim",
   // Both 1.22: exactly the single multiplier that drove all three lines before they split.
