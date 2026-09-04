@@ -81,6 +81,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Leader lines",
     hint: "A hairline from each country up to its own label, so a word over a crowded region is visibly attached. Takes the arc width and opacity, scaled by the two leader sliders.",
   },
+  leaderSpread: {
+    label: "Leaders spread",
+    hint: "on grows the chosen category's leader lines out of the ground with the wavefront, instead of having them there from the start. The rest of the world is never part of a wave.",
+  },
   selectionStyle: {
     label: "Selection mark",
     hint: "wash lays white over the country. glow adds warm light instead, so its own choropleth colour brightens rather than being covered.",
@@ -149,7 +153,7 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Network arcs",
     defaultOpen: false,
-    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines", "selectionStyle", "selectionEmphasis", "selectionSpreadEase"],
+    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines", "leaderSpread", "selectionStyle", "selectionEmphasis", "selectionSpreadEase"],
     sliders: [
       { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest neighbours each country links to. Only used by the knn and random rules." },
       { key: "randomSeed", label: "Random seed", min: 1, max: 200, step: 1, decimals: 0, hint: "Which random world network to draw. Click does reshuffleNetwork steps this for you." },
@@ -161,6 +165,8 @@ const SECTIONS: EmoSection[] = [
       { key: "leaderFootEmoOnly", label: "Leader foot, emo layer", min: 0.9, max: 1.05, step: 0.002, decimals: 3, hint: "The same radius for the emotional-pain layer on its own, where the globe draws no surface and so writes no depth. A buried foot is not cut there and reaches out of the planet, so this one sits just outside the sphere the borders ride on. Has no effect in all-layers mode." },
       { key: "leaderWidthScale", label: "Leader width", min: 0.1, max: 1, step: 0.05, decimals: 2, hint: "Leader width as a fraction of the arc width. Below 1 makes the network the bolder of the two." },
       { key: "leaderOpacityScale", label: "Leader opacity", min: 0.1, max: 1, step: 0.05, decimals: 2, hint: "Leader opacity as a fraction of the arc opacity. Below 1 makes the network the more solid of the two." },
+      { key: "leaderSelectedWidthScale", label: "Leader width, chosen", min: 1, max: 4, step: 0.1, decimals: 2, hint: "How much wider the chosen category's leader lines are than the rest, on top of Leader width. 1 makes them the same, which is what shipped." },
+      { key: "leaderSelectedOpacityScale", label: "Leader opacity, chosen", min: 1, max: 4, step: 0.1, decimals: 2, hint: "The same for opacity, and the product is clamped at 1. With leaders resting at half the arc opacity, 2 makes the chosen ones solid." },
       { key: "selectionDim", label: "Selection dim", min: 0, max: 1, step: 0.01, decimals: 2, hint: "Opacity of every label except the selected one, with Click does set to selectNetwork." },
       { key: "selectionLift", label: "Selection lift", min: 0, max: 0.1, step: 0.005, decimals: 3, hint: "Extra radius for the selected category's labels, arcs and leader heads, in globe radii. Raises them clear of the rest and tends to paint them over their neighbours. It cannot put the arcs in front of the text: every DOM label paints over the WebGL canvas." },
       { key: "selectionFill", label: "Selection fill", min: 0, max: 0.6, step: 0.01, decimals: 2, hint: "Alpha of the wash on the selected category. 0 leaves only the outline. 43 microstates have no polygon and stay unmarked." },

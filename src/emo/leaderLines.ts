@@ -38,6 +38,15 @@
  * decides whether these lines are drawn at all, so there is one source of truth for which globe
  * is on screen. The parameter is named for the layer the operator sees and the method for the
  * mechanism that makes the two differ; they are the same fact from opposite ends.
+ *
+ * TWO MESHES, BECAUSE A LINE WIDTH IS A MATERIAL AND NOT A VERTEX. LineMaterial carries one
+ * `linewidth` for everything it draws, so the chosen pain category's leaders can only be heavier
+ * than the rest by being a second mesh with a second material. Membership is
+ * `motion.emphasisOf(category) > 0`, which is the one selection signal this module has ever read;
+ * a locally tracked category would be the two-signal problem the revision counter below was
+ * written to remove. The split is invisible until a preset asks for it: with both
+ * `leaderSelected*Scale` at 1 the two materials are identical, and two meshes drawing disjoint
+ * white segments at one opacity composite to exactly what one mesh drawing all of them does.
  */
 import * as THREE from "three";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -64,6 +73,8 @@ const HEAD_GAP = 0.012;
 const REBUILD_EPSILON = 1e-4;
 
 interface LeaderNode {
+  /** Country code, so a spreading leader can ask the wavefront whether it has been reached. */
+  iso3: string;
   dir: THREE.Vector3;
   shell: number;
   /** This country's pain category, so the head can follow a selection lift that only it gets. */
@@ -103,6 +114,7 @@ export async function createEmoLeaderLineLayer(options: {
     const centroid = getCountryCentroid(iso3);
     if (!centroid) continue;
     nodes.push({
+      iso3,
       dir: latLngToVector3(centroid.lat, centroid.lng, 1).normalize(),
       shell: categoryShell.get(country.cat) ?? 0,
       cat: country.cat,
@@ -111,28 +123,60 @@ export async function createEmoLeaderLineLayer(options: {
 
   const resolution = new THREE.Vector2(1, 1);
   const fadeUniform = makeEmoFadeUniform(params);
-  const material = new LineMaterial({
-    color: 0xffffff,
-    linewidth: params.arcWidth * params.leaderWidthScale,
-    worldUnits: true,
-    resolution,
-    transparent: true,
-    opacity: Math.min(1, params.arcOpacity * params.leaderOpacityScale),
-    depthTest: true,
-    depthWrite: false,
-  });
-  applyEmoFacingFade(material, fadeUniform);
 
-  // setPositions keeps a Float32Array by reference rather than copying it, so this array stays
-  // the geometry's own storage and a rebuild is a write plus a needsUpdate rather than an alloc.
-  const positions = new Float32Array(nodes.length * 6);
-  const geometry = new LineSegmentsGeometry();
-  const mesh = new LineSegments2(geometry, material);
-  mesh.name = "emo-leader-lines";
-  mesh.renderOrder = 3;
-  globe.earthContent.add(mesh);
+  /**
+   * One of the two weights a leader line can be drawn at.
+   *
+   * Both are sized for every country, because which of them a country belongs to changes with
+   * the selection and neither buffer is ever reallocated. `count` is how many of those slots the
+   * last rebuild filled, and it is what the geometry's `instanceCount` is set to, so the unused
+   * tail keeps whatever it held and is simply not drawn.
+   */
+  interface LeaderMesh {
+    mesh: LineSegments2;
+    material: LineMaterial;
+    positions: Float32Array;
+    built: boolean;
+    count: number;
+  }
 
-  let built = false;
+  function makeLeaderMesh(name: string): LeaderMesh {
+    const material = new LineMaterial({
+      color: 0xffffff,
+      linewidth: params.arcWidth * params.leaderWidthScale,
+      worldUnits: true,
+      resolution,
+      transparent: true,
+      opacity: Math.min(1, params.arcOpacity * params.leaderOpacityScale),
+      depthTest: true,
+      depthWrite: false,
+    });
+    applyEmoFacingFade(material, fadeUniform);
+    const mesh = new LineSegments2(new LineSegmentsGeometry(), material);
+    mesh.name = name;
+    mesh.renderOrder = 3;
+    globe.earthContent.add(mesh);
+    // setPositions keeps a Float32Array by reference rather than copying it, so this array stays
+    // the geometry's own storage and a rebuild is a write plus a needsUpdate rather than an alloc.
+    return { mesh, material, positions: new Float32Array(nodes.length * 6), built: false, count: 0 };
+  }
+
+  const rest = makeLeaderMesh("emo-leader-lines");
+  const chosen = makeLeaderMesh("emo-leader-lines-selected");
+  const both = [rest, chosen];
+
+  /** Width and opacity of the two materials, from the four scales. Called on every change. */
+  function applyWeights(p: EmoViewParams): void {
+    rest.material.linewidth = p.arcWidth * p.leaderWidthScale;
+    rest.material.opacity = Math.min(1, p.arcOpacity * p.leaderOpacityScale);
+    chosen.material.linewidth = p.arcWidth * p.leaderWidthScale * p.leaderSelectedWidthScale;
+    chosen.material.opacity = Math.min(
+      1,
+      p.arcOpacity * p.leaderOpacityScale * p.leaderSelectedOpacityScale,
+    );
+  }
+  applyWeights(params);
+
   let lastStandoff = Number.NaN;
   let lastSpread = Number.NaN;
   /**
@@ -157,49 +201,81 @@ export async function createEmoLeaderLineLayer(options: {
    * every head one frame short. That is failure 25 again, in its fifth guise in this feature.
    */
   let lastMotionRevision = -1;
+  /**
+   * The spread mode the current geometry was built at.
+   *
+   * Toggling it changes which countries are written and how far up their line reaches, and
+   * nothing else compared here would notice, because neither the standoff nor the motion has
+   * moved. That is trap 25's shape, so it gets its own comparison.
+   */
+  let lastLeaderSpread = params.leaderSpread;
 
   function rebuild(standoff: number, foot: number): void {
-    for (let i = 0; i < nodes.length; i++) {
-      const { dir, shell, cat } = nodes[i]!;
+    const spreading = params.leaderSpread === "on";
+    rest.count = 0;
+    chosen.count = 0;
+    for (const node of nodes) {
+      const { iso3, dir, shell, cat } = node;
+      const emphasis = motion.emphasisOf(cat);
+      const isChosen = emphasis > 0;
       // A head follows its own label, which is what makes "leave the leader lines where they are"
       // true only of the chosen category: everything else sinks, and a head that stayed put would
       // leave its tip standing through the text it used to point at.
       const sunk = emoSunkStandoff(standoff, params.selectionSink * motion.recedeOf(cat));
-      const head = Math.max(
+      const full = Math.max(
         foot,
-        sunk + shell * params.multiplexSpread + params.selectionLift * motion.emphasisOf(cat) -
-          HEAD_GAP,
+        sunk + shell * params.multiplexSpread + params.selectionLift * emphasis - HEAD_GAP,
       );
-      const o = i * 6;
-      positions[o] = dir.x * foot;
-      positions[o + 1] = dir.y * foot;
-      positions[o + 2] = dir.z * foot;
-      positions[o + 3] = dir.x * head;
-      positions[o + 4] = dir.y * head;
-      positions[o + 5] = dir.z * head;
+      let head = full;
+      if (isChosen && spreading) {
+        const arrival = motion.arrivalOf(iso3);
+        // Not written at all rather than written with both ends equal: a zero-length segment
+        // still paints its round cap, which would leave a dot on the surface of every country
+        // the wave has yet to reach.
+        if (arrival <= 0) continue;
+        head = foot + (full - foot) * arrival;
+      }
+      const target = isChosen ? chosen : rest;
+      const o = target.count * 6;
+      target.count += 1;
+      target.positions[o] = dir.x * foot;
+      target.positions[o + 1] = dir.y * foot;
+      target.positions[o + 2] = dir.z * foot;
+      target.positions[o + 3] = dir.x * head;
+      target.positions[o + 4] = dir.y * head;
+      target.positions[o + 5] = dir.z * head;
     }
-    if (built) {
-      // instanceStart and instanceEnd are two views on one interleaved buffer, so flagging the
-      // buffer once uploads both ends of every segment.
-      (geometry.attributes.instanceStart as THREE.InterleavedBufferAttribute).data.needsUpdate =
-        true;
-    } else {
-      geometry.setPositions(positions);
-      built = true;
+    for (const part of both) {
+      const geometry = part.mesh.geometry as LineSegmentsGeometry;
+      if (part.built) {
+        // instanceStart and instanceEnd are two views on one interleaved buffer, so flagging the
+        // buffer once uploads both ends of every segment.
+        (geometry.attributes.instanceStart as THREE.InterleavedBufferAttribute).data.needsUpdate =
+          true;
+      } else {
+        geometry.setPositions(part.positions);
+        part.built = true;
+      }
+      // Everything past this is last frame's line for some country that has changed weight, so
+      // it stays in the buffer and is not drawn. The bounds are computed over the whole array,
+      // which can only make them larger than they need to be and so cannot cull anything drawn.
+      geometry.instanceCount = part.count;
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
     }
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
     lastStandoff = standoff;
     lastSpread = params.multiplexSpread;
     lastFoot = foot;
 
     lastLift = params.selectionLift;
     lastSink = params.selectionSink;
+    lastLeaderSpread = params.leaderSpread;
     lastMotionRevision = motion.revision();
   }
 
   function syncVisibility(layerVisible: boolean): void {
-    mesh.visible = layerVisible && params.leaderLines === "on";
+    const on = layerVisible && params.leaderLines === "on";
+    for (const part of both) part.mesh.visible = on;
   }
 
   let visible = true;
@@ -221,9 +297,10 @@ export async function createEmoLeaderLineLayer(options: {
       if (w === 0 || h === 0) return;
       if (w !== resolution.x || h !== resolution.y) {
         resolution.set(w, h);
-        material.resolution.copy(resolution);
+        for (const part of both) part.material.resolution.copy(resolution);
       }
-      if (!mesh.visible && built) return;
+      const built = rest.built && chosen.built;
+      if (!rest.mesh.visible && built) return;
       const standoff = emoLabelStandoff(emoZoomRamp(globe.camera.position.length(), params), params);
       const foot = effectiveFoot();
       if (
@@ -233,6 +310,7 @@ export async function createEmoLeaderLineLayer(options: {
         foot !== lastFoot ||
         params.selectionLift !== lastLift ||
         params.selectionSink !== lastSink ||
+        params.leaderSpread !== lastLeaderSpread ||
         motion.revision() !== lastMotionRevision
       ) {
         rebuild(standoff, foot);
@@ -241,8 +319,10 @@ export async function createEmoLeaderLineLayer(options: {
     setParams(next: EmoViewParams): void {
       params = next;
       updateEmoFadeUniform(fadeUniform, next);
-      material.linewidth = next.arcWidth * next.leaderWidthScale;
-      material.opacity = Math.min(1, next.arcOpacity * next.leaderOpacityScale);
+      // Width and opacity are material state, so they take effect without touching geometry.
+      // Which mesh a country belongs to is not: that follows the selection, and update() rebuilds
+      // it on the motion revision.
+      applyWeights(next);
       syncVisibility(visible);
     },
     setDepthMasked(masked: boolean): void {
@@ -256,9 +336,11 @@ export async function createEmoLeaderLineLayer(options: {
       syncVisibility(visible);
     },
     destroy(): void {
-      geometry.dispose();
-      material.dispose();
-      globe.earthContent.remove(mesh);
+      for (const part of both) {
+        part.mesh.geometry.dispose();
+        part.material.dispose();
+        globe.earthContent.remove(part.mesh);
+      }
     },
   };
 }

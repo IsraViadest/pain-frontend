@@ -153,6 +153,37 @@ export interface EmoViewParams {
    */
   leaderWidthScale: number;
   leaderOpacityScale: number;
+  /**
+   * The same two, again, for the leader lines of the pain category that is currently chosen.
+   *
+   * Multipliers on top of the pair above rather than replacements for it, so 1 and 1 are exactly
+   * the behaviour of every preset that predates them and a preset says how much heavier the
+   * chosen category's lines are, not how heavy they are. The opacity product is clamped at 1, so
+   * a view whose leaders rest at half the network's opacity reaches solid at 2.
+   *
+   * WHICH LINES THESE ARE IS ONE SIGNAL, NOT TWO. Membership is `emphasisOf(category) > 0` and
+   * nothing else, the same eased fraction the labels and the arcs read. That has a visible
+   * consequence worth knowing rather than discovering: on deselect the fraction eases to 0 over
+   * `selectionMotionMs`, so the heavy lines hold for that long and then step back to the resting
+   * weight at the instant it reaches 0.
+   */
+  leaderSelectedWidthScale: number;
+  leaderSelectedOpacityScale: number;
+  /**
+   * Whether the chosen category's leader lines grow with the wavefront instead of being there
+   * from the start.
+   *
+   * The arcs already spread; this makes the lines that tie them to their countries do the same,
+   * so a country's whole attachment arrives at once rather than the line waiting under a label
+   * that has not come up yet. Each leader grows out of the ground toward its label as the front
+   * passes, rather than appearing whole: `arrivalOf` scales the head between the foot and where
+   * it would otherwise be. A leader whose country the wave has not reached is not written at
+   * all, because a zero-length segment still paints its round cap as a dot on the surface.
+   *
+   * `off` is the behaviour of every preset that predates it. Only the chosen category is ever
+   * affected: the rest of the world's leader lines are not part of a wave.
+   */
+  leaderSpread: "off" | "on";
   /** Opacity multiplier applied to every label except the selected one. */
   selectionDim: number;
   /**
@@ -351,6 +382,10 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   // 1 and 1: the leader is exactly the network's line, as it was.
   leaderWidthScale: 1,
   leaderOpacityScale: 1,
+  // 1, 1 and off: the chosen category's leaders are exactly the others', as they were.
+  leaderSelectedWidthScale: 1,
+  leaderSelectedOpacityScale: 1,
+  leaderSpread: "off",
   selectionDim: 0.25,
   // Flat by default, so every preset that predates the lift is unchanged.
   selectionLift: 0,
@@ -397,6 +432,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   worldGraph: ["knn", "mst", "rng", "gabriel", "delaunay", "random"],
   categoryGraph: ["knn", "complete", "gabriel", "delaunay"],
   leaderLines: ["off", "on"],
+  leaderSpread: ["off", "on"],
   selectionStyle: ["wash", "glow"],
   selectionEmphasis: ["dim", "bold", "both"],
   selectionSpreadEase: ["smooth", "linear"],
