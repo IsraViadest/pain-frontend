@@ -35,6 +35,20 @@
  * The bounds are written as custom properties and not as `top` and `bottom`. The narrow layout
  * replaces the whole arrangement with a wrapped box, and an inline `top` would outrank the rule
  * that does it.
+ *
+ * THE NARROW LAYOUT IS AN L, AND IT IS TWO BOXES BECAUSE A FLOAT CANNOT BE ONE. The operator asked
+ * for the words to sit along the bottom edge, level with the share pill, with a few short ones
+ * beside the pill and the rest in a full-width block above it, and for the dark background to be
+ * behind the words only and never behind the pill. Text flowing round a notch is what a float is
+ * for, but a float attaches to the top of the line box it is declared in and the notch here is at
+ * the bottom right, so no float can cut it. Two rows can: a full-width one and a narrower one
+ * beside the pill, in a bottom-anchored column. Each carries its own background, and together
+ * they are the L.
+ *
+ * The rows are `display: contents` in the wide layout, so the vertical strip is laid out exactly
+ * as it was before they existed: the buttons are still the host's own flex children. Which row a
+ * word belongs to is therefore a narrow-layout question only, and the wide layout puts all of
+ * them back in order.
  */
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
@@ -60,7 +74,31 @@ const LEGEND_SEED = 43;
  */
 const CHROME_ABOVE = "#ui-title";
 const CHROME_BELOW = ["#ui-bottom-left", "#ui-share-pain"];
+const CHROME_SHARE = "#ui-share-pain";
 const CHROME_GAP_PX = 18;
+
+/**
+ * Which layout is in force, asked of the stylesheet rather than of `matchMedia`.
+ *
+ * The breakpoint belongs to the CSS, which is where both layouts are written, and a second copy
+ * of the number here is a second thing to keep in step. The media query sets this custom property
+ * and this reads it back, so there is exactly one place the width lives.
+ */
+const NARROW_FLAG = "--emo-legend-narrow";
+
+/** Clearance kept between the words and the share pill they sit beside. */
+const CORNER_GAP_PX = 12;
+
+/**
+ * Widest the plain narrow box is allowed to be, and the width below which it stops being one.
+ *
+ * Above the first number the words sit in a single box at the bottom left, clear of the share
+ * pill, which is round v10's box moved down. Below the second there is not enough room beside the
+ * pill for a box at all and the strip becomes an L: a few short words beside the pill and the
+ * rest in a full-width block above it.
+ */
+const NARROW_BOX_MAX_W = 250;
+const NARROW_BOX_MIN_W = 200;
 
 /**
  * Space kept clear above the first word and below the last, as a multiple of the space between
@@ -144,6 +182,16 @@ export async function createEmoLegend(options: {
   const random = mulberry32(LEGEND_SEED);
   const items = new Map<string, HTMLButtonElement>();
 
+  // The two halves of the L. `display: contents` in the wide layout, so they cost that layout
+  // nothing at all. The full-width one comes first because the column is read top to bottom.
+  const wideRow = document.createElement("div");
+  wideRow.className = "emo-legend__row emo-legend__row--wide";
+  const cornerRow = document.createElement("div");
+  cornerRow.className = "emo-legend__row emo-legend__row--corner";
+  host.append(wideRow, cornerRow);
+
+  /** Every word, in the operator's long-medium-short-medium-long order. */
+  const ordered: HTMLButtonElement[] = [];
   for (const category of legendOrder(data.categories)) {
     const el = document.createElement("button");
     el.type = "button";
@@ -151,7 +199,8 @@ export async function createEmoLegend(options: {
     el.className = "emo-legend__item emo-sc-Latn";
     el.dataset.cat = category.key;
     el.textContent = category.label;
-    host.appendChild(el);
+    wideRow.appendChild(el);
+    ordered.push(el);
     items.set(category.key, el);
   }
 
@@ -208,8 +257,106 @@ export async function createEmoLegend(options: {
     if (wasHidden && !host.hidden) syncBounds();
   }
 
+  /**
+   * Move the words into the two rows, and say whether anything actually moved.
+   *
+   * Guarded because the observer below watches the host, and in the narrow layout the host's
+   * height is its content: a split that rewrote the DOM every time it was asked would keep
+   * resizing the thing that asked. A no-op second pass is what ends that.
+   */
+  let splitKey = "";
+  function setSplit(corner: readonly HTMLButtonElement[]): void {
+    const key = corner.map((el) => el.dataset.cat).join(",");
+    if (key === splitKey) return;
+    splitKey = key;
+    const inCorner = new Set(corner);
+    wideRow.append(...ordered.filter((el) => !inCorner.has(el)));
+    cornerRow.append(...corner);
+  }
+
+  /**
+   * The shortest words that fit beside the share pill, in as many lines as its height allows.
+   *
+   * Shortest first, which is both what the operator asked for ("a few of the shorter elements")
+   * and what makes the greedy fill correct: once a word will not go on a fresh line, every word
+   * after it is wider and will not either.
+   */
+  function packCorner(width: number, lines: number, gapX: number, padX: number): HTMLButtonElement[] {
+    const inner = width - padX;
+    const byWidth = [...ordered].sort(
+      (a, b) => a.getBoundingClientRect().width - b.getBoundingClientRect().width,
+    );
+    const out: HTMLButtonElement[] = [];
+    let line = 1;
+    let used = 0;
+    for (const el of byWidth) {
+      const w = el.getBoundingClientRect().width;
+      const need = used === 0 ? w : used + gapX + w;
+      if (need <= inner) {
+        used = need;
+        out.push(el);
+        continue;
+      }
+      if (line >= lines || w > inner) break;
+      line += 1;
+      used = w;
+      out.push(el);
+    }
+    return out;
+  }
+
+  /**
+   * The bottom-left arrangement: level with the share pill, and never underneath it.
+   *
+   * One box while there is room for one beside the pill, an L when there is not. The pill is
+   * measured rather than assumed, so its own 20 px offset from the corner is what the legend
+   * takes as its bottom edge and the two agree by construction.
+   */
+  function syncNarrow(): void {
+    const pill = document.querySelector(CHROME_SHARE)?.getBoundingClientRect();
+    const hasPill = pill !== undefined && pill.height > 0 && pill.width > 0;
+    const bottom = hasPill ? Math.max(0, window.innerHeight - pill.bottom) : CHROME_GAP_PX;
+    host.style.setProperty("--emo-legend-bottom", `${Math.round(bottom)}px`);
+
+    const hostRect = host.getBoundingClientRect();
+    const style = getComputedStyle(cornerRow);
+    const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const gapX = parseFloat(style.columnGap) || 0;
+    const gapY = parseFloat(style.rowGap) || 0;
+    const wordHeight = ordered[0]?.getBoundingClientRect().height ?? 0;
+    if (wordHeight <= 0 || hostRect.width <= 0) return;
+
+    const beside = hasPill ? pill.left - hostRect.left - CORNER_GAP_PX : hostRect.width;
+    if (beside >= NARROW_BOX_MAX_W || !hasPill) {
+      // Room for the whole thing beside the pill. One box, which is round v10's, moved down to
+      // the bottom edge.
+      host.style.setProperty("--emo-legend-corner-w", `${Math.round(Math.min(beside, NARROW_BOX_MAX_W))}px`);
+      host.style.setProperty("--emo-legend-corner-h", "0px");
+      setSplit(ordered);
+      return;
+    }
+    // The corner is held to exactly the pill's height whatever it holds, so the full-width row
+    // above it starts at the pill's top edge and its background cannot reach behind the pill.
+    const lines = Math.max(1, Math.floor((pill.height - padY + gapY) / (wordHeight + gapY)));
+    const width = Math.max(0, beside);
+    const corner = width >= NARROW_BOX_MIN_W / 4 ? packCorner(width, lines, gapX, padX) : [];
+    host.style.setProperty("--emo-legend-corner-w", `${Math.round(width)}px`);
+    host.style.setProperty(
+      "--emo-legend-corner-h",
+      corner.length === 0 ? "0px" : `${Math.round(pill.height)}px`,
+    );
+    setSplit(corner);
+  }
+
   /** Fit the legend between the sound toggle and whatever sits lowest along the bottom. */
   function syncBounds(): void {
+    if (getComputedStyle(host).getPropertyValue(NARROW_FLAG).trim() === "1") {
+      syncNarrow();
+      return;
+    }
+    // Back to one column, in the operator's order, whatever the narrow layout last did to it.
+    setSplit([]);
     const above = document.querySelector(CHROME_ABOVE);
     if (above === null) return;
     const top = above.getBoundingClientRect().bottom;
@@ -244,14 +391,13 @@ export async function createEmoLegend(options: {
     // solved for the gap, then held between a floor and a ceiling. Below the floor the block
     // simply overflows the box, which `overflow: hidden` cuts: words that stop arriving is a
     // better failure than words that sit on top of each other.
-    const items = [...host.children];
-    const first = items[0];
+    const first = ordered[0];
     if (first === undefined) return;
     const wordHeight = first.getBoundingClientRect().height;
     if (wordHeight <= 0) return;
     const available = bottom - top - 2 * CHROME_GAP_PX;
-    const slack = available - items.length * wordHeight;
-    const raw = slack / (items.length - 1 + 2 * END_PAD_IN_GAPS);
+    const slack = available - ordered.length * wordHeight;
+    const raw = slack / (ordered.length - 1 + 2 * END_PAD_IN_GAPS);
     const gap = Math.min(
       MAX_GAP_EM * params.legendFontPx,
       Math.max(MIN_GAP_EM * params.legendFontPx, raw),
@@ -297,6 +443,8 @@ export async function createEmoLegend(options: {
       host.removeEventListener("click", onClick);
       for (const el of items.values()) el.remove();
       items.clear();
+      wideRow.remove();
+      cornerRow.remove();
     },
   };
 }

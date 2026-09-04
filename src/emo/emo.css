@@ -188,24 +188,66 @@
    The background exists only here. Over the globe the words carry their own text shadow and need
    nothing behind them, but a box of small words at this size does, and it is kept mostly see
    through so the globe still reads underneath it. */
+/* The two halves of the narrow layout's L. They cost the wide layout nothing: `display: contents`
+   leaves the words as the host's own flex children, so the vertical strip is laid out exactly as
+   it was before the rows existed. */
+.emo-legend__row {
+  display: contents;
+}
+
 @media (max-width: 768px) {
   .emo-legend {
+    /* Read back by legend.ts. The breakpoint is written once, and this is where. */
+    --emo-legend-narrow: 1;
     top: auto;
-    /* The same measured bound the wide layout uses, which on a narrow screen is the share pill
-       rather than the buttons that have slid away to the left. */
+    /* The share pill's own distance from the bottom of the screen, measured by the layer, so the
+       words end on the same edge the pill does. */
     bottom: var(--emo-legend-bottom, 20px);
     left: 20px;
-    right: auto;
-    width: min(64vw, 250px);
-    flex-direction: row;
+    right: 20px;
+    width: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 0;
+    background: none;
+  }
+
+  /* Each row carries its own background, which is what keeps the dark box behind the words and
+     nowhere else. Together the two of them are the L. */
+  .emo-legend__row {
+    display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    align-content: flex-start;
+    align-content: flex-end;
     justify-content: space-between;
-    gap: 0.35em 0.5em;
-    padding: 9px 11px;
+    box-sizing: border-box;
+    width: 100%;
+    gap: 0.28em 0.4em;
+    padding: 8px 10px;
     border-radius: 10px;
     background: rgba(0, 0, 8, 0.34);
+  }
+
+  /* One row holds everything whenever the words fit beside the pill, and an empty box would
+     otherwise still paint its background. */
+  .emo-legend__row:empty {
+    display: none;
+  }
+
+  /* The row beside the share pill: as wide as the space to its left, and held to exactly the
+     pill's height, so the full-width row above starts at the pill's top edge and no dark box is
+     ever drawn behind the pill. */
+  .emo-legend__row--corner {
+    width: var(--emo-legend-corner-w, 100%);
+    min-height: var(--emo-legend-corner-h, 0);
+  }
+
+  /* Natural width, so the layer's packing measures what it will get. */
+  .emo-legend__item {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   /* The page's own legend occupies this corner when it is open, so the box steps above it. */
