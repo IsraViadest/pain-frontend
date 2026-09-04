@@ -95,6 +95,15 @@ export interface EmoLabelLayer {
   update(): void;
   setParams(next: EmoViewParams): void;
   /**
+   * Select this country as though it had been clicked, and never as though it had been clicked
+   * twice. The legend is the caller: it rolls a random member of a category, and that roll can
+   * land on the country already selected, where a toggle would read "again" as "clear".
+   *
+   * Ignored unless the view's gesture is `selectNetwork`, since a selection means nothing in a
+   * preset whose click toggles a language or reshuffles a random network.
+   */
+  selectCountry(iso3: string): void;
+  /**
    * Drop the selection and tell everyone who mirrors it, as though the country had been clicked
    * a second time. Called when the globe leaves the emotional layer: the labels go away with the
    * layer, but the mark, the network and the leader lines are scene objects that would otherwise
@@ -672,6 +681,11 @@ export async function createEmoLabelLayer(options: {
   return {
     update,
     clearSelection,
+    selectCountry(iso3: string): void {
+      if (params.clickMode !== "selectNetwork") return;
+      const entry = entries.find((e) => e.iso3 === iso3);
+      if (entry) selectEntry(entry);
+    },
     setParams(next: EmoViewParams): void {
       const englishChanged =
         next.englishText !== params.englishText || next.identicalLines !== params.identicalLines;

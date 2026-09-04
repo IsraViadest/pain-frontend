@@ -147,6 +147,68 @@
 .emo-label-host[data-colour="violet"] .emo-label[data-cat="13_helplessness"] { --emo-tint: hsl(338 60% 89%); }
 .emo-label-host[data-colour="violet"] .emo-label[data-cat="14_shame"] { --emo-tint: hsl(345 60% 89%); }
 
+/* The category legend: the 14 English category names down the left, each one clickable.
+
+   Unlike the labels this is chrome and takes pointer events, so a wheel over the strip does not
+   reach the globe. `overflow: hidden` makes the box a scroll container, which is the only reason
+   overscroll-behavior can apply to it, and that is what stops such a wheel handing the rest of
+   the gesture to the document and rubber-banding the page.
+
+   It shares the left side with the views panel, which sits above it at z-index 3, so ?ev=2 is
+   where the legend is actually looked at. */
+.emo-legend {
+  position: fixed;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55em;
+  max-height: 92vh;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  font-size: var(--emo-legend-font-px, 15px);
+}
+
+.emo-legend[hidden] {
+  display: none;
+}
+
+/* A button for the keyboard and for the semantics, with every trace of a button removed. The
+   chosen word is white and nothing else about it changes: no larger, no bolder, because a key
+   that moves when it is read is harder to read. Only the opacity is written, from the layer. */
+.emo-legend__item {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  text-shadow: 0 1px 3px rgba(0, 3, 18, 0.85);
+  transition: opacity 180ms ease;
+  /* The layer writes the custom property, not `opacity` itself, so that :hover below still wins
+     normally rather than needing !important to beat an inline declaration. */
+  opacity: var(--emo-legend-alpha, 0.55);
+}
+
+.emo-legend__item:hover {
+  opacity: 1;
+}
+
+.emo-legend__item:focus-visible {
+  outline: 1px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
 /* View panel. The box, rows and sliders reuse the globe debug panel's classes from style.css,
    which is left untouched; only the side differs, so the entry and panel mirror the debug ones
    in the opposite corner. Both sit at z-index 3, above the production chrome at 2. */

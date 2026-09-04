@@ -61,6 +61,7 @@ import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
 import { createEmoSelectionLayer, type EmoSelectionLayer } from "./emo/selection";
 import { createEmoLeaderLineLayer, type EmoLeaderLineLayer } from "./emo/leaderLines";
 import { createEmoSelectionMotion, type EmoSelectionMotion } from "./emo/selectionMotion";
+import { createEmoLegend, type EmoLegendLayer } from "./emo/legend";
 import {
   shouldShowEmoViews,
   shouldOpenEmoPanel,
@@ -440,7 +441,9 @@ const emoViewsEnabled = shouldShowEmoViews();
 const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
 const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
 const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
+const emoLegendHost = document.querySelector<HTMLElement>("#emo-legend");
 let emoLabelLayer: EmoLabelLayer | null = null;
+let emoLegend: EmoLegendLayer | null = null;
 let emoArcLayer: EmoArcLayer | null = null;
 let emoLeaderLineLayer: EmoLeaderLineLayer | null = null;
 let emoSelectionLayer: EmoSelectionLayer | null = null;
@@ -475,6 +478,7 @@ function syncEmoLayer(layerId: string): void {
     emoMotion?.reset();
   }
   emoLabelHost.hidden = !active || sprites;
+  emoLegend?.setVisible(active && !sprites);
   emoArcLayer?.setVisible(active && !sprites);
   emoLeaderLineLayer?.setVisible(active && !sprites);
   // Which globe is underneath decides how far a leader line may reach down. In all-layers mode
@@ -694,6 +698,7 @@ function loop(): void {
           emoMotion?.setSelection(selection?.cat ?? null);
           emoArcLayer?.setSelectedCategory(selection?.cat ?? null, selection?.iso3 ?? null);
           emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
+          emoLegend?.setSelectedCategory(selection?.cat ?? null);
           // The leader lines are not told directly: they follow the motion, which is the one
           // signal all three layers share, so they cannot disagree about what is selected.
         },
@@ -720,6 +725,16 @@ function loop(): void {
         params: emoView.params,
         motion: emoMotion,
       });
+      if (emoLegendHost) {
+        emoLegend = await createEmoLegend({
+          host: emoLegendHost,
+          data: await loadEmoData(),
+          params: emoView.params,
+          // A legend click is a click on a country, taking the same path as one on the globe.
+          // There is no second selection route, so nothing can drift out of step with it.
+          onPick: (iso3) => emoLabelLayer?.selectCountry(iso3),
+        });
+      }
       syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);
       emoPanel = mountEmoViewPanel(emoPanelHost, {
@@ -732,6 +747,7 @@ function loop(): void {
           emoArcLayer?.setParams(params);
           emoLeaderLineLayer?.setParams(params);
           emoSelectionLayer?.setParams(params);
+          emoLegend?.setParams(params);
           emoMotion?.setParams(params);
           syncEmoLayer(lastLayerId);
         },

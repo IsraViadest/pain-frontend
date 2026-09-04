@@ -97,6 +97,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Spread ease",
     hint: "The shape of one country's own fade as the wavefront passes it. The front itself already travels at a constant speed, so linear here is a harder edge on the front rather than a different wave.",
   },
+  legend: {
+    label: "Category legend",
+    hint: "The 14 pain categories listed down the left, each one clickable: it selects a country of that category at random, so everything behaves as it does from a click on the globe. It shares the left side with this panel, so use ?ev=2 to see it.",
+  },
   colourMode: {
     label: "Colour",
     hint: "family groups the 14 into 5 violets and pinks. category gives all 14 their own hue. violet is a near-white ramp, separable side by side and white from a distance.",
@@ -177,6 +181,15 @@ const SECTIONS: EmoSection[] = [
       { key: "selectionEmphasisScale", label: "Emphasis size", min: 1, max: 1.6, step: 0.01, decimals: 2, hint: "How much larger an emphasised label's main lines are drawn. 1.22 is what shipped. Only acts with Selection emphasis set to bold or both." },
       { key: "selectionEmphasisSecondScale", label: "Emphasis second", min: 1, max: 1.6, step: 0.01, decimals: 2, hint: "The same for the smaller English line under a native one. 1 leaves the subtitle where it is while the word above it grows." },
       { key: "selectionOutline", label: "Selection outline", min: 0, max: 8, step: 1, decimals: 0, hint: "Thickness of the border drawn round the selected category, in texels of the 2048 by 1024 map, about 1.7 screen pixels each. 0 draws none." },
+    ],
+  },
+  {
+    summary: "Category legend",
+    defaultOpen: false,
+    selects: ["legend"],
+    sliders: [
+      { key: "legendFontPx", label: "Legend size", min: 9, max: 30, step: 0.5, decimals: 1, hint: "Legend text size in CSS pixels. Fixed on screen, so unlike the labels it does not follow the zoom ramp." },
+      { key: "legendOpacity", label: "Legend opacity", min: 0.15, max: 1, step: 0.05, decimals: 2, hint: "How white the words are while nothing is selected. The chosen one then goes to full white and the rest take Selection dim on top of this." },
     ],
   },
   {

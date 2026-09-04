@@ -304,6 +304,25 @@ export interface EmoViewParams {
    */
   selectionEmphasisSecondScale: number;
   /**
+   * A list of the 14 pain categories down the left of the screen, each one clickable.
+   *
+   * Answers the question the globe cannot: not "what does this country feel" but "where is this
+   * feeling". A click picks one member of that category at random and selects it, so everything
+   * downstream behaves exactly as it does from a click on the globe. `off` is the behaviour of
+   * every preset that predates it.
+   *
+   * It sits on the same side as the views panel, so `?ev=2` or `?emoPanel=0` is where it is seen.
+   */
+  legend: "off" | "on";
+  /** Legend text size in CSS pixels. Fixed on screen, so it does not follow the zoom ramp. */
+  legendFontPx: number;
+  /**
+   * How white the words are while nothing is selected. Once something is, the chosen word goes to
+   * full white and the rest take `selectionDim` on top of this, which is the same step back the
+   * country labels make.
+   */
+  legendOpacity: number;
+  /**
    * Radial separation between consecutive pain-category shells, in globe radii. Labels and arcs
    * both take it, so each category gains its own layer. 0 puts everything on one shell, which is
    * how every preset shipped before this behaved.
@@ -404,6 +423,10 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   // Both 1.22: exactly the single multiplier that drove all three lines before they split.
   selectionEmphasisScale: 1.22,
   selectionEmphasisSecondScale: 1.22,
+  // Off by default, so every preset that predates the legend is unchanged.
+  legend: "off",
+  legendFontPx: 15,
+  legendOpacity: 0.55,
   // Flat by default, so the 16 presets that predate the shells are unchanged.
   multiplexSpread: 0,
 
@@ -433,6 +456,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   categoryGraph: ["knn", "complete", "gabriel", "delaunay"],
   leaderLines: ["off", "on"],
   leaderSpread: ["off", "on"],
+  legend: ["off", "on"],
   selectionStyle: ["wash", "glow"],
   selectionEmphasis: ["dim", "bold", "both"],
   selectionSpreadEase: ["smooth", "linear"],
