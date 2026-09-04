@@ -89,6 +89,10 @@ const ENUM_UI: Record<EmoEnumKey, { label: string; hint: string }> = {
     label: "Selection emphasis",
     hint: "dim steps every other label back. bold leaves them alone and enlarges the selected category's labels instead. both does each.",
   },
+  selectionSpreadEase: {
+    label: "Spread ease",
+    hint: "The shape of one country's own fade as the wavefront passes it. The front itself already travels at a constant speed, so linear here is a harder edge on the front rather than a different wave.",
+  },
   colourMode: {
     label: "Colour",
     hint: "family groups the 14 into 5 violets and pinks. category gives all 14 their own hue. violet is a near-white ramp, separable side by side and white from a distance.",
@@ -145,7 +149,7 @@ const SECTIONS: EmoSection[] = [
   {
     summary: "Network arcs",
     defaultOpen: false,
-    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines", "selectionStyle", "selectionEmphasis"],
+    selects: ["networkMode", "worldGraph", "categoryGraph", "leaderLines", "selectionStyle", "selectionEmphasis", "selectionSpreadEase"],
     sliders: [
       { key: "kNeighbours", label: "Neighbours k", min: 1, max: 6, step: 1, decimals: 0, hint: "Nearest neighbours each country links to. Only used by the knn and random rules." },
       { key: "randomSeed", label: "Random seed", min: 1, max: 200, step: 1, decimals: 0, hint: "Which random world network to draw. Click does reshuffleNetwork steps this for you." },
@@ -163,6 +167,7 @@ const SECTIONS: EmoSection[] = [
       { key: "selectionSink", label: "Selection sink", min: 0, max: 1, step: 0.02, decimals: 2, hint: "How far every other category steps down toward the planet while one is selected, as a share of the label's own height above the surface. The inverse of Selection lift: the chosen category stays put and the world steps back from it, so zooming in and clicking does not push it out of frame. 1 lands them on the surface." },
       { key: "selectionMotionMs", label: "Motion ms", min: 0, max: 1600, step: 20, decimals: 0, hint: "How long the step down, the step up and the dim take. 0 is the instant jump that shipped. Ease-out cubic, retargeted from wherever a category currently is." },
       { key: "selectionSpreadMs", label: "Spread ms", min: 0, max: 2500, step: 50, decimals: 0, hint: "How long the network takes to grow outward from the country clicked, breadth first. Each country's label comes up as the front passes it. 0 draws it all at once, which is what shipped." },
+      { key: "selectionSpreadWindow", label: "Spread window", min: 0.05, max: 3, step: 0.05, decimals: 2, hint: "How long one country takes to come up once the front reaches it, in depth steps. Wider is a gentler fade and a softer front; 0.5 is what shipped, and a five step sweep makes that about a tenth of the total." },
       { key: "selectionEmphasisScale", label: "Emphasis size", min: 1, max: 1.6, step: 0.01, decimals: 2, hint: "How much larger an emphasised label's main lines are drawn. 1.22 is what shipped. Only acts with Selection emphasis set to bold or both." },
       { key: "selectionEmphasisSecondScale", label: "Emphasis second", min: 1, max: 1.6, step: 0.01, decimals: 2, hint: "The same for the smaller English line under a native one. 1 leaves the subtitle where it is while the word above it grows." },
       { key: "selectionOutline", label: "Selection outline", min: 0, max: 8, step: 1, decimals: 0, hint: "Thickness of the border drawn round the selected category, in texels of the 2048 by 1024 map, about 1.7 screen pixels each. 0 draws none." },

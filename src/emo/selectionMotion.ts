@@ -26,6 +26,13 @@
  * EASE-OUT CUBIC. Fast at the start and settling at the end, which is the shape of something
  * arriving rather than something being dragged. Retargeting takes the current value as the new
  * start, so an interrupted move continues from where it actually is and never jumps.
+ *
+ * THAT IS THE STEP DOWN, NOT THE SPREAD. Two different easings live here and they are easy to
+ * confuse. The cubic above governs `emphasis` and `recede` over `selectionMotionMs`, which is a
+ * category rising or stepping back. The wavefront is separate and is LINEAR in time; what
+ * `selectionSpreadEase` shapes is one country's own fade as the front passes it, over a window of
+ * `selectionSpreadWindow` steps. Asking for "a linear spread" therefore changes the second and
+ * leaves the first alone, because the first is already the shape the operator chose last round.
  */
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
@@ -37,18 +44,28 @@ const easeOutCubic = (t: number): number => 1 - (1 - t) * (1 - t) * (1 - t);
 const SETTLE_EPSILON = 1e-4;
 
 /**
- * How long one country takes to come up once the wave reaches it, as a share of the whole sweep.
+ * Narrowest arrival window that still means anything, in depth steps.
  *
- * A constant rather than a parameter: it trades the crispness of the wavefront against a country
- * blinking on, and no view compares two values of it, so there would be nothing to look at. At
- * a five-step sweep this is about a tenth of the total, which is long enough not to blink and
- * short enough that the front still reads as a front.
+ * `selectionSpreadWindow` replaced the constant this used to be. The constant's docstring argued
+ * that no view compared two values of it, which was true until the operator asked to see a
+ * gentler fade, and a sentence that justifies a decision has to be retired with the decision. All
+ * that survives of it is this floor: at a window of 0 the ramp divides by its own width, so the
+ * slider stops just above nothing rather than at it.
  */
-const ARRIVAL_WINDOW = 0.5;
+const MIN_ARRIVAL_WINDOW = 0.01;
 
-const clampedRamp = (v: number, from: number, to: number): number => {
+/**
+ * 0 before `from`, 1 after `to`. `smooth` is the smoothstep that shipped; `linear` is the bare
+ * ramp, which starts and stops abruptly and so reads as a harder edge on the wavefront.
+ */
+const clampedRamp = (
+  v: number,
+  from: number,
+  to: number,
+  ease: EmoViewParams["selectionSpreadEase"],
+): number => {
   const t = clamp01((v - from) / (to - from || 1));
-  return t * t * (3 - 2 * t);
+  return ease === "linear" ? t : t * t * (3 - 2 * t);
 };
 
 interface Track {
@@ -221,7 +238,9 @@ export function createEmoSelectionMotion(options: {
       const depth = arrivals.get(iso3);
       if (depth === undefined) return 1;
       const at = depth / spreadSpan;
-      return clampedRamp(spreadFront, at, at + ARRIVAL_WINDOW / spreadSpan);
+      const window =
+        Math.max(MIN_ARRIVAL_WINDOW, params.selectionSpreadWindow) / spreadSpan;
+      return clampedRamp(spreadFront, at, at + window, params.selectionSpreadEase);
     },
     revision(): number {
       return revision;

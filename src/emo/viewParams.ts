@@ -217,6 +217,22 @@ export interface EmoViewParams {
    */
   selectionSpreadMs: number;
   /**
+   * The shape of one country's own fade as the wavefront passes it.
+   *
+   * The front itself already travels at a constant speed: `spreadFront` is linear in time, so
+   * "make the spread linear" is not about the wave. What is eased is each country's arrival,
+   * which is smoothstepped over a window of `selectionSpreadWindow` depth steps. `linear` makes
+   * that a straight ramp, which starts and stops abruptly and reads as a crisper front.
+   */
+  selectionSpreadEase: "smooth" | "linear";
+  /**
+   * How long one country takes to come up once the wave reaches it, in depth steps.
+   *
+   * Trades the crispness of the wavefront against a country blinking on. Wider is the gentler
+   * fade the operator asked to see; at a five step sweep 0.5 is about a tenth of the total.
+   */
+  selectionSpreadWindow: number;
+  /**
    * Width of the outline drawn round those countries, in texels of the 2048 by 1024 highlight
    * map, which is about 1.7 screen pixels each at the gallery camera. 0 draws no outline, so a
    * preset chooses a wash, a thickened border, or both.
@@ -343,6 +359,9 @@ export const DEFAULT_EMO_PARAMS: EmoViewParams = {
   selectionSink: 0,
   selectionMotionMs: 0,
   selectionSpreadMs: 0,
+  // The shape and width that shipped as constants, so no preset built before these moves.
+  selectionSpreadEase: "smooth",
+  selectionSpreadWindow: 0.5,
   // All three keep the behaviour that shipped: a white wash, no outline, and dimming the rest.
   selectionOutline: 0,
   selectionStyle: "wash",
@@ -380,6 +399,7 @@ export const EMO_ENUM_VALUES: { [K in EmoEnumKey]: readonly EmoViewParams[K][] }
   leaderLines: ["off", "on"],
   selectionStyle: ["wash", "glow"],
   selectionEmphasis: ["dim", "bold", "both"],
+  selectionSpreadEase: ["smooth", "linear"],
   colourMode: ["white", "family", "category", "violet"],
   declutterMode: ["off", "priority"],
 };
