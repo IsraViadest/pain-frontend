@@ -296,7 +296,13 @@ export function createEmoSelectionMotion(options: {
     retreatingCats = retreating.map((w) => w.cat);
   }
 
-  /** Milliseconds this wave still needs to unbuild itself completely, at the current speed. */
+  /**
+   * Milliseconds this wave still needs to unbuild itself completely, at the current speed.
+   *
+   * Completely means both halves: the network unspreading, and then the clicked country's own
+   * line shrinking back into the ground. A wave that never left its lead-in has only the second
+   * of those left to do.
+   */
   function retreatRemainingMs(w: Wave): number {
     const speed = params.selectionRetractSpeed;
     if (speed <= 0) return 0;

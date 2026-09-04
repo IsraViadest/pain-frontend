@@ -319,7 +319,18 @@ export async function createEmoArcLayer(options: {
   function rebuild(): void {
     const k = Math.max(1, Math.round(params.kNeighbours));
     let categoryEdges = 0;
+    let held = 0;
     for (const [key, nodes] of byCategory) {
+      // A category with an ordering waiting to land is still drawing the PREVIOUS wave out of the
+      // geometry it already has, and rewriting that geometry here would delete the ordering with
+      // it: `setMeshEdges` with no plan drops the reveal table, and a mesh with no reveal table
+      // draws all of its segments. The retreating network would jump to full for as long as the
+      // teardown had left to run. The pending plan is recomputed below with the new parameters
+      // and lands when the mesh is free, so nothing is lost by leaving this one alone.
+      if (key === pendingPlan?.cat) {
+        held += 1;
+        continue;
+      }
       const pairs = buildCategoryGraph(nodes.map((n) => n.dir), params.categoryGraph, k);
       categoryEdges += setMeshEdges(key, nodes, pairs, null);
     }
@@ -341,7 +352,9 @@ export async function createEmoArcLayer(options: {
       segments += mesh.geometry.attributes.instanceStart?.count ?? 0;
     }
     console.info(
-      `[emoArcs] category=${params.categoryGraph} k=${k} ${categoryEdges}e | ` +
+      `[emoArcs] category=${params.categoryGraph} k=${k} ${categoryEdges}e` +
+        (held > 0 ? ` (${held} held, still unbuilding)` : "") +
+        " | " +
         `world=${params.worldGraph} ${worldEdges}e, rule left ${world.components} components, ` +
         `${world.bridges} bridges added, crossing-free ${world.crossingFree} | ` +
         `${segments} segments at ${ARC_SEGMENT_DEG} deg each`,
