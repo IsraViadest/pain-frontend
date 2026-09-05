@@ -86,7 +86,8 @@ void main() {
   // Same screen size for land and ocean so scar dents read equally on both (large land
   // sprites previously hid deformation and looked like a separate shell).
   float baseSize = sizeByView * 0.72;
-  gl_PointSize = baseSize * uPixelRatio * uPointScale;
+  float pointScale = mix(1.0, uPointScale, landMask);
+  gl_PointSize = baseSize * uPixelRatio * pointScale;
   gl_Position = projectionMatrix * mvPosition;
 }
 `;

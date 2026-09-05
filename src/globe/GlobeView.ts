@@ -1797,6 +1797,7 @@ export class GlobeView {
           mClip.clipping = false;
           mClip.clippingPlanes = [];
           this.applyPointsTint();
+          this.applyStipplePointScale();
           this.applyHemisphereClipping();
           this.captureStippleBasePositions();
           this.syncScarVisualization();
@@ -2639,7 +2640,7 @@ export class GlobeView {
     if (this.pointsMaterial) {
       this.pointsMaterial.uniforms.uPixelRatio.value =
         this.renderer.getPixelRatio();
-      this.applyStipplePointScale();
+      if (this.stipplePointTune.nearBoost !== 0) this.applyStipplePointScale();
     }
     this.renderer.render(this.scene, this.camera);
   }

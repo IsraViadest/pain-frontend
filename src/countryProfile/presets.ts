@@ -168,7 +168,7 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
   {
     id: "v3-a_larger-points",
     label: "v3 A: larger points",
-    description: "All physical stipple dots are 18 percent larger.",
+    description: "Physical land stipple dots are 18 percent larger.",
     layout: QUIET_ROW.layout,
     transitionMs: 240,
     physicalPointScale: 1.18,
@@ -282,7 +282,7 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
 
 const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v7-a_base";
 
-/** Resolve `cpPreset`, falling back to the opening-round control. */
+/** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {
   const requested = new URLSearchParams(window.location.search).get("cpPreset");
   const preset = COUNTRY_PROFILE_PRESETS.find((candidate) => candidate.id === requested);
