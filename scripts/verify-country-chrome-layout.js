@@ -165,6 +165,20 @@
         "Emotional category is clipped or truncated: " + button.textContent.trim());
       }
       capture("emotional-categories-reachable");
+      if (innerWidth <= 768 || innerHeight <= 500) {
+        pointerClick(menu);
+        await sleep(450);
+        capture("emotional-menu-open");
+        check(getComputedStyle(words).visibility === "hidden" &&
+          Number(getComputedStyle(words).opacity) === 0,
+        "Emotional category legend remains visible beneath the mobile menu");
+        pointerClick(menu);
+        await sleep(450);
+        capture("emotional-menu-closed");
+        check(!words.hidden && getComputedStyle(words).visibility === "visible" &&
+          Number(getComputedStyle(words).opacity) > 0,
+        "Closing the mobile menu did not restore the Emotional category legend");
+      }
       return buttons.length;
     };
     if (profile.hidden) {

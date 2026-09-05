@@ -304,6 +304,12 @@
   #app:has(#ui-legend.legend--visible) .emo-legend {
     bottom: calc(20px + 15vh + 14px);
   }
+
+  #app.mobile-menu-open .emo-legend {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 @media (max-height: 500px) {

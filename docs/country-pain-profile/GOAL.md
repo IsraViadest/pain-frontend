@@ -621,6 +621,34 @@ data. Cleanup is limited to task-owned temporaries.
   cleanup. A live `/tmp` inventory found no matching country-air, country-socio, country-layout,
   country-composed, or country-profile review files to remove in the inspected top-level scope.
 
+- 2026-09-06: Independent built-in review completed after the external review paths remained
+  unavailable. AGY stopped before source inspection because its only available account required
+  unapproved fallback use. The external Codex server review timed out after 300 seconds without
+  output. Built-in reviewers inspected the exact frontend and server ranges and confirmed three
+  defects. Each was reproduced before a fix.
+
+  Frontend initialization now shares one retryable in-flight promise. Previously, a stale and a
+  current all-layers request could both pass the null guard while asynchronous runtime creation
+  was pending, mounting duplicate profiles, country-cycle controllers, and document listeners.
+  A browser probe held two complete four-layer request batches and released all eight together;
+  the fixed page has one profile, one cycle controller, 195 labels, and zero runtime errors.
+
+  At 393x852, opening the mobile menu over Emotional Pain painted the 353x145 category legend
+  beneath the 144x128 About/Data Sources block. The menu now hides that legend through CSS and
+  restores it on close. The extended chrome probe failed before the fix and passes afterward at
+  393x852, 320x740, and 568x320, restoring all 14 category controls. Country-profile slot widths,
+  equal gaps, middle-glyph centering, fonts, and closed-menu layout are unchanged.
+
+  Server commit `83bf279` replaces the infinite in-flight cache expiry with the existing
+  five-minute lifetime. A never-settling database read can now be retried after that lease; a late
+  old completion cannot replace the newer map entry. The new test fails against the old code and
+  passes with the fix. All 23 server tests and the TypeScript build pass. The reviewer also ran
+  800 benchmark requests with matching baseline, identity, and decoded gzip bodies.
+
+  Frontend compliance passes after both fixes. The final integrated port-3000 build and targeted
+  production-path replay remain before closure. These fixes affect cold concurrency and the
+  transient open-menu state, so the settled gallery frames do not need to be regenerated.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

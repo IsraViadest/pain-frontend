@@ -495,6 +495,7 @@ let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 let emoParams = emoView.params;
 let emoPanel: { setParam: (key: "randomSeed", value: number) => void } | null = null;
 let countryProfileRuntime: CountryProfileRuntime | null = null;
+let countryProfileRuntimeReady: Promise<void> | null = null;
 let countryPresentation: CountryPresentation | null = null;
 let preserveCountryProfileOnEmoClear = false;
 let presentationBaseParams: EmoViewParams | null = null;
@@ -650,19 +651,20 @@ function handleCountrySurfaceClick(clientX: number, clientY: number): void {
 
 async function ensureCountryProfileRuntime(): Promise<void> {
   if (!countryProfileEnabled || countryProfileRuntime) return;
-  const [{ CountryProfileRuntime }, { CountryPresentation }] = await Promise.all([
-    import("./countryProfile/runtime"),
-    import("./countryProfile/presentation"),
-  ]);
-  countryProfileRuntime = await CountryProfileRuntime.create(
-    pointCache,
-    appRootEl,
-    lastLayerId,
-  );
-  const runtime = countryProfileRuntime;
-  applyCountryProfileGlobePreset(lastLayerId);
-  if (runtime.preset.refinement) chrome?.setSharePainLabel("share your pain\nlocate it");
-  countryPresentation = new CountryPresentation({
+  countryProfileRuntimeReady ??= (async () => {
+    const [{ CountryProfileRuntime }, { CountryPresentation }] = await Promise.all([
+      import("./countryProfile/runtime"),
+      import("./countryProfile/presentation"),
+    ]);
+    countryProfileRuntime = await CountryProfileRuntime.create(
+      pointCache,
+      appRootEl,
+      lastLayerId,
+    );
+    const runtime = countryProfileRuntime;
+    applyCountryProfileGlobePreset(lastLayerId);
+    if (runtime.preset.refinement) chrome?.setSharePainLabel("share your pain\nlocate it");
+    countryPresentation = new CountryPresentation({
     appRoot: appRootEl,
     controlHost: runtime.preset.refinement ? chrome?.countryCycleHost : undefined,
     refinement: runtime.preset.refinement,
@@ -713,7 +715,14 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     previewCountry: (iso3) => runtime.previewCountry(iso3),
     getAutoSpin: () => globe.isAutoSpinEnabled(),
     setAutoSpin: (enabled) => globe.setAutoSpinEnabled(enabled),
-  });
+    });
+  })();
+  try {
+    await countryProfileRuntimeReady;
+  } catch (error) {
+    countryProfileRuntimeReady = null;
+    throw error;
+  }
 }
 
 /**
