@@ -168,10 +168,14 @@ export class CountryProfileView {
     color: "#d9d438",
     shape: SHAPES.socioeconomic,
   });
+  private readonly transitionMs: number;
+  private currentLayer = "";
+  private transitionRevision = 0;
+  private transitionTimer: number | null = null;
 
   constructor(
     appRoot: HTMLElement,
-    preset: Pick<CountryProfilePreset, "id" | "layout">,
+    preset: Pick<CountryProfilePreset, "id" | "layout" | "transitionMs">,
     layerId: string,
   ) {
     this.host.id = "country-profile";
@@ -182,6 +186,11 @@ export class CountryProfileView {
     this.host.setAttribute("role", "region");
     this.host.setAttribute("aria-label", "Selected country pain profile");
     this.host.setAttribute("aria-live", "polite");
+    this.transitionMs = preset.transitionMs ?? 0;
+    this.host.style.setProperty(
+      "--country-profile-fade-ms",
+      `${this.transitionMs / 2}ms`,
+    );
 
     this.countryName.className = "country-profile__country";
     const divider = document.createElement("div");
@@ -208,6 +217,26 @@ export class CountryProfileView {
   }
 
   setLayer(layerId: string): void {
+    if (layerId === this.currentLayer) return;
+    const revision = ++this.transitionRevision;
+    if (this.transitionTimer !== null) window.clearTimeout(this.transitionTimer);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (this.host.hidden || this.transitionMs === 0 || reduceMotion) {
+      this.applyLayer(layerId);
+      this.host.dataset.transition = "in";
+      return;
+    }
+    this.host.dataset.transition = "out";
+    this.transitionTimer = window.setTimeout(() => {
+      if (revision !== this.transitionRevision) return;
+      this.applyLayer(layerId);
+      this.host.dataset.transition = "in";
+      this.transitionTimer = null;
+    }, this.transitionMs / 2);
+  }
+
+  private applyLayer(layerId: string): void {
+    this.currentLayer = layerId;
     this.host.dataset.layer = layerId;
     const all = layerId === "all-layers";
     this.emotional.hidden = !all && layerId !== "emopain";
@@ -241,6 +270,7 @@ export class CountryProfileView {
   }
 
   destroy(): void {
+    if (this.transitionTimer !== null) window.clearTimeout(this.transitionTimer);
     this.host.remove();
   }
 }

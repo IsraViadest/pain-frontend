@@ -614,7 +614,7 @@ function applyGlobeLayer(layerId: string): void {
   showLegend(layerId);
 }
 
-function applyPendingLayerChange(layerId: string): void {
+async function applyPendingLayerChange(layerId: string): Promise<void> {
   globe.setMarkers([]);
   const prevLayerId = lastLayerId;
   if (
@@ -627,12 +627,12 @@ function applyPendingLayerChange(layerId: string): void {
   }
   trackToggle(METRICS_KIND_LAYER, layerId, true);
   lastLayerId = layerId;
-  countryProfileRuntime?.setLayer(layerId);
   applyGlobeLayer(layerId);
   syncWordCloudForCurrentLayer();
-  void loadPoints().catch((e) =>
-    setStatus(e instanceof Error ? e.message : String(e)),
-  );
+  await loadPoints();
+  // Start after setMarkers too. Cached loadPoints resolves immediately, but its synchronous globe
+  // rebuild still blocks the frame in which a CSS transition would otherwise begin.
+  countryProfileRuntime?.setLayer(layerId);
 }
 
 function handleLayerChange(layerId: string): void {
@@ -665,7 +665,9 @@ function handleLayerChange(layerId: string): void {
   clearTimeout(pendingLayerChangeTimer ?? undefined);
   pendingLayerChangeTimer = setTimeout(() => {
     pendingLayerChangeTimer = null;
-    applyPendingLayerChange(layerId);
+    void applyPendingLayerChange(layerId).catch((e) =>
+      setStatus(e instanceof Error ? e.message : String(e)),
+    );
   }, LAYER_CHANGE_DEBOUNCE_MS);
 }
 
@@ -687,7 +689,6 @@ async function handleAllLayers(): Promise<void> {
   }
   trackToggle(METRICS_KIND_LAYER, "all-layers", true);
   lastLayerId = "all-layers";
-  countryProfileRuntime?.setLayer(lastLayerId);
 
   const phys = cachedLayers.find((l) => l.id === "physpain");
   const socio = cachedLayers.find((l) => isChoroplethMapLayer(l));
@@ -726,6 +727,7 @@ async function handleAllLayers(): Promise<void> {
   const allPoints: PainPoint[] = [...cachedPoints, ...fetchedLists.flat()];
   globe.setMarkers(allPoints);
   await ensureCountryProfileRuntime();
+  countryProfileRuntime?.setLayer(lastLayerId);
   syncWordCloudToggle();
   setStatus(
     `${allPoints.length} point(s) across ${cachedLayers.length} layer(s) — all visuals`,

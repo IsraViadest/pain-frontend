@@ -25,6 +25,14 @@
  * - The constellation's absolute positions collide with globe labels as the camera changes.
  * - A bottom offset of 104 px left a 2 px box overlap with the desktop bottom-left controls.
  *
+ * ROUND v2
+ * SETTLED: v1-a_quiet-row structure and the 110 px desktop chrome clearance.
+ * VARIES: total cubic indicator transition time at 0, 160, 240, or 360 ms.
+ * SELECTED BY CODEX: v2-b_fade-240. It gives twelve frames to each half at 100 Hz or faster and
+ * remains visibly quick after the globe's synchronous rebuild.
+ * TRAP: starting the CSS fade before either synchronous globe rebuild consumes the transition
+ * while the main thread is blocked. `main.ts` starts it after `loadPoints()` resolves.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -39,9 +47,11 @@ export interface CountryProfilePreset {
   label: string;
   description: string;
   layout: CountryProfileLayout;
+  /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
+  transitionMs?: number;
 }
 
-const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
+const V1_PRESETS: readonly CountryProfilePreset[] = [
   {
     id: "v1-control_literal-row",
     label: "v1 control: literal row",
@@ -68,7 +78,40 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
   },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v1-a_quiet-row";
+const QUIET_ROW = V1_PRESETS.find((preset) => preset.id === "v1-a_quiet-row")!;
+const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
+  ...V1_PRESETS,
+  {
+    id: "v2-control_instant",
+    label: "v2 control: instant",
+    description: "The selected quiet row with the v1 instant layer switch.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 0,
+  },
+  {
+    id: "v2-a_fade-160",
+    label: "v2 A: fade 160 ms",
+    description: "An 80 ms fade out and 80 ms fade in.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 160,
+  },
+  {
+    id: "v2-b_fade-240",
+    label: "v2 B: fade 240 ms",
+    description: "A 120 ms fade out and 120 ms fade in.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+  },
+  {
+    id: "v2-c_fade-360",
+    label: "v2 C: fade 360 ms",
+    description: "A 180 ms fade out and 180 ms fade in.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 360,
+  },
+];
+
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v2-b_fade-240";
 
 /** Resolve `cpPreset`, falling back to the opening-round control. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {
