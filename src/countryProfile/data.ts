@@ -15,7 +15,7 @@ interface CountrySignal {
   pointCount: number;
 }
 
-interface CountryPainProfile {
+export interface CountryPainProfile {
   iso3: string;
   countryName: string;
   emotional: {

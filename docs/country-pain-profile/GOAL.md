@@ -165,3 +165,7 @@ question and delegated visual round selection to Codex.
   transform before WGS84 conversion. Real Chrome recovered two target coordinates under 1.2 and
   -0.8 radian globe rotations with less than `4e-14` degrees error. The focused rotation check and
   `npm run check` passed.
+- 2026-09-05: Phase 2, selection-state slice ready. The independent country controller records
+  open, change, and close; emits balanced metrics for human actions; suppresses automated-tour
+  country metrics; closes a still-open human metric on automated takeover; and refuses unknown
+  ISO3 values. Its focused check and `npm run check` passed. Browser routing is next.
