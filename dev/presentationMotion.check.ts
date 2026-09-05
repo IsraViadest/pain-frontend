@@ -79,6 +79,13 @@ assert(camera.position.distanceTo(expected) < 1e-9, "completed flight reaches ta
 assert(controls.enabled, "completed flight restores controls");
 assert(updates > 1, "completed flight updates controls");
 
+await flyGlobeToLatLng(camera, controls, -5, -30, earth, {
+  durationMs: 0,
+  radius: 2.6,
+});
+const reducedTarget = latLngToVector3(-5, -30, 1).normalize().multiplyScalar(2.6);
+assert(camera.position.distanceTo(reducedTarget) < 1e-9, "zero-time flight cuts to target");
+
 const abortController = new AbortController();
 const aborting = flyGlobeToLatLng(camera, controls, -20, 100, earth, {
   durationMs: 500,

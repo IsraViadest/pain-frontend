@@ -2479,6 +2479,10 @@ export class GlobeView {
     this.autoSpinEnabled = enabled;
   }
 
+  isAutoSpinEnabled(): boolean {
+    return this.autoSpinEnabled;
+  }
+
   /** Circle geometry radius for post-submit surface marker. */
   private static readonly SURFACE_MARKER_RADIUS = 0.035;
   /** Circle geometry segment count for post-submit surface marker. */

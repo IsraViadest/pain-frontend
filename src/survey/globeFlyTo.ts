@@ -52,6 +52,12 @@ export function flyGlobeToLatLng(
   // Globe center — OrbitControls orbit target
   controls.target.set(0, 0, 0);
 
+  if (durationMs <= 0) {
+    camera.position.copy(targetPosition);
+    controls.update();
+    return Promise.resolve();
+  }
+
   const wasEnabled = controls.enabled;
   controls.enabled = false;
 
