@@ -201,9 +201,19 @@
   height: clamp(83px, 13.7vw, 123px);
 }
 
+/* env SVG has large transparent padding that intercepts clicks on the emo button above; make only painted paths and label clickable */
+.blob-button[data-layer="envpain"] {
+  pointer-events: none;
+}
+
 .blob-button[data-layer="envpain"] .blob-button__svg {
   height: clamp(114px, 19vw, 170px);
 
+}
+
+.blob-button[data-layer="envpain"] .blob-button__svg path,
+.blob-button[data-layer="envpain"] .blob-button__label {
+  pointer-events: auto;
 }
 
 .blob-button[data-layer="physpain"] {
