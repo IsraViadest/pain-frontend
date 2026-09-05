@@ -56,6 +56,7 @@ import { getCountryGeometries, type IndexedCountryGeometry } from "./countryGeom
 import type { buildCountryDisplayGeometry } from "./countryDisplayGeometry";
 import type { StippleDetailMode } from "./stippleDetailController";
 import type { AtmosphereMode, createEnvironmentalAtmosphere } from "./environmentalAtmosphere";
+import type { SocioeconomicStyle } from "./socioeconomicPattern";
 
 export type { Co2HazeTune };
 
@@ -529,6 +530,10 @@ export class GlobeView {
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
   private scarBuildGeneration = 0;
   private choroplethBuildGeneration = 0;
+  private socioeconomicStyle: SocioeconomicStyle | null = null;
+  private socioeconomicMinimum = 0;
+  private socioeconomicContrast = 0.25;
+  private socioeconomicStyleGeneration = 0;
   /**
    * When true, rebuild scars + choropleth shell + CO2 haze + word clouds together
    * from multi-layer `lastPainPoints` (filtered by uiLayer ids below).
@@ -1421,7 +1426,7 @@ export class GlobeView {
       if (!this.shouldPaintChoropleth()) return;
       const values = aggregateChoroplethValues(points);
       this.choroplethMap = createChoroplethTexture(
-        values, colorHex, this.getDisplayCountryGeometries(),
+        values, colorHex, this.getDisplayCountryGeometries(), this.socioeconomicMinimum,
       );
       this.applyChoroplethMaterial();
       this.syncGlobeSurfaceVisibility();
@@ -2042,6 +2047,7 @@ export class GlobeView {
   }
 
   dispose(): void {
+    this.socioeconomicStyleGeneration++;
     this.atmosphereGeneration++;
     this.atmosphere?.dispose();
     this.atmosphere = null;
@@ -2558,6 +2564,26 @@ export class GlobeView {
 
   getAtmosphereStats() {
     return this.atmosphere?.stats() ?? null;
+  }
+
+  setSocioeconomicStyle(style: SocioeconomicStyle | null, minimumAlpha = 0, contrast = 0.25): void {
+    if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || Math.round(minimumAlpha * 255) >= 255) {
+      throw new RangeError("Socioeconomic reference must leave a visible range below full alpha");
+    }
+    if (!Number.isFinite(contrast) || contrast < 0 || contrast > 1) {
+      throw new RangeError("Socioeconomic contrast must be in [0, 1]");
+    }
+    if (style === this.socioeconomicStyle && minimumAlpha === this.socioeconomicMinimum &&
+        contrast === this.socioeconomicContrast) return;
+    this.socioeconomicStyle = style;
+    this.socioeconomicMinimum = minimumAlpha;
+    this.socioeconomicContrast = contrast;
+    const generation = ++this.socioeconomicStyleGeneration;
+    void import("./socioeconomicPattern").then(({ applySocioeconomicPattern }) => {
+      if (generation !== this.socioeconomicStyleGeneration) return;
+      applySocioeconomicPattern(this.choroplethShell.material, style, minimumAlpha, contrast);
+      this.scheduleChoroplethRebuild();
+    }).catch((error) => { console.error("[GlobeView] socioeconomic style failed:", error); });
   }
 
   /** The live surface shared by country fills and selection, including scar displacement. */

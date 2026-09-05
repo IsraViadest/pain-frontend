@@ -504,11 +504,14 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
     preset?.atmosphereSamples ?? 32, preset?.atmosphereFraction ?? 0.5);
+  globe.setSocioeconomicStyle(preset?.socioeconomicStyle ?? null,
+    countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
   emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";
-  globe.setStippleContextOpacity(layerId === "envpain" ? preset?.environmentalContextOpacity ?? 1 : 1);
+  globe.setStippleContextOpacity(layerId === "envpain" ? preset?.environmentalContextOpacity ?? 1 :
+    layerId === "socioecopain" ? preset?.socioeconomicContextOpacity ?? 1 : 1);
   globe.setStippleDetailMode(physical ? preset?.physicalDetail ?? "fixed" : "fixed");
   globe.setStipplePointTune({
     scale: physical ? preset?.physicalPointScale ?? 1 : 1,

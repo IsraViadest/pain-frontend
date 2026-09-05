@@ -119,6 +119,9 @@ export interface CountryProfilePreset {
   atmosphereSamples?: 16 | 32 | 48;
   atmosphereFraction?: number;
   environmentalContextOpacity?: number;
+  socioeconomicStyle?: "color" | "hatch" | "woven";
+  socioeconomicContextOpacity?: number;
+  socioeconomicPatternContrast?: number;
   physicalPointNearBoost?: number;
   environmentalGlyph?: "simple" | "grain" | "cells";
   environmentalFieldPattern?:
@@ -167,6 +170,13 @@ const COMPACT_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> =
   physicalPointScale: 1.18,
   environmentalFieldPattern: "smooth",
 };
+/** Frozen Phase 16 composition for the next comparison; later rounds add their own values. */
+const V17_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> = {
+  ...COMPACT_BASE, surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+  physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 16,
+  environmentalContextOpacity: 0.25,
+};
+
 const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
   ...V1_PRESETS,
   {
@@ -505,9 +515,49 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 16,
     environmentalContextOpacity: 0.25,
   },
+  {
+    ...V17_BASE, id: "v17-control_original-yellow", label: "v17: original yellow scale",
+    description: "The selected air and stipple with the original zero-alpha socioeconomic minimum.",
+  },
+  {
+    ...V17_BASE, id: "v17-a_visible-minimum", label: "v17: visible yellow minimum",
+    description: "Japan's previous yellow alpha sets the new minimum, with a linear source mapping.",
+    socioeconomicStyle: "color",
+  },
+  {
+    ...V17_BASE, id: "v17-b_fine-hatching", label: "v17: fine geographic hatching",
+    description: "Hatch coverage repeats the same value, fading to mean color below visible detail.",
+    socioeconomicStyle: "hatch",
+  },
+  {
+    ...V17_BASE, id: "v17-c_woven-texture", label: "v17: quiet woven texture",
+    description: "Two crossing stripe families share the same source value and average color.",
+    socioeconomicStyle: "woven",
+  },
+  {
+    ...V17_BASE, id: "v17-d_color-quiet", label: "v17: color over quieter context",
+    description: "The visible minimum with geographic context dots at quarter opacity.",
+    socioeconomicStyle: "color", socioeconomicContextOpacity: 0.25,
+  },
+  {
+    ...V17_BASE, id: "v17-e_hatch-quiet", label: "v17: hatching over quieter context",
+    description: "Fine socioeconomic hatching with geographic context dots at quarter opacity.",
+    socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
+  },
+  {
+    ...V17_BASE, id: "v17-f_woven-quiet", label: "v17: weave over quieter context",
+    description: "Woven socioeconomic texture with geographic context dots at quarter opacity.",
+    socioeconomicStyle: "woven", socioeconomicContextOpacity: 0.25,
+  },
+  {
+    ...V17_BASE, id: "v17-g_soft-hatching", label: "v17: softer hatching",
+    description: "Lower hatch contrast keeps the visible texture restrained at close range.",
+    socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
+    socioeconomicPatternContrast: 0.1,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v16-i_volume-air-16";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v17-g_soft-hatching";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

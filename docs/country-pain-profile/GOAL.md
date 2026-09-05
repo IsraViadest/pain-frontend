@@ -106,7 +106,7 @@ claim physical-device testing from emulation.
 - [x] Phase 14: wave-aware origin and peer emphasis.
 - [x] Phase 15: physical dot growth and refinement.
 - [x] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
-- [ ] Phase 17: truthful socioeconomic color and pattern.
+- [x] Phase 17: truthful socioeconomic color and pattern.
 - [ ] Phase 18: combined composition and measured quality tiers.
 - [ ] Phase 19: final frontend/server performance and simplification.
 - [ ] Phase 20: final product, integration, reviews and gallery.
@@ -313,6 +313,32 @@ data. Cleanup is limited to task-owned temporaries.
   Independent review source reads were automatically denied, so no independent approval is
   claimed. Root ran the direct GPU, gesture, layout, and resource checks. Default entry is
   223.38 kB gzip; atmospheric code is a separate 5.56 kB gzip lazy chunk.
+
+- 2026-09-05: Phase 17 adopts `v17-g_soft-hatching`. The current JPN profile supplies the old
+  appearance used as the new minimum. Every finite country, including Japan, maps linearly to
+  `minimum + (1 - minimum) * source`. Missing/nonfinite values stay transparent; finite zero
+  has the visible minimum. Profiles, peak aggregation, counts, and glyph areas are unchanged.
+  Original yellow, color-only, stronger hatch, and woven controls remain available. Initial
+  0.25 contrast reads as hazard stripes or mesh close up. The selected hatch uses 0.10 and
+  quarter-opacity non-data stipple in single Socioeconomic only. Physical/all-pain stipple keeps
+  its opacity. Twelve images cover the candidates, close range, all-pain selection, and mobile.
+  Stripe coverage follows the same source value. Analytic filtering and a zero-mean contrast
+  term return unresolved texture to the affine alpha. This guarantees a tile mean, not an exact
+  mean over every clipped country boundary. GPU checks preserve ordering/ties, zero/missing/full,
+  and mean alpha within 0.43 of a byte. Unresolved and zero-contrast output matches color control
+  exactly; rerenders are identical. Fixture texture/geometry counts return to zero on disposal.
+  A reused-material check reproduced stale contrast because Three reuses programs without
+  calling onBeforeCompile. Stable per-material uniform objects now cover every style container,
+  including color-only. Contrast changes, minimum changes, and restoration all pass afterward.
+  The SVG key has a continuous gradient, separate pattern examples, and an empty no-data symbol.
+  All nine style/contrast factory cases pass endpoint/opacity checks. At 320/393/1500 px the
+  visible key fits, misses the share button, and passes wheel input to the globe.
+  Color-only/soft-hatch cadence is 8.30 ms median / 10.00 ms p95 for both, four draws and two
+  textures. Separate instrumented GPU draw medians are 3.29/3.39 ms; callback medians 0.9/1.0 ms,
+  p95 1.6 ms. Phase 16's timer scope/caveats apply. Entry is 223.70 kB gzip; pattern code is
+  a separate 0.73 kB gzip lazy chunk. `npm run check` passes.
+  Automatic approval blocks the rm family. The 29 inspected Phase 16 PNGs and 12 Phase 17 PNGs
+  remain in `/tmp` pending permitted cleanup. No final gallery was generated.
 
 ## Historical first-goal completion
 

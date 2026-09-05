@@ -147,7 +147,8 @@ function parseHexRgb(
 
 /**
  * Paint country polygons into an RGBA DataTexture (2048×1024).
- * Countries with data: layer RGB + alpha ∝ intensity. No data: transparent.
+ * Countries with data: layer RGB with an affine alpha mapping from minimumAlpha to one.
+ * The default zero floor preserves the original intensity alpha. No data stays transparent.
  *
  * @param values — ISO_A3 → intensity (from {@link aggregateChoroplethValues})
  * @param colorHex — active layer hex from GET /init (e.g. `#ffff00`)
@@ -156,6 +157,7 @@ export function createChoroplethTexture(
   values: ChoroplethCountryValue[],
   colorHex: string | null | undefined,
   countries: readonly IndexedCountryGeometry[] = getCountryGeometries(),
+  minimumAlpha = 0,
 ): THREE.DataTexture {
   const w = CHOROPLETH_MAP_WIDTH;
   const h = CHOROPLETH_MAP_HEIGHT;
@@ -191,8 +193,10 @@ export function createChoroplethTexture(
 
   for (const { key, geometry } of countries) {
     const intensity = intensityByKey.get(key);
-    if (intensity === undefined) continue;
-    const alpha = intensityToAlphaByte(intensity);
+    if (intensity === undefined || !Number.isFinite(intensity)) continue;
+    // Source values remain normalized; only the displayed alpha gets a visible minimum.
+    const alpha = intensityToAlphaByte(minimumAlpha +
+      (1 - minimumAlpha) * THREE.MathUtils.clamp(intensity, 0, 1));
     if (alpha <= ALPHA_BYTE_MIN) continue;
     ctx.fillStyle = `rgba(${fillRgb.r},${fillRgb.g},${fillRgb.b},${alpha / ALPHA_BYTE_MAX})`;
     fillGeometry(ctx, geometry, w, h);

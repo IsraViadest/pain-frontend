@@ -13,7 +13,7 @@ import {
   type CountryProfilePreset,
 } from "./presets";
 import { CountrySelectionController } from "./selection";
-import { createEnvironmentalLegend } from "./legend";
+import { createEnvironmentalLegend, createSocioeconomicLegend } from "./legend";
 
 const ENVIRONMENTAL_LAYER = "envpain";
 const PHYSICAL_LAYER = "physpain";
@@ -33,6 +33,8 @@ export class CountryProfileRuntime {
   readonly profiles: ReadonlyMap<string, CountryPainProfile>;
   private readonly selection: CountrySelectionController;
   private environmentalLegend: SVGSVGElement | undefined;
+  private socioeconomicLegend: SVGSVGElement | undefined;
+  readonly socioeconomicMinimum: number;
 
   private constructor(
     profiles: ReadonlyMap<string, CountryPainProfile>,
@@ -40,6 +42,12 @@ export class CountryProfileRuntime {
     readonly preset: CountryProfilePreset,
   ) {
     this.profiles = profiles;
+    const reference = preset.socioeconomicStyle ? profiles.get("JPN")?.socioeconomic.value : 0;
+    if (reference === null || reference === undefined || !Number.isFinite(reference) ||
+        reference < 0 || reference >= 1) {
+      throw new Error("The selected socioeconomic treatment requires Japan's normalized reference");
+    }
+    this.socioeconomicMinimum = reference;
     this.selection = new CountrySelectionController(
       profiles,
       (change) => {
@@ -104,6 +112,12 @@ export class CountryProfileRuntime {
   }
 
   legendForLayer(layerId: string): SVGSVGElement | undefined {
+    if (layerId === SOCIOECONOMIC_LAYER && this.preset.socioeconomicStyle) {
+      return this.socioeconomicLegend ??= createSocioeconomicLegend(
+        this.socioeconomicMinimum, this.preset.socioeconomicStyle,
+        this.preset.socioeconomicPatternContrast ?? 0.25,
+      );
+    }
     if (layerId !== ENVIRONMENTAL_LAYER || !this.preset.atmosphereMode ||
         this.preset.atmosphereMode === "control") return undefined;
     return this.environmentalLegend ??= createEnvironmentalLegend();

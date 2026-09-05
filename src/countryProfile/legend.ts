@@ -104,3 +104,119 @@ export function createEnvironmentalLegend(): SVGSVGElement {
   resize();
   return svg;
 }
+
+/** Resolved pattern samples use the same alpha and contrast mapping as the globe. */
+export function createSocioeconomicLegend(
+  minimumAlpha: number,
+  style: "color" | "hatch" | "woven",
+  contrast = 0.25,
+): SVGSVGElement {
+  const q = Math.round(255 * minimumAlpha) / 255;
+  if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || q >= 1) {
+    throw new Error("Socioeconomic legend needs a finite, nonsaturated minimum alpha");
+  }
+  if (!Number.isFinite(contrast) || contrast < 0 || contrast > 1) {
+    throw new RangeError("Socioeconomic legend contrast must be in [0, 1]");
+  }
+  const element = <K extends keyof SVGElementTagNameMap>(
+    tag: K, attributes: Record<string, string | number> = {},
+  ): SVGElementTagNameMap[K] => {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, String(value));
+    return node;
+  };
+  const svg = element("svg", { class: "ui-legend__img", role: "img", fill: "currentColor" });
+  svg.style.color = "#ffffff";
+  svg.style.fontFamily = "inherit";
+  svg.setAttribute("aria-label", "Socioeconomic continuous relative signal, lower to higher. " +
+    (style === "color" ? "Stronger yellow represents higher values. " :
+      "Pattern swatches are examples of the same continuous value shown by the color strip, " +
+      "not discrete bins or separate quantities. ") +
+    "Zero uses the visible minimum. The empty outline means data unavailable, not zero.");
+  const defs = element("defs");
+  svg.append(defs);
+  const gradient = element("linearGradient", { id: "country-profile-socioeconomic-scale" });
+  gradient.append(
+    element("stop", { offset: 0, "stop-color": "#ffff00", "stop-opacity": minimumAlpha }),
+    element("stop", { offset: 1, "stop-color": "#ffff00", "stop-opacity": 1 }),
+  );
+  defs.append(gradient);
+  const continuous = element("rect", { fill: "url(#country-profile-socioeconomic-scale)" });
+  svg.append(continuous);
+  const swatches = (style === "color" ? [] : [0, 0.25, 0.5, 0.75, 1]).map((value, index) => {
+    const alpha = Math.round(255 * (minimumAlpha + (1 - minimumAlpha) * value)) / 255;
+    const swatch = element("rect", { fill: "#ffff00", "fill-opacity": alpha });
+    if (style !== "color") {
+      const v = Math.max(0, Math.min(1, (alpha - q) / (1 - q)));
+      const duty = style === "woven" ? 1 - Math.sqrt(1 - v) : v;
+      const low = alpha - contrast * (1 - q) * v;
+      const high = low + contrast * (1 - q);
+      const id = `country-profile-socioeconomic-${style}-${index}`;
+      const pattern = element("pattern", { id, width: 8, height: 8,
+        patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+      pattern.append(element("rect", { width: 8, height: 8,
+        fill: "#ffff00", "fill-opacity": low }));
+      // One path fills the woven union once; separate translucent strokes would brighten crossings.
+      const vertical = `M0 0H${8 * duty}V8H0Z`;
+      const horizontal = style === "woven" ? `M0 0H8V${8 * duty}H0Z` : "";
+      pattern.append(element("path", { d: vertical + horizontal, fill: "#ffff00",
+        "fill-opacity": low < 1 ? (high - low) / (1 - low) : 0 }));
+      defs.append(pattern);
+      swatch.setAttribute("fill", `url(#${id})`);
+      swatch.removeAttribute("fill-opacity");
+    }
+    svg.append(swatch);
+    return swatch;
+  });
+  const labels = ["Socioeconomic", "lower", "higher",
+    style === "color" ? "continuous relative signal" : "same continuous value; examples", "no data"].map((label) => {
+    const text = element("text");
+    text.textContent = label;
+    svg.append(text);
+    return text;
+  });
+  const missing = element("path", { d: "M1 5C0 1 7 0 11 2C17 2 17 9 12 11C7 13 0 10 1 5Z",
+    fill: "none", stroke: "currentColor", "stroke-width": 1 });
+  svg.append(missing);
+  const resize = (): void => {
+    const portrait = window.innerWidth <= 768 && window.innerHeight >= window.innerWidth;
+    const compact = !portrait && window.innerHeight <= 500;
+    const layout = portrait ? "portrait" : compact ? "landscape" : "desktop";
+    if (svg.dataset.layout === layout) return;
+    svg.dataset.layout = layout;
+    const width = portrait ? 72 : 184, height = compact ? 98 : 136;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    gradient.setAttribute("x2", portrait ? "0%" : "100%");
+    gradient.setAttribute("y1", portrait ? "100%" : "0%");
+    continuous.setAttribute("x", String(portrait ? style === "color" ? 10 : 3 : 0));
+    continuous.setAttribute("y", String(portrait ? 23 :
+      style === "color" ? compact ? 20 : 26 : compact ? 16 : 20));
+    continuous.setAttribute("width", String(portrait ? style === "color" ? 18 : 4 : 184));
+    continuous.setAttribute("height", String(portrait ? 80 :
+      style === "color" ? compact ? 14 : 18 : compact ? 3 : 4));
+    for (const [index, swatch] of swatches.entries()) {
+      swatch.setAttribute("x", String(portrait ? 10 : index * 184 / 5));
+      swatch.setAttribute("y", String(portrait ? 23 + (4 - index) * 16 : compact ? 20 : 26));
+      swatch.setAttribute("width", String(portrait ? 18 : 184 / 5));
+      swatch.setAttribute("height", String(portrait ? 16 : compact ? 14 : 18));
+    }
+    const positions = portrait ? [[0, 0], [36, 116], [36, 12], [0, 0], [26, 134]] :
+      [[0, compact ? 12 : 16], [0, compact ? 54 : 64], [184, compact ? 54 : 64],
+        [0, 88], [24, compact ? 94 : 128]];
+    for (const [index, text] of labels.entries()) {
+      text.setAttribute("x", String(positions[index]![0]));
+      text.setAttribute("y", String(positions[index]![1]));
+      text.setAttribute("font-size", String(index === 0 ? portrait ? 11 : compact ? 12 : 14 : 11));
+      text.setAttribute("text-anchor", portrait && index <= 2 ? "middle" : index === 2 ? "end" : "start");
+      text.style.display = index === 3 && (portrait || compact) ? "none" : "";
+      if (index === 0 && portrait) text.setAttribute("transform", "translate(46, 63) rotate(-90)");
+      else text.removeAttribute("transform");
+    }
+    missing.setAttribute("transform", `translate(${portrait ? 7 : 0}, ${portrait ? 123 : compact ? 83 : 117})`);
+  };
+  svg.addEventListener("resize", resize);
+  resize();
+  return svg;
+}

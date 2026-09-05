@@ -2,7 +2,7 @@
 
 Last Updated: 2026-09-05
 Version: 2.0
-Status: approved for implementation; Phases 0-8 complete, Phases 9-20 pending
+Status: approved implementation plan; current phase status and evidence are in GOAL.md
 
 ## Current objective and working boundary
 
