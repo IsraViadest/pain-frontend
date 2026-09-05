@@ -1,0 +1,521 @@
+/* Production UI chrome — fixed overlays above the globe (z-index 2). */
+
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/Apercu Pro Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+#ui-title {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui-title__heading {
+  margin: 0;
+  font-family: "Atelier", serif;
+  font-size: clamp(3.6rem, 7.2vw, 6.3rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-primary, #e8eaef);
+}
+
+.ui-title__subtitle {
+  margin: 0;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.85rem, 1.33vw, 1.03rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #b4bac8);
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.ui-title__sound-toggle {
+  display: inline-block;
+  width: auto;
+  align-self: flex-start;
+  margin: 4px 0 0;
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: none;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.65rem, 1vw, 0.75rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #b4bac8);
+  line-height: 1.35;
+  text-align: left;
+  text-transform: lowercase;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.ui-title__sound-toggle:hover {
+  color: var(--text-primary, #e8eaef);
+}
+
+.ui-title__sound-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
+.ui-title__top-row .ui-hamburger {
+  display: none;
+}
+
+#ui-layer-stack {
+  position: fixed;
+  top: calc(50% - 40px);
+  right: 20px;
+  z-index: 2;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+#ui-top-right {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+#ui-share-pain {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+#ui-bottom-left {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+/* Plain control (theme sibling) — all-layers / former viz-cycle placement. */
+.ui-all-layers {
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--theme-btn-border, rgba(255, 255, 255, 0.12));
+  background: var(--theme-btn-bg, rgba(28, 34, 48, 0.92));
+  color: var(--text-primary, #e8eaef);
+  font-family: "Apercu Pro", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--hud-shadow, 0 12px 40px rgba(0, 0, 0, 0.45));
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.2s ease;
+}
+
+.ui-all-layers:hover {
+  filter: brightness(1.06);
+}
+
+.ui-all-layers:focus-visible {
+  outline: 2px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
+.ui-all-layers.is-active,
+.ui-all-layers[aria-pressed="true"] {
+  border-color: rgba(120, 200, 255, 0.45);
+  background: rgba(40, 55, 80, 0.95);
+}
+
+/* Blob buttons */
+
+.blob-button {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.blob-button:hover {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+}
+
+.blob-button:focus-visible {
+  outline: 2px solid rgba(120, 200, 255, 0.55);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.blob-button__svg {
+  display: block;
+  width: auto;
+  height: clamp(58px, 9.6vw, 86px);
+  max-width: 200px;
+}
+
+.blob-button[data-layer="all-pain"] .blob-button__svg {
+  height: clamp(83px, 13.7vw, 123px);
+}
+
+/* env SVG has large transparent padding that intercepts clicks on the emo button above; make only painted paths and label clickable */
+.blob-button[data-layer="envpain"] {
+  pointer-events: none;
+}
+
+.blob-button[data-layer="envpain"] .blob-button__svg {
+  height: clamp(114px, 19vw, 170px);
+
+}
+
+.blob-button[data-layer="envpain"] .blob-button__svg path,
+.blob-button[data-layer="envpain"] .blob-button__label {
+  pointer-events: auto;
+}
+
+.blob-button[data-layer="physpain"] {
+  margin-top: -30px;
+  margin-bottom: 10px;
+}
+
+.blob-button[data-layer="physpain"] .blob-button__svg {
+  height: clamp(52.2px, 8.64vw, 77.4px);
+}
+
+.blob-button[data-layer="emopain"] {
+  margin-bottom: -30px;
+}
+
+.blob-button[data-layer="emopain"] .blob-button__svg {
+  overflow: visible;
+}
+
+#ui-share-pain .blob-button__svg {
+  height: clamp(67px, 10.8vw, 101px);
+  max-width: 216px;
+}
+
+.blob-button__label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #ffffff !important;
+  text-align: center;
+  pointer-events: none;
+  max-width: 90%;
+  line-height: 1.25;
+  word-break: normal;
+  hyphens: none;
+}
+
+#ui-share-pain .blob-button__label {
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
+  text-transform: lowercase;
+}
+
+.blob-button--inactive .blob-button__svg {
+  opacity: 0.4;
+}
+
+.blob-button--active .blob-button__svg {
+  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.65));
+}
+
+.blob-button--share {
+  opacity: 1;
+}
+
+/* Info modal (About / Data Sources) — below survey modal (z-index 8). */
+
+.info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.info-modal--visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.info-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 8, 0.55);
+}
+
+.info-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(640px, calc(100vw - 48px));
+  max-height: min(72vh, 560px);
+  padding: 28px 36px;
+  border-radius: 28px;
+  background: rgba(171, 172, 192, 0.95);
+  box-shadow:
+    0 0 48px rgba(59, 105, 204, 0.28),
+    0 18px 50px rgba(7, 21, 59, 0.12);
+  overflow-y: auto;
+  text-align: left;
+}
+
+.info-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  color: #07153b;
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.info-modal__close:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.info-modal__title {
+  margin: 0 0 16px;
+  font-family: "Atelier", serif;
+  font-size: clamp(1.35rem, 2.8vw, 1.75rem);
+  font-weight: normal;
+  letter-spacing: 0.06em;
+  color: #07153b;
+}
+
+.info-modal__body {
+  margin: 0;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  line-height: 1.5;
+  color: #07153b;
+}
+
+#ui-legend {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  max-height: 80vh;
+  width: auto;
+  transform: translateY(-50%) translateX(calc(-100% - 100vw));
+  transition: transform 0.4s ease;
+  pointer-events: none;
+}
+
+#ui-legend.legend--visible {
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
+
+#ui-legend .ui-legend__img {
+  display: block;
+  max-height: 32vh;
+  width: auto;
+}
+
+/* Mobile chrome slot — hidden on desktop; shown under max-width 768px. */
+#ui-title-controls {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Reduced from 36px desktop size to avoid overlapping modal titles on small screens. */
+  .info-modal__close {
+    width: 24px;
+    height: 24px;
+  }
+
+  .info-modal__panel .info-modal__logos-inner {
+    max-width: 100% !important;
+  }
+
+  /* ~20% smaller than desktop heading clamp; subtitle unchanged. */
+  .ui-title__heading {
+    font-size: clamp(2.88rem, 5.76vw, 5.04rem);
+  }
+
+  /* Matches the old fixed hamburger right inset. */
+  #ui-title {
+    right: 16px;
+  }
+
+  .ui-title__top-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  #ui-top-right {
+    display: none;
+  }
+
+  #ui-title-controls {
+    position: fixed;
+    /* 20px top inset + mobile title + subtitle + spacing */
+    top: calc(
+      20px + clamp(2.88rem, 5.76vw, 5.04rem) + clamp(0.85rem, 1.33vw, 1.03rem) +
+        24px
+    );
+    left: 20px;
+    z-index: 2;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    pointer-events: auto;
+    opacity: 1;
+  }
+
+  #ui-title-controls .ui-all-layers {
+    display: inline-flex;
+    opacity: 1;
+  }
+
+  #ui-bottom-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ui-title__top-row .ui-hamburger {
+    display: block;
+    flex-shrink: 0;
+    /* #ui-title sets pointer-events: none; re-enable clicks on the hamburger. */
+    pointer-events: auto;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .ui-title__top-row .ui-hamburger:focus-visible {
+    outline: 2px solid rgba(120, 200, 255, 0.6);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  .ui-title__top-row .ui-hamburger svg {
+    display: block;
+    width: 48px; /* hamburger icon rendered size */
+    height: auto;
+  }
+
+  #ui-legend {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    right: auto;
+    top: auto;
+    display: flex;
+    justify-content: flex-start;
+    transform: translateX(-120%);
+  }
+
+  #ui-legend.legend--visible {
+    transform: translateX(0);
+  }
+
+  #ui-legend .ui-legend__img {
+    max-height: 15vh;
+    width: auto;
+  }
+
+  #ui-layer-stack {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateX(60px) translateY(-50%);
+    transition: visibility 0.35s, opacity 0.35s ease, transform 0.35s ease;
+  }
+
+  #ui-bottom-left {
+    transform: translateX(-200%);
+    pointer-events: none;
+    transition: transform 0.35s ease;
+  }
+
+  #app.mobile-menu-open #ui-layer-stack {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(0) translateY(-50%);
+  }
+
+  #app.mobile-menu-open #ui-bottom-left {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+}

@@ -3,6 +3,7 @@
  */
 import { apiUrl, useMockApi } from "../api/config";
 import { getPainServerUserId } from "../api/session";
+import { isConsentGiven } from "./consentStorage";
 import type { SurveySubmissionPayload } from "./surveyData";
 
 type SurveySubmissionResult = {
@@ -48,6 +49,7 @@ export async function submitSurvey(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...payload,
+        consent: isConsentGiven(),
         userId: getPainServerUserId(),
       }),
     });

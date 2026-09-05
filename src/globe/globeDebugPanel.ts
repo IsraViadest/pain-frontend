@@ -5,13 +5,16 @@
  */
 import {
   GLOBE_DEBUG_TUNE_DEFAULTS,
+  type Co2HazeTune,
   type GlobeDebugLayerId,
   type GlobeDebugLayerState,
   type GlobeDebugTune,
   type GlobeHeatTune,
   type GlobeMarkerTune,
   type GlobeView,
+  type TempHeatTune,
 } from "./GlobeView";
+import type { Co2HazeNormMode } from "./co2HazeField";
 
 const LAYER_UI: {
   id: GlobeDebugLayerId;
@@ -117,15 +120,15 @@ const TUNE_SECTIONS: {
         label: "Scar dent scale (GPU)",
         hint: "Radial depth from height map.",
         min: 0,
-        max: 0.2,
+        max: 0.5,
         step: 0.002,
       },
       {
         key: "scarDispBias",
         label: "Scar dent bias (GPU)",
         hint: "Adds constant radial offset.",
-        min: -0.1,
-        max: 0.02,
+        min: -0.3,
+        max: 0,
         step: 0.002,
       },
       {
@@ -172,7 +175,7 @@ const TUNE_SECTIONS: {
         label: "Stamp depth mul",
         hint: "Brightness of each dent before GPU scale (detail vs strength).",
         min: 0.2,
-        max: 2.5,
+        max: 10000,
         step: 0.05,
       },
       {
@@ -298,6 +301,185 @@ const HEAT_MAP_TUNE_SLIDERS: HeatTuneSliderSpec[] = [
     min: 0.5,
     max: 5,
     step: 0.1,
+    decimals: 2,
+  },
+];
+
+type Co2HazeTuneSliderSpec = {
+  key: Exclude<keyof Co2HazeTune, "normMode">;
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+  decimals?: number;
+};
+
+const CO2_HAZE_NORM_MODE_OPTIONS: {
+  value: Co2HazeNormMode;
+  label: string;
+}[] = [
+  { value: "max", label: "Max" },
+  { value: "raw", label: "Raw" },
+  { value: "log", label: "Log" },
+];
+
+function isCo2HazeNormMode(value: string): value is Co2HazeNormMode {
+  return CO2_HAZE_NORM_MODE_OPTIONS.some((opt) => opt.value === value);
+}
+
+const CO2_HAZE_TUNE_SLIDERS: Co2HazeTuneSliderSpec[] = [
+  {
+    key: "stampRadiusBase",
+    label: "Stamp radius base",
+    hint: "Base stamp radius in texture pixels (before intensity scaling).",
+    min: 1,
+    max: 20,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "stampRadiusSpan",
+    label: "Stamp radius span",
+    hint: "Extra stamp radius at full intensity (px).",
+    min: 1,
+    max: 30,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "blurPass1Radius",
+    label: "Blur pass 1",
+    hint: "First box-blur radius (px).",
+    min: 0,
+    max: 10,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "blurPass2Radius",
+    label: "Blur pass 2",
+    hint: "Second box-blur radius (px).",
+    min: 0,
+    max: 10,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "maxAlpha",
+    label: "Max alpha",
+    hint: "Cap on densest texel alpha (0–255).",
+    min: 0,
+    max: 255,
+    step: 5,
+    decimals: 0,
+  },
+  {
+    key: "alphaThreshold",
+    label: "Alpha threshold",
+    hint: "Normalized values below this become fully transparent.",
+    min: 0,
+    max: 0.5,
+    step: 0.01,
+    decimals: 2,
+  },
+  {
+    key: "hazeColor",
+    label: "Haze color",
+    hint: "Gray RGB byte written to every texel (0 = black, 255 = white). Rebuild to apply.",
+    min: 0,
+    max: 255,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "hazeOpacity",
+    label: "Base opacity",
+    hint: "Material opacity before the sine breath (live; no rebuild).",
+    min: 0,
+    max: 1,
+    step: 0.05,
+    decimals: 2,
+  },
+];
+
+/** Live shell-radius sliders (scale meshes; not part of {@link Co2HazeTune}). */
+const CO2_HAZE_RADIUS_SLIDER = {
+  label: "Haze radius",
+  hint: "CO2 haze shell radius in globe units (live scale; no rebuild).",
+  min: 1.0,
+  max: 1.3,
+  step: 0.01,
+  /** Matches GlobeView HAZE_RADIUS (RADIUS * 1.15). */
+  value: 1.15,
+  decimals: 2,
+};
+
+const GLOW_RADIUS_SLIDER = {
+  label: "Glow radius",
+  hint: "Rim-glow shell radius in globe units (live scale; no rebuild).",
+  min: 1.0,
+  max: 1.3,
+  step: 0.01,
+  /** Matches GlobeView GLOW_RADIUS (RADIUS * 1.12). */
+  value: 1.12,
+  decimals: 2,
+};
+
+type TempHeatTuneSliderSpec = {
+  key: keyof TempHeatTune;
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+  decimals?: number;
+};
+
+const TEMP_HEAT_TUNE_SLIDERS: TempHeatTuneSliderSpec[] = [
+  {
+    key: "stampRadiusBase",
+    label: "Stamp radius base",
+    hint: "Base stamp radius in texture pixels (before intensity scaling).",
+    min: 1,
+    max: 20,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "stampRadiusSpan",
+    label: "Stamp radius span",
+    hint: "Extra stamp radius at full intensity (px).",
+    min: 0,
+    max: 20,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "blurPass1Radius",
+    label: "Blur pass 1",
+    hint: "First box-blur radius (px); 0 skips the pass.",
+    min: 0,
+    max: 10,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "blurPass2Radius",
+    label: "Blur pass 2",
+    hint: "Second box-blur radius (px); 0 skips the pass.",
+    min: 0,
+    max: 10,
+    step: 1,
+    decimals: 0,
+  },
+  {
+    key: "heatStrength",
+    label: "Heat strength",
+    hint: "How strongly the Temperature shell opacity is scaled (multiplies the breathing base).",
+    min: 0,
+    max: 2,
+    step: 0.05,
     decimals: 2,
   },
 ];
@@ -453,7 +635,22 @@ export function mountGlobeDebugPanel(
       range.addEventListener("input", () => {
         const v = Number(range.value);
         valSpan.textContent = formatTuneValue(v, decimals);
-        globe.setDebugTune({ [spec.key]: v });
+        if (spec.key === "scarDispBias") {
+          globe.setScarDispBias(v);
+        } else if (spec.key === "scarDispScale") {
+          globe.setDebugTune({ scarDispScale: v });
+          // bias = -0.5 * scale keeps neutral surface at radius 1.
+          const bias = -0.5 * v;
+          globe.setScarDispBias(bias);
+          const biasRange = tuneInputs.scarDispBias;
+          if (biasRange) {
+            biasRange.value = String(bias);
+            const biasOut = biasRange.parentElement?.querySelector("output");
+            if (biasOut) biasOut.textContent = formatTuneValue(bias, 3);
+          }
+        } else {
+          globe.setDebugTune({ [spec.key]: v });
+        }
       });
     }
 
@@ -527,6 +724,190 @@ export function mountGlobeDebugPanel(
   heatMapTuneBlock.body.appendChild(resetHeatTuneBtn);
   host.appendChild(heatMapTuneBlock.el);
 
+  const co2HazeTuneBlock = makeDetails("CO2 Haze", false);
+  const co2HazeTuneIntro = document.createElement("p");
+  co2HazeTuneIntro.className =
+    "globe-debug-panel__intro globe-debug-panel__intro--nested";
+  co2HazeTuneIntro.textContent =
+    "Gray additive shell from category === CO2 — sliders update knobs; Rebuild applies (CPU stamp can be slow on large Env layers).";
+  co2HazeTuneBlock.body.appendChild(co2HazeTuneIntro);
+
+  const co2HazeTuneInputs: Partial<
+    Record<Exclude<keyof Co2HazeTune, "normMode">, HTMLInputElement>
+  > = {};
+
+  for (const spec of CO2_HAZE_TUNE_SLIDERS) {
+    const row = document.createElement("label");
+    row.className = "globe-debug-panel__tune-row";
+
+    const head = document.createElement("span");
+    head.className = "globe-debug-panel__tune-head";
+    const valSpan = document.createElement("output");
+    valSpan.className = "globe-debug-panel__tune-val";
+
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = String(spec.min);
+    range.max = String(spec.max);
+    range.step = String(spec.step);
+
+    const hint = document.createElement("span");
+    hint.className = "globe-debug-panel__tune-hint";
+    hint.textContent = spec.hint;
+
+    head.textContent = `${spec.label} `;
+    head.append(valSpan);
+    row.append(head, range, hint);
+    co2HazeTuneBlock.body.appendChild(row);
+    co2HazeTuneInputs[spec.key] = range;
+
+    const decimals = spec.decimals ?? 3;
+
+    range.addEventListener("input", () => {
+      const v = Number(range.value);
+      valSpan.textContent = formatTuneValue(v, decimals);
+      globe.setCo2HazeTune({ [spec.key]: v });
+    });
+  }
+
+  function appendLiveRadiusSlider(
+    spec: {
+      label: string;
+      hint: string;
+      min: number;
+      max: number;
+      step: number;
+      value: number;
+      decimals: number;
+    },
+    onInput: (value: number) => void,
+  ): HTMLInputElement {
+    const row = document.createElement("label");
+    row.className = "globe-debug-panel__tune-row";
+    const head = document.createElement("span");
+    head.className = "globe-debug-panel__tune-head";
+    const valSpan = document.createElement("output");
+    valSpan.className = "globe-debug-panel__tune-val";
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = String(spec.min);
+    range.max = String(spec.max);
+    range.step = String(spec.step);
+    range.value = String(spec.value);
+    valSpan.textContent = formatTuneValue(spec.value, spec.decimals);
+    const hint = document.createElement("span");
+    hint.className = "globe-debug-panel__tune-hint";
+    hint.textContent = spec.hint;
+    head.textContent = `${spec.label} `;
+    head.append(valSpan);
+    row.append(head, range, hint);
+    co2HazeTuneBlock.body.appendChild(row);
+    range.addEventListener("input", () => {
+      const v = Number(range.value);
+      valSpan.textContent = formatTuneValue(v, spec.decimals);
+      onInput(v);
+    });
+    return range;
+  }
+
+  appendLiveRadiusSlider(CO2_HAZE_RADIUS_SLIDER, (v) => {
+    globe.setHazeRadius(v);
+  });
+  appendLiveRadiusSlider(GLOW_RADIUS_SLIDER, (v) => {
+    globe.setGlowRadius(v);
+  });
+
+  const co2HazeNormRow = document.createElement("label");
+  co2HazeNormRow.className = "globe-debug-panel__tune-row";
+  const co2HazeNormHead = document.createElement("span");
+  co2HazeNormHead.className = "globe-debug-panel__tune-head";
+  co2HazeNormHead.textContent = "Normalization";
+  const co2HazeNormSelect = document.createElement("select");
+  co2HazeNormSelect.className = "globe-debug-panel__tune-select";
+  for (const opt of CO2_HAZE_NORM_MODE_OPTIONS) {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    co2HazeNormSelect.appendChild(option);
+  }
+  const co2HazeNormHint = document.createElement("span");
+  co2HazeNormHint.className = "globe-debug-panel__tune-hint";
+  co2HazeNormHint.textContent =
+    "Max stretches the hottest texel to full alpha. Raw uses accumulated values as-is. Log compresses outliers.";
+  co2HazeNormRow.append(co2HazeNormHead, co2HazeNormSelect, co2HazeNormHint);
+  co2HazeTuneBlock.body.appendChild(co2HazeNormRow);
+  co2HazeNormSelect.addEventListener("change", () => {
+    const v = co2HazeNormSelect.value;
+    if (!isCo2HazeNormMode(v)) return;
+    globe.setCo2HazeTune({ normMode: v });
+  });
+
+  const rebuildCo2HazeBtn = document.createElement("button");
+  rebuildCo2HazeBtn.type = "button";
+  rebuildCo2HazeBtn.className = "globe-debug-panel__action";
+  rebuildCo2HazeBtn.textContent = "Rebuild";
+  rebuildCo2HazeBtn.addEventListener("click", () => {
+    globe.rebuildCo2Haze();
+  });
+  co2HazeTuneBlock.body.appendChild(rebuildCo2HazeBtn);
+  host.appendChild(co2HazeTuneBlock.el);
+
+  const tempHeatTuneBlock = makeDetails("Temperature Heat", false);
+  const tempHeatTuneIntro = document.createElement("p");
+  tempHeatTuneIntro.className =
+    "globe-debug-panel__intro globe-debug-panel__intro--nested";
+  tempHeatTuneIntro.textContent =
+    "Red additive shell from category === Temperature — sliders update stamp/blur; Rebuild applies (CPU stamp can be slow on large Env layers). Heat strength scales shell opacity live.";
+  tempHeatTuneBlock.body.appendChild(tempHeatTuneIntro);
+
+  const tempHeatTuneInputs: Partial<
+    Record<keyof TempHeatTune, HTMLInputElement>
+  > = {};
+
+  for (const spec of TEMP_HEAT_TUNE_SLIDERS) {
+    const row = document.createElement("label");
+    row.className = "globe-debug-panel__tune-row";
+
+    const head = document.createElement("span");
+    head.className = "globe-debug-panel__tune-head";
+    const valSpan = document.createElement("output");
+    valSpan.className = "globe-debug-panel__tune-val";
+
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = String(spec.min);
+    range.max = String(spec.max);
+    range.step = String(spec.step);
+
+    const hint = document.createElement("span");
+    hint.className = "globe-debug-panel__tune-hint";
+    hint.textContent = spec.hint;
+
+    head.textContent = `${spec.label} `;
+    head.append(valSpan);
+    row.append(head, range, hint);
+    tempHeatTuneBlock.body.appendChild(row);
+    tempHeatTuneInputs[spec.key] = range;
+
+    const decimals = spec.decimals ?? 3;
+
+    range.addEventListener("input", () => {
+      const v = Number(range.value);
+      valSpan.textContent = formatTuneValue(v, decimals);
+      globe.setTempHeatTune({ [spec.key]: v });
+    });
+  }
+
+  const rebuildTempHeatBtn = document.createElement("button");
+  rebuildTempHeatBtn.type = "button";
+  rebuildTempHeatBtn.className = "globe-debug-panel__action";
+  rebuildTempHeatBtn.textContent = "Rebuild";
+  rebuildTempHeatBtn.addEventListener("click", () => {
+    globe.rebuildTempHeat();
+  });
+  tempHeatTuneBlock.body.appendChild(rebuildTempHeatBtn);
+  host.appendChild(tempHeatTuneBlock.el);
+
   const markerTuneBlock = makeDetails("Markers", false);
   const markerTuneIntro = document.createElement("p");
   markerTuneIntro.className =
@@ -534,6 +915,20 @@ export function mountGlobeDebugPanel(
   markerTuneIntro.textContent =
     "Pain marker InstancedMesh — material updates live; radius rebuilds instance matrices.";
   markerTuneBlock.body.appendChild(markerTuneIntro);
+
+  const showMarkersRow = document.createElement("label");
+  showMarkersRow.className =
+    "globe-debug-panel__tune-row globe-debug-panel__tune-row--check";
+  const showMarkersCb = document.createElement("input");
+  showMarkersCb.type = "checkbox";
+  showMarkersCb.checked = globe.getMarkersDebugEnabled();
+  const showMarkersText = document.createElement("span");
+  showMarkersText.textContent = "Show point markers (debug only)";
+  showMarkersRow.append(showMarkersCb, showMarkersText);
+  markerTuneBlock.body.appendChild(showMarkersRow);
+  showMarkersCb.addEventListener("change", () => {
+    globe.setMarkersDebugEnabled(showMarkersCb.checked);
+  });
 
   const markerTuneInputs: Partial<
     Record<keyof GlobeMarkerTune, HTMLInputElement>
@@ -584,6 +979,51 @@ export function mountGlobeDebugPanel(
   markerTuneBlock.body.appendChild(resetMarkerTuneBtn);
   host.appendChild(markerTuneBlock.el);
 
+  const borderTuneBlock = makeDetails("Borders", false);
+  const borderTuneIntro = document.createElement("p");
+  borderTuneIntro.className =
+    "globe-debug-panel__intro globe-debug-panel__intro--nested";
+  borderTuneIntro.textContent =
+    "Coast/country line shell — uniform group scale (slightly above unit globe to reduce z-fighting).";
+  borderTuneBlock.body.appendChild(borderTuneIntro);
+
+  const borderScaleRow = document.createElement("label");
+  borderScaleRow.className = "globe-debug-panel__tune-row";
+  const borderScaleHead = document.createElement("span");
+  borderScaleHead.className = "globe-debug-panel__tune-head";
+  const borderScaleVal = document.createElement("output");
+  borderScaleVal.className = "globe-debug-panel__tune-val";
+  const borderScaleRange = document.createElement("input");
+  borderScaleRange.type = "range";
+  borderScaleRange.min = "0.99";
+  borderScaleRange.max = "1.01";
+  borderScaleRange.step = "0.0001";
+  const borderScaleHint = document.createElement("span");
+  borderScaleHint.className = "globe-debug-panel__tune-hint";
+  borderScaleHint.textContent =
+    "bordersOutlines.group.scale.setScalar — default 0.99.";
+  borderScaleHead.textContent = "Shell scale ";
+  borderScaleHead.append(borderScaleVal);
+  borderScaleRow.append(borderScaleHead, borderScaleRange, borderScaleHint);
+  borderTuneBlock.body.appendChild(borderScaleRow);
+
+  borderScaleRange.addEventListener("input", () => {
+    const v = Number(borderScaleRange.value);
+    borderScaleVal.textContent = formatTuneValue(v, 4);
+    globe.setBorderShellScale(v);
+  });
+
+  const resetBorderTuneBtn = document.createElement("button");
+  resetBorderTuneBtn.type = "button";
+  resetBorderTuneBtn.className = "globe-debug-panel__action";
+  resetBorderTuneBtn.textContent = "Reset borders";
+  resetBorderTuneBtn.addEventListener("click", () => {
+    globe.resetBorderShellScale();
+    syncBorderTuneSliders();
+  });
+  borderTuneBlock.body.appendChild(resetBorderTuneBtn);
+  host.appendChild(borderTuneBlock.el);
+
   function syncTuneSliders(): void {
     const t = globe.getDebugTune();
     for (const spec of ALL_TUNING_SLIDER_SPECS) {
@@ -612,10 +1052,43 @@ export function mountGlobeDebugPanel(
     }
   }
 
+  function syncBorderTuneSliders(): void {
+    const v = globe.getBorderShellScale();
+    borderScaleRange.value = String(v);
+    borderScaleVal.textContent = formatTuneValue(v, 4);
+  }
+
   function syncHeatTuneSliders(): void {
     const t = globe.getHeatTune();
     for (const spec of HEAT_MAP_TUNE_SLIDERS) {
       const range = heatTuneInputs[spec.key];
+      if (!range) continue;
+      range.value = String(t[spec.key]);
+      const out = range.parentElement?.querySelector("output");
+      const decimals = spec.decimals ?? 3;
+      if (out)
+        out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
+    }
+  }
+
+  function syncCo2HazeTuneSliders(): void {
+    const t = globe.getCo2HazeTune();
+    for (const spec of CO2_HAZE_TUNE_SLIDERS) {
+      const range = co2HazeTuneInputs[spec.key];
+      if (!range) continue;
+      range.value = String(t[spec.key]);
+      const out = range.parentElement?.querySelector("output");
+      const decimals = spec.decimals ?? 3;
+      if (out)
+        out.textContent = formatTuneValue(Number(t[spec.key]), decimals);
+    }
+    co2HazeNormSelect.value = t.normMode;
+  }
+
+  function syncTempHeatTuneSliders(): void {
+    const t = globe.getTempHeatTune();
+    for (const spec of TEMP_HEAT_TUNE_SLIDERS) {
+      const range = tempHeatTuneInputs[spec.key];
       if (!range) continue;
       range.value = String(t[spec.key]);
       const out = range.parentElement?.querySelector("output");
@@ -651,6 +1124,9 @@ export function mountGlobeDebugPanel(
     console.info("[globe debug tune]", globe.getDebugTune());
     console.log("[markerTune]", globe.getMarkerTune());
     console.log("[heatTune]", globe.getHeatTune());
+    console.log("[co2HazeTune]", globe.getCo2HazeTune());
+    console.log("[borderShellScale]", globe.getBorderShellScale());
+    console.log("[tempHeatTune]", globe.getTempHeatTune());
   });
 
   const syncBtn = document.createElement("button");
@@ -662,7 +1138,10 @@ export function mountGlobeDebugPanel(
   host.appendChild(buttonWrap);
   syncTuneSliders();
   syncMarkerTuneSliders();
+  syncBorderTuneSliders();
   syncHeatTuneSliders();
+  syncCo2HazeTuneSliders();
+  syncTempHeatTuneSliders();
 
   if (
     scarPreviewCanvas &&
@@ -701,6 +1180,7 @@ export function mountGlobeDebugPanel(
     }
     syncTuneSliders();
     syncMarkerTuneSliders();
+    syncBorderTuneSliders();
   }
 
   refresh();

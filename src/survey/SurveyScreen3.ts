@@ -9,7 +9,10 @@ import {
   surveyWordScale,
   type SurveySessionState,
 } from "./surveyData";
+import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { isConsentGiven } from "./consentStorage";
 import { METRICS_KIND_TEMPORALITY, trackToggle } from "../api/metricsApi";
+import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 
 type SurveyScreen3Context = {
   state: SurveySessionState;
@@ -58,8 +61,8 @@ export function mountSurveyScreen3(
 
   const title = document.createElement("h2");
   title.className = "survey-screen__title";
-  title.textContent =
-    "How long have you felt this pain? (click all that apply)";
+  title.innerHTML =
+    'How long have you felt this pain?<br><span class="survey-screen__title-hint">(click all that apply)</span>';
 
   const field = document.createElement("div");
   field.className = "survey-screen__temporality-field";
@@ -112,10 +115,14 @@ export function mountSurveyScreen3(
     anchor.appendChild(button);
 
     addListener(button, "click", () => {
+      playButtonSound(SOUND_BUTTON_BLOB);
       const selected = toggleTemporality(state, option);
       button.classList.toggle("survey-bubble--selected", selected);
       button.setAttribute("aria-pressed", String(selected));
-      trackToggle(METRICS_KIND_TEMPORALITY, option, selected);
+      if (isConsentGiven()) {
+        trackToggle(METRICS_KIND_TEMPORALITY, option, selected);
+      }
+      syncAdvanceEnabled();
     });
 
     field.appendChild(anchor);
@@ -125,22 +132,33 @@ export function mountSurveyScreen3(
   backBtn.type = "button";
   backBtn.className = "survey-screen__back";
   backBtn.setAttribute("aria-label", "Back to map placement");
-  backBtn.textContent = "←";
+  backBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10H4M9 5L4 10l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-  const advanceBtn = document.createElement("button");
-  advanceBtn.type = "button";
-  advanceBtn.className = "survey-screen__advance";
-  advanceBtn.setAttribute("aria-label", "Continue to next step");
-  advanceBtn.textContent = "→";
+  const advanceGate = createSurveyAdvanceGate(
+    "Please select at least one option",
+    onAdvance,
+  );
 
-  root.append(title, field, backBtn, advanceBtn);
+  const syncAdvanceEnabled = (): void => {
+    advanceGate.setEnabled(state.temporality.length >= 1);
+  };
+  syncAdvanceEnabled();
+
+  root.append(
+    title,
+    field,
+    backBtn,
+    advanceGate.validationMsg,
+    advanceGate.wrapper,
+  );
   host.appendChild(root);
 
   addListener(backBtn, "click", onBack);
-  addListener(advanceBtn, "click", onAdvance);
 
   return {
     unmount: () => {
+      advanceGate.dispose();
       for (const cleanup of cleanups) cleanup();
       root.remove();
     },

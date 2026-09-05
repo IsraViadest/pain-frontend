@@ -56,9 +56,15 @@ export async function fetchLayerInfo(): Promise<MapLayer[]> {
 /**
  * Bulk layer points from pain-server (deployed backend).
  * @param layerId — layer id from GET /init (actual value defined by the API)
+ * @param signal — optional abort (layer switch cancels the previous GET /init/:layer)
  */
-export async function fetchLayerDataPoints(layerId: string): Promise<PainServerRow[]> {
-  const res = await fetch(apiUrl(`/init/${encodeURIComponent(layerId)}`));
+export async function fetchLayerDataPoints(
+  layerId: string,
+  signal?: AbortSignal,
+): Promise<PainServerRow[]> {
+  const res = await fetch(apiUrl(`/init/${encodeURIComponent(layerId)}`), {
+    signal,
+  });
   const body = await parseJson<PainServerRow[]>(res);
   if (!Array.isArray(body)) {
     throw new Error("Expected JSON array from GET /init/:layer");

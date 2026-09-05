@@ -62,12 +62,26 @@ export type HeatMapBuildParams = {
   peakPower: number;
   /** Minimum stamp peak at intensity 0; blends up to 1.0 at intensity 1. */
   peakFloor: number;
+  /**
+   * Stamp radius in texels: `base + span * (0.25 + 0.75 * intensity)`.
+   * Omit to keep the default heat-map stamps (10 + 28 × …).
+   */
+  stampRadiusBase?: number;
+  stampRadiusSpan?: number;
+  /** Box-blur radii in texels (two passes). Omit for default 5 then 3; 0 skips a pass. */
+  blurPass1Radius?: number;
+  blurPass2Radius?: number;
 };
 
 const DEFAULT_HEAT_MAP_BUILD: HeatMapBuildParams = {
   peakPower: 2,
   peakFloor: 0,
 };
+
+const DEFAULT_STAMP_RADIUS_BASE = 10;
+const DEFAULT_STAMP_RADIUS_SPAN = 28;
+const DEFAULT_BLUR_PASS_1 = 5;
+const DEFAULT_BLUR_PASS_2 = 3;
 
 /**
  * Stamp peak from intensity: floor + (1 − floor) × intensity^power.
@@ -92,6 +106,13 @@ export function createPainHeatTexture(
   points: PainPoint[],
   buildParams: HeatMapBuildParams = DEFAULT_HEAT_MAP_BUILD,
 ): THREE.DataTexture {
+  const stampRadiusBase =
+    buildParams.stampRadiusBase ?? DEFAULT_STAMP_RADIUS_BASE;
+  const stampRadiusSpan =
+    buildParams.stampRadiusSpan ?? DEFAULT_STAMP_RADIUS_SPAN;
+  const blurPass1Radius = buildParams.blurPass1Radius ?? DEFAULT_BLUR_PASS_1;
+  const blurPass2Radius = buildParams.blurPass2Radius ?? DEFAULT_BLUR_PASS_2;
+
   const heatAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
 
   for (const p of points) {
@@ -100,7 +121,9 @@ export function createPainHeatTexture(
     const { cx, cy } = texel;
     // Rendering-only clamp: does not modify PainPoint.intensity (Pattern 19 — adapter stores API value as-is).
     const inten = THREE.MathUtils.clamp(p.intensity, 0, 1);
-    const radiusPx = Math.round(10 + 28 * (0.25 + 0.75 * inten));
+    const radiusPx = Math.round(
+      stampRadiusBase + stampRadiusSpan * (0.25 + 0.75 * inten),
+    );
     const peak = heatStampPeak(inten, buildParams);
 
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
@@ -119,19 +142,33 @@ export function createPainHeatTexture(
     }
   }
 
-  let smoothed = boxBlurHeat(heatAcc, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, 5);
-  smoothed = boxBlurHeat(smoothed, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, 3);
+  // Explicit Float32Array: heatAcc is ArrayBuffer-backed; blur returns ArrayBufferLike under TS 5.7+.
+  let smoothed: Float32Array = heatAcc;
+  if (blurPass1Radius > 0) {
+    smoothed = boxBlurHeat(
+      smoothed,
+      SCAR_MAP_WIDTH,
+      SCAR_MAP_HEIGHT,
+      blurPass1Radius,
+    );
+  }
+  if (blurPass2Radius > 0) {
+    smoothed = boxBlurHeat(
+      smoothed,
+      SCAR_MAP_WIDTH,
+      SCAR_MAP_HEIGHT,
+      blurPass2Radius,
+    );
+  }
 
   let maxHeat = 0;
   for (let i = 0; i < smoothed.length; i++) {
     maxHeat = Math.max(maxHeat, smoothed[i]!);
   }
-  const norm = maxHeat > 1e-6 ? 1 / maxHeat : 1;
-
   const bytes = new Uint8Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
   for (let i = 0; i < smoothed.length; i++) {
     bytes[i] = Math.round(
-      THREE.MathUtils.clamp(smoothed[i]! * norm, 0, 1) * 255,
+      THREE.MathUtils.clamp(smoothed[i]!, 0, 1) * 255,
     );
   }
 

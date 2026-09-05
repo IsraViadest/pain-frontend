@@ -10,17 +10,18 @@
   padding: 20px;
   pointer-events: none !important;
   opacity: 0;
-  transition: opacity 300ms ease;
 }
 
 .survey-modal--visible {
   opacity: 1;
   pointer-events: auto !important;
+  transition: opacity 300ms ease;
 }
 
 .survey-modal--closing {
   opacity: 0;
   pointer-events: none !important;
+  transition: opacity 300ms ease;
 }
 
 .survey-modal__panel {
@@ -103,6 +104,13 @@
   font-weight: normal;
   line-height: 1.35;
   color: #07153b;
+}
+
+.survey-screen__title-hint {
+  display: block;
+  font-size: 0.85em;
+  opacity: 0.7;
+  margin-top: 4px;
 }
 
 .survey-screen__bubble-field {
@@ -219,6 +227,44 @@
   color: #ffffff;
 }
 
+.survey-bubble--placed {
+  opacity: 0.4; /* dimmed — word already placed on the map (Screen 2) */
+}
+
+.survey-screen__validation-msg {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  bottom: 14px;
+  margin: 0;
+  text-align: center;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.75rem, 1.4vw, 0.9rem);
+  font-weight: normal;
+  line-height: 1.3;
+  color: #07153b;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.survey-screen__validation-msg--visible {
+  opacity: 1;
+}
+
+.survey-screen__advance-wrapper {
+  display: inline-block;
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  z-index: 3;
+}
+
+.survey-screen__advance-wrapper .survey-screen__advance {
+  position: static;
+}
+
 .survey-screen__advance {
   position: absolute;
   right: 8px;
@@ -230,13 +276,19 @@
   background: rgba(7, 21, 59, 0.88);
   color: #ffffff;
   font-size: 1.6rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(7, 21, 59, 0.22);
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
 }
 
-.survey-screen__advance:hover {
+.survey-screen__advance:disabled {
+  pointer-events: none;
+}
+
+.survey-screen__advance:hover:not(:disabled) {
   transform: translateX(2px);
   background: #07153b;
 }
@@ -246,10 +298,32 @@
   outline-offset: 2px;
 }
 
+/* Screen 1 — word bubble selection */
+
+@media (min-width: 769px) {
+  .survey-screen--1 {
+    padding-bottom: 52px;
+  }
+}
+
 /* Screen 2 — world map placement */
 
 .survey-screen--2 {
   padding-bottom: 72px;
+}
+
+@media (min-width: 769px) {
+  .survey-screen--2 .survey-screen__tray {
+    margin-left: 0;
+    margin-right: 0;
+    align-self: center;
+  }
+
+  .survey-screen--2 .survey-screen__map-wrap {
+    margin-left: 0;
+    margin-right: 0;
+    align-self: center;
+  }
 }
 
 .survey-screen__map-wrap {
@@ -260,6 +334,7 @@
   align-items: center;
   justify-content: center;
   margin: 0 4px 8px;
+  background: rgba(30, 40, 100, 0.05); /* title blue at 5% opacity — marks the placeable map area */
 }
 
 .survey-screen__map {
@@ -318,6 +393,29 @@
   pointer-events: none;
 }
 
+/* inverted palette: dark blue fill, off-white text — matches survey-bubble--selected on Screen 1 */
+.survey-map-pin.survey-map__bubble--selected {
+  /* two stacked shadows for a dense opaque glow — single shadow is too transparent at map scale */
+  filter: drop-shadow(0 0 2px #07153b) drop-shadow(0 0 4px #07153b);
+}
+
+.survey-map-pin.survey-map__bubble--selected .survey-map-pin__label {
+  color: #f7f8fc;
+}
+
+.survey-map-pin.survey-map__bubble--selected .survey-map-pin__dot {
+  background: #f7f8fc;
+}
+
+.survey-screen__tap-hint {
+  margin: 0 0 6px;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  color: #07153b;
+  opacity: 0.65;
+  text-align: center;
+}
+
 .survey-screen__tray {
   display: flex;
   flex-direction: row;
@@ -371,6 +469,15 @@
   cursor: grabbing;
 }
 
+/* inverted palette: dark blue fill, off-white text — matches survey-bubble--selected on Screen 1 */
+.survey-map__bubble--selected .survey-bubble__path {
+  fill: #07153b;
+}
+
+.survey-map__bubble--selected .survey-bubble__label {
+  color: #f7f8fc;
+}
+
 .survey-tray-bubble .survey-bubble__label {
   font-size: clamp(0.72rem, 1.2vw, 0.88rem);
   white-space: nowrap;
@@ -387,7 +494,9 @@
   background: rgba(7, 21, 59, 0.88);
   color: #ffffff;
   font-size: 1.6rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(7, 21, 59, 0.22);
   transition: transform 0.2s ease, background 0.2s ease;
@@ -449,6 +558,75 @@
 .survey-screen--4 .survey-bubble__label {
   font-size: clamp(1.1rem, 2vw, 1.4rem);
   white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  /* Reduced from 36px desktop size to avoid overlapping modal titles on small screens. */
+  .survey-modal__close {
+    width: 24px;
+    height: 24px;
+  }
+
+  .survey-screen__tap-hint {
+    font-size: clamp(0.84rem, 2.4vw, 1.02rem); /* ×1.2 scale matching tray label sizing on mobile */
+  }
+
+  .survey-screen__title-hint {
+    font-size: 0.95em; /* slightly larger than desktop 0.85em for mobile legibility */
+  }
+
+  .survey-screen__bubble-field,
+  .survey-screen__temporality-field {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+    align-content: flex-start;
+    overflow-y: auto;
+    height: auto;
+    max-height: 65vh;
+    min-height: unset;
+  }
+
+  .survey-screen__bubble-field .survey-bubble-anchor,
+  .survey-screen__temporality-field .survey-bubble-anchor {
+    position: relative;
+    left: unset !important;
+    top: unset !important;
+    transform: none !important;
+  }
+
+  .survey-screen__tray {
+    margin: 0 5px 4px;
+    max-height: none;
+    flex-wrap: wrap;
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: 80px;
+  }
+
+  .survey-screen--2 .survey-screen__map-wrap {
+    flex: 0 1 auto;
+    align-self: center;
+  }
+
+  .survey-screen--2 .survey-screen__tray {
+    flex: 1;
+    justify-content: flex-start;
+    align-content: flex-start;
+  }
+
+  .survey-screen--2 .survey-screen__tray .survey-tray-bubble {
+    /* base values (72px, 0.55rem 0.85rem) scaled ×1.2 for larger tap targets on mobile */
+    min-width: 86.4px;
+    padding: 0.66rem 1.02rem;
+    /* Allow vertical tray scroll while preserving tap-to-select; desktop keeps touch-action: none. */
+    touch-action: pan-y;
+  }
+
+  .survey-screen--2 .survey-screen__tray .survey-tray-bubble .survey-bubble__label {
+    font-size: clamp(0.86rem, 1.44vw, 1.06rem); /* base clamp(0.72rem, 1.2vw, 0.88rem) scaled ×1.2 */
+  }
 }
 
 /* Screen 5 — pain description and submit */
@@ -565,15 +743,20 @@
 }
 
 .survey-result-modal__close {
+  display: block;
+  margin-top: 16px;
   font-family: "Hypodermic", sans-serif;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
   background: none !important;
   border: none !important;
   -webkit-appearance: none;
   appearance: none;
-  color: rgba(255, 255, 255, 0.8);
+  color: #07153b;
   cursor: pointer;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
+  width: 100%;
+  text-align: center;
   padding: 4px 12px;
 }
 
@@ -600,4 +783,111 @@
   font-family: "Hypodermic", sans-serif;
   font-size: clamp(0.9rem, 1.8vw, 1.05rem);
   color: #07153b;
+}
+
+/* Survey consent modal — visual language matches info modal (z-index 6). */
+
+.consent-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.consent-modal--visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.consent-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 8, 0.55);
+}
+
+.consent-modal__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 48px));
+  max-height: min(72vh, 560px);
+  padding: 28px 36px;
+  border-radius: 28px;
+  background: rgba(171, 172, 192, 0.95);
+  box-shadow:
+    0 0 48px rgba(59, 105, 204, 0.28),
+    0 18px 50px rgba(7, 21, 59, 0.12);
+  overflow-y: auto;
+  text-align: left;
+}
+
+.consent-modal__title {
+  margin: 0 0 16px;
+  font-family: "Atelier", serif;
+  font-size: clamp(1.35rem, 2.8vw, 1.75rem);
+  font-weight: normal;
+  letter-spacing: 0.06em;
+  color: #07153b;
+}
+
+.consent-modal__subheading {
+  margin: 20px 0 12px;
+  font-family: "Atelier", serif;
+  font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  color: #07153b;
+}
+
+.consent-modal__body {
+  margin: 0;
+  font-family: "Apercu Pro", sans-serif;
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  line-height: 1.6;
+  color: #07153b;
+}
+
+.consent-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.consent-modal__btn {
+  font-family: "Apercu Pro", sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  padding: 10px 18px;
+  border-radius: 999px;
+}
+
+.consent-modal__btn--decline {
+  background: none;
+  border: none;
+  color: #07153b;
+}
+
+.consent-modal__btn--decline:hover {
+  text-decoration: underline;
+}
+
+.consent-modal__btn--agree {
+  border: none;
+  background: #07153b;
+  color: #ffffff;
+}
+
+.consent-modal__btn--agree:hover {
+  background: #0c2260;
 }
