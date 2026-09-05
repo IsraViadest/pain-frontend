@@ -32,7 +32,7 @@ function getLegendHost(): HTMLElement | null {
 }
 
 /**
- * Desktop: center `#ui-legend` under `#ui-title`. Mobile: clear inline left.
+ * Desktop: center `#ui-legend` under `.ui-title__heading` (“P.A.I.N.”). Mobile: clear inline left.
  */
 function positionLegendUnderTitle(): void {
   const host = getLegendHost();
@@ -41,9 +41,10 @@ function positionLegendUnderTitle(): void {
     host.style.left = "";
     return;
   }
-  const titleEl = document.getElementById("ui-title");
-  if (!titleEl) return;
-  host.style.left = `${TITLE_INSET_LEFT_PX + titleEl.offsetWidth / 2 - host.offsetWidth / 2}px`;
+  const headingEl = document.querySelector<HTMLElement>(".ui-title__heading");
+  if (!headingEl) return;
+  // Title block is at left: 20px; heading.offsetLeft is relative to #ui-title.
+  host.style.left = `${TITLE_INSET_LEFT_PX + headingEl.offsetLeft + headingEl.offsetWidth / 2 - host.offsetWidth / 2}px`;
 }
 
 function ensureLegendResizeListener(): void {
