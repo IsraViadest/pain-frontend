@@ -179,6 +179,7 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
     showSurveyResultModal(overlayHost, {
       lat: resultLat,
       lng: resultLng,
+      message: res.text,
       onClose: () => {
         removeSurfaceMarker();
         hideSurveyResultModal();
