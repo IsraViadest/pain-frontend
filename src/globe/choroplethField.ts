@@ -356,11 +356,10 @@ export function createCountryHighlightTexture(
     for (const marker of discs) traceMarker(ctx, marker, markerRadiusDeg, w, h, (p) => p.stroke());
   }
 
-  let bytes: Uint8Array;
+  let bytes: Uint8Array | undefined;
   if (strengths) {
     // Rasterize each strength once, then take maximum alpha. Shared borders and overlapping
     // waves cannot gain brightness through repeated source-over compositing.
-    bytes = new Uint8Array(w * h * 4);
     const weights = new Set([
       ...matches.map((c) => strengths.get(c.key) ?? 1), ...discs.map((d) => d.strength ?? 1),
     ]);
@@ -400,7 +399,20 @@ export function createCountryHighlightTexture(
         ctx.stroke();
       }
       const { data } = ctx.getImageData(0, 0, w, h);
+      if (!bytes) {
+        // ImageData is already an independent snapshot. Reuse its storage for the first group.
+        bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+        if (weight >= 1) continue;
+        for (let i = 3; i < bytes.length; i += 4) {
+          if (bytes[i] === 0) continue;
+          const alpha = Math.round(bytes[i]! * weight);
+          bytes[i] = alpha;
+          if (alpha === 0) bytes[i - 3] = bytes[i - 2] = bytes[i - 1] = 0;
+        }
+        continue;
+      }
       for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] === 0) continue;
         const alpha = Math.round(data[i + 3]! * Math.min(1, weight));
         if (alpha <= bytes[i + 3]!) continue;
         bytes[i] = data[i]!;
@@ -411,10 +423,10 @@ export function createCountryHighlightTexture(
     }
   } else {
     const { data } = ctx.getImageData(0, 0, w, h);
-    bytes = new Uint8Array(data.buffer.slice(0));
+    bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
   }
   const tex = new THREE.DataTexture(
-    bytes as unknown as ArrayBufferView<ArrayBuffer>,
+    (bytes ?? new Uint8Array(w * h * 4)) as unknown as ArrayBufferView<ArrayBuffer>,
     w,
     h,
     THREE.RGBAFormat,

@@ -441,6 +441,15 @@ data. Cleanup is limited to task-owned temporaries.
   with unchanged complete shader-feature sets. All-pain was 858 ms before Phase 19. No network
   requests are involved. The remaining layer fade and stamping costs are included in these times.
 
+- 2026-09-05: Highlight painting now reuses the first ImageData snapshot's storage. It avoids
+  a separate 8 MiB output allocation and skips the full merge for a single full-strength group.
+  The six actual-geography RGBA hashes match the prior implementation exactly. Median CPU times:
+  origin 10.6 to 6.8 ms, half-strength category 16.7 to 14.6, all-1 category 9.1 to 4.4,
+  exact country 8.8 to 4.4, legacy 5.6 to 4.4. Shared borders, role swaps, exact countries and
+  centroid markers pass the existing behavior probe. Upload size remains 8 MiB; no GPU speedup
+  is inferred from these CPU measurements. A willReadFrequently canvas trial changed the RGBA
+  outputs without a consistent timing win and was reverted. No extra canvas cache was added.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
