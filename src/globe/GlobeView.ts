@@ -47,6 +47,10 @@ import {
   SCAR_OVERLAY_SURFACE_BIAS,
 } from "./scarDisplacement";
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
+import {
+  stipplePointScaleAtCameraDistance,
+  type StipplePointTune,
+} from "./stipplePointScale";
 
 export type { Co2HazeTune };
 
@@ -555,6 +559,7 @@ export class GlobeView {
   private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
   /** Pain marker material / size (debug panel Markers section). */
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+  private stipplePointTune: StipplePointTune = { scale: 1, nearBoost: 0 };
   /**
    * When false (production default), point markers stay disposed.
    * Debug panel “Show point markers” sets this so points-mode rebuild can run.
@@ -974,6 +979,20 @@ export class GlobeView {
    */
   setTempHeatTune(partial: Partial<TempHeatTune>): void {
     this.tempHeatTune = { ...this.tempHeatTune, ...partial };
+  }
+
+  setStipplePointTune(partial: Partial<StipplePointTune>): void {
+    this.stipplePointTune = { ...this.stipplePointTune, ...partial };
+    this.applyStipplePointScale();
+  }
+
+  private applyStipplePointScale(): void {
+    if (!this.pointsMaterial) return;
+    this.pointsMaterial.uniforms.uPointScale.value =
+      stipplePointScaleAtCameraDistance(
+        this.camera.position.length(),
+        this.stipplePointTune,
+      );
   }
 
   /** Rebuild Temperature haze shell from {@link lastPainPoints} and current temp tune. */
@@ -2607,6 +2626,7 @@ export class GlobeView {
     if (this.pointsMaterial) {
       this.pointsMaterial.uniforms.uPixelRatio.value =
         this.renderer.getPixelRatio();
+      this.applyStipplePointScale();
     }
     this.renderer.render(this.scene, this.camera);
   }

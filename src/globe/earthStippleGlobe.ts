@@ -32,6 +32,7 @@ varying float vFresnel;
 varying float vFacing;
 varying vec2 vHeatUv;
 uniform float uPixelRatio;
+uniform float uPointScale;
 uniform float uOceanPointScale;
 uniform sampler2D uScarMap;
 uniform float uScarDispScale;
@@ -85,7 +86,7 @@ void main() {
   // Same screen size for land and ocean so scar dents read equally on both (large land
   // sprites previously hid deformation and looked like a separate shell).
   float baseSize = sizeByView * 0.72;
-  gl_PointSize = baseSize * uPixelRatio;
+  gl_PointSize = baseSize * uPixelRatio * uPointScale;
   gl_Position = projectionMatrix * mvPosition;
 }
 `;
@@ -334,6 +335,7 @@ export async function createEarthStippleGlobe(
       uOceanAlphaMin: { value: 0.32 },
       uOceanPointScale: { value: 1 },
       uPixelRatio: { value: initialPixelRatio },
+      uPointScale: { value: 1 },
       uScarMap: { value: neutralScarTexture },
       uScarDispScale: { value: 0 },
       uScarDispBias: { value: 0 },
