@@ -515,6 +515,16 @@ data. Cleanup is limited to task-owned temporaries.
   role swaps and the single retained GPU texture still pass. The fixed source now needs its own
   final 30-minute run. No shader warmup, scratch-canvas cache or new rendering path was required.
 
+- 2026-09-05: Final accounting also reserves the weighted highlight's second 8 MiB readback,
+  beyond the single read used by the legacy control. Conservative Light/Standard/Rich maxima
+  are now 61.7/71.6/95.5 MiB, still below 64/128/128 MiB. The bound is derived from the actual
+  highlight dimensions and covered by the quality check. The second soak was deliberately
+  stopped at 876.9 seconds for this accounting correction; before that intervention it completed
+  3,584 visits and 18 wraps with stable resources and no application errors. Its expected Stop
+  failure is not counted as a passed soak. The final source will receive a complete replacement.
+  A long-native-term check also selected Lithuania: the term extends 93 px beyond its card as
+  intended, stays within the viewport and has no background-label collision at the checked view.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

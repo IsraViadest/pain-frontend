@@ -10,6 +10,7 @@ import {
   aggregateChoroplethValues,
   createChoroplethTexture,
   ensureChoroplethCountriesLoaded,
+  HIGHLIGHT_GROUP_BYTES,
 } from "./choroplethField";
 import {
   createEarthStippleGlobe,
@@ -2687,8 +2688,10 @@ export class GlobeView {
     const geography = this.displayGeographyStorageBytes;
     // Reserve the synchronous blur's additional scratch even between rebuilds.
     const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
-    return { surface, borders, stipple, atmosphere, geography, fieldScratch,
-      total: surface + borders + stipple + atmosphere + geography + fieldScratch };
+    // Origin/peer painting can read two weight groups; legacy painting reads only one.
+    const highlightScratch = HIGHLIGHT_GROUP_BYTES;
+    return { surface, borders, stipple, atmosphere, geography, fieldScratch, highlightScratch,
+      total: surface + borders + stipple + atmosphere + geography + fieldScratch + highlightScratch };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */

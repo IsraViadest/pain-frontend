@@ -232,6 +232,7 @@ export function createChoroplethTexture(
  */
 const HIGHLIGHT_MAP_WIDTH = 2048;
 const HIGHLIGHT_MAP_HEIGHT = 1024;
+export const HIGHLIGHT_GROUP_BYTES = HIGHLIGHT_MAP_WIDTH * HIGHLIGHT_MAP_HEIGHT * 4;
 
 /** Trace every ring, outer and holes alike: a hole's edge is a border too. */
 function strokeGeometry(
