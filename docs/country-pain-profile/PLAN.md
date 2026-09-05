@@ -783,6 +783,11 @@ selection against `v6-control_smooth-field` differed by at most 2 of 255, with z
 and mean delta 0.0278. The opening `v1-control_literal-row` also replayed with its literal-row
 layout, India, and all four indicators intact.
 
+A final single-layer geometry check found that the Emotional Pain item inherited the selected
+all-pain row's left alignment inside a centred 210 px container. India's native term was therefore
+50 px left of the screen centre. The single-layer rule now centres that content like the other
+three single indicators; all-pain keeps its selected left alignment.
+
 Exit: all acceptance criteria pass, both repositories are clean, and all verified work is committed.
 
 ## 9. Verification Matrix
