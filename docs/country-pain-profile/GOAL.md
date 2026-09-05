@@ -114,8 +114,8 @@ worktrees are clean, and all accepted work is committed.
 
 - [ ] Phase 0 baseline and upstream reconciliation complete.
 - [x] Country geometry, aggregation, missingness, and data semantics verified.
-- [ ] One authoritative selection and metrics path verified in every layer.
-- [ ] Profile rounds completed and one design adopted.
+- [x] One authoritative selection and metrics path verified in every layer.
+- [x] Opening profile round completed and one structural design adopted.
 - [ ] Layer transitions, responsive layout, and accessibility verified.
 - [ ] Presentation state machine and real timing verified.
 - [ ] Physical and environmental rounds completed.
@@ -179,3 +179,9 @@ question and delegated visual round selection to Codex.
 - 2026-09-05: Phase 2, setup portability slice complete in `pain-setup` commit `20b7c76` on
   `fix/powershell-metrics-text`. The PowerShell toggle-metrics table now uses the same TEXT columns
   as Bash. PowerShell parsing and `docker compose config --quiet` passed. No database command ran.
+- 2026-09-05: Phases 2 and 3 complete. The profile persisted through all four single layers, each
+  showed only its relevant indicator, all-pain restored all four, and repeat India hid the card and
+  network together. All 29 no-polygon labels exist; Singapore showed explicit unavailable signals.
+  Opening candidates remain URL-addressable. Codex selected `v1-a_quiet-row` after desktop, phone,
+  theme, missing-data, Arabic, long-name, accessibility, and chrome-overlap checks. Sixteen bounded
+  category metric rows were written by browser verification and left intact. No gallery was made.

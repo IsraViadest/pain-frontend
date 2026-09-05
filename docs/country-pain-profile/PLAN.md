@@ -444,6 +444,26 @@ Verify real label clicks, polygon clicks, empty-globe clear, repeat clear, layer
 
 Exit: all human selection routes agree and metrics state matches the painted profile state.
 
+#### Phase 2 evidence, 2026-09-05
+
+- The state check covers human open, replacement, close, inert same-country selection, unknown ISO3,
+  automated selection, and automated takeover of a tracked human selection.
+- `?cp=1` loads `runtime.ts`, `data.ts`, and `selection.ts`; ordinary `?ev=2` loads none of them.
+- The built lazy profile code is 3.77 kB gzip JavaScript plus 1.40 kB gzip CSS. The default entry
+  grew by 1.61 kB gzip from the Phase 0 baseline.
+- A live label, layer, surface, return, and clear sequence wrote India on/off and Moldova on/off.
+  Switching to Environmental Pain wrote no country close.
+- A later painted-profile pass retained India while each single layer showed exactly its one
+  indicator, then showed all four in all-pain. A second India click hid the card and cleared the
+  emotional emphasis together.
+- All 29 no-polygon countries have live label elements. Singapore was clicked directly and showed
+  explicit unavailable spatial signals plus its available socioeconomic value.
+- Browser testing has written 16 bounded `kind=category` metric rows. They remain in the database.
+- `pain-setup` commit `20b7c76` aligns fresh PowerShell installs with the Bash TEXT schema. Its
+  PowerShell parse and Compose configuration checks passed.
+
+Phase 2 exit passes.
+
 ### Phase 3: Opening country-profile design round
 
 Build the literal specification as a control and three structurally different candidates:
@@ -474,6 +494,26 @@ Inspect representative long and short country names, RTL and multi-script emotio
 low values, missing values, and both themes. Choose and record the winner.
 
 Exit: one opening design is selected and all candidates remain URL-addressable.
+
+#### Opening round v1 evidence, 2026-09-05
+
+| Candidate | Result |
+|---|---|
+| `v1-control_literal-row` | Clear, but the emotional term lacks hierarchy |
+| `v1-a_quiet-row` | Best hierarchy and spacing; selected |
+| `v1-b_constellation` | Absolute positions collide with changing globe text |
+| `v1-c_typographic-anchor` | Compact, but crowds the lower-left controls |
+
+`v1-a_quiet-row` is the base for round 2. The final desktop profile rectangle is 760 by 136 px and
+does not intersect the title, layer stack, share button, or bottom-left controls. At 393 by 852 it
+is 361 by 134 px, leaves a 26 px vertical gap above the share button, and creates no horizontal
+overflow. Blue and dark themes, India, Singapore, and United Arab Emirates were inspected. Arabic
+shaping and the long English name fit; the English secondary term now matches the existing
+emotional category label. The accessibility tree exposes normalized values and source-point counts.
+No PNG gallery was created; inspection used inline Computer Use screenshots.
+
+Phase 3 exit passes. Phase 4 opens spacing, fade transitions, and single-layer composition from
+the selected quiet-row base.
 
 ### Phase 4: Layer composition and transition rounds
 
