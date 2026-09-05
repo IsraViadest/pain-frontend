@@ -70,6 +70,7 @@ import {
 } from "./emo/emoViewConfig";
 import { findEmoPreset, type EmoPreset } from "./emo/viewPresets";
 import { mountEmoViewPanel } from "./ui/emoViewPanel";
+import type { CountryProfileRuntime } from "./countryProfile/runtime";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -466,8 +467,13 @@ const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
   socioecopain: "#FFFF00",
 };
 
-// --- emotional-pain label views (opt-in: ?ev=1 or localStorage pain-emo-views=1) ---
-const emoViewsEnabled = shouldShowEmoViews();
+// The country profile is its own experiment, but it reuses the chosen emotional view without
+// exposing the old views panel. Its implementation stays behind a dynamic import below.
+const countryProfileEnabled = ["1", "true"].includes(
+  new URLSearchParams(window.location.search).get("cp") ?? "",
+);
+const emoViewControlsEnabled = shouldShowEmoViews();
+const emoViewsEnabled = emoViewControlsEnabled || countryProfileEnabled;
 const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
 const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
 const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
@@ -482,6 +488,8 @@ const emoView = resolveEmoViewFromUrl();
 let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 let emoParams = emoView.params;
 let emoPanel: { setParam: (key: "randomSeed", value: number) => void } | null = null;
+let countryProfileRuntime: CountryProfileRuntime | null = null;
+let preserveCountryProfileOnEmoClear = false;
 
 /**
  * Show the DOM label views for the emotional layer and for all-layers mode, and suppress the
@@ -502,7 +510,12 @@ function syncEmoLayer(layerId: string): void {
   // marking countries on an environmental or physical globe that never asked for it. Coming back
   // therefore starts clean, and the country has to be clicked again.
   if (!active || sprites) {
-    emoLabelLayer?.clearSelection();
+    preserveCountryProfileOnEmoClear = true;
+    try {
+      emoLabelLayer?.clearSelection();
+    } finally {
+      preserveCountryProfileOnEmoClear = false;
+    }
     // Snap rather than ease. A layer switch is not a gesture on the globe, and easing it would
     // leave a half-sunk world on screen for anyone who switched back inside the transition.
     emoMotion?.reset();
@@ -532,10 +545,42 @@ function setEmoPanelOpen(open: boolean): void {
   emoPanelToggle.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
-if (emoViewsEnabled && emoPanelHost && emoPanelToggle) {
+if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {
   emoPanelToggle.hidden = false;
   emoPanelToggle.title = "Toggle emotional pain label views ([ and ] step between them)";
   emoPanelToggle.addEventListener("click", () => setEmoPanelOpen(emoPanelHost.hidden));
+}
+
+function handleCountrySurfaceClick(clientX: number, clientY: number): void {
+  const runtime = countryProfileRuntime;
+  if (!runtime) return;
+  const surface = globe.pickSurfaceLatLng(clientX, clientY);
+  const iso3 = surface ? runtime.countryAt(surface.lat, surface.lng) : null;
+  const emotionalLayer = lastLayerId === "emopain" || lastLayerId === "all-layers";
+
+  if (!iso3) {
+    if (emotionalLayer) emoLabelLayer?.clearSelection();
+    runtime.clear(true);
+    return;
+  }
+  if (!emotionalLayer) {
+    runtime.toggle(iso3, true);
+    return;
+  }
+  if (runtime.selectedIso3 === iso3) emoLabelLayer?.clearSelection();
+  else emoLabelLayer?.selectCountry(iso3);
+}
+
+async function ensureCountryProfileRuntime(): Promise<void> {
+  if (!countryProfileEnabled || countryProfileRuntime) return;
+  const { CountryProfileRuntime } = await import("./countryProfile/runtime");
+  countryProfileRuntime = await CountryProfileRuntime.create(pointCache, (change) => {
+    console.info(
+      "[countryProfile]",
+      change.action,
+      change.profile?.iso3 ?? change.previousIso3,
+    );
+  });
 }
 
 /**
@@ -673,6 +718,7 @@ async function handleAllLayers(): Promise<void> {
   }
   const allPoints: PainPoint[] = [...cachedPoints, ...fetchedLists.flat()];
   globe.setMarkers(allPoints);
+  await ensureCountryProfileRuntime();
   syncWordCloudToggle();
   setStatus(
     `${allPoints.length} point(s) across ${cachedLayers.length} layer(s) — all visuals`,
@@ -750,7 +796,7 @@ function loop(): void {
 
 (async () => {
   initBackgroundMusic();
-  if (emoViewsEnabled && emoLabelHost && emoPanelHost && emoPanelToggle) {
+  if (emoViewsEnabled && emoLabelHost) {
     try {
       emoMotion = createEmoSelectionMotion({ data: await loadEmoData(), params: emoView.params });
       emoLabelLayer = await createEmoLabelLayer({
@@ -768,9 +814,14 @@ function loop(): void {
           emoArcLayer?.setSelectedCategory(selection?.cat ?? null, selection?.iso3 ?? null);
           emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
           emoLegend?.setSelectedCategory(selection?.cat ?? null);
+          if (!preserveCountryProfileOnEmoClear) {
+            if (selection) countryProfileRuntime?.select(selection.iso3, true);
+            else countryProfileRuntime?.clear(true);
+          }
           // The leader lines are not told directly: they follow the motion, which is the one
           // signal all three layers share, so they cannot disagree about what is selected.
         },
+        onCanvasMiss: countryProfileEnabled ? handleCountrySurfaceClick : undefined,
         // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
         onReshuffle: () => {
           emoPanel?.setParam("randomSeed", (Math.round(emoParams.randomSeed) % 200) + 1);
@@ -812,23 +863,25 @@ function loop(): void {
       }
       syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);
-      emoPanel = mountEmoViewPanel(emoPanelHost, {
-        initialPresetId: emoView.presetId,
-        initialParams: emoView.params,
-        onChange: (preset, params) => {
-          emoPreset = preset;
-          emoParams = params;
-          emoLabelLayer?.setParams(params);
-          emoArcLayer?.setParams(params);
-          emoLeaderLineLayer?.setParams(params);
-          emoSelectionLayer?.setParams(params);
-          emoLegend?.setParams(params);
-          emoMotion?.setParams(params);
-          syncEmoLayer(lastLayerId);
-        },
-        onMinimise: () => setEmoPanelOpen(false),
-      });
-      setEmoPanelOpen(shouldOpenEmoPanel());
+      if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {
+        emoPanel = mountEmoViewPanel(emoPanelHost, {
+          initialPresetId: emoView.presetId,
+          initialParams: emoView.params,
+          onChange: (preset, params) => {
+            emoPreset = preset;
+            emoParams = params;
+            emoLabelLayer?.setParams(params);
+            emoArcLayer?.setParams(params);
+            emoLeaderLineLayer?.setParams(params);
+            emoSelectionLayer?.setParams(params);
+            emoLegend?.setParams(params);
+            emoMotion?.setParams(params);
+            syncEmoLayer(lastLayerId);
+          },
+          onMinimise: () => setEmoPanelOpen(false),
+        });
+        setEmoPanelOpen(shouldOpenEmoPanel());
+      }
     } catch (e) {
       console.error("[main] emo label views failed to start", e);
     }

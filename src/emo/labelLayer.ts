@@ -163,6 +163,8 @@ export async function createEmoLabelLayer(options: {
    * because it owns the click; the arc layer and the country fill are told through this.
    */
   onSelect?: (selection: EmoSelection | null) => void;
+  /** Fired for a click on the canvas that did not land on a painted label. */
+  onCanvasMiss?: (clientX: number, clientY: number) => void;
   /** Fired when `clickMode: "reshuffleNetwork"` asks for a different random world network. */
   onReshuffle?: () => void;
 }): Promise<EmoLabelLayer> {
@@ -346,7 +348,8 @@ export async function createEmoLabelLayer(options: {
     if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
     const entry = labelAt(ev.clientX, ev.clientY);
     if (!entry) {
-      if (params.clickMode === "selectNetwork") clearSelection();
+      if (options.onCanvasMiss) options.onCanvasMiss(ev.clientX, ev.clientY);
+      else if (params.clickMode === "selectNetwork") clearSelection();
       return;
     }
     if (params.clickMode === "toggleLanguage") {

@@ -5,8 +5,7 @@ export const METRICS_KIND_LAYER = "layer" as const;
 export const METRICS_KIND_WORD = "word" as const;
 export const METRICS_KIND_TEMPORALITY = "temporality" as const;
 export const METRICS_KIND_RELATION = "relation" as const;
-// Defined but not exported yet — no call sites. Export once subcategory tracking is implemented.
-const METRICS_KIND_CATEGORY = "category" as const;
+export const METRICS_KIND_CATEGORY = "category" as const;
 
 type MetricsToggleKind =
   | typeof METRICS_KIND_LAYER
@@ -69,9 +68,7 @@ function postMetrics(path: string, body: MetricsPostBody): void {
  * POST `/metrics/toggle` — fire-and-forget; mock-mode no-op; never throws.
  *
  * @param kind — toggle category ({@link METRICS_KIND_LAYER}, {@link METRICS_KIND_WORD}, etc.).
- * @param element — not an arbitrary string: layer ids from GET `/init`, survey words from
- *   `SURVEY_WORDS`, temporality from `SURVEY_TEMPORALITY_OPTIONS`, relations from
- *   `SURVEY_RELATIONS_OPTIONS`.
+ * @param element is a known layer id, survey option, or `ISO3:English name` country profile.
  * @param enabled — whether the element is toggled on or off.
  */
 export function trackToggle(

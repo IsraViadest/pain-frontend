@@ -169,3 +169,10 @@ question and delegated visual round selection to Codex.
   open, change, and close; emits balanced metrics for human actions; suppresses automated-tour
   country metrics; closes a still-open human metric on automated takeover; and refuses unknown
   ISO3 values. Its focused check and `npm run check` passed. Browser routing is next.
+- 2026-09-05: Phase 2, browser-routing slice ready. `?cp=1` loads a separate 1.38 kB gzip runtime
+  chunk and reuses `v14-a_base` without exposing the old views toggle; a normal `?ev=2` load fetched
+  no country-profile module. A live label, layer, surface, return, and clear sequence wrote exactly
+  India on/off and Moldova on/off metrics, with no close on the layer switch. The intended Austria
+  surface probe actually hit Moldova because a raised label's screen point is not its ground ray;
+  the recorded ISO confirms the exact polygon path rather than the harness label. The full gate
+  passed. The default entry grew 1.29 kB gzip, within the 30 kB budget.

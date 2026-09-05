@@ -1,0 +1,88 @@
+import { METRICS_KIND_CATEGORY, trackToggle } from "../api/metricsApi";
+import { loadEmoData } from "../emo/emoData";
+import {
+  ensureCountryGeometriesLoaded,
+  findCountryInGeometries,
+  getCountryGeometries,
+} from "../globe/countryGeometry";
+import type { PainPoint } from "../types/api";
+import { buildCountryPainProfiles, type CountryPainProfile } from "./data";
+import {
+  CountrySelectionController,
+  type CountrySelectionChange,
+} from "./selection";
+
+const ENVIRONMENTAL_LAYER = "envpain";
+const PHYSICAL_LAYER = "physpain";
+const SOCIOECONOMIC_LAYER = "socioecopain";
+
+function requireLayer(
+  pointsByLayer: ReadonlyMap<string, readonly PainPoint[]>,
+  layerId: string,
+): readonly PainPoint[] {
+  const points = pointsByLayer.get(layerId);
+  if (!points) throw new Error(`Country profile requires cached layer: ${layerId}`);
+  return points;
+}
+
+/** Lazy runtime behind `?cp=1`; owns profile data and global country selection. */
+export class CountryProfileRuntime {
+  readonly profiles: ReadonlyMap<string, CountryPainProfile>;
+  private readonly selection: CountrySelectionController;
+
+  private constructor(
+    profiles: ReadonlyMap<string, CountryPainProfile>,
+    onChange: (change: CountrySelectionChange) => void,
+  ) {
+    this.profiles = profiles;
+    this.selection = new CountrySelectionController(
+      profiles,
+      onChange,
+      (profile, enabled) => {
+        trackToggle(
+          METRICS_KIND_CATEGORY,
+          `${profile.iso3}:${profile.countryName}`,
+          enabled,
+        );
+      },
+    );
+  }
+
+  static async create(
+    pointsByLayer: ReadonlyMap<string, readonly PainPoint[]>,
+    onChange: (change: CountrySelectionChange) => void,
+  ): Promise<CountryProfileRuntime> {
+    await ensureCountryGeometriesLoaded();
+    const profiles = buildCountryPainProfiles(
+      await loadEmoData(),
+      {
+        environmental: requireLayer(pointsByLayer, ENVIRONMENTAL_LAYER),
+        physical: requireLayer(pointsByLayer, PHYSICAL_LAYER),
+        socioeconomic: requireLayer(pointsByLayer, SOCIOECONOMIC_LAYER),
+      },
+      getCountryGeometries(),
+    );
+    return new CountryProfileRuntime(profiles, onChange);
+  }
+
+  get selectedIso3(): string | null {
+    return this.selection.selectedIso3;
+  }
+
+  countryAt(lat: number, lng: number): string | null {
+    const iso3 = findCountryInGeometries(getCountryGeometries(), lat, lng);
+    return iso3 && this.profiles.has(iso3) ? iso3 : null;
+  }
+
+  select(iso3: string, human: boolean): boolean {
+    return this.selection.select(iso3, human);
+  }
+
+  toggle(iso3: string, human: boolean): boolean {
+    return this.selection.toggle(iso3, human);
+  }
+
+  clear(human: boolean): void {
+    this.selection.clear(human);
+  }
+}
