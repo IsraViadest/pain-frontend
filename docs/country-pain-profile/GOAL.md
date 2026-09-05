@@ -525,6 +525,18 @@ data. Cleanup is limited to task-owned temporaries.
   A long-native-term check also selected Lithuania: the term extends 93 px beyond its card as
   intended, stays within the viewport and has no background-label collision at the checked view.
 
+- 2026-09-05: Final integrated browser input passes using Chrome-generated trusted events:
+  country click/repeat-clear, wheel over a label, drag from a label, Cmd+A, keyboard cycle
+  start/stop and two-finger pinch. Page scroll and visual-viewport offset remain zero; no runtime
+  errors occur. `scripts/verify-country-native-input.mjs` retains the check. The first attempt
+  clicked India's old offscreen location after zooming; selection now runs before navigation.
+  Event-default inspection waits until propagation finishes, rather than a capture-handler
+  microtask. These are native browser-input checks, not physical touch-device evidence.
+  The final production exact-country check passes all three non-emotional layers, surface
+  selection, repeat-clear and returning to Emotional Pain without an obsolete network.
+  Port 3000 now serves frontend `ff6159b` with server `22a03d2`; Docker entry gzip is 226.92 kB,
+  below the 246.44 kB limit. The final-source 30-minute soak remains in progress.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
