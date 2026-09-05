@@ -335,7 +335,8 @@ export function createCountryHighlightTexture(
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d");
+  // Passing false explicitly avoids the cold readback stall seen with an omitted preference.
+  const ctx = canvas.getContext("2d", { willReadFrequently: false });
   if (!ctx) throw new Error("2D canvas unsupported");
 
   ctx.clearRect(0, 0, w, h);

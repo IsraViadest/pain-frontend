@@ -482,6 +482,39 @@ data. Cleanup is limited to task-owned temporaries.
   hit-testing; these checks do not claim native OrbitControls pointer capture. Phase 20 now runs
   the 30-minute cycle, integrated build, remaining product checks and final gallery.
 
+- 2026-09-05: Phase 20's stricter first-click inspection reopens the remaining long-task gate.
+  Frame median/p95 gates pass, but a 56 ms task at about 548 ms after selection is outside the
+  control's range. CPU profiling attributes most highlight work to canvas getImageData, rather
+  than establishing the hypothesized shader-compilation cause. No shader warmup was added.
+  The long cycle is still collecting baseline stability evidence while cold readback trials run
+  in separate pages. A final source change will require a fresh exact-code cycle run.
+
+- 2026-09-05: The first full Phase 20 soak passed on source through `8e4363f`: 1,800,001 ms
+  monotonic / 1,800,020 ms wall time, 7,513 country visits, all 195 countries and 38 wraps.
+  DOM stayed exactly 922 elements. New native resources peaked at 62 buffers, one texture and
+  one program, with no growth after the first two wraps. All 7,513 highlight textures were
+  released. No runtime/GL errors or automated human metrics occurred; Stop hid the profile.
+  This is valid stability evidence for that source, not acceptance of a later readback fix.
+  The integrated local image combines frontend `8e4363f` and server `22a03d2`; port 3000 serves
+  it with both primary checkouts preserved. Production-path exact selection and Auto quality
+  probes pass, including layer races, retained India, actual shader settings and no zoom fetch.
+  Build context was streamed from Git archives, without a temporary checkout or source-tree
+  changes. This Docker builder required a gzip tar stream; the plain tar attempt was rejected.
+  Docker Node 20 reports entry gzip 226.85 kB versus host Node's 225.80 for the same JS asset.
+  Both stay below the 246.44 kB limit. Existing dependency advisories were reported by npm ci;
+  no package versions were changed. Runtime-only npm audit reports two low/moderate packages
+  in each existing dependency tree, with no runtime high/critical findings in that audit.
+
+- 2026-09-05: The cold-readback issue is fixed with an explicit false readback preference.
+  An omitted preference caused the first two-group paint's second read to take 34.9 ms and the
+  enclosing task 60 ms. Explicit false reduced that read to 5.5-7.1 ms; the actual-source repeat
+  has no long tasks and a 24.9 ms maximum frame, with unchanged 8.3/10.0 ms median/p95 pacing.
+  Both cases report false from getContextAttributes, so that getter alone cannot verify this fix.
+  Explicit true also avoided the cold stall but changed raster pixels; explicit false preserves
+  all six full RGBA hashes, including legacy, weighted, exact and empty cases. Shared borders,
+  role swaps and the single retained GPU texture still pass. The fixed source now needs its own
+  final 30-minute run. No shader warmup, scratch-canvas cache or new rendering path was required.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
