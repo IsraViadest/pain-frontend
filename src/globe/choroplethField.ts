@@ -11,6 +11,7 @@ import {
   getCountryGeometries,
   hasCountryGeometry,
   type CountryGeometry,
+  type IndexedCountryGeometry,
 } from "./countryGeometry";
 
 /** Equirectangular choropleth texture resolution (higher than scar/heat 1000×482). */
@@ -154,6 +155,7 @@ function parseHexRgb(
 export function createChoroplethTexture(
   values: ChoroplethCountryValue[],
   colorHex: string | null | undefined,
+  countries: readonly IndexedCountryGeometry[] = getCountryGeometries(),
 ): THREE.DataTexture {
   const w = CHOROPLETH_MAP_WIDTH;
   const h = CHOROPLETH_MAP_HEIGHT;
@@ -187,7 +189,7 @@ export function createChoroplethTexture(
     }
   }
 
-  for (const { key, geometry } of getCountryGeometries()) {
+  for (const { key, geometry } of countries) {
     const intensity = intensityByKey.get(key);
     if (intensity === undefined) continue;
     const alpha = intensityToAlphaByte(intensity);
@@ -312,9 +314,10 @@ export function createCountryHighlightTexture(
   outlineWidthPx: number,
   markers: readonly { lat: number; lng: number }[],
   markerRadiusDeg: number,
+  countries: readonly IndexedCountryGeometry[] = getCountryGeometries(),
 ): THREE.DataTexture | null {
   const keys = new Set(iso3List.map((c) => c.trim().toUpperCase()));
-  const matches = getCountryGeometries().filter((c) => keys.has(c.key));
+  const matches = countries.filter((c) => keys.has(c.key));
   const discs = markerRadiusDeg > 0 ? markers : [];
   if (matches.length === 0 && discs.length === 0) return null;
   if (fillOpacity <= 0 && outlineWidthPx <= 0) return null;

@@ -121,6 +121,7 @@ function makeFatLine(
 export interface GlobeBorderOutlines {
   readonly group: THREE.Group;
   setMaxSegmentDegrees(degrees: number): void;
+  setDisplayPaths(paths: { coastLines: number[][][]; borderLines: number[][][] } | null): void;
   setCoastVisible(visible: boolean): void;
   setInnerBordersVisible(visible: boolean): void;
   setResolution(width: number, height: number): void;
@@ -159,6 +160,8 @@ export async function loadGlobeBorderOutlines(
 
   const coastFc = (await coastRes.json()) as FeatureCollection;
   const innerFc = (await innerRes.json()) as FeatureCollection;
+  let displayCoast = coastFc;
+  let displayInner = innerFc;
 
   const coastPos = collectOpenLineSegments(coastFc, radius);
   const innerPos = collectOpenLineSegments(innerFc, radius);
@@ -194,11 +197,21 @@ export async function loadGlobeBorderOutlines(
     setMaxSegmentDegrees(degrees: number): void {
       if (degrees === maxSegmentDegrees) return;
       maxSegmentDegrees = degrees;
-      coastBasePos = collectOpenLineSegments(coastFc, radius, degrees);
-      innerBasePos = collectOpenLineSegments(innerFc, radius, degrees);
+      coastBasePos = collectOpenLineSegments(displayCoast, radius, degrees);
+      innerBasePos = collectOpenLineSegments(displayInner, radius, degrees);
       coastWarpPos = coastBasePos.slice();
       innerWarpPos = innerBasePos.slice();
       this.setScarDisplacementMap(lastMap, lastScale, lastBias);
+    },
+    setDisplayPaths(paths): void {
+      const collection = (coordinates: number[][][]): FeatureCollection => ({
+        features: [{ geometry: { type: "MultiLineString", coordinates } }],
+      });
+      displayCoast = paths ? collection(paths.coastLines) : coastFc;
+      displayInner = paths ? collection(paths.borderLines) : innerFc;
+      const degrees = maxSegmentDegrees;
+      maxSegmentDegrees = NaN;
+      this.setMaxSegmentDegrees(degrees);
     },
     setCoastVisible(visible: boolean): void {
       coastLine.visible = visible;
@@ -267,6 +280,9 @@ export async function loadGlobeBorderOutlines(
 
       const coastGeom = coastLine.geometry as LineSegmentsGeometry;
       const innerGeom = innerLine.geometry as LineSegmentsGeometry;
+      // Release replaced attributes and Three's cached instance limit before changing density.
+      coastGeom.dispose();
+      innerGeom.dispose();
       coastGeom.setPositions(coastWarpPos);
       innerGeom.setPositions(innerWarpPos);
       coastLine.computeLineDistances();

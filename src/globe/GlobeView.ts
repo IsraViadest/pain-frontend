@@ -52,6 +52,8 @@ import {
   type StipplePointTune,
 } from "./stipplePointScale";
 import type { FieldTexturePattern } from "./fieldTexturePattern";
+import { getCountryGeometries, type IndexedCountryGeometry } from "./countryGeometry";
+import type { buildCountryDisplayGeometry } from "./countryDisplayGeometry";
 
 export type { Co2HazeTune };
 
@@ -497,6 +499,8 @@ export class GlobeView {
   private pointsStipple: THREE.Points | null = null;
   private pointsMaterial: THREE.ShaderMaterial | null = null;
   private stippleCleanup: (() => void) | null = null;
+  private setStippleDisplayCountries:
+    ((countries: readonly IndexedCountryGeometry[] | null) => void) | null = null;
   private stipplePromise: Promise<void> | null = null;
   private stippleLandMaskUrl: string | null = null;
   /** Unwarped stipple shell; scar mode warps a copy into the points geometry. */
@@ -511,6 +515,8 @@ export class GlobeView {
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private roundedScarShoulder = false;
   private surfaceDetail: 1 | 2 = 1;
+  private countryContourDegrees: number | null = null;
+  private displayGeography: ReturnType<typeof buildCountryDisplayGeometry> | null = null;
   private painHeatMap: THREE.DataTexture | null = null;
   private choroplethMap: THREE.DataTexture | null = null;
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
@@ -1407,7 +1413,9 @@ export class GlobeView {
       if (generation !== this.choroplethBuildGeneration) return;
       if (!this.shouldPaintChoropleth()) return;
       const values = aggregateChoroplethValues(points);
-      this.choroplethMap = createChoroplethTexture(values, colorHex);
+      this.choroplethMap = createChoroplethTexture(
+        values, colorHex, this.getDisplayCountryGeometries(),
+      );
       this.applyChoroplethMaterial();
       this.syncGlobeSurfaceVisibility();
     })();
@@ -1479,6 +1487,7 @@ export class GlobeView {
     this.stippleNeutralScarTexture = null;
     this.stippleNeutralHeatTexture = null;
     this.stippleLandMaskUrl = null;
+    this.setStippleDisplayCountries = null;
     this.stippleBasePositions = null;
   }
 
@@ -1785,10 +1794,13 @@ export class GlobeView {
         0.16,
         this.renderer.getPixelRatio(),
       )
-        .then(({ points, material, dispose, neutralScarTexture, neutralHeatTexture }) => {
+        .then(({ points, material, dispose, neutralScarTexture, neutralHeatTexture,
+          setDisplayCountries }) => {
           this.pointsStipple = points;
           this.pointsMaterial = material;
           this.stippleCleanup = dispose;
+          this.setStippleDisplayCountries = setDisplayCountries;
+          if (this.displayGeography) setDisplayCountries(this.displayGeography.countries);
           this.stippleLandMaskUrl = STIPPLE_LAND_MASK_GEOJSON_URL;
           this.stippleNeutralScarTexture = neutralScarTexture;
           this.stippleNeutralHeatTexture = neutralHeatTexture;
@@ -1926,7 +1938,8 @@ export class GlobeView {
         resolution,
       );
       this.bordersOutlines.syncAppearance(this.visualTheme);
-      this.bordersOutlines.setMaxSegmentDegrees(this.surfaceDetail === 2 ? 0.5 : Infinity);
+      this.bordersOutlines.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
+      if (this.displayGeography) this.bordersOutlines.setDisplayPaths(this.displayGeography);
       this.bordersOutlines.setClippingPlanes(this.clipPlanesFront);
       this.syncScarVisualization();
       this.scene.remove(this.markersGroup);
@@ -2517,6 +2530,34 @@ export class GlobeView {
     return this.choroplethShell.geometry;
   }
 
+  getDisplayCountryGeometries(): readonly IndexedCountryGeometry[] {
+    return this.displayGeography?.countries ?? getCountryGeometries();
+  }
+
+  private countryBorderSampleDegrees(): number {
+    // Rounded trials need finer chord sampling to keep scar projection within one CSS pixel.
+    return this.displayGeography ? 0.01 : this.surfaceDetail === 2 ? 0.5 : Infinity;
+  }
+
+  /** Null preserves the historical line assets; zero uses the shared, unrounded boundary. */
+  async setCountryContourRounding(degrees: number | null): Promise<void> {
+    if (degrees === this.countryContourDegrees) return;
+    this.countryContourDegrees = degrees;
+    if (degrees === null) {
+      this.displayGeography = null;
+    } else {
+      const [{ buildCountryDisplayGeometry }] = await Promise.all([
+        import("./countryDisplayGeometry"), ensureChoroplethCountriesLoaded(),
+      ]);
+      if (degrees !== this.countryContourDegrees) return;
+      this.displayGeography = buildCountryDisplayGeometry(getCountryGeometries(), degrees);
+    }
+    this.bordersOutlines?.setDisplayPaths(this.displayGeography);
+    this.bordersOutlines?.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
+    this.setStippleDisplayCountries?.(this.displayGeography?.countries ?? null);
+    this.scheduleChoroplethRebuild();
+  }
+
   setRoundedScarShoulder(rounded: boolean): void {
     if (rounded === this.roundedScarShoulder) return;
     this.roundedScarShoulder = rounded;
@@ -2539,7 +2580,7 @@ export class GlobeView {
     this.choroplethBasePositions = new Float32Array(
       this.choroplethShell.geometry.attributes.position!.array,
     );
-    this.bordersOutlines?.setMaxSegmentDegrees(detail === 2 ? 0.5 : Infinity);
+    this.bordersOutlines?.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
     this.syncScarVisualization();
   }
 

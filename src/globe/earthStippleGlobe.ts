@@ -6,7 +6,8 @@
  */
 import * as THREE from "three";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
-import { rasterLandMaskFromCountries } from "./landMaskRaster";
+import { rasterLandMaskFromCountries, rasterLandMaskFromGeometries } from "./landMaskRaster";
+import type { IndexedCountryGeometry } from "./countryGeometry";
 import { createNeutralHeatTexture } from "./painHeatField";
 
 /** Same Natural Earth source as vector coastlines / borders (WGS84 plate-carrée). */
@@ -263,6 +264,7 @@ interface EarthStippleGlobeResult {
   neutralScarTexture: THREE.DataTexture;
   /** Black stub for `uHeatMap` when heat overlay is off. */
   neutralHeatTexture: THREE.DataTexture;
+  setDisplayCountries(countries: readonly IndexedCountryGeometry[] | null): void;
   dispose: () => void;
 }
 
@@ -368,6 +370,23 @@ export async function createEarthStippleGlobe(
     material,
     neutralScarTexture,
     neutralHeatTexture,
+    setDisplayCountries(countries): void {
+      const attribute = geom.getAttribute("aLand") as THREE.BufferAttribute;
+      if (!countries) {
+        attribute.copyArray(lands);
+      } else {
+        const mask = rasterLandMaskFromGeometries(countries);
+        const normal = geom.getAttribute("normal");
+        const direction = new THREE.Vector3();
+        for (let i = 0; i < attribute.count; i++) {
+          direction.fromBufferAttribute(normal, i);
+          const { u, v } = dirToLandMaskUV(direction);
+          const lum = sampleLuminanceBilinear(mask.data, mask.w, mask.h, u, v);
+          attribute.setX(i, isLandPixel(lum, true) ? 1 : 0);
+        }
+      }
+      attribute.needsUpdate = true;
+    },
     dispose: () => {
       geom.dispose();
       material.dispose();

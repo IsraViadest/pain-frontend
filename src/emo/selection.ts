@@ -112,6 +112,7 @@ export async function createEmoSelectionLayer(options: {
    * leaves a single total unchanged over two different sets.
    */
   let paintedKey: string | null = null;
+  let paintedGeography = globe.getDisplayCountryGeometries();
 
   /** Every category with a mark on screen: the chosen one, and any still taking itself apart. */
   function markedCategories(): string[] {
@@ -143,6 +144,7 @@ export async function createEmoSelectionLayer(options: {
     material.map = null;
     const { members, key } = arrivedMembers();
     paintedKey = key;
+    paintedGeography = globe.getDisplayCountryGeometries();
     const glow = params.selectionStyle === "glow";
     // Split rather than filtered afterwards: a country either has a polygon to fill or a point to
     // put a disc at, and asking `hasCountryGeometry` is what keeps the two lists from overlapping
@@ -163,6 +165,7 @@ export async function createEmoSelectionLayer(options: {
             params.selectionOutline,
             discs,
             params.selectionMarkerDeg,
+            paintedGeography,
           );
     material.map = texture;
     // Adding warm light brightens the country's own choropleth colour instead of covering it.
@@ -186,7 +189,8 @@ export async function createEmoSelectionLayer(options: {
       // The key alone decides. Recomputing the members costs a pass over one category's country
       // list and happens only on the frames the mark actually changes, which is at most once per
       // depth step of a spread and never at all when nothing is moving.
-      if (arrivedMembers().key === paintedKey) return;
+      if (arrivedMembers().key === paintedKey &&
+          paintedGeography === globe.getDisplayCountryGeometries()) return;
       paint();
     },
     setParams(next: EmoViewParams): void {

@@ -102,7 +102,7 @@ claim physical-device testing from emulation.
 - [x] Phase 10: final chrome and country-cycle sequence.
 - [x] Phase 11: compact profile and glyph rounds.
 - [x] Phase 12: continuous rounded scars and shared surface.
-- [ ] Phase 13: gently rounded shared country contours.
+- [x] Phase 13: gently rounded shared country contours (trials retained; not adopted).
 - [ ] Phase 14: wave-aware origin and peer emphasis.
 - [ ] Phase 15: physical dot growth and refinement.
 - [ ] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
@@ -202,6 +202,35 @@ data. Cleanup is limited to task-owned temporaries.
   limited its preset/test coverage. `npm run check` passes. The first phone probe yielded no
   metrics and was rejected; the probe now returns explicit errors, and the rerun returned full
   metrics. Rounded-contour geography is Phase 13 and has not been implemented yet.
+
+- 2026-09-05: Phase 13 complete. Retained `v13-control_shared-contours`,
+  `v13-a_gentle-contours`, and `v13-b_rounded-contours`; the default stays `v12-c_soft-surface`.
+  One shared edge graph supplies country fills, strokes, highlights and render-only land masks.
+  Canonical lookup is untouched. The 177 countries, 289 rings, holes, islands and shared edges
+  survive. Two pre-existing source crossings remain; the check finds none added. Junctions,
+  unsafe polar/dateline rings and tight clearances retain their original coordinates.
+  `dev/countryDisplayGeometry.check.ts` verifies geometry and 1,500 seeded membership probes.
+  Browser verification uses all 15,282 physical source points and the actual scar configuration.
+  Continuous-surface bounds are 0.306 / 0.612 CSS pixels. The stricter actual Float32 stroke
+  check includes every source/display tessellation breakpoint; its maximum bound is 0.620 pixels
+  for camera distance >=1.35, FOV >=45 degrees, and viewport height <=950 CSS pixels, at every
+  orientation. Bounds cover intervals between samples, not just sampled vertices. Canonical
+  picking can differ within this subpixel strip; countries do not morph with camera position.
+  The first 0.5-degree chord grid failed at 21.54 pixels because retessellation shifted samples
+  across scar slopes. Rounded trials therefore use a 0.01-degree grid. This is expensive:
+  paired default-camera traces submit 0.570 million primitives for v12 versus 3.523 / 3.639
+  million for straight/rounded v13. All retain 8.30 ms median, p95 10.0-10.3 ms on this host.
+  Phone-sized desktop tracing is 8.30 / 10.10 ms, not physical-phone evidence. Three normal
+  and three close views were inspected; the rounding is too subtle to justify that extra work.
+  This is an evidence-based rejection of adoption, not a claim that the shader is slower than
+  a refresh interval. The renderer remains directly comparable through each preset URL.
+  Screenshots also exposed a common correctness bug: Three retained an old maximum instance
+  count after border attributes were replaced, rendering 7,769 of 32,161 planned segments.
+  Disposing the previous attributes before replacement fixes the draw limit and releases buffers.
+  The browser now verifies actual draw calls as well as attribute counts. This corrects the
+  earlier Phase 12 claim: 13,654 was generated geometry, not proof that all segments were drawn.
+  `scripts/verify-country-display.js`, the scar GPU regression, and `npm run check` pass.
+  Default entry is 220.81 kB gzip; the optional contour builder is a separate 1.72 kB gzip chunk.
 
 ## Historical first-goal completion
 

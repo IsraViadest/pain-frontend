@@ -60,6 +60,7 @@
     surfaces.push(depth, fill);
     let rewarps = 0;
     const owner = { globe: depth, choroplethShell: fill, surfaceDetail: 1,
+      countryBorderSampleDegrees: GlobeView.prototype.countryBorderSampleDegrees,
       bordersOutlines: borders, syncScarVisualization: () => { rewarps++; } };
     const borrowed = GlobeView.prototype.getCountrySurfaceGeometry.call(owner);
     GlobeView.prototype.setSurfaceDetail.call(owner, 2);

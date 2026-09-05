@@ -109,6 +109,7 @@ export interface CountryProfilePreset {
   nativeOpacity?: number;
   roundedScarShoulder?: boolean;
   surfaceDetail?: 1 | 2;
+  countryContourDegrees?: number;
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
   physicalPointScale?: number;
@@ -379,6 +380,21 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     description: "Rounded shoulders added to the refined shared surface.",
     surfaceDetail: 2,
     roundedScarShoulder: true,
+  },
+  {
+    ...COMPACT_BASE, id: "v13-control_shared-contours", label: "v13: shared straight contours",
+    description: "One source boundary for borders, country fills, highlights, and stipple land.",
+    surfaceDetail: 2, roundedScarShoulder: true, countryContourDegrees: 0,
+  },
+  {
+    ...COMPACT_BASE, id: "v13-a_gentle-contours", label: "v13: gentle contour rounding",
+    description: "Small shared corner fillets, constrained by close-view picking accuracy.",
+    surfaceDetail: 2, roundedScarShoulder: true, countryContourDegrees: 0.0025,
+  },
+  {
+    ...COMPACT_BASE, id: "v13-b_rounded-contours", label: "v13: stronger contour rounding",
+    description: "Twice the gentle fillet, using the same fixed display shape at every zoom.",
+    surfaceDetail: 2, roundedScarShoulder: true, countryContourDegrees: 0.005,
   },
 ];
 

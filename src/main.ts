@@ -503,6 +503,7 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   const preset = countryProfileRuntime?.preset;
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
+  void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";
   globe.setStipplePointTune({
     scale: physical ? preset?.physicalPointScale ?? 1 : 1,
