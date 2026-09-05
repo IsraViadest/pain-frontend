@@ -109,7 +109,7 @@ claim physical-device testing from emulation.
 - [x] Phase 17: truthful socioeconomic color and pattern.
 - [x] Phase 18: combined composition and measured quality tiers.
 - [x] Phase 19: final frontend/server performance and simplification (reference host).
-- [ ] Phase 20: final product, integration, reviews and gallery.
+- [x] Phase 20: reference-host product, integration and gallery; independent review unavailable.
 - [ ] Required physical-device checks; distinguish from responsive emulation.
 
 ## Verification and stop conditions
@@ -586,6 +586,20 @@ data. Cleanup is limited to task-owned temporaries.
   it behind another control; no frame was written for either failed label-click attempt.
   No application behavior changed for the gallery. The replacement viewport-guarded soak runs
   alone at the reference 1500x950 viewport; all other helper browsers are closed.
+
+- 2026-09-05: Final isolated 30-minute soak passed on application source `82e020b`, at
+  1500x950, Standard quality and cpTimeScale=.005. Elapsed time is 1,800,002 ms monotonic and
+  1,800,039 ms wall time. It completed 7,401 visits, all 195 countries and 37 alphabetical wraps.
+  DOM remained exactly 922 elements. Native resources created after instrumentation peaked at
+  62 buffers, one texture and one program, without growth beyond the first two wraps.
+  All 7,401 highlight textures were deleted; Stop left zero of them and hid the profile.
+  There were zero runtime/GL errors, context losses, failed requests or human metric events.
+  The viewport invariant passed throughout. The earlier concurrent-helper failure is retained
+  above as invalid acceptance evidence; this complete isolated run replaces it.
+  Reference-host implementation, interaction, performance and gallery work is complete. Physical
+  60 Hz phone performance remains explicitly open. Independent review and task-owned temporary
+  file cleanup could not finish because automatic approval required permission while this session
+  disallowed approval prompts. No alternative deletion or denied-source access was attempted.
 
 ## Historical first-goal completion
 

@@ -1,5 +1,6 @@
 /* eval.mjs expression: cpPreset=v18-b_clear-chrome&cpQuality=standard&cpTimeScale=.005.
  * The 30-minute wall-clock interval is never multiplied by cpTimeScale. Keep the tab visible.
+ * Run alone: existing browser helpers choose uncoordinated debugging ports.
  */
 (async () => {
   const durationMs = 30 * 60 * 1000;
@@ -80,6 +81,7 @@
       app.dataset.cpBudgetExceeded === "false", 30000, "Standard quality did not become ready");
     gl = canvas.getContext("webgl2");
     check(gl && !gl.isContextLost() && gl.getError() === gl.NO_ERROR, "WebGL2 context is not healthy at start");
+    const viewport = [innerWidth, innerHeight, devicePixelRatio, canvas.width, canvas.height];
 
     for (const [name, suffix] of [["buffers", "Buffer"], ["textures", "Texture"], ["programs", "Program"]]) {
       const counters = resources[name], create = gl["create" + suffix], remove = gl["delete" + suffix];
@@ -194,6 +196,8 @@
       const now = performance.now();
       maxPollGapMs = Math.max(maxPollGapMs, now - lastPoll); lastPoll = now;
       inspect();
+      check([innerWidth, innerHeight, devicePixelRatio, canvas.width, canvas.height]
+        .every((value, index) => value === viewport[index]), "Viewport changed during the fixed-size soak");
       check(!document.hidden && toggle.getAttribute("aria-pressed") === "true", "Tour stopped or backgrounded unexpectedly");
       check(now - lastCompletion < 30000, "No completed country observed for 30 wall-clock seconds");
       check(!gl.isContextLost(), "WebGL context lost");
