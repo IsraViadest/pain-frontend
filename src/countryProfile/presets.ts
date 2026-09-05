@@ -115,6 +115,10 @@ export interface CountryProfilePreset {
   transitionMs?: number;
   physicalPointScale?: number;
   physicalDetail?: "fixed" | "regrow" | "split1" | "split2";
+  atmosphereMode?: "control" | "flat" | "mantle" | "cloudlets" | "volume";
+  atmosphereSamples?: 16 | 32 | 48;
+  atmosphereFraction?: number;
+  environmentalContextOpacity?: number;
   physicalPointNearBoost?: number;
   environmentalGlyph?: "simple" | "grain" | "cells";
   environmentalFieldPattern?:
@@ -437,9 +441,73 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
     physicalPointScale: 1, physicalDetail: "split2",
   },
+  {
+    ...COMPACT_BASE, id: "v16-control_flat-palette", label: "v16: coral and green flat fields",
+    description: "The new environmental palette on flat shells, before adding atmospheric depth.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "flat",
+  },
+  {
+    ...COMPACT_BASE, id: "v16-a_atmospheric-mantle", label: "v16: atmospheric mantle",
+    description: "Shallow lit relief gives the existing coral and green fields a sculpted surface.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "mantle",
+  },
+  {
+    ...COMPACT_BASE, id: "v16-b_cloudlets", label: "v16: soft cloudlets",
+    description: "Bounded soft clusters with geographic anchors and separate coral/green layers.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "cloudlets",
+  },
+  {
+    ...COMPACT_BASE, id: "v16-c_volume-32", label: "v16: airy volume, 32 samples",
+    description: "A bounded volume uses the actual globe depth and the same horizontal signals.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 32,
+  },
+  {
+    ...COMPACT_BASE, id: "v16-d_volume-16", label: "v16: airy volume, 16 samples",
+    description: "Half the ray samples, at the same target resolution, fields, and palette.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 16,
+  },
+  {
+    ...COMPACT_BASE, id: "v16-e_volume-48", label: "v16: airy volume, 48 samples",
+    description: "More ray samples, at the same target resolution, fields, and palette.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 48,
+  },
+  {
+    ...COMPACT_BASE, id: "v16-f_mantle-air", label: "v16: mantle over quieter context",
+    description: "Environmental-only context dots step back so the atmospheric fields read clearly.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "mantle",
+    environmentalContextOpacity: 0.25,
+  },
+  {
+    ...COMPACT_BASE, id: "v16-g_volume-air", label: "v16: volume over quieter context",
+    description: "The 32-sample volume with the same quieter environmental context.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 32,
+    environmentalContextOpacity: 0.25,
+  },
+  {
+    ...COMPACT_BASE, id: "v16-h_cloudlet-air", label: "v16: cloudlets over quieter context",
+    description: "Soft environmental clusters with the same quieter context dots.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "cloudlets",
+    environmentalContextOpacity: 0.25,
+  },
+  {
+    ...COMPACT_BASE, id: "v16-i_volume-air-16", label: "v16: quiet air, 16 samples",
+    description: "The quieter volume with the lowest tested ray-sample count.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 16,
+    environmentalContextOpacity: 0.25,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v15-b_four-child-dots";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v16-i_volume-air-16";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

@@ -105,7 +105,7 @@ claim physical-device testing from emulation.
 - [x] Phase 13: gently rounded shared country contours (trials retained; not adopted).
 - [x] Phase 14: wave-aware origin and peer emphasis.
 - [x] Phase 15: physical dot growth and refinement.
-- [ ] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
+- [x] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
 - [ ] Phase 17: truthful socioeconomic color and pattern.
 - [ ] Phase 18: combined composition and measured quality tiers.
 - [ ] Phase 19: final frontend/server performance and simplification.
@@ -279,6 +279,40 @@ data. Cleanup is limited to task-owned temporaries.
   Independent review approved the permitted shader/lifecycle integration; automatic read denial
   left its controller-algorithm review incomplete. The direct tests above were run here.
   Default entry is 222.54 kB gzip; detail code is a separate 4.85 kB gzip lazy chunk.
+
+- 2026-09-05: Phase 16 adopts `v16-i_volume-air-16`. The mantle, cloudlets, flat palette control,
+  and 32/48-sample volumes remain directly addressable. The volume reads as air at the limb;
+  cloudlets read as repeated beads, while the mantle gives a shallower relief. Environmental-only
+  geographic stipple uses 0.25 opacity so the fields remain visible. Physical/all-pain dots retain
+  their prior opacity. Temperature is coral `#d74846`; CO2 is green `#69c99c`, matching the profile.
+  The volume uses actual horizontal field alpha with an artistic radial envelope, without new
+  observations or inferred altitude. No geographic drift or optional motion was introduced.
+  A private depth target uses the actual shared displaced geometry, including when the solid
+  globe is hidden. It does not write depth into the main scene or hide stipple. Depth and volume
+  targets each cap at 1,048,576 pixels; volume resolution is half the drawing buffer before that
+  cap. At a 3000x1900 drawing buffer both cap at 1286x814. Volume additional allocation is
+  12,565,824 bytes; mantle 10,573,536 and cloudlets 8,707,120, excluding driver bookkeeping.
+  Real WebGL checks prove north/south registration, separate colors, zero and missing fields,
+  same-texture version updates, front/back occlusion against asymmetric and enclosing surfaces,
+  and renderer-state restoration. A camera inside the shell sees front air, zero back air,
+  and nonzero back air only when surface depth is deliberately removed. Disposed owners leave
+  only the fixture's borrowed textures. Field alpha totals across 16/32/48 samples differ by
+  less than 0.01 percent. Layer gestures draw volume in Environmental/all-pain only, including
+  repeated transitions to Socioeconomic. A suspected early-return defect did not reproduce;
+  the regression probe was kept and no speculative fix was applied.
+  Temporary images cover normal/close, Arctic/Africa, all-pain and mobile compositions. The
+  generated environmental SVG legend replaces inaccurate source-unit implications with relative
+  field strength. At 320/393/1500 px its rectangle misses the share button, wheel hits the canvas,
+  and legacy image restoration works. The 320 px legend has a 7 px clearance from the share pill.
+  Frame-pacing trials retain 8.30 ms median, p95 10.00-10.10 ms across all families. Separate
+  instrumented 1500x950 draw timers report median GPU sums 4.58 ms control, 6.32 mantle,
+  11.39 volume32, and 8.53 volume16. These sums exclude clears/transfers and per-draw queries
+  can perturb tile scheduling; they are not full-frame GPU timings. Synchronous callback
+  medians are 0.6-1.0 ms and p95 1.6-1.7 ms. The cheaper 16-sample volume wins over 32 because
+  the additional visible detail is negligible. Physical-device testing remains open.
+  Independent review source reads were automatically denied, so no independent approval is
+  claimed. Root ran the direct GPU, gesture, layout, and resource checks. Default entry is
+  223.38 kB gzip; atmospheric code is a separate 5.56 kB gzip lazy chunk.
 
 ## Historical first-goal completion
 

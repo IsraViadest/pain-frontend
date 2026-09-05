@@ -19,6 +19,7 @@ const MOBILE_MAX_WIDTH_PX = 768;
 
 let imgEl: HTMLImageElement | null = null;
 let currentFileName: string | null = null;
+let currentContent: SVGSVGElement | undefined;
 let swapTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let resizeBound = false;
 
@@ -37,6 +38,7 @@ function getLegendHost(): HTMLElement | null {
 function positionLegendUnderTitle(): void {
   const host = getLegendHost();
   if (!host) return;
+  currentContent?.dispatchEvent(new Event("resize"));
   if (window.innerWidth <= MOBILE_MAX_WIDTH_PX) {
     host.style.left = "";
     return;
@@ -59,7 +61,7 @@ function ensureLegendResizeListener(): void {
 function afterLegendShown(): void {
   ensureLegendResizeListener();
   positionLegendUnderTitle();
-  if (imgEl && !imgEl.complete) {
+  if (imgEl?.isConnected && !imgEl.complete) {
     imgEl.addEventListener("load", () => {
       positionLegendUnderTitle();
     }, { once: true });
@@ -77,6 +79,7 @@ function clearSwapTimeout(): void {
 export function hideLegend(): void {
   clearSwapTimeout();
   currentFileName = null;
+  currentContent = undefined;
   const host = getLegendHost();
   host?.classList.remove("legend--visible");
   host?.removeAttribute("data-layer");
@@ -85,53 +88,58 @@ export function hideLegend(): void {
 
 /**
  * Show the legend for `layerId`, or hide it when the layer has no SVG
- * (emopain and unknown ids).
+ * (emopain and unknown ids). Supplied SVG content replaces the image in the same host.
  *
  * When already visible and switching to another legend layer, waits for the
  * 400ms slide-out before swapping the image and sliding back in.
  */
-export function showLegend(layerId: string): void {
+export function showLegend(layerId: string, content?: SVGSVGElement): void {
   const host = getLegendHost();
   if (!host) return;
 
-  const fileName = LEGEND_SVG_BY_LAYER[layerId.trim()];
-  if (!fileName) {
+  const fileName = LEGEND_SVG_BY_LAYER[layerId.trim()] ?? null;
+  if (!fileName && !content) {
     hideLegend();
     return;
   }
 
   clearSwapTimeout();
 
-  if (!imgEl) {
+  if (!content && !imgEl) {
     imgEl = document.createElement("img");
     imgEl.className = "ui-legend__img";
     imgEl.alt = "";
-    host.appendChild(imgEl);
   }
 
-  imgEl.alt = `${layerId} legend`;
-  const nextSrc = legendAssetUrl(fileName);
+  if (imgEl) imgEl.alt = `${layerId} legend`;
+  const nextSrc = fileName ? legendAssetUrl(fileName) : "";
   const alreadyVisible = host.classList.contains("legend--visible");
-  const switchingLegend = alreadyVisible && currentFileName !== fileName;
+  const switchingLegend = alreadyVisible &&
+    (currentFileName !== fileName || currentContent !== content);
+  currentFileName = fileName;
+  currentContent = content;
+  const show = (): void => {
+    if (content) {
+      content.classList.add("ui-legend__img");
+      host.replaceChildren(content);
+    } else if (imgEl) {
+      imgEl.src = nextSrc;
+      host.replaceChildren(imgEl);
+    }
+    host.dataset.layer = layerId.trim();
+    host.classList.add("legend--visible");
+    afterLegendShown();
+  };
 
   if (switchingLegend) {
     host.classList.remove("legend--visible");
     void host.offsetHeight;
-    currentFileName = fileName;
     swapTimeoutId = setTimeout(() => {
       swapTimeoutId = null;
-      if (!imgEl) return;
-      imgEl.src = nextSrc;
-      host.dataset.layer = layerId.trim();
-      host.classList.add("legend--visible");
-      afterLegendShown();
+      show();
     }, LEGEND_SWAP_RETRIGGER_MS);
     return;
   }
 
-  imgEl.src = nextSrc;
-  currentFileName = fileName;
-  host.dataset.layer = layerId.trim();
-  host.classList.add("legend--visible");
-  afterLegendShown();
+  show();
 }

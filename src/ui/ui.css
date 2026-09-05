@@ -370,13 +370,17 @@
 
 #ui-legend.legend--visible {
   transform: translateY(-50%) translateX(0);
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 #ui-legend .ui-legend__img {
   display: block;
   max-height: 32vh;
   width: auto;
+}
+
+#ui-legend .ui-legend__img[data-layout] {
+  max-height: 136px;
 }
 
 /* Mobile chrome slot — hidden on desktop; shown under max-width 768px. */

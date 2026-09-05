@@ -13,6 +13,7 @@ import {
   type CountryProfilePreset,
 } from "./presets";
 import { CountrySelectionController } from "./selection";
+import { createEnvironmentalLegend } from "./legend";
 
 const ENVIRONMENTAL_LAYER = "envpain";
 const PHYSICAL_LAYER = "physpain";
@@ -31,6 +32,7 @@ function requireLayer(
 export class CountryProfileRuntime {
   readonly profiles: ReadonlyMap<string, CountryPainProfile>;
   private readonly selection: CountrySelectionController;
+  private environmentalLegend: SVGSVGElement | undefined;
 
   private constructor(
     profiles: ReadonlyMap<string, CountryPainProfile>,
@@ -99,6 +101,12 @@ export class CountryProfileRuntime {
 
   setLayer(layerId: string): void {
     this.view.setLayer(layerId);
+  }
+
+  legendForLayer(layerId: string): SVGSVGElement | undefined {
+    if (layerId !== ENVIRONMENTAL_LAYER || !this.preset.atmosphereMode ||
+        this.preset.atmosphereMode === "control") return undefined;
+    return this.environmentalLegend ??= createEnvironmentalLegend();
   }
 
   setProfileSuppressed(suppressed: boolean): void {

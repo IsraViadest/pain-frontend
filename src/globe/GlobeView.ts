@@ -55,6 +55,7 @@ import type { FieldTexturePattern } from "./fieldTexturePattern";
 import { getCountryGeometries, type IndexedCountryGeometry } from "./countryGeometry";
 import type { buildCountryDisplayGeometry } from "./countryDisplayGeometry";
 import type { StippleDetailMode } from "./stippleDetailController";
+import type { AtmosphereMode, createEnvironmentalAtmosphere } from "./environmentalAtmosphere";
 
 export type { Co2HazeTune };
 
@@ -476,6 +477,11 @@ export class GlobeView {
     THREE.MeshBasicMaterial
   >;
   private temperatureShellMap: THREE.DataTexture | null = null;
+  private atmosphere: ReturnType<typeof createEnvironmentalAtmosphere> | null = null;
+  private atmosphereMode: AtmosphereMode = "control";
+  private atmosphereSamples: 16 | 32 | 48 = 32;
+  private atmosphereFraction = 0.5;
+  private atmosphereGeneration = 0;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
@@ -501,6 +507,7 @@ export class GlobeView {
   private pointsMaterial: THREE.ShaderMaterial | null = null;
   private stippleHandle: Awaited<ReturnType<typeof createEarthStippleGlobe>> | null = null;
   private stippleDetailMode: StippleDetailMode = "fixed";
+  private stippleContextOpacity = 1;
   private stipplePromise: Promise<void> | null = null;
   private stippleLandMaskUrl: string | null = null;
   /** Unwarped stipple shell; scar mode warps a copy into the points geometry. */
@@ -1795,6 +1802,7 @@ export class GlobeView {
           const { points, material, neutralScarTexture, neutralHeatTexture, setDisplayCountries } = result;
           this.pointsStipple = points;
           this.pointsMaterial = material;
+          material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
           this.stippleHandle = result;
           if (this.displayGeography) setDisplayCountries(this.displayGeography.countries);
           void result.setDetailMode(this.stippleDetailMode).catch((error) => {
@@ -2034,6 +2042,9 @@ export class GlobeView {
   }
 
   dispose(): void {
+    this.atmosphereGeneration++;
+    this.atmosphere?.dispose();
+    this.atmosphere = null;
     window.removeEventListener("resize", this.onResize);
     this.painVizMode = PAIN_VIZ_MODE.points;
     this.lastPainPoints = [];
@@ -2459,6 +2470,7 @@ export class GlobeView {
     this.rebuildPainHeatMap();
     this.rebuildTemperatureShellMap();
     this.rebuildCo2HazeMap();
+    this.syncAtmosphereFields();
     this.syncGlobeSurfaceVisibility();
     this.refreshWordCloud();
   }
@@ -2520,10 +2532,34 @@ export class GlobeView {
     this.co2Haze.visible = true;
   }
 
-  /**
-   * Pause or resume ambient globe spin around the Y axis.
-   * Used to freeze the globe during the post-submit fly-to animation.
-   */
+  private syncAtmosphereFields(): void {
+    this.atmosphere?.setFields(this.temperatureShellMap, this.co2HazeMap);
+    this.temperatureShell.visible = this.temperatureShellMap !== null && this.atmosphere === null;
+    this.co2Haze.visible = this.co2HazeMap !== null && this.atmosphere === null;
+  }
+
+  setEnvironmentalAtmosphere(mode: AtmosphereMode, samples: 16 | 32 | 48 = 32, fraction = 0.5): void {
+    this.atmosphereSamples = samples;
+    this.atmosphereFraction = fraction;
+    if (mode === this.atmosphereMode) return;
+    this.atmosphereMode = mode;
+    const generation = ++this.atmosphereGeneration;
+    this.atmosphere?.dispose();
+    this.atmosphere = null;
+    this.syncAtmosphereFields();
+    if (mode === "control") return;
+    void import("./environmentalAtmosphere").then(({ createEnvironmentalAtmosphere }) => {
+      if (generation !== this.atmosphereGeneration) return;
+      this.atmosphere = createEnvironmentalAtmosphere({ mode, renderer: this.renderer,
+        camera: this.camera, earthContent: this.earthContent, surfaceGeometry: this.globe.geometry });
+      this.syncAtmosphereFields();
+    }).catch((error) => { console.error("[GlobeView] atmosphere failed:", error); });
+  }
+
+  getAtmosphereStats() {
+    return this.atmosphere?.stats() ?? null;
+  }
+
   /** The live surface shared by country fills and selection, including scar displacement. */
   getCountrySurfaceGeometry(): THREE.BufferGeometry {
     return this.choroplethShell.geometry;
@@ -2569,6 +2605,11 @@ export class GlobeView {
     void this.stippleHandle?.setDetailMode(mode).catch((error) => {
       console.error("[GlobeView] stipple detail failed:", error);
     });
+  }
+
+  setStippleContextOpacity(opacity: number): void {
+    this.stippleContextOpacity = opacity;
+    if (this.pointsMaterial) this.pointsMaterial.uniforms.uContextOpacity.value = opacity;
   }
 
   getStippleDetailStats() {
@@ -2736,6 +2777,9 @@ export class GlobeView {
         this.camera.updateMatrixWorld();
         this.stippleHandle?.updateDetail(this.camera, clientWidth, clientHeight, dt);
       }
+    }
+    if (this.renderer.domElement.clientWidth > 0 && this.renderer.domElement.clientHeight > 0) {
+      this.atmosphere?.prepare(this.atmosphereSamples, this.atmosphereFraction);
     }
     this.renderer.render(this.scene, this.camera);
   }

@@ -140,6 +140,7 @@ uniform float uShowLand;
 uniform float uShowOcean;
 uniform float uFacingCullMin;
 varying float vLand;
+uniform float uContextOpacity;
 varying float vFresnel;
 varying float vFacing;
 varying vec2 vHeatUv;
@@ -174,7 +175,7 @@ void main() {
     uOceanAlphaMin
   );
   float alphaLand = disk * (0.2 + 0.44 * frontFactor);
-  float alpha = mix(alphaWater, alphaLand, landMask) * vDetailOpacity;
+  float alpha = mix(alphaWater, alphaLand, landMask) * vDetailOpacity * uContextOpacity;
   if (alpha < 0.002) discard;
   gl_FragColor = vec4(col, alpha);
 }
@@ -377,6 +378,7 @@ export async function createEarthStippleGlobe(
       uOceanPointScale: { value: 1 },
       uPixelRatio: { value: initialPixelRatio },
       uPointScale: { value: 1 },
+      uContextOpacity: { value: 1 },
       uDetailMode: { value: 0 },
       uDetailTime: { value: 0 },
       uDetailFadeSeconds: { value: 0.15 },

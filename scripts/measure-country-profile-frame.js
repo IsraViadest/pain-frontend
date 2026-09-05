@@ -6,6 +6,7 @@
  *   perfScenario=rest|selected|building
  *   perfIso=IND
  *   perfMs=20000
+ *   perfLayer=envpain|physpain|socioecopain
  */
 (async () => {
   const query = new URL(location.href).searchParams;
@@ -13,6 +14,15 @@
   const sampleMs = Number(query.get("perfMs") ?? 20000);
   const canvas = document.querySelector("canvas");
   if (!canvas) throw new Error("WebGL canvas unavailable");
+  const layer = query.get("perfLayer");
+  if (layer) {
+    const label = { envpain: "Environmental Pain", physpain: "Physical Pain",
+      socioecopain: "Socio-economic Pain" }[layer];
+    const button = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === label);
+    if (!button) throw Error("Unknown performance layer: " + layer);
+    button.click();
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+  }
 
   if (scenario === "selected" || scenario === "building") {
     const iso3 = query.get("perfIso") ?? "IND";
@@ -100,10 +110,19 @@
   const totalCalls = Object.values(calls).reduce((sum, value) => sum + value, 0);
   const labels = [...document.querySelectorAll(".emo-label")];
   const emphasised = [...document.querySelectorAll(".emo-label--emphasis")];
+  const painted = (element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return style.visibility === "visible" && Number(style.opacity) > 0.01 &&
+      rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
+      rect.left < innerWidth && rect.top < innerHeight;
+  };
 
   return {
     passed: true,
     scenario,
+    layer: layer ?? "all-layers",
+    gpuTimerAvailable: !!gl.getExtension("EXT_disjoint_timer_query_webgl2"),
     viewport: [innerWidth, innerHeight],
     sampleMs,
     frames: sorted.length,
@@ -115,13 +134,9 @@
     texturesUsed: textures.size,
     domElements: document.querySelectorAll("*").length,
     labels: labels.length,
-    visibleLabels: labels.filter(
-      (element) => getComputedStyle(element).visibility === "visible",
-    ).length,
+    visibleLabels: labels.filter(painted).length,
     emphasisedLabels: emphasised.length,
-    visibleEmphasised: emphasised.filter(
-      (element) => getComputedStyle(element).visibility === "visible",
-    ).length,
+    visibleEmphasised: emphasised.filter(painted).length,
     calls,
   };
 })().catch((error) => ({

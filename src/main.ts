@@ -502,10 +502,13 @@ let presentationBaseParams: EmoViewParams | null = null;
 function applyCountryProfileGlobePreset(layerId: string): void {
   const preset = countryProfileRuntime?.preset;
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
+  globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
+    preset?.atmosphereSamples ?? 32, preset?.atmosphereFraction ?? 0.5);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
   emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";
+  globe.setStippleContextOpacity(layerId === "envpain" ? preset?.environmentalContextOpacity ?? 1 : 1);
   globe.setStippleDetailMode(physical ? preset?.physicalDetail ?? "fixed" : "fixed");
   globe.setStipplePointTune({
     scale: physical ? preset?.physicalPointScale ?? 1 : 1,
@@ -715,7 +718,7 @@ function applyGlobeLayer(layerId: string): void {
       }
     : undefined;
   globe.updateLayerVisuals(layerId, meta);
-  showLegend(layerId);
+  showLegend(layerId, countryProfileRuntime?.legendForLayer(layerId));
 }
 
 async function applyPendingLayerChange(
