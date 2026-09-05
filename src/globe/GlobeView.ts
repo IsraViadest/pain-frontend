@@ -508,6 +508,7 @@ export class GlobeView {
   private pointsMaterial: THREE.ShaderMaterial | null = null;
   private stippleHandle: Awaited<ReturnType<typeof createEarthStippleGlobe>> | null = null;
   private stippleDetailMode: StippleDetailMode = "fixed";
+  private stippleDetailCapacity = 131_072;
   private stippleContextOpacity = 1;
   private stipplePromise: Promise<void> | null = null;
   private stippleLandMaskUrl: string | null = null;
@@ -523,6 +524,8 @@ export class GlobeView {
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private roundedScarShoulder = false;
   private surfaceDetail: 1 | 2 = 1;
+  private originalSurfaceStorageBytes = 0;
+  private displayGeographyStorageBytes = 0;
   private countryContourDegrees: number | null = null;
   private displayGeography: ReturnType<typeof buildCountryDisplayGeometry> | null = null;
   private painHeatMap: THREE.DataTexture | null = null;
@@ -669,6 +672,7 @@ export class GlobeView {
     this.choroplethShell.renderOrder = 1;
     this.choroplethShell.visible = false;
     this.earthContent.add(this.choroplethShell);
+    this.originalSurfaceStorageBytes = this.surfaceStorageBytes();
 
     // --- Temperature haze shell (just outside globe; red+alpha equirect from Temperature points) ---
     this.temperatureShell = new THREE.Mesh(
@@ -1809,6 +1813,7 @@ export class GlobeView {
           this.pointsMaterial = material;
           material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
           this.stippleHandle = result;
+          result.setDetailCapacity(this.stippleDetailCapacity);
           if (this.displayGeography) setDisplayCountries(this.displayGeography.countries);
           void result.setDetailMode(this.stippleDetailMode).catch((error) => {
             console.error("[GlobeView] stipple detail failed:", error);
@@ -2613,6 +2618,18 @@ export class GlobeView {
       if (degrees !== this.countryContourDegrees) return;
       this.displayGeography = buildCountryDisplayGeometry(getCountryGeometries(), degrees);
     }
+    // Conservative container allowance, computed once; canonical objects are borrowed.
+    const counted = new Set<object>();
+    const countStorage = (value: unknown, measure: boolean): number => {
+      if (value === null || typeof value !== "object" || counted.has(value)) return 0;
+      counted.add(value);
+      if (ArrayBuffer.isView(value)) return measure ? value.byteLength + 64 : 0;
+      const members = Object.values(value);
+      return (measure ? 256 + members.length * 8 : 0) +
+        members.reduce<number>((total, member) => total + countStorage(member, measure), 0);
+    };
+    if (this.displayGeography) countStorage(getCountryGeometries(), false);
+    this.displayGeographyStorageBytes = countStorage(this.displayGeography, true);
     this.bordersOutlines?.setDisplayPaths(this.displayGeography);
     this.bordersOutlines?.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
     this.stippleHandle?.setDisplayCountries(this.displayGeography?.countries ?? null);
@@ -2638,8 +2655,39 @@ export class GlobeView {
     if (this.pointsMaterial) this.pointsMaterial.uniforms.uContextOpacity.value = opacity;
   }
 
+  setStippleDetailCapacity(capacity: number): void {
+    this.stippleDetailCapacity = capacity;
+    this.stippleHandle?.setDetailCapacity(capacity);
+  }
+
   getStippleDetailStats() {
     return this.stippleHandle?.getDetailStats() ?? null;
+  }
+
+  private surfaceStorageBytes(): number {
+    let bytes = (this.globeBasePositions?.byteLength ?? 0) +
+      (this.choroplethBasePositions?.byteLength ?? 0);
+    const arrays = new Set<ArrayBufferLike>();
+    for (const geometry of [this.globe.geometry, this.choroplethShell.geometry]) {
+      for (const attribute of [...Object.values(geometry.attributes), geometry.index]) {
+        if (!attribute) continue;
+        const array = "data" in attribute ? attribute.data.array : attribute.array;
+        if (arrays.has(array.buffer)) continue;
+        arrays.add(array.buffer);
+        bytes += 2 * array.byteLength;
+      }
+    }
+    return bytes;
+  }
+
+  getRenderDetailStorage() {
+    const surface = Math.max(0, this.surfaceStorageBytes() - this.originalSurfaceStorageBytes);
+    const borders = this.bordersOutlines?.additionalStorageBytes() ?? 0;
+    const stipple = this.getStippleDetailStats()?.additionalBytes ?? 0;
+    const atmosphere = this.getAtmosphereStats()?.additionalBytes ?? 0;
+    const geography = this.displayGeographyStorageBytes;
+    return { surface, borders, stipple, atmosphere, geography,
+      total: surface + borders + stipple + atmosphere + geography };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */

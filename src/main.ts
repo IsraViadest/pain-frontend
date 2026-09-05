@@ -501,9 +501,11 @@ let presentationBaseParams: EmoViewParams | null = null;
 
 function applyCountryProfileGlobePreset(layerId: string): void {
   const preset = countryProfileRuntime?.preset;
+  const quality = countryProfileRuntime?.quality?.settings;
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
-    preset?.atmosphereSamples ?? 32, preset?.atmosphereFraction ?? 0.5);
+    quality?.samples ?? preset?.atmosphereSamples ?? 32,
+    quality?.fraction ?? preset?.atmosphereFraction ?? 0.5);
   globe.setSocioeconomicStyle(preset?.socioeconomicStyle ?? null,
     countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
@@ -512,7 +514,10 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   const physical = layerId === "physpain" || layerId === "all-layers";
   globe.setStippleContextOpacity(layerId === "envpain" ? preset?.environmentalContextOpacity ?? 1 :
     layerId === "socioecopain" ? preset?.socioeconomicContextOpacity ?? 1 : 1);
-  globe.setStippleDetailMode(physical ? preset?.physicalDetail ?? "fixed" : "fixed");
+  globe.setStippleDetailCapacity(quality?.capacity ?? 131_072);
+  const detail = preset?.physicalDetail ?? "fixed";
+  globe.setStippleDetailMode(physical ?
+    quality && (detail === "split1" || detail === "split2") ? quality.detail : detail : "fixed");
   globe.setStipplePointTune({
     scale: physical ? preset?.physicalPointScale ?? 1 : 1,
     nearBoost: physical ? preset?.physicalPointNearBoost ?? 0 : 0,
@@ -918,7 +923,7 @@ async function loadPoints(): Promise<void> {
 }
 
 // --- render loop + initial API bootstrap ---
-function loop(): void {
+function loop(now: number): void {
   globe.tick();
   // Before the three layers, so none of them sees a different instant of the same animation.
   emoMotion?.tick();
@@ -931,6 +936,26 @@ function loop(): void {
   emoSelectionLayer?.setExactCountry(exactCountry,
     exactCountry ? getMapLayerById(lastLayerId)?.color ?? "#ffffff" : "#ffffff");
   emoSelectionLayer?.update();
+  const runtime = countryProfileRuntime;
+  const quality = runtime?.quality;
+  if (quality) {
+    const category = runtime.selectedIso3 ? runtime.profiles.get(runtime.selectedIso3)?.emotional.categoryKey : null;
+    const busy = Boolean(emoMotion?.retreatingCategories().length ||
+      (category && emoMotion?.isBuilding(category)));
+    const pool = globe.getStippleDetailStats();
+    const ready = pool !== null && pool.capacityLimit === quality.settings.capacity &&
+      pool.targetCapacity === quality.settings.capacity;
+    const change = quality.tick(now, busy, ready, document.hidden);
+    if (change === "apply") applyCountryProfileGlobePreset(lastLayerId);
+    if (change) {
+      const storage = globe.getRenderDetailStorage();
+      appRootEl.dataset.cpQuality = quality.level;
+      appRootEl.dataset.cpQualityTarget = quality.target;
+      appRootEl.dataset.cpDetailBytes = String(storage.total);
+      appRootEl.dataset.cpDetailBudget = String(quality.activeBudgetBytes);
+      appRootEl.dataset.cpBudgetExceeded = String(storage.total > quality.activeBudgetBytes);
+    }
+  }
   requestAnimationFrame(loop);
 }
 

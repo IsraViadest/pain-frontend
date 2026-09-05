@@ -299,9 +299,10 @@ interface EarthStippleGlobeResult {
   neutralHeatTexture: THREE.DataTexture;
   setDisplayCountries(countries: readonly IndexedCountryGeometry[] | null): void;
   setDetailMode(mode: StippleDetailMode): Promise<void>;
+  setDetailCapacity(capacity: number): void;
   updateDetail(camera: THREE.PerspectiveCamera, width: number, height: number, dt: number): void;
   getDetailStats(): { rootCount: number; descendantCount: number; familyCount: number;
-    additionalBytes: number } | null;
+    additionalBytes: number; capacityLimit: number; targetCapacity: number } | null;
   dispose: () => void;
 }
 
@@ -414,6 +415,7 @@ export async function createEarthStippleGlobe(
   let detail: ReturnType<typeof createStippleDetailController> | null = null;
   let detailPromise: Promise<void> | null = null;
   let requestedDetail: StippleDetailMode = "fixed";
+  let requestedCapacity = 131_072;
   let disposed = false;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -424,7 +426,8 @@ export async function createEarthStippleGlobe(
     if (!detailPromise) {
       detailPromise = import("./stippleDetailController").then(({ createStippleDetailController }) => {
         if (disposed || requestedDetail === "fixed") return;
-        detail = createStippleDetailController({ points, material, radius, isLand: (direction) => {
+        detail = createStippleDetailController({ points, material, radius, capacity: requestedCapacity,
+          isLand: (direction) => {
           if (activeLand.w <= 1 || activeLand.h <= 1) return false;
           const { u, v } = dirToLandMaskUV(direction);
           return isLandPixel(sampleLuminanceBilinear(activeLand.data, activeLand.w, activeLand.h, u, v),
@@ -442,6 +445,10 @@ export async function createEarthStippleGlobe(
     neutralScarTexture,
     neutralHeatTexture,
     setDetailMode,
+    setDetailCapacity(capacity): void {
+      requestedCapacity = capacity;
+      detail?.setCapacity(capacity);
+    },
     updateDetail(camera, width, height, dt): void {
       material.uniforms.uDetailFadeSeconds.value = reducedMotion.matches ? 0 : 0.15;
       detail?.update(camera, width, height, dt);
@@ -449,6 +456,7 @@ export async function createEarthStippleGlobe(
     getDetailStats: () => {
       const stats = detail?.stats() ?? {
         rootCount: pointCount, descendantCount: 0, familyCount: 0, additionalBytes: 0,
+        capacityLimit: requestedCapacity, targetCapacity: requestedCapacity,
       };
       return { ...stats, additionalBytes: stats.additionalBytes + land.data.byteLength +
         (activeLand === land ? 0 : activeLand.data.byteLength) };

@@ -14,6 +14,7 @@ import {
 } from "./presets";
 import { CountrySelectionController } from "./selection";
 import { createEnvironmentalLegend, createSocioeconomicLegend } from "./legend";
+import { CountryRenderQuality } from "./quality";
 
 const ENVIRONMENTAL_LAYER = "envpain";
 const PHYSICAL_LAYER = "physpain";
@@ -35,6 +36,7 @@ export class CountryProfileRuntime {
   private environmentalLegend: SVGSVGElement | undefined;
   private socioeconomicLegend: SVGSVGElement | undefined;
   readonly socioeconomicMinimum: number;
+  readonly quality: CountryRenderQuality | null;
 
   private constructor(
     profiles: ReadonlyMap<string, CountryPainProfile>,
@@ -42,6 +44,9 @@ export class CountryProfileRuntime {
     readonly preset: CountryProfilePreset,
   ) {
     this.profiles = profiles;
+    const requestedQuality = new URLSearchParams(window.location.search).get("cpQuality");
+    this.quality = preset.quality || requestedQuality !== null
+      ? new CountryRenderQuality(requestedQuality ?? "auto") : null;
     const reference = preset.socioeconomicStyle ? profiles.get("JPN")?.socioeconomic.value : 0;
     if (reference === null || reference === undefined || !Number.isFinite(reference) ||
         reference < 0 || reference >= 1) {

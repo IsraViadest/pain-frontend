@@ -351,8 +351,27 @@ data. Cleanup is limited to task-owned temporaries.
   131,072 default. New callers may request smaller pools. Growth and fitting shrink preserve
   live attribute/fade bits; crowded shrink reverses complete root families before replacing
   storage. Roots remain intact. Focused tests cover small/full pools, interrupted detail,
-  repeated resize, invalid limits and eight GPU-disposal events before attribute replacement.
+  repeated resize, invalid limits and eight geometry dispose events before attribute replacement.
   Actual draw inspection verifies 16,384/32,768/65,536-slot buffers for Light/Standard/Rich.
+
+- 2026-09-05: Quality profiles are implemented and directly verified in `v18-a_composed`.
+  Light/Standard/Rich use pools 16,384/32,768/65,536 and volume sample caps 16/16/32. Volume
+  target fractions are 0.25/0.50/0.50 of the drawing buffer, subject to the existing pixel cap.
+  Auto starts Light, gathers three healthy windows, and waits for the network to settle before
+  requesting Standard. Two slow windows can promptly downgrade; recovery waits 60 seconds.
+  Pure checks cover forced modes, busy deferral, pending pools, hidden time, and cooldown.
+  Fixed soft surfaces plus refined borders add 20,003,064 bytes. Including bounded child pools,
+  conservative container allowances, masks and capped targets gives upper estimates of about
+  50/60/84 MiB against budgets 64/128/128 MiB. Borrowed selection/depth geometry is counted once.
+  Actual GPU draw inspection confirms each pool size, ray count and target size. All four modes
+  preserve India through zoom/layer races, issue zero zoom data requests and report no GL errors.
+  At 1500x950, measured detail reports peak at 36.18/39.28/43.35 MB for the three forced tiers;
+  Auto selects Standard. These are owned-buffer estimates, not driver-private memory or phone tests.
+  The extended GPU fixture proves fitting/growing pool changes are pixel-identical, each releases
+  six old VBOs and creates six replacements, and crowded shrink reaches its cap in 21 frames.
+  Final fixture disposal balances all 36 native buffer allocations/deletions, with zero remaining
+  tracked bytes, textures or geometries. Synthetic hit-testing seeds the document listener;
+  native pointer capture requires a trusted browser gesture and is not claimed by these probes.
 
 ## Historical first-goal completion
 

@@ -120,6 +120,7 @@ function makeFatLine(
 
 export interface GlobeBorderOutlines {
   readonly group: THREE.Group;
+  additionalStorageBytes(): number;
   setMaxSegmentDegrees(degrees: number): void;
   setDisplayPaths(paths: { coastLines: number[][][]; borderLines: number[][][] } | null): void;
   setCoastVisible(visible: boolean): void;
@@ -165,6 +166,7 @@ export async function loadGlobeBorderOutlines(
 
   const coastPos = collectOpenLineSegments(coastFc, radius);
   const innerPos = collectOpenLineSegments(innerFc, radius);
+  const originalSegments = (coastPos.length + innerPos.length) / 6;
   let coastBasePos: Float32Array = coastPos.slice();
   let innerBasePos: Float32Array = innerPos.slice();
   let coastWarpPos = coastPos.slice();
@@ -194,6 +196,11 @@ export async function loadGlobeBorderOutlines(
 
   const outlines: GlobeBorderOutlines = {
     group,
+    additionalStorageBytes(): number {
+      // Base XYZ endpoints, shared warp/instance buffer, and CPU/GPU distance buffers.
+      const segments = (coastBasePos.length + innerBasePos.length) / 6;
+      return Math.max(0, segments - originalSegments) * 88;
+    },
     setMaxSegmentDegrees(degrees: number): void {
       if (degrees === maxSegmentDegrees) return;
       maxSegmentDegrees = degrees;

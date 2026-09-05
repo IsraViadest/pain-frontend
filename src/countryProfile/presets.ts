@@ -122,6 +122,7 @@ export interface CountryProfilePreset {
   socioeconomicStyle?: "color" | "hatch" | "woven";
   socioeconomicContextOpacity?: number;
   socioeconomicPatternContrast?: number;
+  quality?: boolean;
   physicalPointNearBoost?: number;
   environmentalGlyph?: "simple" | "grain" | "cells";
   environmentalFieldPattern?:
@@ -554,6 +555,12 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     description: "Lower hatch contrast keeps the visible texture restrained at close range.",
     socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
     socioeconomicPatternContrast: 0.1,
+  },
+  {
+    ...V17_BASE, id: "v18-a_composed", label: "v18: composed globe with bounded quality",
+    description: "The selected treatments with automatic detail and explicit quality overrides.",
+    socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
+    socioeconomicPatternContrast: 0.1, quality: true,
   },
 ];
 
