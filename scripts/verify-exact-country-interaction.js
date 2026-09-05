@@ -13,7 +13,7 @@
     check(profile.querySelector("h2").textContent === "Afghanistan", "unexpected cycle start");
     const clickCenter = () => {
       const clientX = innerWidth / 2, clientY = innerHeight / 2;
-      canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX, clientY }));
+      document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX, clientY }));
       canvas.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX, clientY }));
     };
     const button = (label) => [...document.querySelectorAll("button")]
