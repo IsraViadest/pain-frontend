@@ -107,7 +107,7 @@ claim physical-device testing from emulation.
 - [x] Phase 15: physical dot growth and refinement.
 - [x] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
 - [x] Phase 17: truthful socioeconomic color and pattern.
-- [ ] Phase 18: combined composition and measured quality tiers.
+- [x] Phase 18: combined composition and measured quality tiers.
 - [ ] Phase 19: final frontend/server performance and simplification.
 - [ ] Phase 20: final product, integration, reviews and gallery.
 - [ ] Required physical-device checks; distinguish from responsive emulation.
@@ -384,6 +384,20 @@ data. Cleanup is limited to task-owned temporaries.
   vertical alignment error is 0.008 px. Small-phone card width is bounded to 288 px at 320 px.
   The test's unsupported `light` theme request was corrected to the actual `dark`/`blue` contract.
   Short-landscape pixels were inspected; no physical-phone performance claim follows from this.
+
+- 2026-09-05: Adopted `v18-b_clear-chrome` as the combined default. It retains soft scars,
+  canonical country contours, half-strength peers, bounded dot detail, airy volume, soft hatching
+  and the compact profile. Auto quality starts Light. The whole-word chrome exclusion uses the
+  existing throttled box sweep and fade; it does not thin labels elsewhere or shrink their type.
+  At 1500x950, 75 words remain visible with chrome versus 135 without; removing/restoring chrome
+  restores the same set. At 568x320 the corresponding counts are 55/140. Hidden selected words
+  now update their typography on clear; the reproduced stale-bold case ends with zero stale words.
+  Paired settled-selection pacing stays at 8.3 ms median, with 10.2/10.1 ms p95 for composed/clear
+  chrome and identical draw/resource counts. This is frame pacing, not GPU duration.
+  Desktop all-pain, short-landscape Emotional, and Light phone-sized Environmental frames were
+  inspected. Existing quality checks cover all forced levels, Auto, deferred swaps and budgets.
+  Temporary comparison PNGs remain in /tmp because cleanup was rejected; no gallery was created.
+  Next is Phase 19, optimizing the adopted composition before the final acceptance matrix.
 
 ## Historical first-goal completion
 

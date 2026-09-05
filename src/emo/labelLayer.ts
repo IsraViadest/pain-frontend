@@ -91,6 +91,7 @@ interface LabelEntry {
 }
 
 export interface EmoLabelLayer {
+  setOcclusionRects(provider: (() => readonly DOMRectReadOnly[]) | null): void;
   /** Call once per frame, after globe.tick(). */
   update(): void;
   setParams(next: EmoViewParams): void;
@@ -386,6 +387,7 @@ export async function createEmoLabelLayer(options: {
   let logNextSweep = true;
   let lastFrameMs = -1;
   let lastSweepMs = -1;
+  let occlusionRects: (() => readonly DOMRectReadOnly[]) | null = null;
 
   // A script subset that arrives after first paint changes every box in that script, and nothing
   // else would notice: those widths were measured against the fallback face.
@@ -407,9 +409,10 @@ export async function createEmoLabelLayer(options: {
   function declutterSweep(): void {
     // Every box measures zero while the host is not rendered, and a zero box collides with
     // nothing, so sweeping then would silently clear the whole set.
-    if (host.getBoundingClientRect().width === 0) return;
+    const hostRect = host.getBoundingClientRect();
+    if (hostRect.width === 0) return;
 
-    const candidates = entries.filter((e) => e.candidate);
+    let candidates = entries.filter((e) => e.candidate);
     const stale =
       measureDirty ||
       candidates.some(
@@ -429,6 +432,22 @@ export async function createEmoLabelLayer(options: {
         entry.measuredEmphasis = entry.emphasised;
       }
       measureDirty = false;
+    }
+
+    if (occlusionRects) {
+      const rects = occlusionRects();
+      candidates = candidates.filter((entry) => {
+        const x = hostRect.left + entry.sx, y = hostRect.top + entry.sy;
+        const covered = rects.some((rect) =>
+          x + entry.boxW / 2 + 5 > rect.left && x - entry.boxW / 2 - 5 < rect.right &&
+          y + entry.boxH / 2 + 5 > rect.top && y - entry.boxH / 2 - 5 < rect.bottom);
+        if (covered) entry.declutterTarget = 0;
+        return !covered;
+      });
+    }
+    if (params.declutterMode !== "priority") {
+      for (const entry of candidates) entry.declutterTarget = 1;
+      return;
     }
 
     const pad = params.declutterPad;
@@ -509,7 +528,7 @@ export async function createEmoLabelLayer(options: {
     // Wall-clock, so the fade takes the same time at 60 Hz as at 120. The first frame snaps.
     const fadeStep = lastFrameMs < 0 ? 1 : Math.min(1, (now - lastFrameMs) / DECLUTTER_FADE_MS);
     lastFrameMs = now;
-    const declutterOn = params.declutterMode === "priority";
+    const declutterOn = params.declutterMode === "priority" || occlusionRects !== null;
 
     for (const entry of entries) {
       const { dir, el } = entry;
@@ -618,8 +637,6 @@ export async function createEmoLabelLayer(options: {
         el.style.visibility = paint ? "visible" : "hidden";
         entry.visible = paint;
       }
-      if (!paint) continue;
-
       const fade = ramp(facing, params.facingMin, params.fadeStart);
       const grey = 1 - params.edgeDesaturation * (1 - fade);
       // Dimming and the declutter fade multiply into the limb fade rather than fighting it:
@@ -650,6 +667,9 @@ export async function createEmoLabelLayer(options: {
         el.style.setProperty("--emo-emphasis", grow(params.selectionEmphasisScale));
         el.style.setProperty("--emo-emphasis-second", grow(params.selectionEmphasisSecondScale));
       }
+      // Hidden candidates still need current typography, or their cached boxes stay enlarged
+      // after clear and can keep them hidden even when the resting word would fit.
+      if (!paint) continue;
       const dimming = params.selectionEmphasis !== "bold";
       // Everything a selection has engaged but not lit steps back, which includes a country in
       // the chosen category that the wave has not reached yet: until the network arrives it reads
@@ -683,6 +703,13 @@ export async function createEmoLabelLayer(options: {
 
   return {
     update,
+    setOcclusionRects(provider): void {
+      if (provider === occlusionRects) return;
+      occlusionRects = provider;
+      host.dataset.occlusion = provider ? "on" : "off";
+      measureDirty = true;
+      lastSweepMs = -1;
+    },
     clearSelection,
     selectCountry(iso3: string): void {
       if (params.clickMode !== "selectNetwork") return;

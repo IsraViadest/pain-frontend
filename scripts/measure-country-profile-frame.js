@@ -31,7 +31,8 @@
     const rect = label.getBoundingClientRect();
     const clientX = rect.left + rect.width / 2;
     const clientY = rect.top + rect.height / 2;
-    canvas.dispatchEvent(
+    // Seed document hit-testing without asking OrbitControls to capture an untrusted pointer.
+    document.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, clientX, clientY }),
     );
     canvas.dispatchEvent(

@@ -499,9 +499,23 @@ let countryPresentation: CountryPresentation | null = null;
 let preserveCountryProfileOnEmoClear = false;
 let presentationBaseParams: EmoViewParams | null = null;
 
+/** Whole globe words fade behind visible chrome, using the label layer's existing box sweep. */
+function countryChromeRects(): readonly DOMRectReadOnly[] {
+  return [...document.querySelectorAll<HTMLElement>(
+    "#ui-title, #ui-layer-stack, #ui-share-pain, #ui-bottom-left, #ui-legend, #emo-legend, #country-profile",
+  )].flatMap((element) => {
+    const style = getComputedStyle(element);
+    if (style.visibility === "hidden" || Number(style.opacity) <= 0.01) return [];
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
+      rect.left < innerWidth && rect.top < innerHeight ? [rect] : [];
+  });
+}
+
 function applyCountryProfileGlobePreset(layerId: string): void {
   const preset = countryProfileRuntime?.preset;
   const quality = countryProfileRuntime?.quality?.settings;
+  emoLabelLayer?.setOcclusionRects(preset?.chromeOcclusion ? countryChromeRects : null);
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
     quality?.samples ?? preset?.atmosphereSamples ?? 32,

@@ -123,6 +123,7 @@ export interface CountryProfilePreset {
   socioeconomicContextOpacity?: number;
   socioeconomicPatternContrast?: number;
   quality?: boolean;
+  chromeOcclusion?: boolean;
   physicalPointNearBoost?: number;
   environmentalGlyph?: "simple" | "grain" | "cells";
   environmentalFieldPattern?:
@@ -562,9 +563,15 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
     socioeconomicPatternContrast: 0.1, quality: true,
   },
+  {
+    ...V17_BASE, id: "v18-b_clear-chrome", label: "v18: readable foreground chrome",
+    description: "Globe words fade behind the controls and country card at their existing size.",
+    socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
+    socioeconomicPatternContrast: 0.1, quality: true, chromeOcclusion: true,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v17-g_soft-hatching";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v18-b_clear-chrome";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {
