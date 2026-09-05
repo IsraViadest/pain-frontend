@@ -110,7 +110,7 @@ claim physical-device testing from emulation.
 - [x] Phase 18: combined composition and measured quality tiers.
 - [x] Phase 19: final frontend/server performance and simplification (reference host).
 - [x] Phase 20: reference-host product, integration and gallery; independent review unavailable.
-- [ ] Required physical-device checks; distinguish from responsive emulation.
+- [x] Physical-device checks deferred by the operator; no physical-phone performance claim.
 
 ## Verification and stop conditions
 
@@ -613,6 +613,13 @@ data. Cleanup is limited to task-owned temporaries.
   unavailable Apple Watch. No connected physical phone can run the required 60 Hz test. The goal
   therefore remains active with the physical-device checklist item unchecked. Required operator
   input: connect and unlock `Eno`, accept the Trust prompt, and enable Safari Web Inspector.
+
+- 2026-09-05: The operator explicitly deferred physical-phone acceptance. This closes the
+  checklist dependency without converting desktop responsive or DPR evidence into a phone GPU
+  result. The iPhone 13 remains unavailable and no physical-device performance claim is made.
+  Remaining work is independent review, verification of any findings, and task-owned temporary
+  cleanup. A live `/tmp` inventory found no matching country-air, country-socio, country-layout,
+  country-composed, or country-profile review files to remove in the inspected top-level scope.
 
 ## Historical first-goal completion
 
