@@ -3,7 +3,7 @@
  * It is read as text and evaluated in GPU-backed Chrome; it is not bundled into the app.
  *
  * Query controls:
- *   perfScenario=rest|selected
+ *   perfScenario=rest|selected|building
  *   perfIso=IND
  *   perfMs=20000
  */
@@ -14,7 +14,7 @@
   const canvas = document.querySelector("canvas");
   if (!canvas) throw new Error("WebGL canvas unavailable");
 
-  if (scenario === "selected") {
+  if (scenario === "selected" || scenario === "building") {
     const iso3 = query.get("perfIso") ?? "IND";
     const label = document.querySelector(`.emo-label[data-iso3="${iso3}"]`);
     if (!label) throw new Error(`Label unavailable: ${iso3}`);
@@ -27,7 +27,7 @@
     canvas.dispatchEvent(
       new MouseEvent("click", { bubbles: true, clientX, clientY }),
     );
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (scenario === "selected") await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
   const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");

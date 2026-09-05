@@ -504,6 +504,7 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
+  emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";
   globe.setStipplePointTune({
     scale: physical ? preset?.physicalPointScale ?? 1 : 1,
@@ -917,6 +918,11 @@ function loop(): void {
   emoLabelLayer?.update();
   emoArcLayer?.update();
   emoLeaderLineLayer?.update();
+  const exactCountry = countryProfileRuntime?.preset.selectionPeerStrength !== undefined &&
+    lastLayerId !== "emopain" && lastLayerId !== "all-layers"
+    ? countryProfileRuntime.selectedIso3 : null;
+  emoSelectionLayer?.setExactCountry(exactCountry,
+    exactCountry ? getMapLayerById(lastLayerId)?.color ?? "#ffffff" : "#ffffff");
   emoSelectionLayer?.update();
   requestAnimationFrame(loop);
 }

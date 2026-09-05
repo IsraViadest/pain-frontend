@@ -51,6 +51,8 @@ const ARRIVED_AT = 0.5;
 export interface EmoSelectionLayer {
   /** Mark every country in this pain category, or clear the mark when passed null. */
   setSelectedCategory(cat: string | null): void;
+  setPeerStrength(strength: number | null): void;
+  setExactCountry(iso3: string | null, color: string): void;
   /**
    * Call once per frame. Repaints only when the set of countries the wavefront has reached
    * actually changes, which is at most once per depth step of the spread and never at all when
@@ -96,21 +98,10 @@ export async function createEmoSelectionLayer(options: {
   globe.earthContent.add(mesh);
 
   let selectedCat: string | null = null;
-  /**
-   * A count of the marked countries per category the last painted texture covered, or null to
-   * force a repaint.
-   *
-   * NULL RATHER THAN THE EMPTY STRING, because the empty string is a real key: it is what nothing
-   * marked produces, which is exactly the state a cleared selection has to reach. A sentinel that
-   * a real state can also produce is not a dirty flag, and here it would have left the last mark
-   * painted on the globe after the selection was cleared.
-   *
-   * A count is enough of a key because arrival is monotone within one wave: a country a wave has
-   * reached never becomes unreached while that wave runs, in either direction. It has to be a
-   * count PER CATEGORY rather than one total, because a category being taken apart and a category
-   * being built can be on screen together, and one losing a country while the other gains one
-   * leaves a single total unchanged over two different sets.
-   */
+  let peerStrength: number | null = null;
+  let exactCountry: string | null = null;
+  let exactColor = WASH_COLOUR;
+  // Null is dirty; the empty string is the valid unselected state.
   let paintedKey: string | null = null;
   let paintedGeography = globe.getDisplayCountryGeometries();
 
@@ -124,48 +115,55 @@ export async function createEmoSelectionLayer(options: {
   }
 
   /** The countries currently marked, and the key that says whether that set has changed. */
-  function arrivedMembers(): { members: string[]; key: string } {
-    const members: string[] = [];
+  function arrivedMembers(): { strengths: Map<string, number>; key: string } {
+    if (exactCountry) return {
+      strengths: new Map([[exactCountry, 1]]), key: `exact:${exactCountry}:${exactColor}`,
+    };
+    const strengths = new Map<string, number>();
     let key = "";
     for (const cat of markedCategories()) {
-      let count = 0;
       for (const iso3 of membersByCategory.get(cat) ?? []) {
-        if (motion.markArrivalOf(iso3) < ARRIVED_AT) continue;
-        members.push(iso3);
-        count += 1;
+        const strength = peerStrength === null
+          ? Number(motion.markArrivalOf(iso3) >= ARRIVED_AT)
+          : motion.markStrengthOf(iso3, peerStrength);
+        if (strength <= 0) continue;
+        strengths.set(iso3, strength);
+        key += `${iso3}:${strength}|`;
       }
-      key += `${cat}:${count}|`;
     }
-    return { members, key };
+    return { strengths, key };
   }
 
   function paint(): void {
     material.map?.dispose();
     material.map = null;
-    const { members, key } = arrivedMembers();
+    const { strengths, key } = arrivedMembers();
+    const members = [...strengths.keys()];
     paintedKey = key;
     paintedGeography = globe.getDisplayCountryGeometries();
-    const glow = params.selectionStyle === "glow";
+    const glow = exactCountry === null && params.selectionStyle === "glow";
     // Split rather than filtered afterwards: a country either has a polygon to fill or a point to
     // put a disc at, and asking `hasCountryGeometry` is what keeps the two lists from overlapping
     // or from leaving a country in neither.
-    const discs: { lat: number; lng: number }[] = [];
+    const discs: { lat: number; lng: number; strength: number }[] = [];
     for (const iso3 of members) {
       if (hasCountryGeometry(iso3)) continue;
       const centroid = getCountryCentroid(iso3);
-      if (centroid) discs.push({ lat: centroid.lat, lng: centroid.lng });
+      if (centroid) discs.push({ lat: centroid.lat, lng: centroid.lng, strength: strengths.get(iso3)! });
     }
     const texture =
       members.length === 0
         ? null
         : createCountryHighlightTexture(
             members,
-            glow ? GLOW_COLOUR : WASH_COLOUR,
-            params.selectionFill,
+            exactCountry ? exactColor : glow ? GLOW_COLOUR : WASH_COLOUR,
+            exactCountry ? Math.min(params.selectionFill, 0.18) : params.selectionFill,
             params.selectionOutline,
             discs,
             params.selectionMarkerDeg,
             paintedGeography,
+            peerStrength !== null || exactCountry !== null ? strengths : undefined,
+            exactCountry ? WASH_COLOUR : undefined,
           );
     material.map = texture;
     // Adding warm light brightens the country's own choropleth colour instead of covering it.
@@ -177,6 +175,17 @@ export async function createEmoSelectionLayer(options: {
   }
 
   return {
+    setPeerStrength(strength): void {
+      if (strength === peerStrength) return;
+      peerStrength = strength;
+      paintedKey = null;
+    },
+    setExactCountry(iso3, color): void {
+      if (iso3 === exactCountry && color === exactColor) return;
+      exactCountry = iso3;
+      exactColor = color;
+      paintedKey = null;
+    },
     setSelectedCategory(cat: string | null): void {
       if (cat === selectedCat) return;
       selectedCat = cat;
@@ -206,8 +215,7 @@ export async function createEmoSelectionLayer(options: {
         next.selectionSpreadMs !== params.selectionSpreadMs ||
         next.selectionLeaderMs !== params.selectionLeaderMs;
       params = next;
-      if (spreadChanged) paintedKey = null;
-      if (markChanged && selectedCat !== null) paint();
+      if (spreadChanged || markChanged) paintedKey = null;
     },
     destroy(): void {
       material.map?.dispose();

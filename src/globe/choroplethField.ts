@@ -266,12 +266,14 @@ function traceMarker(
   w: number,
   h: number,
   paint: (ctx: CanvasRenderingContext2D) => void,
+  joinPath = false,
 ): void {
   const [x, y] = lngLatToCanvas(point.lng, point.lat, w, h);
   const ry = (radiusDeg / 180) * h;
   const rx = ry / Math.max(0.15, Math.cos((point.lat * Math.PI) / 180));
   for (const dx of [-w, 0, w]) {
-    ctx.beginPath();
+    if (joinPath) ctx.moveTo(x + dx + rx, y);
+    else ctx.beginPath();
     ctx.ellipse(x + dx, y, rx, ry, 0, 0, Math.PI * 2);
     paint(ctx);
   }
@@ -312,9 +314,11 @@ export function createCountryHighlightTexture(
   colorHex: string,
   fillOpacity: number,
   outlineWidthPx: number,
-  markers: readonly { lat: number; lng: number }[],
+  markers: readonly { lat: number; lng: number; strength?: number }[],
   markerRadiusDeg: number,
   countries: readonly IndexedCountryGeometry[] = getCountryGeometries(),
+  strengths?: ReadonlyMap<string, number>,
+  outlineColorHex?: string,
 ): THREE.DataTexture | null {
   const keys = new Set(iso3List.map((c) => c.trim().toUpperCase()));
   const matches = countries.filter((c) => keys.has(c.key));
@@ -332,14 +336,14 @@ export function createCountryHighlightTexture(
 
   ctx.clearRect(0, 0, w, h);
   const rgb = parseHexRgb(colorHex) ?? { r: 255, g: 255, b: 255 };
-  if (fillOpacity > 0) {
+  if (!strengths && fillOpacity > 0) {
     ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${Math.max(0, Math.min(1, fillOpacity))})`;
     for (const match of matches) fillGeometry(ctx, match.geometry, w, h);
     for (const marker of discs) traceMarker(ctx, marker, markerRadiusDeg, w, h, (p) => p.fill());
   }
   // After the fill, never before: filling punches its holes with destination-out, which would
   // erase any stroke already laid down there.
-  if (outlineWidthPx > 0) {
+  if (!strengths && outlineWidthPx > 0) {
     ctx.strokeStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
     ctx.lineWidth = outlineWidthPx;
     ctx.lineJoin = "round";
@@ -348,9 +352,65 @@ export function createCountryHighlightTexture(
     for (const marker of discs) traceMarker(ctx, marker, markerRadiusDeg, w, h, (p) => p.stroke());
   }
 
-  const { data } = ctx.getImageData(0, 0, w, h);
+  let bytes: Uint8Array;
+  if (strengths) {
+    // Rasterize each strength once, then take maximum alpha. Shared borders and overlapping
+    // waves cannot gain brightness through repeated source-over compositing.
+    bytes = new Uint8Array(w * h * 4);
+    const weights = new Set([
+      ...matches.map((c) => strengths.get(c.key) ?? 1), ...discs.map((d) => d.strength ?? 1),
+    ]);
+    const outline = parseHexRgb(outlineColorHex ?? colorHex) ?? rgb;
+    for (const weight of weights) {
+      if (weight <= 0) continue;
+      const group = matches.filter((c) => (strengths.get(c.key) ?? 1) === weight);
+      const groupDiscs = discs.filter((d) => (d.strength ?? 1) === weight);
+      ctx.clearRect(0, 0, w, h);
+      if (fillOpacity > 0) {
+        ctx.fillStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+        for (const { geometry } of group) {
+          const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+          for (const rings of polygons) {
+            ctx.beginPath();
+            for (const ring of rings) traceRing(ctx, ring, w, h);
+            ctx.fill("evenodd");
+          }
+        }
+        for (const disc of groupDiscs) traceMarker(ctx, disc, markerRadiusDeg, w, h, (p) => p.fill());
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.fillStyle = `rgba(0,0,0,${Math.max(0, Math.min(1, fillOpacity))})`;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalCompositeOperation = "source-over";
+      }
+      if (outlineWidthPx > 0) {
+        ctx.strokeStyle = `rgb(${outline.r},${outline.g},${outline.b})`;
+        ctx.lineWidth = outlineWidthPx;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        for (const { geometry } of group) {
+          const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+          for (const rings of polygons) for (const ring of rings) traceRing(ctx, ring, w, h);
+        }
+        for (const disc of groupDiscs) traceMarker(ctx, disc, markerRadiusDeg, w, h, () => {}, true);
+        ctx.stroke();
+      }
+      const { data } = ctx.getImageData(0, 0, w, h);
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = Math.round(data[i + 3]! * Math.min(1, weight));
+        if (alpha <= bytes[i + 3]!) continue;
+        bytes[i] = data[i]!;
+        bytes[i + 1] = data[i + 1]!;
+        bytes[i + 2] = data[i + 2]!;
+        bytes[i + 3] = alpha;
+      }
+    }
+  } else {
+    const { data } = ctx.getImageData(0, 0, w, h);
+    bytes = new Uint8Array(data.buffer.slice(0));
+  }
   const tex = new THREE.DataTexture(
-    new Uint8Array(data.buffer.slice(0)) as unknown as ArrayBufferView<ArrayBuffer>,
+    bytes as unknown as ArrayBufferView<ArrayBuffer>,
     w,
     h,
     THREE.RGBAFormat,

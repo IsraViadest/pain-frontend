@@ -210,6 +210,8 @@ export interface EmoSelectionMotion {
    * the country light up. With no lead-in this is exactly `arrivalOf`.
    */
   markArrivalOf(iso3: string): number;
+  /** Strongest arrived origin/peer mark, or 1 when no wave covers the country. */
+  markStrengthOf(iso3: string, peerStrength: number): number;
   /** Whether this country is the one its wave grew from, so its leader grows the other way. */
   isSpreadOrigin(iso3: string): boolean;
   /**
@@ -282,6 +284,17 @@ export function createEmoSelectionMotion(options: {
 
   const leadOf = (w: Wave): number => clamp01(w.p);
   const frontOf = (w: Wave): number => clamp01(w.p - LEAD_END);
+
+  function markArrivalInWave(w: Wave, depth: number): number {
+    // The country lights once its own line has landed on it, which is the end of its step.
+    const at = leaderEndsAt(depth, w.span);
+    return clampedRamp(
+      frontOf(w),
+      at,
+      at + windowFraction(w.span),
+      params.selectionSpreadEase,
+    );
+  }
 
   /**
    * The largest value `read` returns over every wave that covers this country, or 1 when none
@@ -615,15 +628,12 @@ export function createEmoSelectionMotion(options: {
       });
     },
     markArrivalOf(iso3: string): number {
-      // The country lights once its own line has landed on it, which is the end of its step.
+      return readWaves(iso3, markArrivalInWave);
+    },
+    markStrengthOf(iso3: string, peerStrength: number): number {
       return readWaves(iso3, (w, depth) => {
-        const at = leaderEndsAt(depth, w.span);
-        return clampedRamp(
-          frontOf(w),
-          at,
-          at + windowFraction(w.span),
-          params.selectionSpreadEase,
-        );
+        if (markArrivalInWave(w, depth) < 0.5) return 0;
+        return iso3 === w.origin ? 1 : peerStrength;
       });
     },
     isSpreadOrigin(iso3: string): boolean {

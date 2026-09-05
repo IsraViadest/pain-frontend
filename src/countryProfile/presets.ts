@@ -110,6 +110,7 @@ export interface CountryProfilePreset {
   roundedScarShoulder?: boolean;
   surfaceDetail?: 1 | 2;
   countryContourDegrees?: number;
+  selectionPeerStrength?: number;
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
   physicalPointScale?: number;
@@ -396,9 +397,24 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     description: "Twice the gentle fillet, using the same fixed display shape at every zoom.",
     surfaceDetail: 2, roundedScarShoulder: true, countryContourDegrees: 0.005,
   },
+  {
+    ...COMPACT_BASE, id: "v14-control_equal-peers", label: "v14: equal country highlights",
+    description: "Full-strength category marks and exact-country marks in the three other views.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 1,
+  },
+  {
+    ...COMPACT_BASE, id: "v14-a_half-peers", label: "v14: half-strength peer countries",
+    description: "Origin stays fully lit; reached peers use half the fill and border strength.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+  },
+  {
+    ...COMPACT_BASE, id: "v14-b_stronger-peers", label: "v14: 65-percent peer countries",
+    description: "A gentler origin/peer distinction, without changing lines, labels, or timing.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.65,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v12-c_soft-surface";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v14-a_half-peers";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

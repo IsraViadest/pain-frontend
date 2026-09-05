@@ -103,7 +103,7 @@ claim physical-device testing from emulation.
 - [x] Phase 11: compact profile and glyph rounds.
 - [x] Phase 12: continuous rounded scars and shared surface.
 - [x] Phase 13: gently rounded shared country contours (trials retained; not adopted).
-- [ ] Phase 14: wave-aware origin and peer emphasis.
+- [x] Phase 14: wave-aware origin and peer emphasis.
 - [ ] Phase 15: physical dot growth and refinement.
 - [ ] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
 - [ ] Phase 17: truthful socioeconomic color and pattern.
@@ -231,6 +231,25 @@ data. Cleanup is limited to task-owned temporaries.
   earlier Phase 12 claim: 13,654 was generated geometry, not proof that all segments were drawn.
   `scripts/verify-country-display.js`, the scar GPU regression, and `npm run check` pass.
   Default entry is 220.81 kB gzip; the optional contour builder is a separate 1.72 kB gzip chunk.
+
+- 2026-09-05: Phase 14 complete. Adopted `v14-a_half-peers`; full and 65-percent peers remain
+  in `v14-control_equal-peers` and `v14-b_stronger-peers`. Each wave assigns its own origin role
+  after arrival, then contributions combine by maximum. Repainting keys include ISO3 and weight,
+  so a new origin cannot inherit full brightness from its previous peer role. Shared peer borders
+  rasterize once; fill alpha is 89/45/58 and border alpha 255/128/166 for full/half/65 percent.
+  Width, labels, network and leaders are unchanged. Old presets retain their original paint path.
+  The existing shared highlight mesh also marks exactly the selected country in Environmental,
+  Physical and Socioeconomic views, with a restrained layer-colored fill and white outline.
+  Actual app checks pass surface select/repeat-clear in all three views, profile persistence
+  across layer switches, and no restored network when returning to Emotional Pain. Centroid-only
+  countries still mark. Six inspected views cover all three peer weights and all three exact modes.
+  `dev/networkMotion.check.ts`, `scripts/verify-country-highlight.js`, and
+  `scripts/verify-exact-country-interaction.js` pass. Independent direct source review found no
+  actionable issue and independently ran the motion check; browser verification was done here.
+  Paired 1.8-second construction traces both give 8.30 ms median / 10.30 ms p95. The half-strength
+  path has a 41.7 ms worst frame versus 16.6 ms for the one-weight control. Its extra full-map
+  raster/readback work is a concrete Phase 19 profiling target; the frame interval alone does
+  not identify GPU cost. Default entry is 221.39 kB gzip. No final gallery was produced.
 
 ## Historical first-goal completion
 
