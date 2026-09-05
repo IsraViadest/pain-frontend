@@ -100,7 +100,7 @@ claim physical-device testing from emulation.
 
 - [x] Phase 9: network initialization and interaction completion.
 - [x] Phase 10: final chrome and country-cycle sequence.
-- [ ] Phase 11: compact profile and glyph rounds.
+- [x] Phase 11: compact profile and glyph rounds.
 - [ ] Phase 12: continuous rounded scars and shared surface.
 - [ ] Phase 13: gently rounded shared country contours.
 - [ ] Phase 14: wave-aware origin and peer emphasis.
@@ -160,6 +160,23 @@ data. Cleanup is limited to task-owned temporaries.
   Interrupted preview clears, restarted cycle replays the saved country, and status is visible.
   A 320 px Chrome screenshot confirmed both controls fit; the cycle right edge is 165.1 px.
   `npm run check` and the combined network/cycle browser probe pass. No new gallery files.
+
+- 2026-09-05: Phase 11 complete. Adopted `v11-c_compact-base`: medium structure (460 px desktop,
+  296 px phone), inset 0.88, plate 0.36, native opacity 0.72, tiny desktop English, no visible
+  phone captions. Temperature is solid, Physical dotted, and strokes paint above inset fills.
+  CO2 has the bordered green band; zero is faint, CO2 missing is independent, and both missing
+  retain a neutral silhouette. New structural/inset/plate/type alternatives remain reachable.
+  Every candidate was inspected in Chrome; all three structural sizes were checked on phone
+  and desktop. Layout tests use synthetic values with all 195 real native terms, and pass at
+  320/393/430/768/1080/1500 px. Maximum center-line error was 0.008 px. Explicit checks now enforce
+  equal-width slots, equal gaps, and centered Environmental/Physical SVGs after the operator's
+  reminder. Emotional aligns inward from the left; Socioeconomic inward from the right.
+  Added genuine dark-theme 320 px and blue 852x393 checks, including chrome overlap. Landscape
+  uses the compact treatment and ignores side-only obstacles, avoiding a profile over the title.
+  On Emotional portrait the profile ends at y=675 and the legend begins at 687. Browser cycle
+  regressions and `npm run check` pass. Temporary screenshots only; durable gallery deferred.
+  The pre-existing short-wide emotional legend/chrome is crowded and remains a Phase 18 combined
+  composition case; this is distinct from the new profile, whose chrome bounds now pass.
 
 ## Historical first-goal completion
 

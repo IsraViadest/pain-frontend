@@ -67,6 +67,8 @@ lines.
 
 - Four aligned equal desktop slots, stable width, right-aligned emotional text extending left,
   shorter divider, tighter spacing, and translucent black plate.
+- Operator reminder: equal gaps between equal-width slots; Environmental and Physical glyphs
+  centered within their slots. Socioeconomic aligns left, facing the right-aligned emotional term.
 - On phones hide visible captions and English translations; preserve complete accessible labels.
   Keep country-name size, avoid semantic truncation, and sit above share/legend with safe-area
 inset.

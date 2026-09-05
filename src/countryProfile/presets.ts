@@ -73,6 +73,13 @@
  * - v7-a_base consolidates the selected profile, transition, physical points, profile glyph,
  *   and smooth environmental globe without changing their values.
  *
+ * STRUCTURAL RE-OPEN v8: compare the current row with three compact four-slot sizes.
+ * SELECTED: medium, 460 px desktop / 296 px phone. Small gives less room to the glyphs; large
+ * adds width without improving the hierarchy. All real native terms fit at 320 and 393 px.
+ * Rounds v9-v11 isolate inset, plate opacity, then the secondary type treatment.
+ * SELECTED: inset 0.88, plate 0.36, native 0.72 with tiny desktop English. The higher inset
+ * reduces the outline breathing room; a darker plate adds weight. Keep translation context.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -80,7 +87,8 @@ type CountryProfileLayout =
   | "literal-row"
   | "quiet-row"
   | "constellation"
-  | "typographic-anchor";
+  | "typographic-anchor"
+  | "compact";
 
 export interface CountryProfilePreset {
   id: string;
@@ -89,6 +97,11 @@ export interface CountryProfilePreset {
   layout: CountryProfileLayout;
   /** The operator's expressive-globe refinement; omitted preserves the v1-v7 treatment. */
   refinement?: boolean;
+  compactSize?: "small" | "medium" | "large";
+  glyphInset?: number;
+  plateOpacity?: number;
+  emotionalCaption?: "quiet" | "none";
+  nativeOpacity?: number;
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
   physicalPointScale?: number;
@@ -130,6 +143,16 @@ const V1_PRESETS: readonly CountryProfilePreset[] = [
 ];
 
 const QUIET_ROW = V1_PRESETS.find((preset) => preset.id === "v1-a_quiet-row")!;
+const COMPACT_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> = {
+  layout: "compact",
+  refinement: true,
+  compactSize: "medium",
+  glyphInset: 0.88,
+  plateOpacity: 0.36,
+  transitionMs: 240,
+  physicalPointScale: 1.18,
+  environmentalFieldPattern: "smooth",
+};
 const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
   ...V1_PRESETS,
   {
@@ -291,9 +314,48 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     environmentalGlyph: "cells",
     environmentalFieldPattern: "smooth",
   },
+  ...(["small", "medium", "large"] as const).map((compactSize, index) => ({
+    ...COMPACT_BASE,
+    id: `v8-${"abc"[index]}_compact-${compactSize}`,
+    label: `v8 ${"ABC"[index]}: compact ${compactSize}`,
+    description: "Four equal slots, restrained type, and compact patterned indicators.",
+    compactSize,
+  })),
+  ...([0.88, 0.84, 0.92] as const).map((glyphInset, index) => ({
+    ...COMPACT_BASE,
+    id: `v9-${["control", "a", "b"][index]}_inset-${Math.round(glyphInset * 100)}`,
+    label: `v9: inset ${glyphInset}`,
+    description: "Maximum fill scale; proportional area stays unchanged.",
+    glyphInset,
+  })),
+  ...([0.36, 0.24, 0.48] as const).map((plateOpacity, index) => ({
+    ...COMPACT_BASE,
+    id: `v10-${["control", "a", "b"][index]}_plate-${Math.round(plateOpacity * 100)}`,
+    label: `v10: plate ${plateOpacity}`,
+    description: "Only the translucent profile background changes.",
+    plateOpacity,
+  })),
+  {
+    ...COMPACT_BASE, id: "v11-control_quiet-translation", label: "v11: quiet translation",
+    description: "Muted native type and a tiny secondary translation on desktop.",
+  },
+  {
+    ...COMPACT_BASE, id: "v11-a_native-only", label: "v11: native only",
+    description: "Remove the desktop translation; phone treatment stays native-only.",
+    emotionalCaption: "none",
+  },
+  {
+    ...COMPACT_BASE, id: "v11-b_softer-native", label: "v11: softer native",
+    description: "Native opacity is 0.60 instead of 0.72; translation is unchanged.",
+    nativeOpacity: 0.60,
+  },
+  {
+    ...COMPACT_BASE, id: "v11-c_compact-base", label: "v11: adopted compact base",
+    description: "Medium compact profile, inset fills, and quiet desktop translation.",
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v7-a_base";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v11-c_compact-base";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

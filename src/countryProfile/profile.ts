@@ -60,6 +60,8 @@ function createSignalMetric(options: {
   caption: string;
   color: string;
   shape: (typeof SHAPES)["physical" | "socioeconomic"];
+  inset: number;
+  compact: boolean;
 }): {
   element: HTMLElement;
   update: (profile: CountryPainProfile) => void;
@@ -75,7 +77,16 @@ function createSignalMetric(options: {
   const outline = svgPath("country-profile__outline", options.shape.path);
   const fill = svgPath("country-profile__fill", options.shape.path);
   fill.style.fill = options.color;
-  svg.append(outline, fill);
+  if (options.compact && options.key === "physical") {
+    const defs = document.createElementNS(SVG_NS, "defs");
+    defs.innerHTML = `<pattern id="country-profile-physical-dots" width="16" height="16"
+      patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="3.5"
+      fill="${options.color}"/><circle cx="12" cy="12" r="3.5"
+      fill="${options.color}"/></pattern>`;
+    svg.append(defs);
+    fill.style.fill = "url(#country-profile-physical-dots)";
+  }
+  svg.append(fill, outline);
 
   const caption = document.createElement("span");
   caption.className = "country-profile__caption";
@@ -89,7 +100,8 @@ function createSignalMetric(options: {
     element,
     update(profile): void {
       const signal = profile[options.key];
-      fill.style.transform = `scale(${proportionalAreaScale(signal.value).toFixed(4)})`;
+      fill.style.transform = `scale(${(options.inset * proportionalAreaScale(signal.value))
+        .toFixed(4)})`;
       missing.hidden = signal.value !== null;
       element.dataset.missing = signal.value === null ? "true" : "false";
       element.setAttribute("aria-label", describeSignal(options.caption, signal));
@@ -97,7 +109,7 @@ function createSignalMetric(options: {
   };
 }
 
-function createEnvironmentalMetric(): {
+function createEnvironmentalMetric(compact: boolean, inset: number): {
   element: HTMLElement;
   update: (profile: CountryPainProfile) => void;
 } {
@@ -111,6 +123,8 @@ function createEnvironmentalMetric(): {
   svg.setAttribute("aria-hidden", "true");
   const outline = svgPath("country-profile__outline", SHAPES.environmental.path);
   const co2 = svgPath("country-profile__co2", SHAPES.environmental.path);
+  const unavailableOutline = svgPath("country-profile__empty-outline", SHAPES.environmental.path);
+  unavailableOutline.style.display = "none";
   const temperature = svgPath(
     "country-profile__fill country-profile__temperature",
     SHAPES.environmental.path,
@@ -135,7 +149,7 @@ function createEnvironmentalMetric(): {
     SHAPES.environmental.path,
   );
   cells.style.fill = "url(#country-profile-cells)";
-  svg.append(defs, outline, co2, temperature, grain, cells);
+  svg.append(defs, temperature, grain, cells, outline, co2, unavailableOutline);
 
   const caption = document.createElement("span");
   caption.className = "country-profile__caption";
@@ -148,14 +162,18 @@ function createEnvironmentalMetric(): {
   return {
     element,
     update(profile): void {
-      const tempScale = proportionalAreaScale(profile.temperature.value);
+      const tempScale = inset * proportionalAreaScale(profile.temperature.value);
       temperature.style.transform = `scale(${tempScale.toFixed(4)})`;
       grain.style.transform = temperature.style.transform;
       cells.style.transform = temperature.style.transform;
       co2.style.opacity = profile.co2.value === null
         ? "0"
-        : Math.max(0.12, Math.min(1, profile.co2.value)).toFixed(3);
+        : Math.max(compact ? 0.10 : 0.12, Math.min(1, profile.co2.value)).toFixed(3);
       const unavailable = profile.temperature.value === null && profile.co2.value === null;
+      if (compact) {
+        outline.style.display = profile.co2.value === null ? "none" : "";
+        unavailableOutline.style.display = unavailable ? "" : "none";
+      }
       missing.hidden = !unavailable;
       element.dataset.missing = unavailable ? "true" : "false";
       element.setAttribute(
@@ -174,19 +192,9 @@ export class CountryProfileView {
   private readonly nativeTerm = document.createElement("span");
   private readonly englishTerm = document.createElement("span");
   private readonly emotional = document.createElement("div");
-  private readonly environmental = createEnvironmentalMetric();
-  private readonly physical = createSignalMetric({
-    key: "physical",
-    caption: "physical",
-    color: "#e4184b",
-    shape: SHAPES.physical,
-  });
-  private readonly socioeconomic = createSignalMetric({
-    key: "socioeconomic",
-    caption: "socioeconomic",
-    color: "#d9d438",
-    shape: SHAPES.socioeconomic,
-  });
+  private readonly environmental: ReturnType<typeof createEnvironmentalMetric>;
+  private readonly physical: ReturnType<typeof createSignalMetric>;
+  private readonly socioeconomic: ReturnType<typeof createSignalMetric>;
   private readonly transitionMs: number;
   private currentLayer = "";
   private transitionRevision = 0;
@@ -194,20 +202,48 @@ export class CountryProfileView {
   private profile: CountryPainProfile | null = null;
   private preview: CountryPainProfile | null = null;
   private suppressed = false;
+  private boundsObserver: ResizeObserver | null = null;
+  private readonly obstacles: HTMLElement[] = [];
+
+  private syncBounds = (): void => {
+    const profileRect = this.host.getBoundingClientRect();
+    if (profileRect.width === 0) return;
+    let bottom = 24;
+    if (innerWidth <= 768 || innerHeight <= 480) {
+      for (const element of this.obstacles) {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        if (rect.width === 0 || rect.height === 0 || rect.right <= 0 || rect.left >= innerWidth ||
+            style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+        if (innerWidth > 768 &&
+            (rect.right <= profileRect.left - 8 || rect.left >= profileRect.right + 8)) continue;
+        bottom = Math.max(bottom, innerHeight - rect.top + 12);
+      }
+    }
+    this.host.style.setProperty("--cp-bottom", `${bottom}px`);
+  };
 
   constructor(
     appRoot: HTMLElement,
-    preset: Pick<
-      CountryProfilePreset,
-      "id" | "layout" | "transitionMs" | "environmentalGlyph"
-    >,
+    preset: CountryProfilePreset,
     layerId: string,
   ) {
+    const compact = preset.layout === "compact";
+    const inset = compact ? preset.glyphInset ?? 0.88 : 1;
+    this.environmental = createEnvironmentalMetric(compact, inset);
+    this.physical = createSignalMetric({ key: "physical", caption: "physical", color: "#e4184b",
+      shape: SHAPES.physical, compact, inset });
+    this.socioeconomic = createSignalMetric({ key: "socioeconomic", caption: "socioeconomic",
+      color: "#d9d438", shape: SHAPES.socioeconomic, compact, inset });
     this.host.id = "country-profile";
     this.host.className = "country-profile";
     this.host.dataset.layout = preset.layout;
     this.host.dataset.preset = preset.id;
     this.host.dataset.environmentalGlyph = preset.environmentalGlyph ?? "simple";
+    this.host.dataset.compactSize = preset.compactSize ?? "medium";
+    this.host.dataset.caption = preset.emotionalCaption ?? "quiet";
+    this.host.style.setProperty("--country-profile-plate", String(preset.plateOpacity ?? 0.36));
+    this.host.style.setProperty("--country-profile-native", String(preset.nativeOpacity ?? 0.72));
     this.host.hidden = true;
     this.host.setAttribute("role", "region");
     this.host.setAttribute("aria-label", "Selected country pain profile");
@@ -239,6 +275,19 @@ export class CountryProfileView {
     );
     this.host.append(this.countryName, divider, items);
     appRoot.append(this.host);
+    if (compact) {
+      this.boundsObserver = new ResizeObserver(this.syncBounds);
+      for (const id of ["ui-share-pain", "ui-legend", "emo-legend", "ui-bottom-left"]) {
+        const element = document.getElementById(id);
+        if (element) {
+          this.obstacles.push(element);
+          this.boundsObserver.observe(element);
+          element.addEventListener("transitionend", this.syncBounds);
+        }
+      }
+      window.addEventListener("resize", this.syncBounds);
+      this.syncBounds();
+    }
     this.setLayer(layerId);
   }
 
@@ -277,6 +326,7 @@ export class CountryProfileView {
     this.environmental.element.hidden = !all && layerId !== "envpain";
     this.physical.element.hidden = !all && layerId !== "physpain";
     this.socioeconomic.element.hidden = !all && layerId !== "socioecopain";
+    if (this.boundsObserver) this.syncBounds();
   }
 
   setProfile(profile: CountryPainProfile | null): void {
@@ -302,11 +352,13 @@ export class CountryProfileView {
     this.environmental.update(profile);
     this.physical.update(profile);
     this.socioeconomic.update(profile);
+    if (this.boundsObserver) this.syncBounds();
   }
 
   setSuppressed(suppressed: boolean): void {
     this.suppressed = suppressed;
     this.host.hidden = !this.preview && (this.profile === null || suppressed);
+    if (this.boundsObserver) this.syncBounds();
   }
 
   /** Heading-only destination preview, without changing selection, metrics, or the network. */
@@ -315,6 +367,7 @@ export class CountryProfileView {
     this.host.dataset.stage = profile ? "heading" : "full";
     this.host.hidden = !profile && (this.profile === null || this.suppressed);
     this.countryName.textContent = profile?.countryName ?? this.profile?.countryName ?? "";
+    if (this.boundsObserver) this.syncBounds();
   }
 
   setAutoplay(autoplay: boolean): void {
@@ -323,6 +376,9 @@ export class CountryProfileView {
 
   destroy(): void {
     if (this.transitionTimer !== null) window.clearTimeout(this.transitionTimer);
+    this.boundsObserver?.disconnect();
+    for (const element of this.obstacles) element.removeEventListener("transitionend", this.syncBounds);
+    window.removeEventListener("resize", this.syncBounds);
     this.host.remove();
   }
 }

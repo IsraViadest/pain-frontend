@@ -430,3 +430,165 @@
   opacity: 0.68;
   text-align: left;
 }
+
+/* The v8 structural round owns these rules; earlier layouts keep their geometry. */
+.country-profile[data-layout="compact"] {
+  --cp-rail: 460px;
+  --cp-phone: 296px;
+  --cp-glyph: 58px;
+  --cp-phone-glyph: 36px;
+  width: min(var(--cp-rail), calc(100vw - 32px)) !important;
+  bottom: max(var(--cp-bottom, 24px), env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  padding: 9px 12px 11px;
+  border-radius: 10px;
+  background: rgba(0, 5, 18, var(--country-profile-plate));
+}
+
+.country-profile[data-layout="compact"][data-compact-size="small"] {
+  --cp-rail: 420px;
+  --cp-phone: 272px;
+  --cp-glyph: 54px;
+  --cp-phone-glyph: 34px;
+}
+
+.country-profile[data-layout="compact"][data-compact-size="large"] {
+  --cp-rail: 500px;
+  --cp-phone: 320px;
+  --cp-glyph: 62px;
+  --cp-phone-glyph: 38px;
+}
+
+.country-profile[data-layout="compact"] .country-profile__country {
+  line-height: 1.15;
+}
+
+.country-profile[data-layout="compact"] .country-profile__divider {
+  margin: 6px 0 8px;
+}
+
+.country-profile[data-layout="compact"] .country-profile__items {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  height: auto;
+}
+
+.country-profile[data-layout="compact"] .country-profile__metric,
+.country-profile[data-layout="compact"] .country-profile__emotional {
+  position: static;
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  transform: none;
+  justify-content: center;
+}
+
+.country-profile[data-layout="compact"] .country-profile__emotional {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.country-profile[data-layout="compact"][data-layer="all-layers"]
+  [data-indicator="socioeconomic"] {
+  align-items: flex-start;
+}
+
+.country-profile[data-layout="compact"] .country-profile__native {
+  width: max-content;
+  max-width: min(300px, calc((100vw - min(var(--cp-rail), 100vw - 32px)) / 2
+    + min(var(--cp-rail), 100vw - 32px) / 4 - 16px));
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-overflow: clip;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.15;
+  color: rgba(224, 234, 238, var(--country-profile-native));
+}
+
+.country-profile[data-layout="compact"] .country-profile__english {
+  font-size: 8px;
+  opacity: 0.3;
+}
+
+.country-profile[data-layout="compact"][data-caption="none"] .country-profile__english,
+.country-profile[data-layout="compact"] .country-profile__caption,
+.country-profile[data-layout="compact"] .country-profile__missing {
+  display: none;
+}
+
+.country-profile[data-layout="compact"] .country-profile__metric svg {
+  width: var(--cp-glyph);
+  height: 42px;
+}
+
+.country-profile[data-layout="compact"] .country-profile__metric path {
+  vector-effect: none;
+}
+
+.country-profile[data-layout="compact"] .country-profile__outline,
+.country-profile[data-layout="compact"] .country-profile__empty-outline {
+  fill: none;
+  stroke: rgba(224, 234, 238, 0.72);
+  stroke-width: 3.5;
+}
+
+.country-profile[data-layout="compact"] [data-indicator="environmental"]
+  .country-profile__outline {
+  stroke-width: 6;
+}
+
+.country-profile[data-layout="compact"] .country-profile__co2 {
+  stroke: #69c99c;
+  stroke-width: 4;
+  transform: none;
+}
+
+.country-profile[data-layout="compact"][data-layer]:not([data-layer="all-layers"])
+  .country-profile__items {
+  display: flex;
+  justify-content: center;
+}
+
+.country-profile[data-layout="compact"][data-layer]:not([data-layer="all-layers"])
+  .country-profile__emotional {
+  align-items: center;
+  text-align: center;
+}
+
+.country-profile[data-layout="compact"][data-stage="heading"] {
+  background: transparent;
+}
+
+@media (max-width: 768px), (max-height: 480px) {
+  .country-profile[data-layout="compact"][data-compact-size] {
+    --cp-rail: var(--cp-phone);
+    --cp-glyph: var(--cp-phone-glyph);
+    padding: 8px 10px;
+  }
+
+  .country-profile[data-layout="compact"] .country-profile__country {
+    font-size: 18px;
+  }
+
+  .country-profile[data-layout="compact"] .country-profile__items {
+    min-height: 28px;
+    gap: 5px;
+  }
+
+  .country-profile[data-layout="compact"] .country-profile__metric svg {
+    height: 28px;
+  }
+
+  .country-profile[data-layout="compact"] .country-profile__native {
+    font-size: 12px;
+  }
+
+  .country-profile[data-layout="compact"] .country-profile__english {
+    display: none;
+  }
+}
