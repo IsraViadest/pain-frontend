@@ -23,12 +23,15 @@
   let sequenceErrors = 0;
   const errors = [];
   const samples = [];
+  const probeStarted = performance.now();
   let longTaskCount = 0;
   let longTaskMaxMs = 0;
   let longTaskTotalMs = 0;
+  let liveLongTaskCount = 0;
   const longTasks = new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       longTaskCount++;
+      if (entry.startTime >= probeStarted) liveLongTaskCount++;
       longTaskMaxMs = Math.max(longTaskMaxMs, entry.duration);
       longTaskTotalMs += entry.duration;
     }
@@ -57,6 +60,7 @@
       atMs: Math.round(now),
       dom: document.querySelectorAll("*").length,
       heap: performance.memory?.usedJSHeapSize ?? null,
+      state: toggle.dataset.state,
     });
   };
   sample();
@@ -81,7 +85,17 @@
     .sort((a, b) => a - b);
   const percentile = (fraction) =>
     countryIntervals[Math.max(0, Math.ceil(countryIntervals.length * fraction) - 1)] ?? 0;
+  const stoppedCleanly =
+    toggle.getAttribute("aria-pressed") === "false" && profile.hidden;
+  const passed =
+    wasRunning &&
+    countries.length >= Math.max(1, Math.floor(durationMs / 500)) &&
+    sequenceErrors === 0 &&
+    Math.max(...domValues) === Math.min(...domValues) &&
+    errors.length === 0 &&
+    stoppedCleanly;
   return {
+    passed,
     durationMs,
     wasRunning,
     countryChanges: countries.length,
@@ -111,11 +125,11 @@
     maxSampleGapMs: Number(maxSampleGapMs.toFixed(1)),
     longTasks: {
       count: longTaskCount,
+      liveCount: liveLongTaskCount,
       maxMs: Number(longTaskMaxMs.toFixed(1)),
       totalMs: Number(longTaskTotalMs.toFixed(1)),
     },
     errors,
-    stoppedCleanly:
-      toggle.getAttribute("aria-pressed") === "false" && profile.hidden,
+    stoppedCleanly,
   };
 })()

@@ -1,6 +1,7 @@
 /*
  * Browser expression for artifacts/emo-views/eval.mjs.
  * Run with cp=1, cpPreset=v2-c_fade-360, cpTimeScale=0.005, and freeze=1.
+ * Pipe the JSON result to `jq -e '.passed == true'` so a reported failure exits nonzero.
  */
 (async () => {
   try {
@@ -91,9 +92,16 @@
     toggle.focus();
     await sleep(950);
     require(toggle.dataset.state === "paused-interaction", "focus did not hold pause");
+    require(
+      document.querySelector(".country-presentation-warning")?.hidden,
+      "expired warning remained visible while focus held pause",
+    );
     button("Environmental Pain").focus();
     await sleep(200);
-    require(toggle.dataset.state !== "paused-interaction", "pause did not resume after focus left");
+    require(
+      ["preparing", "flying", "building", "dwelling"].includes(toggle.dataset.state),
+      "pause did not resume into an active state",
+    );
     toggle.click();
 
     return {
