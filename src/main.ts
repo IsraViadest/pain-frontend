@@ -104,6 +104,7 @@ let loadPointsAbortController: AbortController | null = null;
 const LAYER_CHANGE_DEBOUNCE_MS = 150;
 /** Debounced {@link applyPendingLayerChange} timer for rapid layer clicks. */
 let pendingLayerChangeTimer: ReturnType<typeof setTimeout> | null = null;
+let layerChangeRevision = 0;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
@@ -645,8 +646,11 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     },
     restoreLayer: (layerId) => {
       if (layerId === lastLayerId) return;
-      if (layerId === "all-layers") void handleAllLayers();
-      else handleLayerChange(layerId);
+      if (layerId === "all-layers") {
+        void handleAllLayers().catch((error) =>
+          setStatus(error instanceof Error ? error.message : String(error)),
+        );
+      } else handleLayerChange(layerId);
     },
     moveTo: async (iso3, signal, durationMs) => {
       const centroid = getCountryCentroid(iso3);
@@ -709,7 +713,10 @@ function applyGlobeLayer(layerId: string): void {
   showLegend(layerId);
 }
 
-async function applyPendingLayerChange(layerId: string): Promise<void> {
+async function applyPendingLayerChange(
+  layerId: string,
+  revision: number,
+): Promise<void> {
   globe.setMarkers([]);
   const prevLayerId = lastLayerId;
   if (
@@ -725,6 +732,7 @@ async function applyPendingLayerChange(layerId: string): Promise<void> {
   applyGlobeLayer(layerId);
   syncWordCloudForCurrentLayer();
   await loadPoints();
+  if (revision !== layerChangeRevision) return;
   // Start after setMarkers too. Cached loadPoints resolves immediately, but its synchronous globe
   // rebuild still blocks the frame in which a CSS transition would otherwise begin.
   countryProfileRuntime?.setLayer(layerId);
@@ -739,6 +747,7 @@ function handleLayerChange(layerId: string): void {
   ) {
     return;
   }
+  const revision = ++layerChangeRevision;
   loadPointsAbortController?.abort();
   if (showAllLayersActive) {
     // BEFORE THE GLOBE CHANGES, NOT 150 MS AFTER IT. All-layers mode is what makes the base mesh
@@ -760,7 +769,7 @@ function handleLayerChange(layerId: string): void {
   clearTimeout(pendingLayerChangeTimer ?? undefined);
   pendingLayerChangeTimer = setTimeout(() => {
     pendingLayerChangeTimer = null;
-    void applyPendingLayerChange(layerId).catch((e) =>
+    void applyPendingLayerChange(layerId, revision).catch((e) =>
       setStatus(e instanceof Error ? e.message : String(e)),
     );
   }, LAYER_CHANGE_DEBOUNCE_MS);
@@ -775,6 +784,7 @@ async function handleAllLayers(): Promise<void> {
     setStatus("No layers loaded yet");
     return;
   }
+  const revision = ++layerChangeRevision;
 
   loadPointsAbortController?.abort();
   clearTimeout(pendingLayerChangeTimer ?? undefined);
@@ -823,9 +833,14 @@ async function handleAllLayers(): Promise<void> {
     const points = fetchedLists[i] ?? [];
     pointCache.set(layersToFetch[i]!.id, points);
   }
+  if (revision !== layerChangeRevision) {
+    await ensureCountryProfileRuntime();
+    return;
+  }
   const allPoints: PainPoint[] = [...cachedPoints, ...fetchedLists.flat()];
   globe.setMarkers(allPoints);
   await ensureCountryProfileRuntime();
+  if (revision !== layerChangeRevision) return;
   applyCountryProfileGlobePreset(lastLayerId);
   countryProfileRuntime?.setLayer(lastLayerId);
   syncWordCloudToggle();

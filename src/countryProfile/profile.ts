@@ -242,7 +242,15 @@ export class CountryProfileView {
   }
 
   setLayer(layerId: string): void {
-    if (layerId === this.currentLayer) return;
+    if (layerId === this.currentLayer) {
+      if (this.transitionTimer !== null) {
+        window.clearTimeout(this.transitionTimer);
+        this.transitionTimer = null;
+        this.transitionRevision++;
+        this.host.dataset.transition = "in";
+      }
+      return;
+    }
     const revision = ++this.transitionRevision;
     if (this.transitionTimer !== null) window.clearTimeout(this.transitionTimer);
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
