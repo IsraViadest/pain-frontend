@@ -164,6 +164,9 @@ export interface EmoSelectionMotion {
    */
   tick(): void;
   setParams(next: EmoViewParams): void;
+  /** Freeze or resume every selection track without letting wall time advance it. */
+  setPaused(paused: boolean): void;
+  isPaused(): boolean;
   /** Retarget every category. Passing null returns them all to rest. */
   setSelection(cat: string | null): void;
   /** Snap to rest with no animation, for a change that is not a gesture, such as a layer switch. */
@@ -257,6 +260,7 @@ export function createEmoSelectionMotion(options: {
   /** Kept in step with `retreating` so consumers can read it without allocating every frame. */
   let retreatingCats: string[] = [];
   let lastMs = performance.now();
+  let pausedAt: number | null = null;
 
   const leadMs = (): number => Math.max(0, params.selectionLeaderMs);
   const spreadMs = (): number => Math.max(0, params.selectionSpreadMs);
@@ -436,6 +440,10 @@ export function createEmoSelectionMotion(options: {
   return {
     tick(): void {
       const now = performance.now();
+      if (pausedAt !== null) {
+        lastMs = now;
+        return;
+      }
       const dt = Math.max(0, now - lastMs);
       lastMs = now;
       const duration = params.selectionMotionMs;
@@ -482,11 +490,32 @@ export function createEmoSelectionMotion(options: {
     setParams(next: EmoViewParams): void {
       params = next;
     },
+    setPaused(paused: boolean): void {
+      if (paused === (pausedAt !== null)) return;
+      const now = performance.now();
+      if (paused) {
+        pausedAt = now;
+        lastMs = now;
+        return;
+      }
+      const pauseMs = now - pausedAt!;
+      for (const motion of motions.values()) {
+        motion.emphasis.startMs += pauseMs;
+        motion.recede.startMs += pauseMs;
+      }
+      if (growing) growing.spreadNotBeforeMs += pauseMs;
+      for (const wave of retreating) wave.spreadNotBeforeMs += pauseMs;
+      pausedAt = null;
+      lastMs = now;
+    },
+    isPaused(): boolean {
+      return pausedAt !== null;
+    },
     setSelection(cat: string | null): void {
       if (cat === selected) return;
       selected = cat;
       retire();
-      const now = performance.now();
+      const now = pausedAt ?? performance.now();
       for (const [key, motion] of motions) {
         retarget(motion.emphasis, key === selected ? 1 : 0, now);
         retarget(motion.recede, selected !== null && key !== selected ? 1 : 0, now);
@@ -520,7 +549,7 @@ export function createEmoSelectionMotion(options: {
       span: number,
     ): void {
       retire();
-      const now = performance.now();
+      const now = pausedAt ?? performance.now();
       // A category owns one arc mesh, so a same-category wave still unbuilding itself has to
       // empty that mesh before this one may start filling it again.
       let notBefore = now;

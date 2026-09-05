@@ -190,3 +190,7 @@ question and delegated visual round selection to Codex.
   globe rebuild fixed an invisible-fade failure caused by a 230 ms main-thread block. Rapid layer
   changes and reduced motion end in the requested indicator at full opacity. `locate your pain`
   fits its desktop and phone blobs. Commits: `e3d1c70` and `8503c92`. No gallery was created.
+- 2026-09-05: Phase 5, motion infrastructure ready. `EmoSelectionMotion` can pause without letting
+  wall time advance tracks or wavefronts. `flyGlobeToLatLng()` accepts an AbortSignal, restores
+  controls on success or abort, and stops its pending animation frame. The focused check covered
+  pause, resume, completed flight, and mid-flight abort; `npm run check` passed.

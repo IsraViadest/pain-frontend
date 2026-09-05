@@ -9,6 +9,7 @@ import {
 type GlobeFlyToOptions = {
   radius?: number;
   durationMs?: number;
+  signal?: AbortSignal;
 };
 
 /** Normalized time upper bound (t ∈ [0, 1]). */
@@ -36,6 +37,10 @@ export function flyGlobeToLatLng(
 ): Promise<void> {
   const radius = options.radius ?? SURVEY_FLY_TO_CAMERA_RADIUS;
   const durationMs = options.durationMs ?? SURVEY_FLY_TO_DURATION_MS;
+  const signal = options.signal;
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException("Globe flight aborted", "AbortError"));
+  }
 
   const targetPosition = latLngToVector3(lat, lng, UNIT_SPHERE_RADIUS)
     .normalize()
@@ -52,8 +57,26 @@ export function flyGlobeToLatLng(
 
   const startTime = performance.now();
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    let frame = 0;
+    let done = false;
+    const finish = (): void => {
+      if (done) return;
+      done = true;
+      signal?.removeEventListener("abort", abort);
+      controls.enabled = wasEnabled;
+      resolve();
+    };
+    const abort = (): void => {
+      if (done) return;
+      done = true;
+      cancelAnimationFrame(frame);
+      signal?.removeEventListener("abort", abort);
+      controls.enabled = wasEnabled;
+      reject(new DOMException("Globe flight aborted", "AbortError"));
+    };
     const step = (now: number): void => {
+      if (done) return;
       const elapsed = now - startTime;
       const t = Math.min(FLY_TO_T_MAX, elapsed / durationMs); // clamp normalized time
       const eased = easeInOutCubic(t);
@@ -62,14 +85,13 @@ export function flyGlobeToLatLng(
       controls.update();
 
       if (t < FLY_TO_T_MAX) {
-        requestAnimationFrame(step);
+        frame = requestAnimationFrame(step);
         return;
       }
-
-      controls.enabled = wasEnabled;
-      resolve();
+      finish();
     };
 
-    requestAnimationFrame(step);
+    signal?.addEventListener("abort", abort, { once: true });
+    frame = requestAnimationFrame(step);
   });
 }
