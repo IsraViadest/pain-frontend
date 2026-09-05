@@ -37,6 +37,7 @@ const REVEAL_DELAY_MS = 1000;
 const DWELL_MS = 30000;
 const IDLE_WARNING_MS = 165000;
 const IDLE_RESUME_MS = 180000;
+const FOCUS_RECHECK_MS = 1000;
 
 function readTestTimeScale(): number {
   const raw = Number(new URLSearchParams(window.location.search).get("cpTimeScale") ?? 1);
@@ -64,7 +65,7 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-function waitUntil(predicate: () => boolean, signal: AbortSignal): Promise<void> {
+function waitWhile(predicate: () => boolean, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
   return new Promise((resolve, reject) => {
     let frame = 0;
@@ -92,11 +93,12 @@ export class CountryPresentation {
   private readonly button = document.createElement("button");
   private readonly warning = document.createElement("div");
   private readonly warningButton = document.createElement("button");
+  private readonly status = document.createElement("span");
   private readonly countries: CountryPainProfile[];
   private readonly timeScale = readTestTimeScale();
   private readonly reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)",
-  ).matches;
+  );
   private state: PresentationState = "idle";
   private enabled = false;
   private index = 0;
@@ -128,7 +130,10 @@ export class CountryPresentation {
     this.warningButton.textContent = "keep paused";
     this.warningButton.addEventListener("click", this.extendPause);
     this.warning.append(warningText, this.warningButton);
-    options.appRoot.append(this.button, this.warning);
+    this.status.className = "country-presentation-status";
+    this.status.setAttribute("role", "status");
+    this.status.setAttribute("aria-live", "polite");
+    options.appRoot.append(this.button, this.warning, this.status);
 
     document.addEventListener("pointerdown", this.onUserActivity, true);
     document.addEventListener("wheel", this.onUserActivity, { capture: true, passive: true });
@@ -139,7 +144,7 @@ export class CountryPresentation {
     });
     document.addEventListener("visibilitychange", this.onVisibilityChange);
     options.controls.addEventListener("start", this.onControlsStart);
-    this.setState(this.reducedMotion ? "paused-user" : "idle");
+    this.setState(this.reducedMotion.matches ? "paused-user" : "idle");
   }
 
   private setState(state: PresentationState): void {
@@ -161,11 +166,12 @@ export class CountryPresentation {
     this.options.setProfileAutoplay(true);
     this.options.setPresentationTiming(
       true,
-      this.reducedMotion ? 0 : this.timeScale,
+      this.reducedMotion.matches ? 0 : this.timeScale,
     );
     this.options.setMotionPaused(false);
-    this.button.textContent = "pause presentation";
+    this.button.textContent = "stop presentation";
     this.button.setAttribute("aria-pressed", "true");
+    this.status.textContent = "Presentation started.";
     await this.restartCurrent();
   }
 
@@ -184,6 +190,7 @@ export class CountryPresentation {
     this.button.textContent = "presentation";
     this.button.setAttribute("aria-pressed", "false");
     this.setState("paused-user");
+    this.status.textContent = "Presentation stopped.";
   }
 
   private async restartCurrent(): Promise<void> {
@@ -210,19 +217,19 @@ export class CountryPresentation {
       this.setState("preparing");
       this.options.setProfileSuppressed(true);
       this.options.clearCountry();
-      await waitUntil(this.options.isRetreating, signal);
+      await waitWhile(this.options.isRetreating, signal);
       await delay(PREPARE_MS * this.timeScale, signal);
 
       this.setState("flying");
       await this.options.moveTo(
         country.iso3,
         signal,
-        this.reducedMotion ? 0 : SURVEY_FLY_TO_DURATION_MS * this.timeScale,
+        this.reducedMotion.matches ? 0 : SURVEY_FLY_TO_DURATION_MS * this.timeScale,
       );
 
       this.setState("building");
       this.options.selectCountry(country.iso3);
-      await waitUntil(() => this.options.isBuilding(country.iso3), signal);
+      await waitWhile(() => this.options.isBuilding(country.iso3), signal);
       await delay(REVEAL_DELAY_MS * this.timeScale, signal);
       this.options.setProfileSuppressed(false);
 
@@ -238,12 +245,15 @@ export class CountryPresentation {
     this.options.setMotionPaused(true);
     this.options.setProfileAutoplay(false);
     this.setState("paused-interaction");
+    this.status.textContent =
+      "Presentation paused after interaction. It will resume after three minutes.";
     this.armIdleTimers();
   }
 
   /** Let a human country click animate normally while the automated sequence remains paused. */
   allowManualMotion(): void {
     if (this.state !== "paused-interaction") return;
+    this.options.setProfileSuppressed(false);
     this.options.setPresentationTiming(false, 1);
     this.options.setMotionPaused(false);
     this.options.setProfileAutoplay(false);
@@ -277,10 +287,13 @@ export class CountryPresentation {
       this.options.setMotionPaused(true);
       this.options.setProfileAutoplay(false);
       this.setState("backgrounded");
+      this.status.textContent = "Presentation paused while the page is hidden.";
       return;
     }
     if (this.state === "backgrounded") {
       this.setState("paused-interaction");
+      this.status.textContent =
+        "Presentation paused after returning. It will resume after three minutes.";
       this.armIdleTimers();
     }
   };
@@ -291,24 +304,34 @@ export class CountryPresentation {
     this.warningTimer = window.setTimeout(() => {
       if (this.state === "paused-interaction") this.warning.hidden = false;
     }, IDLE_WARNING_MS * this.timeScale);
-    this.resumeTimer = window.setTimeout(() => {
-      if (
-        this.state !== "paused-interaction" ||
-        this.button.contains(document.activeElement) ||
-        this.warning.contains(document.activeElement)
-      ) {
-        return;
-      }
-      this.warning.hidden = true;
-      this.options.setPresentationTiming(
-        true,
-        this.reducedMotion ? 0 : this.timeScale,
-      );
-      this.options.setMotionPaused(false);
-      this.options.setProfileAutoplay(true);
-      void this.restartCurrent();
-    }, IDLE_RESUME_MS * this.timeScale);
+    this.resumeTimer = window.setTimeout(
+      this.resumeAfterIdle,
+      IDLE_RESUME_MS * this.timeScale,
+    );
   }
+
+  private resumeAfterIdle = (): void => {
+    if (this.state !== "paused-interaction") return;
+    if (
+      this.button.contains(document.activeElement) ||
+      this.warning.contains(document.activeElement)
+    ) {
+      this.resumeTimer = window.setTimeout(
+        this.resumeAfterIdle,
+        Math.max(50, FOCUS_RECHECK_MS * this.timeScale),
+      );
+      return;
+    }
+    this.warning.hidden = true;
+    this.options.setPresentationTiming(
+      true,
+      this.reducedMotion.matches ? 0 : this.timeScale,
+    );
+    this.options.setMotionPaused(false);
+    this.options.setProfileAutoplay(true);
+    this.status.textContent = "Presentation resumed.";
+    void this.restartCurrent();
+  };
 
   private extendPause = (): void => {
     this.armIdleTimers();
@@ -339,5 +362,6 @@ export class CountryPresentation {
     document.removeEventListener("visibilitychange", this.onVisibilityChange);
     this.button.remove();
     this.warning.remove();
+    this.status.remove();
   }
 }
