@@ -457,6 +457,22 @@ data. Cleanup is limited to task-owned temporaries.
   shared-border results. Clear still releases the texture. This did not eliminate the observed
   roughly 50 ms construction-frame spike; no latency improvement is claimed for storage reuse.
 
+- 2026-09-05: Complete-callback GPU queries now separate GPU commands, CPU callback wall time
+  and frame intervals. All rendering draws are covered; every query is released. During a build,
+  retained v7 measures CPU median/p95 1.1/1.4 ms and GPU 1.99/2.33 ms. The composed Standard view
+  measures CPU 1.0/1.6 ms and GPU 3.03/3.84 ms, with 8.3 ms median / 10.1 ms p95 pacing on the
+  reference host's roughly 120 Hz cadence. An isolated construction frame still reaches about
+  50 ms (CPU callback maximum 56.2 ms). This remains a visible short stall, not a GPU-frame cost.
+  At 393x852 with a verified 786x1704 drawing buffer, Light measures GPU 2.47/2.74 ms,
+  CPU 1.2/1.9 ms and pacing 8.3/10.2 ms. This is desktop responsive/DPR evidence, not phone GPU
+  evidence. The physical-device availability question remains pending.
+  The capture helper applied DPR only after renderer construction; its first attempted DPR-2
+  check still had a 393x852 drawing buffer. `artifacts/emo-views/shot.mjs` now passes its existing
+  dsf value through Chrome's --force-device-scale-factor at launch. The corrected buffer size
+  and resulting pixels were inspected. This one-line helper fix is outside the Git worktrees.
+  Default-entry JavaScript is 225.80 kB gzip, 9.36 kB above the original 216.44 baseline; bounded
+  atmosphere (5.56 kB), stipple detail (5.31 kB) and profile runtime (11.69 kB) remain lazy.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
