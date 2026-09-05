@@ -649,6 +649,29 @@ data. Cleanup is limited to task-owned temporaries.
   production-path replay remain before closure. These fixes affect cold concurrency and the
   transient open-menu state, so the settled gallery frames do not need to be regenerated.
 
+- 2026-09-06: Final review fixes are accepted. The built-in frontend reviewer rechecked commit
+  `8aaf10d` and approved both fixes: initialization is single-flight and retryable after failure;
+  the mobile menu removes the Emotional Pain legend from accessibility and restores all 14
+  controls on close. The built-in server reviewer rechecked `83bf279` and approved the bounded
+  lease, including late old resolve/reject behavior and unchanged five-minute successful TTL.
+
+  The exact integrated image serves frontend asset `index-DYCct4bu.js` from port 3000. Its cold
+  race replay holds two complete four-layer batches, releases all eight requests together, and
+  yields one profile, one country-cycle controller, 195 labels, and no browser errors. The
+  production 393x852 chrome check passes the full menu round trip. Docker build entry gzip is
+  226.96 kB, below the 246.44 kB limit.
+
+  Post-fix server verification has 23 passing tests and a clean TypeScript build. Fresh identity
+  and gzip 50-client benchmarks each run 400 requests with zero errors or body mismatches, one
+  cold query and zero warm queries per layer. Identity warm p95 is 7.95/31.49/49.00/5.20 ms;
+  gzip warm p95 is 8.97/56.52/91.10/4.06 ms for emotional/environmental/physical/socioeconomic.
+  All body hashes match the established values.
+
+  No task-owned temporary Chrome profile, capture, JSON, or top-level review file matching the
+  recorded naming patterns remains in `/tmp`. The 87 retained gallery PNGs are deliberate final
+  and historical artifacts. Physical-phone acceptance remains explicitly deferred, without a
+  phone performance claim. All required work under the operator's revised acceptance is complete.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
