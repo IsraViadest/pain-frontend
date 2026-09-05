@@ -176,3 +176,6 @@ question and delegated visual round selection to Codex.
   surface probe actually hit Moldova because a raised label's screen point is not its ground ray;
   the recorded ISO confirms the exact polygon path rather than the harness label. The full gate
   passed. The default entry grew 1.29 kB gzip, within the 30 kB budget.
+- 2026-09-05: Phase 2, setup portability slice complete in `pain-setup` commit `20b7c76` on
+  `fix/powershell-metrics-text`. The PowerShell toggle-metrics table now uses the same TEXT columns
+  as Bash. PowerShell parsing and `docker compose config --quiet` passed. No database command ran.
