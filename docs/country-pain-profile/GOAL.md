@@ -178,6 +178,16 @@ data. Cleanup is limited to task-owned temporaries.
   The pre-existing short-wide emotional legend/chrome is crowded and remains a Phase 18 combined
   composition case; this is distinct from the new profile, whose chrome bounds now pass.
 
+- 2026-09-05: Phase 12 continuity slice: longitude blur and texture sampling now wrap together;
+  texel placement uses full texture dimensions, and CPU sampling uses the GPU texel-center grid.
+  Pole stamps are longitude-independent and coincident pole vertices share a height. The seam
+  check failed on the original code and now passes, as do both pole cases. Actual WebGL readback
+  across 26 ramp/scar samples differs by at most 0.8 of one byte from CPU interpolation.
+  `npm run check` passes and the normal-camera surface was visually inspected. These are shared
+  coordinate/continuity corrections, so old presets receive the fix; aesthetic rounding remains
+  pending. The existing screenshot guard refused the dateline camera because its first label is
+  culled; no image was produced or claimed there. Seam evidence is the direct numerical/GPU test.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

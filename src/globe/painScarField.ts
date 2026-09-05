@@ -23,14 +23,13 @@ export function painPointToFieldTexel(
   p: PainPoint,
 ): { cx: number; cy: number } | null {
   if (!hasPainPointCoordinates(p)) return null;
-  const maxCol = SCAR_MAP_WIDTH - 1;
-  const maxRow = SCAR_MAP_HEIGHT - 1;
   const { u, v } = unitDirectionToGlobeEquirectUV(
     latLngToVector3(p.lat, p.lng, 1),
   );
   return {
-    cx: Math.floor(((u % 1) + 1) % 1 * maxCol),
-    cy: Math.floor(THREE.MathUtils.clamp(v, 0, 1) * maxRow),
+    cx: Math.floor(((u % 1) + 1) % 1 * SCAR_MAP_WIDTH),
+    cy: Math.min(SCAR_MAP_HEIGHT - 1,
+      Math.floor(THREE.MathUtils.clamp(v, 0, 1) * SCAR_MAP_HEIGHT)),
   };
 }
 
@@ -42,7 +41,7 @@ function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
     THREE.RedFormat,
     THREE.UnsignedByteType,
   );
-  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
@@ -128,8 +127,7 @@ function boxBlurScarDepth(
         const iy = y + dy;
         if (iy < 0 || iy >= height) continue;
         for (let dx = -radius; dx <= radius; dx++) {
-          const ix = x + dx;
-          if (ix < 0 || ix >= width) continue;
+          const ix = ((x + dx) % width + width) % width;
           sum += src[iy * width + ix]!;
           count++;
         }
@@ -185,11 +183,16 @@ export function createPainScarDisplacementTexture(
         SCAR_STAMP_PEAK_INTENSITY_SPAN * scarStampPeakIntensityBlend(p.intensity)) *
       cfg.stampPeakMul;
 
+    // Longitude is undefined at a pole. Its stamp covers the complete row, once per texel.
+    const atPole = Math.abs(p.lat!) === 90;
+    const firstDx = atPole ? -cx : -radiusPx;
+    const lastDx = atPole ? SCAR_MAP_WIDTH - cx - 1 : radiusPx;
+
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
       const iy = cy + dy;
       if (iy < 0 || iy >= SCAR_MAP_HEIGHT) continue;
-      for (let dx = -radiusPx; dx <= radiusPx; dx++) {
-        const dist = Math.sqrt(dx * dx + dy * dy);
+      for (let dx = firstDx; dx <= lastDx; dx++) {
+        const dist = atPole ? Math.abs(dy) : Math.sqrt(dx * dx + dy * dy);
         if (dist > radiusPx) continue;
         let ix = cx + dx;
         ix = ((ix % SCAR_MAP_WIDTH) + SCAR_MAP_WIDTH) % SCAR_MAP_WIDTH;
@@ -221,6 +224,14 @@ export function createPainScarDisplacementTexture(
   const depthBytes = new Uint8Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
   for (let i = 0; i < smoothed.length; i++) {
     depthBytes[i] = Math.round(THREE.MathUtils.clamp(smoothed[i]!, 0, 255));
+  }
+
+  // Every vertex at a pole is the same position, even when nearby nonpolar stamps reach it.
+  for (const row of [0, SCAR_MAP_HEIGHT - 1]) {
+    const start = row * SCAR_MAP_WIDTH;
+    let sum = 0;
+    for (let x = 0; x < SCAR_MAP_WIDTH; x++) sum += depthBytes[start + x]!;
+    depthBytes.fill(Math.round(sum / SCAR_MAP_WIDTH), start, start + SCAR_MAP_WIDTH);
   }
 
   return makeRedDataTexture(depthBytes);
