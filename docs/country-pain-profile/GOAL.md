@@ -130,6 +130,13 @@ data. Cleanup is limited to task-owned temporaries.
 
 ## Refinement progress (append only)
 
+- 2026-09-05: Phase 9 arc slice: ordered geometry starts with the current revealed count before
+  its first render. A deterministic clock exposed a second bug: same-category replacement
+  advanced the geometry generation 150 ms before the old mesh was free. Generation now waits
+  for that deadline, and a straddling frame spends only time after it on the new wave.
+  `dev/networkMotion.check.ts` failed before the fix and passes after; existing presentation
+  motion check and `npm run check` pass. The browser probe measured 0 initial and 924 settled
+  segments. Controller completion verification is the next slice in this phase.
 - 2026-09-05: Revised expressive-globe plan approved for implementation. Clean source tip
   `4b3d6f7`; existing Phases 0-8 preserved below. No refinement code implemented yet.
 

@@ -381,6 +381,9 @@ export function createEmoSelectionMotion(options: {
         } else if (now < w.spreadNotBeforeMs) {
           left = 0;
         } else if (w.p < SPREAD_END) {
+          // A frame may straddle the instant the outgoing mesh becomes free. Only spend
+          // elapsed time after that instant on the replacement network.
+          left = Math.min(left, Math.max(0, now - w.spreadNotBeforeMs));
           if (spread <= 0) {
             w.p = SPREAD_END;
             left = 0;
@@ -452,7 +455,9 @@ export function createEmoSelectionMotion(options: {
       if (growing !== null && growing.p < growing.to) {
         step(growing, dt, now);
         changed = true;
-        if (!growing.spreading && growing.p >= LEAD_END) {
+        if (
+          !growing.spreading && growing.p >= LEAD_END && now >= growing.spreadNotBeforeMs
+        ) {
           growing.spreading = true;
           generation += 1;
         }

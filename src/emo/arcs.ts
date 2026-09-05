@@ -286,6 +286,12 @@ export async function createEmoArcLayer(options: {
 
     const geometry = new LineSegmentsGeometry();
     geometry.setPositions(positions);
+    // The globe renders before update(). A new ordered geometry must never draw its full
+    // default instance count for that first frame, including replacements during a sweep.
+    const revealAt = meshOrder.get(key);
+    geometry.instanceCount = revealAt
+      ? segmentsRevealed(revealAt, motion.arrivalFrontOf(key))
+      : positions.length / 6;
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
     mesh.geometry.dispose();
