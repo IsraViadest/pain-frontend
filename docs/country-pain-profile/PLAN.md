@@ -1,4 +1,339 @@
-# Country Pain Profile and Presentation Plan
+# Country Profiles and Expressive Globe Rendering
+
+Last Updated: 2026-09-05
+Version: 2.0
+Status: approved for implementation; Phases 0-8 complete, Phases 9-20 pending
+
+## Current objective and working boundary
+
+Build a tactile, atmospheric artwork: softly sculpted land, gently rounded country contours,
+red stipple that reveals detail on approach, atmospheric volume, and emotional networks with an
+unmistakable origin. Preserve the compact profile and country-cycle decisions from discovery.
+
+Work in `pain-frontend-worktrees/country-pain-profile-rounds` on
+`feat/country-pain-profile-rounds`, starting at `4b3d6f7`. The old plan below is completed
+history. This current plan supersedes its conflicting restrictions; do not redo Phases 0-8.
+
+The operator approved this replacement plan and implementation on 2026-09-05. Autonomous visual
+selection is authorized. Keep each published preset replayable. No release, PR, deployment,
+renderer migration, database schema change, or replacement of the emotional-view branch is approved.
+See [GOAL.md](GOAL.md) for the current checklist, copyable goal, and append-only execution evidence.
+
+## Decisions and shared contracts
+
+### Data and meaning
+
+- Keep existing datasets, peak-in-country aggregation, normalized source values, source counts,
+  missingness, human metrics, and square-root glyph area scaling.
+- Do not add a second logarithm, country ranks, raw-unit claims, or observations.
+- Added stipple samples refine the display of the same field. Atmospheric height, lighting,
+  cloud shape, and noise are artistic; they do not represent altitude, wind, or measured volume.
+- Temperature remains coral-red, Physical Pain red stipple, and CO2 green. Profile and legend
+  treatments must agree with the selected layer treatment.
+- Socioeconomic color remains a continuous linear function of the source value. Use the existing
+  Japan/Germany low-value appearance as the new visible minimum, then recolor every country from
+  its actual value. Keep a matching legend; do not rescale countries by rank.
+
+### Geography and shared surface
+
+- Canonical polygons remain unchanged for country identity, aggregation, centroids, and picking.
+- Derive one shared rounded display boundary network. Reuse paths for neighboring fills, borders,
+  highlights, and render-only land masks. Pin junctions; preserve holes, islands, and corridors.
+- Display rounding must not create gaps, overlaps, self-intersections, lost islands, or new land.
+- Bound source/display discrepancy to at most one CSS pixel throughout the supported camera and
+  viewport matrix. Use fixed contours constrained by the closest and most oblique views.
+- Canonical picking can disagree inside that bounded edge strip. Do not claim exact visual parity.
+  Keep original local contours wherever topology or the displacement bound cannot be preserved.
+- Use one wrap, pole, and texture-sampling convention for the scar field and its CPU/GPU consumers.
+  Scars, country fills, dots, borders, highlights, and the depth surface must agree.
+- Keep leader feet connected in all-pain and Emotional Pain. Reuse the actual warped surface;
+  expose it directly instead of discovering it by a hardcoded tessellation signature.
+
+### Selection
+
+- Origin fill and border highlight strength remain 1.00; compare peer strengths 1.00, 0.50, 0.65.
+  Start at 0.50, keeping stroke width unchanged. Do not apply this factor to labels or network
+lines.
+- Preserve origin leader up, network spread, target leaders down, then country arrival.
+  Retraction is the same process reversed.
+- Each wave retains its origin during reversal. Take the strongest visible contribution on overlap.
+  Role changes must repaint even if category and arrived counts remain unchanged.
+- Shared peer borders must not brighten through duplicate drawing.
+- Emotional/all-pain show category-wave marking. Other single layers mark only the selected ISO3
+  with a restrained layer-colored fill and bright outline, using the same highlight surface.
+- Preserve centroid location symbols for countries without polygons; do not invent outlines.
+
+### Profile and country cycle
+
+- Four aligned equal desktop slots, stable width, right-aligned emotional text extending left,
+  shorter divider, tighter spacing, and translucent black plate.
+- On phones hide visible captions and English translations; preserve complete accessible labels.
+  Keep country-name size, avoid semantic truncation, and sit above share/legend with safe-area
+inset.
+- Solid Temperature, dotted Physical, solid Socioeconomic, inset fills, strokes painted last.
+- CO2 uses a thicker neutral under-stroke with a narrower colored stroke. Real zero stays faint.
+  Missing CO2 hides both band strokes independently of Temperature. When both signals are missing,
+  show a separate neutral empty silhouette. This supersedes the old universal empty-outline rule.
+- Keep the 240 ms cubic indicator fade. Country name persists through layer changes.
+- Put the stable `country cycle` toggle beside sound/theme, showing off/running/paused.
+  Use honest `pause 3 more minutes` wording. Survey text: `share your pain` above `locate it`.
+- Cycle timing: 1 s gap, 2.5 s cubic flight, 1.5 times manual build/reverse, 0.5 s reveal, 30 s
+dwell.
+- Starting with a manual country replays it first; otherwise replay the saved cursor. Advance only
+  after completed dwell; wrap alphabetically through all 195 countries.
+- Show a side-effect-free heading preview during flight, then indicators after construction.
+- Ordinary interaction cancels schedule/flight while active build/retraction completes. A completion
+  owner independent of the canceled cycle must establish the right final profile visibility.
+- Canceled flight clears the destination preview or restores the actual selection. Manual country
+  selection supersedes the automated target and animates at manual timing.
+- Hidden tabs freeze clocks. Returning settles unfinished motion before idle-resume timing starts.
+  Interaction pause resumes after 180 s, warning for the final 15 s. Explicit off disables resume.
+- Stop reverses active motion, clears the profile, and restores the prior layer. Stale completion
+  cannot reveal or advance a newer selection. Automated actions emit no human country opens.
+- Near-camera globe/label depth behavior remains unchanged except the named dot-detail trials.
+
+### Rendering scope and quality
+
+- Bounded WebGL shaders, offscreen targets, and batched cloudlets are explicitly allowed. The old
+  no-custom-shader and fixed-dot-only restrictions are superseded by these named experiments.
+- No scene object per observation, unbounded subdivision, new renderer dependency, or WebGPU switch.
+- Preserve old visual choices through preset-specific settings; common correctness fixes may apply
+  across presets, with intended changes measured. Do not duplicate the renderer.
+- Keep `?cp=1&cpPreset=...`; add `cpQuality=auto|light|standard|rich` for reproducible comparisons.
+- Quality changes rendering detail only, never data, text, country selection, or motion progress.
+  Start conservatively, avoid oscillation, and defer structural swaps until gestures settle.
+- Count resident/outgoing CPU and GPU detail allocations and all concurrent targets against one
+  additional-resource ceiling: 64 MiB Light, 128 MiB richer tiers. Document both ownership totals.
+- Forced Rich is a comparison mode. Adopt the richest measured fit; if no advanced effect fits,
+  keep the informational control and report why. If even the control fails, report that separately.
+
+## Execution phases
+
+Each slice has a short local plan, relevant tests, live visual evidence, an append-only GOAL entry,
+and an atomic verified commit. Visual comparison is part of implementation, not deferred QA.
+
+### Phase 9: Network and interaction correctness
+
+1. Record first/middle/last rendered frames and reversal for the current control.
+2. Initialize planned arc geometry instance count before exposing it to the renderer.
+3. Separate cycle scheduling from emotional-motion completion, including profile reveal.
+4. Cover flight/build/retract/dwell interruption, repeated gesture events, manual replacement,
+   hidden tabs, and reduced motion.
+
+Exit: no premature complete-network frame, no stranded wave, exact terminal segment counts,
+no stale country reveal, and no completed transition that silently advances the paused cycle.
+
+### Phase 10: Final chrome and cycle sequence
+
+Move cycle controls before profile layout judging. Implement stable status, honest warning action,
+two-line survey button, approved timing, manual-country replay, saved cursor, and heading preview.
+Keep human metric opens/closes balanced and automated cycles untracked.
+
+Exit: controls fit at 320 px; keyboard and pointer agree; Stop/restart choose the correct country;
+every interruption leaves an understandable visible state and no stale scheduled work.
+
+### Phase 11: Compact profile and glyph rounds
+
+Opening v8 structural candidates, plus the retained v7 control:
+
+| Candidate | Desktop rail | Phone card | Desktop glyph | Phone glyph |
+|---|---:|---:|---:|---:|
+| Compact A | 420 px | 272 px | 54 px | 34 px |
+| Compact B | 460 px | 296 px | 58 px | 36 px |
+| Compact C | 500 px | 320 px | 62 px | 38 px |
+
+Constrain these starting sizes to the available viewport. All use the shared profile contract.
+After choosing the structure, compare inset factors 0.84/0.88/0.92, restrained desktop native/tiny
+English typography, and plate opacity. Temperature stays solid and Physical dotted.
+Missingness remains independent. Verify the cubic fade through painted intermediate frames.
+
+Exit: all layers fit long country/native names, RTL, duplicate words, and missing values in both
+themes without chrome overlap or horizontal overflow.
+
+### Phase 12: Continuous rounded scars
+
+Repair periodic longitude, poles, and CPU/GPU parity first. Compare current and smoothly tapered
+scar shoulders at matched depth and footprint. Subdivide borders that bridge dents; compare
+existing versus denser shared surface only where silhouette faceting remains. Consider restrained
+slope shading after samples and geometry agree. Preserve repeated-point accumulation semantics.
+
+Exit: continuous seams/poles, rounded shoulders, intended depth envelope, attached overlays and
+leader feet, and improved near/limb appearance without flattening the globe.
+
+### Phase 13: Gently rounded country contours
+
+Derive shared display paths, pin junctions, preserve holes/islands/corridors, and compare no/gentle/
+moderate rounding. Reuse selected paths across every display-geography consumer and common scar
+surface. Keep canonical picking/data unchanged.
+
+Exit: no topology loss or shared-edge mismatch; fixed shape through zoom; measured one-pixel
+discrepancy bound; border-adjacent picking checked and its narrow ambiguity documented.
+
+### Phase 14: Origin and peer emphasis
+
+Compare 1.00/0.50/0.65 peer fill and border weights. Preserve origin roles, wave timing, and
+reversal.
+Avoid double-bright shared borders. Keep exact-country single-layer feedback on the same mesh.
+
+Exit: origin identifiable, peers readable, no early marking. Verify same/different-category
+replacement, partially reversed waves, and a newly selected origin previously reached as a peer.
+
+### Phase 15: Physical dot growth and refinement
+
+Compare fixed original 82,000-point control, regrowth, one four-child split, and two splits.
+Use local projected spacing, viewport and depth, not raw radius alone. Start at about 5 px parent
+diameter with room for four 2.5 px children, short crossfade and 15 percent threshold hysteresis.
+Stable children sample their own geographic field/land coordinates. Verify uniform-field visual
+weight. Submit bounded active detail; alpha-zero descendants still cost vertex work.
+Keep ocean stipple unchanged unless a separate comparison proves otherwise.
+
+The second level has 1,312,000 theoretical leaves; all three levels total 1,722,000 records.
+These are capacities to evaluate, not mandatory allocations.
+
+Exit: readable stable split/merge, no severity pulse, zoom request, global per-frame rebuild,
+coastal leak, clustered holes, or sparkle. Second split ships only on levels that pass its cost.
+
+### Phase 16: Atmospheric prototypes
+
+Compare three distinct families on the same inputs:
+
+| Family | Intended look | Main constraint |
+|---|---|---|
+| Mantle | Soft shallow sculpted field with gentle lighting | Must read as air, not another land
+shell |
+| Cloudlets | Translucent clusters with depth and parallax | Bounded batches, ordering and overdraw
+|
+| Volume | Continuous airy body with internal depth | Bounded ray samples and offscreen resources |
+
+Keep coral Temperature and green CO2 distinguishable. Ground registration and actual displaced
+surface occlusion apply even when the visible solid globe is hidden. Keep DOM text/chrome outside
+volume passes. Bound cloudlet count and temporary overlap. Trial 16/32/48 volume sample caps;
+state target resolution relative to drawing-buffer dimensions, including DPR.
+Do not animate data into another location. Respect reduced motion.
+
+Exit: each family has an inspected prototype or concrete feasibility rejection. Keep one low-cost
+informational atmospheric treatment. Reject detached shells, obscured land, clipping rims,
+unstable noise, and unexplained severity changes.
+
+### Phase 17: Socioeconomic color and pattern
+
+Use the approved low-color reference as the new visible minimum and map source values linearly.
+Recolor all countries and match the legend. Compare color-only, fine hatch, and restrained woven/
+dashed texture. Pattern redundantly encodes the same value and stays geographically fixed.
+Filter unresolved pattern toward its average and distinguish missing from zero.
+
+Exit: correct ordering/ties, explained color+pattern legend, no moire or zoom-dependent value.
+Prefer hatching initially to avoid competing with physical stipple.
+
+### Phase 18: Composition and quality tiers
+
+Combine winners. Order attention: selected origin, network, labels, fields, atmosphere. Verify
+volume does not conceal scars or socioeconomic differences and patterns do not compete with dots.
+Define measured Light/Standard/Rich tiers and conservative stable auto selection; vary samples,
+subdivision and texture/surface detail only. Preserve gesture progress during tier changes.
+Count simultaneous allocations against aggregate budgets.
+
+Exit: chosen composition, documented profiles, no oscillation, lost layer, reset or leaked resource.
+Optional visual effects may all be rejected with evidence; forced Rich is not a universal promise.
+
+### Phase 19: Final performance and simplification
+
+Final code-development phase, after functional and visual review. Profile layer rebuilds, scar
+filtering, highlight uploads, point submission, overdraw, shader warmup and startup. Reuse/cache
+only measured bottlenecks; preserve lazy experiments and off-frame aggregation. Separate frame
+cadence, CPU work and GPU duration; release superseded resources.
+
+Server worktree: `pain-server-worktrees/country-profile-layer-delivery`,
+branch `perf/country-profile-layer-delivery`, expected base `2d6407b` after live verification.
+Benchmark 50 concurrent read-only layer clients: cold/warm response equality, errors, p95,
+wire bytes, query counts and memory. Add five-minute successful-response cache with miss
+coalescing only if justified, and compression only for a measured transfer win.
+Keep registration `/init`, survey and metrics uncached; preserve body/schema.
+
+Exit: gates below pass without changing semantics, wave order, alignment or interaction.
+
+### Phase 20: Product acceptance and final gallery
+
+Run complete matrix on final code, 30-minute accelerated 195-country cycle, exact port-3000 build
+and primary-checkout restoration. Run independent final reviews when available; verify findings
+before fixes. Capture final PNGs only after fixes/performance. Inspect each; preserve old galleries.
+No new video. Clean only task-owned temporary profiles/captures, commit accepted work, leave
+relevant worktrees clean.
+
+## Verification and adoption
+
+### Round feedback
+
+Every candidate supplies a live preset/quality URL, control, one design question, camera/layer/
+country/gesture recipe, visual and cost observation, and selected/rejected reason.
+Use existing browser tooling and small temporary captures. Judge motion live, not by stills alone.
+Number new rounds from v8; after structural comparisons vary one named dimension at a time.
+
+### Required scenarios
+
+| Concern | Cases |
+|---|---|
+| Selection | label, source polygon, empty globe, repeat, replacement, every layer |
+| Network | first/middle/final frame, partial reverse, same/different category replacement |
+| Input | drag, wheel, pinch, keyboard, rapid layer changes, resize during selection |
+| Cycle | manual start, Stop/restart, interrupted flight/build, warning, hidden tab, wrap |
+| Text | longest names/native terms, RTL, mixed scripts, duplicates, missing signals |
+| Geography | shared borders, holes, islands, corridors, dateline, poles, closest/limb views |
+| Scar | neutral, isolated/overlapping points, seam/pole, CPU/GPU parity, depth, leader contact |
+| Dots | slow/fast threshold crossings, rotate at threshold, uniform brightness, coastal children |
+| Air | Temperature/CO2 separate+together, zero/missing, front/back depth, near/inside shell |
+| Socioeconomic | zero, missing, ties, references, high values, matching pattern legend |
+| Quality | forced/auto levels, recovery, no state reset, aggregate resources bounded |
+| Accessibility | keyboard/focus, status, reduced motion, no selectable artwork text |
+| Regression | original view, v7, old emotional presets, survey, human metrics |
+
+Widths: 320, 393, 430, 768, 1080, 1500 CSS px; portrait/landscape, both themes, supported DPR.
+
+### Performance gates
+
+- Reference host: paired median at most 10 percent above control; p95 below 16.7 ms. Record display
+  cadence; the recorded 8.3 ms value is frame interval, not GPU execution.
+- Report CPU work and actual GPU duration where supported.
+- Physical 60 Hz phone: stable nominal 60 fps, p95 within one interval plus 1 ms, no sustained drop.
+- Cumulative default-entry growth <=30 kB gzip above the 216.44 kB baseline; lazy assets separate.
+- No new zoom data requests, unbounded allocations, or memory growth through repeated transitions.
+- Server: zero errors/mismatches, warm p95 not worse. Input-to-paint/long tasks improve or stay
+  within the paired control range.
+- Responsive emulation does not prove physical-phone GPU performance. Keep unavailable required
+  physical-device acceptance explicitly open.
+
+### Adoption and stop rules
+
+Adopt richer effects only with visible benefit in intended use, correct meaning, coherent all-pain
+composition, near/far/limb/mobile fit, and a measured shipping quality tier. A rejected trial is
+complete only with evidence. Do not promise all optional effects will ship.
+
+Preserve source/preset/data history. Stage exact owned paths, verify functionality before commits,
+and do not commit credentials, env files, payload mirrors or galleries. Bounded application test
+users/metrics remain authorized and are counted, not deleted. Seed 43; no em-dashes.
+Stop a blocked path after three repeats without new evidence and report required input.
+Do not start the Codex goal automatically; the operator requested implementation in this task.
+
+## Research anchors
+
+- Shared-edge cartography:
+  <https://pro.arcgis.com/en/pro-app/3.4/tool-reference/cartography/smooth-shared-edges.htm>
+- Existing Three.js volume example:
+  <https://raw.githubusercontent.com/mrdoob/three.js/r170/examples/webgl_volume_cloud.html>
+- LOD hysteresis:
+  <https://raw.githubusercontent.com/mrdoob/three.js/r170/src/objects/LOD.js>
+- Coherent hatching: <https://gfx.cs.princeton.edu/proj/hatching/>
+- GPU measurement:
+  <https://developer.mozilla.org/en-US/docs/Web/API/EXT_disjoint_timer_query>
+
+---
+
+# Historical plan v1.1: completed Phases 0-8
+
+The following original plan and measurements are preserved as history. Current decisions and
+Phases 9-20 above take precedence. Old instructions to merge upstream, create the setup worktree,
+or begin Phase 0 are already satisfied and must not run again.
+
 
 Last Updated: 2026-09-05
 Version: 1.1

@@ -1,55 +1,37 @@
-# Country Pain Profile and Presentation Goal
+# Country Profiles and Expressive Globe Rendering Goal
 
 Last Updated: 2026-09-05
-Status: ready to paste, not active
+Version: 2.0
+Status: implementation authorized in this task; Codex goal not activated
 
-## Recommended Strategy
+## Strategy and authority
 
-Use one implementation goal with a durable plan and one bounded phase or slice per iteration.
-Re-read the plan before every slice, verify before each atomic commit, record evidence here, and
-continue automatically through the next unblocked phase. Styling decisions are delegated to Codex;
-new semantic or product decisions still stop for operator input.
+Resume in the existing isolated frontend worktree at `4b3d6f7`. Phases 0-8 are completed
+history. The operator approved the revised PLAN and requested implementation on 2026-09-05.
+Execute one bounded slice at a time, inspect candidate visuals, select by evidence, and continue.
+The copyable goal below is available for later use; saving it does not activate a goal.
 
-## Rationale
+The current [PLAN.md](PLAN.md) is the full product and verification contract. It explicitly
+reopens geographic display rounding, dot detail, atmospheric shaders and origin/peer emphasis.
+Keep old presets replayable, source data intact, and existing human metrics. No PR or deployment.
+The server benchmark belongs in its separately approved performance worktree.
 
-This work has one measurable outcome but crosses data aggregation, interaction, responsive design,
-animation, rendering, metrics, accessibility, integration, and performance. The plan fixes the
-semantic and product decisions while numbered design rounds keep visual experimentation reversible.
-The final gallery is deliberately deferred until adoption.
-
-## Source Files
+## Sources
 
 - `@docs/country-pain-profile/PLAN.md`
 - `@docs/country-pain-profile/GOAL.md`
 - `@docs/emo-views/design-record.md`
 - `@src/main.ts`
-- `@src/emo/labelLayer.ts`
+- `@src/countryProfile/presentation.ts`
+- `@src/emo/arcs.ts`
 - `@src/emo/selectionMotion.ts`
 - `@src/globe/GlobeView.ts`
-- `@src/globe/choroplethField.ts`
-- `@src/survey/globeFlyTo.ts`
-- `@src/ui/productionChrome.ts`
-- `@src/api/metricsApi.ts`
-- `/Users/cs/local/code/apps/web-pain-globe/docs/emo-label-views/HANDOFF.md`
-- `/Users/cs/local/code/apps/web-pain-globe/docs/emo-label-views/PROGRESS.md`
+- Workspace historical `docs/emo-label-views/HANDOFF.md` and `PROGRESS.md`
 
-## Source Context
-
-Work only in the isolated frontend worktree on `feat/country-pain-profile-rounds`, plus one later
-isolated `pain-setup` worktree for the approved PowerShell schema alignment. The frontend starts at
-the chosen emotional view, commit `7ca5492`. The historical Claude plan described completed work;
-the canonical current plan is `docs/country-pain-profile/PLAN.md`.
-
-Discovery established that API values are normalized signals with unrecoverable raw units. The
-profile uses peak-in-country for coordinate grids, accessible source point counts, existing country
-values for emotional and socioeconomic pain, proportional glyph area, explicit missingness, exact
-polygon surface clicks, human-only country metrics, and an abortable all-pain presentation tour.
-
-## Copyable Goal
+## Copyable goal
 
 ```text
-/goal Complete the country pain profile, country selection, presentation tour, design rounds, and
-performance adoption in @docs/country-pain-profile/PLAN.md, one bounded slice at a time.
+/goal Complete the revised country-profile and expressive-globe plan one bounded slice at a time.
 
 Before each phase or bounded slice, read and orient from:
 @docs/country-pain-profile/PLAN.md
@@ -58,84 +40,103 @@ Before each phase or bounded slice, read and orient from:
 @src/main.ts
 
 Work policy:
-- Work in feat/country-pain-profile-rounds from 7ca5492. Merge the three approved upstream commits
-  first. Use a separate pain-setup worktree only for the approved PowerShell TEXT alignment.
-- Start with the first incomplete PLAN phase. Write a short slice plan, trace shared callers, reuse
-  existing paths, implement the minimum coherent change, verify it, update this file, then commit.
-- Preserve old emo presets. Run immutable country-profile rounds under ?cp=1 and cpPreset. Codex
-  chooses each winner from browser, meaning, mobile, accessibility, and performance evidence.
-- Load experimental presets lazily. Do not create the durable PNG gallery before final adoption.
-- Preserve unrelated changes. Keep frontend and pain-setup commits separate and stage exact paths.
+- Continue feat/country-pain-profile-rounds in its isolated worktree. Phases 0-8 are completed
+  history; start at the first unchecked phase.
+- Trace shared callers; correct demonstrated defects before aesthetic comparisons. Verify each
+  coherent change, append evidence to GOAL.md, and commit atomically.
+- Preserve published presets and source data. Append cpPreset rounds from v8. Include a control,
+  inspect candidates live, choose by PLAN criteria, and continue automatically. Structural rounds
+  compare whole treatments; later rounds change one named dimension.
+- Use the approved server worktree; commit repositories separately.
 
 Success means:
-- The profile presents truthful normalized signals exactly as PLAN section 6 specifies, with four
-  indicators in all-pain, one in single layers, proportional area, source point counts, and explicit
-  missingness.
-- Label and exact polygon clicks toggle one country across layers. Emotional views use the existing
-  network path. Human open and close metrics work on both setup paths. Automated cycles are
-  excluded.
-- The all-pain tour completes the approved timing, 3x motion, reverse, pause, idle warning and
-  resume, layer restore, hidden-tab, and reduced-motion behavior without stale work advancing it.
-- Profile, physical-marker, and environmental rounds finish and the selected treatments meet the
-  10 percent median, 16.7 ms p95, and 30 kB default-entry gzip limits.
-- Desktop, phone, accessibility, integrated port-3000, final-review, and deferred-gallery checks
-  pass.
+- Compact responsive profiles, corrected glyphs, truthful missingness, stable chrome, approved
+  cycle timing/cursor, heading during flight and indicators after arrival.
+- No network flash or stranded motion. Full-strength origins and reduced peers respect arrival,
+  overlap and reversal; hidden tabs freeze clocks.
+- Scar seams, poles, sampling and alignment are verified. Rounded scars and gently stylized shared
+  boundaries preserve source geometry, country identity and reliable picking.
+- Dot regrowth, four-child refinement and bounded second refinement are compared. Children remain
+  stable geographic display samples; zoom fetches no data and does not amplify severity.
+- Atmospheric mantle, batched cloudlet and bounded volume candidates are evaluated. Temperature
+  and CO2 remain distinct; artistic altitude and texture never become data claims.
+- The selected composition and measured quality tiers pass all PLAN product, accessibility,
+  performance, integration and final-gallery criteria. Retain old candidates.
 
 Verification:
-- Run npm run check before frontend commits and the relevant pain-setup checks before its commit.
-- Use read-only layer endpoints and an independent aggregation comparison for data claims.
-- Test real label, polygon, layer, keyboard, pointer, wheel, drag, phone, interruption, hidden-tab,
-  and reduced-motion paths in a GPU-backed browser. Record performance and bundle evidence here.
-- Build the detached feature commit at port 3000, restore the primary checkout, and record bounded
-  test-row growth. Verify independent findings before fixes. Capture the gallery only after
-  adoption.
+- Run npm run check and relevant focused tests before frontend commits; server build and focused
+  tests before server commits.
+- Use existing GPU-backed browser tooling for real selection, repeat/clear, layer changes, cycle,
+  interruption, zoom thresholds, reversal, hidden-tab and reduced-motion gestures.
+- Verify first/last rendered frames, arc counts, origin/peer marks, shared boundaries, field
+  sampling, dot transitions and atmospheric depth at near/far/limb views.
+- Measure frame intervals separately from GPU duration where supported. Check input-to-paint,
+  layer stalls, memory, shader warmup, payload and gzip against PLAN limits.
+- Run the 50-client read-only server benchmark, 30-minute cycle stability, exact port-3000
+  integration and final independent reviews. Verify findings before fixes.
+- Optimize last, rerun product checks, then capture final PNGs.
 
 Constraints:
-- No schema or arbitrary data mutation. Permit only bounded application-generated user and metric
-  rows required by approved browser verification, and record their count. Do not delete them.
-- No user-file cleanup, broad rewrite, secrets, .env commit, old emo-preset edits, new dependency,
-  or speculative renderer. Remove only task-owned temporary profiles. Use seed 43 and no em-dashes.
-- Ask before destructive work or unapproved cross-repository scope. Stop a path after three failed
-  attempts without new evidence.
+- Preserve raw inputs, normalized semantics, sqrt glyph area, source counts, missingness and
+  human metrics. Automated cycles emit no human country-open events.
+- Bounded WebGL shaders, batched rendering and measured tiers are allowed as specified. No per-point
+  objects, unbounded subdivision, new renderer dependency, schema change, secret, .env commit,
+  destructive cleanup or broad rewrite. Preserve unrelated changes. Seed 43; no em-dashes.
+- Keep dynamic routes uncached. Optimize measured bottlenecks only.
 
-Between iterations report the slice, changed files, evidence, commit, retained candidates, selected
-base, and next slice.
+Between iterations report slice, evidence, selected/rejected option, resource cost, commit and next
+slice.
 
 Blocked stop condition:
-Stop with exact evidence and required input if a destructive or unapproved cross-scope action is
-needed, a required runtime is unavailable, a new semantic choice falls outside PLAN.md, or the same
-failure repeats three times without new evidence.
+Stop with evidence and needed input for a required unavailable runtime/device, unapproved
+destructive action, new semantic decision, or three failures without a new hypothesis.
 
-Do not complete the goal until every PLAN phase exit passes, final evidence is recorded here, both
-worktrees are clean, and all accepted work is committed.
+Complete only after required phases pass, accepted work is committed, worktrees are clean and
+evidence is in GOAL.md. Reject a visual option only with a product or performance reason. Do not
+claim
+physical-device testing from emulation.
 ```
 
-## Validation Checklist
+## Current validation checklist
 
-- [x] Phase 0 baseline and upstream reconciliation complete.
-- [x] Country geometry, aggregation, missingness, and data semantics verified.
-- [x] One authoritative selection and metrics path verified in every layer.
-- [x] Opening profile round completed and one structural design adopted.
-- [x] Layer transitions, responsive layout, and accessibility verified.
-- [x] Presentation state machine and real timing verified.
-- [x] Physical and environmental rounds completed.
-- [x] Performance and bundle limits pass.
-- [x] Integrated port-3000 checks pass.
-- [x] Independent final findings verified.
-- [x] Deferred final gallery captured and inspected.
-- [x] Both worktrees clean and every accepted change committed.
+- [ ] Phase 9: network initialization and interaction completion.
+- [ ] Phase 10: final chrome and country-cycle sequence.
+- [ ] Phase 11: compact profile and glyph rounds.
+- [ ] Phase 12: continuous rounded scars and shared surface.
+- [ ] Phase 13: gently rounded shared country contours.
+- [ ] Phase 14: wave-aware origin and peer emphasis.
+- [ ] Phase 15: physical dot growth and refinement.
+- [ ] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
+- [ ] Phase 17: truthful socioeconomic color and pattern.
+- [ ] Phase 18: combined composition and measured quality tiers.
+- [ ] Phase 19: final frontend/server performance and simplification.
+- [ ] Phase 20: final product, integration, reviews and gallery.
+- [ ] Required physical-device checks; distinguish from responsive emulation.
 
-## Stop Conditions
+## Verification and stop conditions
 
-Stop only for verified completion, a newly required destructive or unapproved cross-scope action,
-an unavailable required source or runtime, a new semantic decision outside the plan, or the same
-blocking failure repeated three times without new evidence. A blocked handoff must include the
-exact command or gesture, observed result, artifacts, attempted hypotheses, and the input needed.
+Run `npm run check` and relevant focused frontend checks before code commits. Server work needs
+its build and focused tests against safe test doubles or disposable data. Use the existing
+GPU-backed browser helpers and test actual first/final frames, gesture races, depth, meaning,
+layout, quality transitions, performance and bounded metrics. Finish with the 50-client server
+benchmark, 30-minute all-country cycle and exact port-3000 integration.
+Only then create final gallery PNGs.
 
-## Human Sign-off
+Keep the goal incomplete until required phase exits pass and accepted work is committed.
+Report required unavailable runtimes/devices, new semantic choices or destructive/cross-scope
+needs honestly. Stop a failed path after three repetitions without a new hypothesis. Rejected
+visual trials require a concrete product/performance reason. Preserve unrelated files and all
+data. Cleanup is limited to task-owned temporaries.
 
-Approved through three discovery rounds on 2026-09-05. The operator selected option A for every
-question and delegated visual round selection to Codex.
+## Refinement progress (append only)
+
+- 2026-09-05: Revised expressive-globe plan approved for implementation. Clean source tip
+  `4b3d6f7`; existing Phases 0-8 preserved below. No refinement code implemented yet.
+
+## Historical first-goal completion
+
+The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
+current refinement phase complete. Its original progress follows.
 
 ## Progress Record
 
