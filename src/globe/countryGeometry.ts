@@ -184,18 +184,27 @@ function pointInRing(lat: number, lng: number, ring: number[][]): boolean {
     previousLng = unwrapNear(position[0]!, previousLng);
     points.push([previousLng, position[1]!]);
   }
-  const queryLng = unwrapNear(lng, points[0]![0]);
-  let inside = false;
-  for (let i = 0, previous = points.length - 1; i < points.length; previous = i++) {
-    const [ax, ay] = points[i]!;
-    const [bx, by] = points[previous]!;
-    if (pointOnSegment(queryLng, lat, ax, ay, bx, by)) return true;
-    if ((ay > lat) !== (by > lat)) {
-      const crossing = ((bx - ax) * (lat - ay)) / (by - ay) + ax;
-      if (queryLng < crossing) inside = !inside;
+  const minLng = Math.min(...points.map(([pointLng]) => pointLng));
+  const maxLng = Math.max(...points.map(([pointLng]) => pointLng));
+  const middleLng = (minLng + maxLng) / 2;
+  const middleQuery = unwrapNear(lng, middleLng);
+  for (const queryLng of [middleQuery - 360, middleQuery, middleQuery + 360]) {
+    if (queryLng < minLng - SEGMENT_EPSILON || maxLng + SEGMENT_EPSILON < queryLng) {
+      continue;
     }
+    let inside = false;
+    for (let i = 0, previous = points.length - 1; i < points.length; previous = i++) {
+      const [ax, ay] = points[i]!;
+      const [bx, by] = points[previous]!;
+      if (pointOnSegment(queryLng, lat, ax, ay, bx, by)) return true;
+      if ((ay > lat) !== (by > lat)) {
+        const crossing = ((bx - ax) * (lat - ay)) / (by - ay) + ax;
+        if (queryLng < crossing) inside = !inside;
+      }
+    }
+    if (inside) return true;
   }
-  return inside;
+  return false;
 }
 
 function pointInPolygon(lat: number, lng: number, rings: PolygonCoords): boolean {
