@@ -177,15 +177,17 @@ function pointInRing(lat: number, lng: number, ring: number[][]): boolean {
   if (!first) return false;
   const points: Array<[number, number]> = [];
   let previousLng = normalizeLongitude(first[0]!);
+  let minLng = previousLng;
+  let maxLng = previousLng;
   points.push([previousLng, first[1]!]);
   for (let i = 1; i < ring.length; i++) {
     const position = ring[i];
     if (!position) continue;
     previousLng = unwrapNear(position[0]!, previousLng);
+    minLng = Math.min(minLng, previousLng);
+    maxLng = Math.max(maxLng, previousLng);
     points.push([previousLng, position[1]!]);
   }
-  const minLng = Math.min(...points.map(([pointLng]) => pointLng));
-  const maxLng = Math.max(...points.map(([pointLng]) => pointLng));
   const middleLng = (minLng + maxLng) / 2;
   const middleQuery = unwrapNear(lng, middleLng);
   for (const queryLng of [middleQuery - 360, middleQuery, middleQuery + 360]) {

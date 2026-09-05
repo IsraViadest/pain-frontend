@@ -67,6 +67,7 @@ equal(findCountryInGeometries(countries, 48.2082, 16.3738), "AUT", "Vienna");
 equal(findCountryInGeometries(countries, 28.6139, 77.209), "IND", "New Delhi");
 equal(findCountryInGeometries(countries, -41.2866, 174.7756), "NZL", "Wellington");
 equal(findCountryInGeometries(countries, -80, 150), "ATA", "Antarctica east");
+equal(findCountryInGeometries(countries, -80, -150), null, "Antarctica Ross Sea");
 equal(countries.some((country) => country.key === "SGP"), false, "Singapore absent");
 
 const earth = new THREE.Group();
