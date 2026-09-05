@@ -1769,7 +1769,6 @@ export class GlobeView {
           blurPass2Radius: this.debugTune.scarBlurPass2Radius,
         },
       );
-      this.rebuildPainHeatMap();
       this.updateScarMapPreview();
       void this.ensureStipple().then(() => {
         if (generation !== this.scarBuildGeneration) return;
@@ -2477,6 +2476,7 @@ export class GlobeView {
     if (this.showAllLayersMode) {
       this.scheduleChoroplethRebuild();
     }
+    // Heat depends on points and peak tuning, not completion of the deferred scar build.
     this.rebuildPainHeatMap();
     this.rebuildTemperatureShellMap();
     this.rebuildCo2HazeMap();

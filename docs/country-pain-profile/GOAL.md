@@ -435,6 +435,12 @@ data. Cleanup is limited to task-owned temporaries.
   conservative Light/Standard/Rich totals remain below their 64/128/128 MiB limits.
   Scar continuity, CPU/GPU sampling and retained borrowed geometry pass after the optimization.
 
+- 2026-09-05: Removed the second heat build from deferred scar completion. Point changes and
+  heat-curve changes already own heat construction; scar-radius/shoulder changes do not alter
+  those inputs. Repeat matching submissions are now 349/302/235/292 ms across the four layers,
+  with unchanged complete shader-feature sets. All-pain was 858 ms before Phase 19. No network
+  requests are involved. The remaining layer fade and stamping costs are included in these times.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
