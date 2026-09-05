@@ -140,8 +140,9 @@ setup still creates enum-backed columns and must be aligned for future installs.
     trial proves that one must change.
 20. Freeze the exact partial state on interaction pause. Resume clears and replays the same country.
 21. Align the PowerShell metrics table with the existing TEXT schema so country names work there.
-22. Show no visible normalized numbers. Accessible SVG descriptions expose the value without
-    making the artwork read as a dashboard.
+22. Show no visible normalized numbers in the new profile glyphs. Accessible SVG descriptions
+    expose the value without making the artwork read as a dashboard. Existing image legends remain
+    the approved upstream state under decision 19.
 23. Let Codex choose each round winner, with evidence required for every choice.
 24. Preserve candidates as URL presets and defer PNG capture until the design is adopted.
 25. Apply the 30 kB gzip budget to the default entry graph without `cp=1`. Report the lazy
@@ -209,9 +210,12 @@ type CountryPainProfile = {
   iso3: string;
   countryName: string;
   emotional: {
+    categoryKey: string;
     category: string;
     nativeTerm: string;
     englishTerm: string;
+    language: string;
+    script: string;
     value: number;
   };
   temperature: CountrySignal;
@@ -591,11 +595,13 @@ exact total is recorded after Phase 5 uses the measured camera and teardown dura
 Rules:
 
 - Starting presentation remembers the current layer and enters all-pain mode.
-- Turning it off restores the remembered layer, freezes the current view, and never arms idle
-  resume.
+- Turning it off restores the remembered layer, clears the country and network, and never arms
+  idle resume.
 - Turning it on again replays the saved country from its beginning.
 - Pointer, wheel, touch, keyboard, or OrbitControls start freezes the exact partial state and enters
   interaction pause.
+- A manual country selection during interaction pause releases that freeze at normal timing,
+  reveals the human selection, and leaves the automated sequence paused with idle replay armed.
 - After 165 seconds idle, show a 15-second resume warning. Any interaction restarts the timer.
 - At 180 seconds, clear the partial state and replay the same country from its beginning.
 - Focus inside presentation controls suppresses idle resume.
@@ -643,7 +649,21 @@ Accelerated checks preserve the same state order and established:
 - No Afghanistan or Albania country metric exists. Automated cycles remain outside click analytics.
 - The profile uses `aria-live=off` during autoplay and `polite` while paused or manual.
 
-The remaining Phase 5 check is the 30-minute accelerated stability run with memory and DOM sampling.
+The final 30-minute accelerated stability run passed on the fixed controller:
+
+```bash
+cd /Users/cs/local/code/apps/web-pain-globe/pain-frontend-worktrees/country-pain-profile-rounds
+node /Users/cs/local/code/apps/web-pain-globe/artifacts/emo-views/eval.mjs \
+  'http://127.0.0.1:5173/?cp=1&cpTimeScale=0.005&freeze=1&stabilityMs=1800000' \
+  8000 1500 950 < scripts/measure-country-presentation-stability.js
+```
+
+It recorded 7,224 country changes, all 195 unique countries, 37 wraps, zero sequence errors, and
+no runtime errors. Country intervals were 249.5 ms median, 257.9 ms p95, and 331.1 ms maximum. DOM
+count stayed exactly 916. JavaScript heap ranged from 41,222,693 to 182,118,409 bytes and ended at
+82,923,382 after garbage collection cycles. Ten long tasks were observed, three after the probe
+started; the 444 ms maximum was in the buffered startup set. Stop left the profile hidden and the
+toggle off. `passed` was true. Phase 5 exit passes.
 
 ### Phase 6: Physical marker and environmental rounds
 
@@ -675,9 +695,11 @@ not the dormant debug marker mesh. Its control size is already independent of ca
 2.52 CSS px at the centre and 1.80 CSS px at the rim. The three retained candidates are
 `v3-control_current-points`, `v3-a_larger-points`, and `v3-b_close-boost`. At the normal camera the
 close-boost candidate is pixel-identical to control. A fixed 18 percent increase raises red-like
-coverage in the globe crop from 10,821 to 17,038 pixels at the normal camera and from 3,907 to
-5,625 pixels close up. The close-only candidate reaches 5,169 pixels close up. Codex selected
+coverage in the globe crop from 10,821 to 16,475 pixels at the normal camera and from 3,907 to
+5,619 pixels close up. The close-only candidate reaches 5,164 pixels close up. Codex selected
 `v3-a_larger-points`: it improves both views and does not add a draw, mesh, point, or dependency.
+The multiplier applies to the land stipple that carries the physical red field; ocean stipple keeps
+its control size.
 Its 20-second all-pain trace remains at 8.30 ms median and 9.10 ms p95 with the same eight draws
 and 239,452 primitives per frame as the Phase 0 control.
 
@@ -731,14 +753,15 @@ Phase 7 found no retained rendering regression to optimize:
 
 | State | Median | p95 | Max | Draws/frame | Primitives/frame | Textures | DOM |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Selected desktop | 8.30 ms | 9.10 ms | 10.30 ms | 11 | 293,786 | 5 | 915 |
-| Selected 393 by 852 | 8.30 ms | 9.70 ms | 10.40 ms | 11 | 293,786 | 5 | 915 |
+| Selected desktop | 8.30 ms | 9.50 ms | 10.40 ms | 11 | 293,786 | 5 | 916 |
+| Selected 393 by 852 | 8.30 ms | 9.40 ms | 10.40 ms | 11 | 293,786 | 5 | 916 |
 
 The Phase 0 selected baseline was 8.30 ms median and 9.70 ms p95. Profile aggregation is outside
-the render loop and took a 71.15 ms median across ten complete 195-country builds. The experimental
-registry and profile CSS remain lazy: 5.21 kB gzip JavaScript and 1.80 kB gzip CSS, with the
-presentation controller at 2.11 kB gzip. The default entry is 219.44 kB gzip, 3.00 kB above the
-216.44 kB baseline and 27.00 kB below the limit. A normal `?ev=2` load requested no
+the render loop and took a 74.75 ms median across ten complete 195-country builds after the wide
+ring correction. The experimental registry and profile CSS remain lazy: 5.22 kB gzip JavaScript
+and 1.85 kB gzip CSS, with the presentation controller at 2.26 kB gzip. The default entry is
+219.53 kB gzip, 3.09 kB above the 216.44 kB baseline and 26.91 kB below the limit. A normal
+`?ev=2` load requested no
 `countryProfile` module and created neither the profile nor presentation controls.
 
 The retained view still uses the same draw and primitive counts as its Phase 0 counterpart. There
@@ -786,7 +809,59 @@ layout, India, and all four indicators intact.
 A final single-layer geometry check found that the Emotional Pain item inherited the selected
 all-pain row's left alignment inside a centred 210 px container. India's native term was therefore
 50 px left of the screen centre. The single-layer rule now centres that content like the other
-three single indicators; all-pain keeps its selected left alignment.
+three single indicators and removes its inherited 22 px bottom pad; all-pain keeps its selected
+left alignment.
+
+Presentation chrome was measured while Afghanistan, the warning, the profile, and the toggle were
+all painted. At 1500 by 950 the profile ended at y=840 and the warning began at y=842.8. At 430 by
+900 they were y=784 and y=603.8 to 645; at 393 by 852 they were y=736 and y=555.8 to 597. The
+toggle and share button also remained disjoint at all three widths. No tested pair overlapped.
+
+The emotional category legend is a set of native buttons, so keyboard users can select a category
+and its deterministic random country through the same selection path. Exact named-country choice
+on the globe remains a pointer interaction; presentation mode is the non-pointer path through all
+195 named countries.
+
+The deferred gallery is
+`artifacts/country-pain-profile/gallery/`: 21 immutable `cpPreset` images and eight adopted-state
+images, 29 PNGs total. The desktop images are 1080 by 684 and the two phone images are 1179 by
+2556. Mean brightness spans 37.16 to 95.27. Every prescript returned the expected preset, layer,
+country, or presentation state. Contact-sheet inspection found one warning capture that resumed
+before the screenshot completed; it was replaced with a verified visible-warning frame. A later
+single Emotional Pain capture was also replaced after the vertical centring fix. No duplicate or
+known stale capture remains.
+
+Independent review produced actionable defects rather than a ceremonial pass. Codex reproduced a
+hidden manual selection after interruption, an A to B to A fade race, a consumed focus-resume
+timer, and missing pause announcements. Claude additionally found stale writes after layer-fetch
+awaits and the wide Antarctica ring error. The fixes are in `69ffe6c`, `a5f5097`, `afc82a4`,
+`4928988`, `0c5da1e`, `04ad110`, `9b5801b`, `8bea50e`, and `d3b107a`. The browser race probe now
+checks layer reversal, early Stop, manual selection, accessible status, held focus, active resume,
+and explicit pass/fail output. The final Codex closure reported no remaining issue.
+
+Three suggestions were deliberately not implemented. All 195 current countries completed the
+tour, so a missing centroid remains a loud data-integrity failure rather than a silent skip. Fixed
+SVG pattern ids are safe because the runtime owns exactly one profile view. The image legends are
+the approved upstream state and decision 19 keeps them outside this profile experiment. The
+emotional category legend already consists of keyboard-operable native buttons.
+
+The Claude review completed through its degraded legacy provider path after the preferred hub
+failed. Two bounded current-tip delta attempts then exceeded their own timeouts. AGY returned
+nonempty prose twice but omitted every required structured marker both times, so neither AGY run
+produced an accepted verdict. Their raw claims were still treated as hypotheses and checked against
+the app. No third retry was made for either repeated transport failure.
+
+Canonical integration built frontend code tip `d3b107a` through the root Compose file and served
+it at port 3000. The public Node base-image pull initially hung in Docker Desktop's credential
+helper while the Mac was locked; an isolated anonymous Docker config resolved it. A task-owned
+temporary `.dockerignore` reduced the canonical build context from 1.65 GB to 5.15 MB by excluding
+the gallery and sibling worktrees, then removed itself. The primary checkout was restored clean to
+`feat/emo-label-views` at `7ca5492` after every detached build.
+
+The final port-3000 race probe returned `passed: true`. Its bounded database interval was 1,371 to
+1,372 users, 2,597 to 2,617 total toggle metrics, and 72 to 74 country-category metrics. The two
+country rows are the expected manual open and close; automated presentation selections added none.
+The 20 total rows include the probe's deliberate layer changes. No test row was deleted.
 
 Exit: all acceptance criteria pass, both repositories are clean, and all verified work is committed.
 
@@ -798,7 +873,7 @@ Exit: all acceptance criteria pass, both repositories are clean, and all verifie
 | Aggregation | Focused geometry and reducer check plus independent socioeconomic comparison |
 | Selection | Real label and surface clicks; one state and metric sequence per gesture |
 | Responsive layout | Desktop, 430 by 900, and 393 by 852 checks against actual chrome boxes |
-| Accessibility | Keyboard toggle, focus, reduced motion, live-region state, Select All guard |
+| Accessibility | Keyboard controls, focus, reduced motion, live status, Select All guard |
 | Presentation | State probe with shortened clocks plus one real-duration country |
 | Rendering | Real GPU-backed browser inspection, no headless-only visual conclusions |
 | Performance | Same-session median and p95, renderer info, bundle gzip, DOM and request counts |

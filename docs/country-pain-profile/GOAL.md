@@ -112,18 +112,18 @@ worktrees are clean, and all accepted work is committed.
 
 ## Validation Checklist
 
-- [ ] Phase 0 baseline and upstream reconciliation complete.
+- [x] Phase 0 baseline and upstream reconciliation complete.
 - [x] Country geometry, aggregation, missingness, and data semantics verified.
 - [x] One authoritative selection and metrics path verified in every layer.
 - [x] Opening profile round completed and one structural design adopted.
 - [x] Layer transitions, responsive layout, and accessibility verified.
-- [ ] Presentation state machine and real timing verified.
+- [x] Presentation state machine and real timing verified.
 - [x] Physical and environmental rounds completed.
 - [x] Performance and bundle limits pass.
-- [ ] Integrated port-3000 checks pass.
-- [ ] Independent final findings verified.
-- [ ] Deferred final gallery captured and inspected.
-- [ ] Both worktrees clean and every accepted change committed.
+- [x] Integrated port-3000 checks pass.
+- [x] Independent final findings verified.
+- [x] Deferred final gallery captured and inspected.
+- [x] Both worktrees clean and every accepted change committed.
 
 ## Stop Conditions
 
@@ -169,13 +169,15 @@ question and delegated visual round selection to Codex.
   open, change, and close; emits balanced metrics for human actions; suppresses automated-tour
   country metrics; closes a still-open human metric on automated takeover; and refuses unknown
   ISO3 values. Its focused check and `npm run check` passed. Browser routing is next.
-- 2026-09-05: Phase 2, browser-routing slice ready. `?cp=1` loads a separate 1.38 kB gzip runtime
+- 2026-09-05: Phase 2, browser-routing slice ready at `d4a8e88`. `?cp=1` loads a separate
+  1.38 kB gzip runtime
   chunk and reuses `v14-a_base` without exposing the old views toggle; a normal `?ev=2` load fetched
   no country-profile module. A live label, layer, surface, return, and clear sequence wrote exactly
   India on/off and Moldova on/off metrics, with no close on the layer switch. The intended Austria
   surface probe actually hit Moldova because a raised label's screen point is not its ground ray;
   the recorded ISO confirms the exact polygon path rather than the harness label. The full gate
-  passed. The default entry grew 1.29 kB gzip, within the 30 kB budget.
+  passed. The default entry grew 1.29 kB gzip at that slice. The completed Phase 2 measurement in
+  PLAN.md is 3.77 kB runtime JavaScript, 1.40 kB runtime CSS, and 1.61 kB entry growth.
 - 2026-09-05: Phase 2, setup portability slice complete in `pain-setup` commit `20b7c76` on
   `fix/powershell-metrics-text`. The PowerShell toggle-metrics table now uses the same TEXT columns
   as Bash. PowerShell parsing and `docker compose config --quiet` passed. No database command ran.
@@ -199,4 +201,17 @@ question and delegated visual round selection to Codex.
   accelerated run visited 195 unique alphabetical countries and wrapped through Zimbabwe to
   Afghanistan. Exact construction pause, idle warning and replay, manual Stop and same-country
   restart, hidden-tab state, real drag and wheel pauses, zero automated country metrics, and the
-  full gate passed. Phase 5 remains open only for the 30-minute accelerated stability run.
+  full gate passed. The final stability result is recorded below.
+- 2026-09-05: Phase 5 complete. The fixed controller ran 30 minutes at `cpTimeScale=0.005` with
+  7,224 ordered country changes, all 195 countries, 37 wraps, zero sequence errors, DOM fixed at
+  916, no runtime errors, and a clean Stop. The browser race probe also passes layer reversal,
+  early Stop, manual selection after pause, status announcement, held focus, and active resume.
+- 2026-09-05: Phases 6 and 7 complete. Codex selected fixed 18 percent larger physical land
+  stipple, the cellular profile glyph, and the smooth environmental globe. The final selected view
+  remains at 8.30 ms median with 9.50 ms desktop and 9.40 ms phone p95. Default entry growth is
+  3.09 kB gzip, below the 30 kB limit; profile aggregation is a one-time 74.75 ms median.
+- 2026-09-05: Phase 8 evidence complete. `v7-a_base` is adopted; 21 preset images and eight final
+  states were captured and inspected. Review findings produced the layer, presentation, geometry,
+  accessibility, and physical-scope fixes through code tip `d3b107a`. Canonical port 3000 built
+  that tip and passed the race probe. The primary frontend and setup worktrees are clean at their
+  recorded branches after the final documentation commit.
