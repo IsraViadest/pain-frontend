@@ -214,6 +214,65 @@
   grid-template-columns: minmax(160px, 260px);
 }
 
+.country-presentation-toggle {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 3;
+  min-width: 128px;
+  padding: 7px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(4, 9, 24, 0.32);
+  color: rgba(255, 255, 255, 0.88);
+  font: 500 11px/1.2 "Apercu Pro", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transform: translateX(-50%);
+}
+
+.country-presentation-toggle[aria-pressed="true"] {
+  background: rgba(107, 21, 206, 0.44);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.country-presentation-toggle:focus-visible,
+.country-presentation-warning button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.country-presentation-warning {
+  position: fixed;
+  left: 50%;
+  bottom: 66px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(0, 5, 18, 0.78);
+  color: rgba(255, 255, 255, 0.86);
+  font: 400 11px/1.2 "Apercu Pro", system-ui, sans-serif;
+  transform: translateX(-50%);
+}
+
+.country-presentation-warning[hidden] {
+  display: none;
+}
+
+.country-presentation-warning button {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 @media (max-width: 768px) {
   .country-profile {
     bottom: 116px;
@@ -269,6 +328,22 @@
   .country-profile__caption {
     max-width: 76px;
     font-size: 8px;
+  }
+
+  .country-presentation-toggle {
+    left: 20px;
+    bottom: 22px;
+    min-width: 126px;
+    max-width: 136px;
+    transform: none;
+  }
+
+  .country-presentation-warning {
+    left: 16px;
+    right: 16px;
+    bottom: 96px;
+    justify-content: space-between;
+    transform: none;
   }
 }
 

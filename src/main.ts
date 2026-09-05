@@ -12,6 +12,7 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints } from "./api/client";
+import { getCountryCentroid } from "./api/countryCentroids";
 import {
   METRICS_KIND_LAYER,
   trackToggle,
@@ -61,6 +62,7 @@ import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
 import { createEmoSelectionLayer, type EmoSelectionLayer } from "./emo/selection";
 import { createEmoLeaderLineLayer, type EmoLeaderLineLayer } from "./emo/leaderLines";
 import { createEmoSelectionMotion, type EmoSelectionMotion } from "./emo/selectionMotion";
+import type { EmoViewParams } from "./emo/viewParams";
 import { createEmoLegend, type EmoLegendLayer } from "./emo/legend";
 import {
   shouldShowEmoViews,
@@ -71,6 +73,7 @@ import {
 import { findEmoPreset, type EmoPreset } from "./emo/viewPresets";
 import { mountEmoViewPanel } from "./ui/emoViewPanel";
 import type { CountryProfileRuntime } from "./countryProfile/runtime";
+import type { CountryPresentation } from "./countryProfile/presentation";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -489,7 +492,35 @@ let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 let emoParams = emoView.params;
 let emoPanel: { setParam: (key: "randomSeed", value: number) => void } | null = null;
 let countryProfileRuntime: CountryProfileRuntime | null = null;
+let countryPresentation: CountryPresentation | null = null;
 let preserveCountryProfileOnEmoClear = false;
+let presentationBaseParams: EmoViewParams | null = null;
+
+function applyEmoParams(next: EmoViewParams): void {
+  emoParams = next;
+  emoLabelLayer?.setParams(next);
+  emoArcLayer?.setParams(next);
+  emoLeaderLineLayer?.setParams(next);
+  emoSelectionLayer?.setParams(next);
+  emoLegend?.setParams(next);
+  emoMotion?.setParams(next);
+}
+
+function setPresentationTiming(active: boolean, timeScale: number): void {
+  if (!active) {
+    if (presentationBaseParams) applyEmoParams(presentationBaseParams);
+    presentationBaseParams = null;
+    return;
+  }
+  if (!presentationBaseParams) presentationBaseParams = { ...emoParams };
+  const factor = 3 * timeScale;
+  applyEmoParams({
+    ...presentationBaseParams,
+    selectionMotionMs: presentationBaseParams.selectionMotionMs * factor,
+    selectionLeaderMs: presentationBaseParams.selectionLeaderMs * factor,
+    selectionSpreadMs: presentationBaseParams.selectionSpreadMs * factor,
+  });
+}
 
 /**
  * Show the DOM label views for the emotional layer and for all-layers mode, and suppress the
@@ -554,6 +585,7 @@ if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {
 function handleCountrySurfaceClick(clientX: number, clientY: number): void {
   const runtime = countryProfileRuntime;
   if (!runtime) return;
+  countryPresentation?.allowManualMotion();
   const surface = globe.pickSurfaceLatLng(clientX, clientY);
   const iso3 = surface ? runtime.countryAt(surface.lat, surface.lng) : null;
   const emotionalLayer = lastLayerId === "emopain" || lastLayerId === "all-layers";
@@ -573,7 +605,10 @@ function handleCountrySurfaceClick(clientX: number, clientY: number): void {
 
 async function ensureCountryProfileRuntime(): Promise<void> {
   if (!countryProfileEnabled || countryProfileRuntime) return;
-  const { CountryProfileRuntime } = await import("./countryProfile/runtime");
+  const [{ CountryProfileRuntime }, { CountryPresentation }] = await Promise.all([
+    import("./countryProfile/runtime"),
+    import("./countryProfile/presentation"),
+  ]);
   countryProfileRuntime = await CountryProfileRuntime.create(
     pointCache,
     appRootEl,
@@ -586,6 +621,52 @@ async function ensureCountryProfileRuntime(): Promise<void> {
       );
     },
   );
+  const runtime = countryProfileRuntime;
+  countryPresentation = new CountryPresentation({
+    appRoot: appRootEl,
+    profiles: runtime.profiles,
+    controls: globe.controls,
+    getCurrentLayer: () => lastLayerId,
+    enterAllLayers: async () => {
+      if (lastLayerId !== "all-layers") await handleAllLayers();
+    },
+    restoreLayer: (layerId) => {
+      if (layerId === lastLayerId) return;
+      if (layerId === "all-layers") void handleAllLayers();
+      else handleLayerChange(layerId);
+    },
+    moveTo: async (iso3, signal, durationMs) => {
+      const centroid = getCountryCentroid(iso3);
+      if (!centroid) throw new Error(`No presentation centroid for ${iso3}`);
+      await flyGlobeToLatLng(
+        globe.camera,
+        globe.controls,
+        centroid.lat,
+        centroid.lng,
+        globe.earthContent,
+        { durationMs, signal },
+      );
+    },
+    selectCountry: (iso3) => {
+      runtime.select(iso3, false);
+      emoLabelLayer?.selectCountry(iso3);
+    },
+    clearCountry: () => {
+      runtime.clear(false);
+      emoLabelLayer?.clearSelection();
+    },
+    isBuilding: (iso3) => {
+      const category = runtime.profiles.get(iso3)?.emotional.categoryKey;
+      return category ? emoMotion?.isBuilding(category) === true : false;
+    },
+    isRetreating: () => (emoMotion?.retreatingCategories().length ?? 0) > 0,
+    setMotionPaused: (paused) => emoMotion?.setPaused(paused),
+    setPresentationTiming,
+    setProfileSuppressed: (suppressed) => runtime.setProfileSuppressed(suppressed),
+    setProfileAutoplay: (autoplay) => runtime.setAutoplay(autoplay),
+    getAutoSpin: () => globe.isAutoSpinEnabled(),
+    setAutoSpin: (enabled) => globe.setAutoSpinEnabled(enabled),
+  });
 }
 
 /**
@@ -680,6 +761,10 @@ async function handleAllLayers(): Promise<void> {
     setStatus("No layers loaded yet");
     return;
   }
+
+  loadPointsAbortController?.abort();
+  clearTimeout(pendingLayerChangeTimer ?? undefined);
+  pendingLayerChangeTimer = null;
 
   showAllLayersActive = true;
   chrome?.setAllLayersActive(true);
@@ -817,6 +902,7 @@ function loop(): void {
         // The label layer owns the selection because it owns the click; the arcs and the
         // country fill are told from here.
         onSelect: (selection) => {
+          countryPresentation?.allowManualMotion();
           // Order matters here. setSelection clears any wave in flight, and the arc layer starts
           // the new one, so the arcs go second or the wave they just planned is thrown away.
           emoMotion?.setSelection(selection?.cat ?? null);
@@ -878,13 +964,7 @@ function loop(): void {
           initialParams: emoView.params,
           onChange: (preset, params) => {
             emoPreset = preset;
-            emoParams = params;
-            emoLabelLayer?.setParams(params);
-            emoArcLayer?.setParams(params);
-            emoLeaderLineLayer?.setParams(params);
-            emoSelectionLayer?.setParams(params);
-            emoLegend?.setParams(params);
-            emoMotion?.setParams(params);
+            applyEmoParams(params);
             syncEmoLayer(lastLayerId);
           },
           onMinimise: () => setEmoPanelOpen(false),
