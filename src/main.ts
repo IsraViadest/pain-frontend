@@ -285,10 +285,12 @@ globe.setWordCloudEnabled(wordCloudEnabled);
 function syncThemeToggle(themeBtn: HTMLButtonElement): void {
   const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
   themeBtn.textContent = t === "blue" ? "dark mode" : "blue mode";
+  themeBtn.setAttribute("aria-label", "Blue mode");
   themeBtn.setAttribute("aria-pressed", t === "blue" ? "true" : "false");
 }
 
 function wireThemeToggle(themeBtn: HTMLButtonElement): void {
+  syncThemeToggle(themeBtn);
   themeBtn.addEventListener("click", () => {
     const next: VisualTheme =
       document.documentElement.dataset.theme === "blue" ? "dark" : "blue";
