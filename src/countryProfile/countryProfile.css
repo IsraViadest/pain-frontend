@@ -226,12 +226,12 @@
 
 .country-profile[data-layer]:not([data-layer="all-layers"]) .country-profile__items {
   justify-content: center;
-  grid-template-columns: minmax(160px, 260px);
 }
 
 .country-profile[data-layer]:not([data-layer="all-layers"])
   .country-profile__emotional {
   align-items: center;
+  padding-bottom: 0;
   text-align: center;
 }
 

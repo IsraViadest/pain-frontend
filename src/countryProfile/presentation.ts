@@ -316,6 +316,7 @@ export class CountryPresentation {
       this.button.contains(document.activeElement) ||
       this.warning.contains(document.activeElement)
     ) {
+      this.warning.hidden = true;
       this.resumeTimer = window.setTimeout(
         this.resumeAfterIdle,
         Math.max(50, FOCUS_RECHECK_MS * this.timeScale),
