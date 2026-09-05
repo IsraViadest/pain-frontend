@@ -285,7 +285,7 @@ export async function mountProductionChrome(
 
   const sharePainBtn = await createBlobButton({
     svgName: "share_pain.svg",
-    label: "share your pain",
+    label: "locate your pain",
     variant: "share",
     soundFile: SOUND_BUTTON_SHARE,
     onClick: () => {
