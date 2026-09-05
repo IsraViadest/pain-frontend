@@ -172,6 +172,8 @@ export class CountryProfileView {
   private currentLayer = "";
   private transitionRevision = 0;
   private transitionTimer: number | null = null;
+  private profile: CountryPainProfile | null = null;
+  private suppressed = false;
 
   constructor(
     appRoot: HTMLElement,
@@ -246,7 +248,8 @@ export class CountryProfileView {
   }
 
   setProfile(profile: CountryPainProfile | null): void {
-    this.host.hidden = profile === null;
+    this.profile = profile;
+    this.host.hidden = profile === null || this.suppressed;
     if (!profile) return;
     this.countryName.textContent = profile.countryName;
     this.nativeTerm.textContent = profile.emotional.nativeTerm;
@@ -267,6 +270,17 @@ export class CountryProfileView {
     this.environmental.update(profile);
     this.physical.update(profile);
     this.socioeconomic.update(profile);
+  }
+
+  setSuppressed(suppressed: boolean): void {
+    this.suppressed = suppressed;
+    this.host.hidden = this.profile === null || suppressed;
+  }
+
+  setAutoplay(autoplay: boolean): void {
+    this.host.setAttribute("aria-live", autoplay ? "off" : "polite");
+    if (autoplay) this.host.setAttribute("aria-roledescription", "carousel");
+    else this.host.removeAttribute("aria-roledescription");
   }
 
   destroy(): void {

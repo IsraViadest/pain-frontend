@@ -19,6 +19,7 @@ export interface CountryPainProfile {
   iso3: string;
   countryName: string;
   emotional: {
+    categoryKey: string;
     category: string;
     nativeTerm: string;
     englishTerm: string;
@@ -113,6 +114,7 @@ export function buildCountryPainProfiles(
       iso3,
       countryName: country.name,
       emotional: {
+        categoryKey: country.cat,
         category: category.label,
         nativeTerm: country.term.trim() || category.label,
         englishTerm: category.label,

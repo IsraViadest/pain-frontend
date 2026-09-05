@@ -100,4 +100,12 @@ export class CountryProfileRuntime {
   setLayer(layerId: string): void {
     this.view.setLayer(layerId);
   }
+
+  setProfileSuppressed(suppressed: boolean): void {
+    this.view.setSuppressed(suppressed);
+  }
+
+  setAutoplay(autoplay: boolean): void {
+    this.view.setAutoplay(autoplay);
+  }
 }

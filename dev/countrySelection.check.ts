@@ -10,6 +10,7 @@ function profile(iso3: string): CountryPainProfile {
     iso3,
     countryName: iso3 === "AAA" ? "Alpha" : "Beta",
     emotional: {
+      categoryKey: "01_hurt",
       category: "Hurt",
       nativeTerm: "Hurt",
       englishTerm: "Hurt",
