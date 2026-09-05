@@ -284,8 +284,8 @@ globe.setWordCloudEnabled(wordCloudEnabled);
 // --- Production chrome event handlers ---
 function syncThemeToggle(themeBtn: HTMLButtonElement): void {
   const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
-  themeBtn.textContent = t === "blue" ? "dark mode" : "blue mode";
-  themeBtn.setAttribute("aria-label", "Blue mode");
+  themeBtn.textContent = "blue mode";
+  themeBtn.removeAttribute("aria-label");
   themeBtn.setAttribute("aria-pressed", t === "blue" ? "true" : "false");
 }
 

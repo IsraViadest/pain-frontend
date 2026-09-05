@@ -348,10 +348,8 @@ export async function createEmoLabelLayer(options: {
     if (Math.hypot(ev.clientX - downX, ev.clientY - downY) > DRAG_SLOP_PX) return;
     const entry = labelAt(ev.clientX, ev.clientY);
     if (!entry) {
-      if (params.clickMode === "selectNetwork") {
-        if (options.onCanvasMiss) options.onCanvasMiss(ev.clientX, ev.clientY);
-        else clearSelection();
-      }
+      if (options.onCanvasMiss) options.onCanvasMiss(ev.clientX, ev.clientY);
+      else if (params.clickMode === "selectNetwork") clearSelection();
       return;
     }
     if (params.clickMode === "toggleLanguage") {
