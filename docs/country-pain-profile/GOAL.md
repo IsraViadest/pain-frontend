@@ -450,6 +450,13 @@ data. Cleanup is limited to task-owned temporaries.
   is inferred from these CPU measurements. A willReadFrequently canvas trial changed the RGBA
   outputs without a consistent timing win and was reverted. No extra canvas cache was added.
 
+- 2026-09-05: The selection layer now retains GPU texture storage while replacing the pixels
+  for each arrival step. It also passes the computed wave membership to paint instead of
+  computing it twice. The renderer-backed role/exact/marker/clear probe initially counted four
+  native texture allocations/deletions; it now counts one of each, with the same color/alpha and
+  shared-border results. Clear still releases the texture. This did not eliminate the observed
+  roughly 50 ms construction-frame spike; no latency improvement is claimed for storage reuse.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

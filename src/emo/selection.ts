@@ -134,10 +134,7 @@ export async function createEmoSelectionLayer(options: {
     return { strengths, key };
   }
 
-  function paint(): void {
-    material.map?.dispose();
-    material.map = null;
-    const { strengths, key } = arrivedMembers();
+  function paint({ strengths, key }: ReturnType<typeof arrivedMembers>): void {
     const members = [...strengths.keys()];
     paintedKey = key;
     paintedGeography = globe.getDisplayCountryGeometries();
@@ -165,7 +162,15 @@ export async function createEmoSelectionLayer(options: {
             peerStrength !== null || exactCountry !== null ? strengths : undefined,
             exactCountry ? WASH_COLOUR : undefined,
           );
-    material.map = texture;
+    if (material.map && texture) {
+      // Keep the allocated GPU image while replacing its pixels for the next arrival step.
+      material.map.image = texture.image;
+      material.map.needsUpdate = true;
+      texture.dispose();
+    } else {
+      material.map?.dispose();
+      material.map = texture;
+    }
     // Adding warm light brightens the country's own choropleth colour instead of covering it.
     material.blending = glow ? THREE.AdditiveBlending : THREE.NormalBlending;
     // A category made only of countries with no polygon yields null while `selectionMarkerDeg` is
@@ -195,12 +200,11 @@ export async function createEmoSelectionLayer(options: {
       paintedKey = null;
     },
     update(): void {
-      // The key alone decides. Recomputing the members costs a pass over one category's country
-      // list and happens only on the frames the mark actually changes, which is at most once per
-      // depth step of a spread and never at all when nothing is moving.
-      if (arrivedMembers().key === paintedKey &&
+      // Read the current wave once. Raster work happens only when its marks or geography change.
+      const arrived = arrivedMembers();
+      if (arrived.key === paintedKey &&
           paintedGeography === globe.getDisplayCountryGeometries()) return;
-      paint();
+      paint(arrived);
     },
     setParams(next: EmoViewParams): void {
       const markChanged =

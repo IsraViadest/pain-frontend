@@ -1,7 +1,7 @@
 /* Actual canvas textures and the shared highlight layer. Run with existing eval.mjs. */
 (async () => {
   const textures = [];
-  let layer, surface;
+  let layer, surface, renderer;
   try {
     const check = (value, message) => { if (!value) throw Error(message); };
     const THREE = await import("/node_modules/.vite/deps/three.js");
@@ -44,6 +44,19 @@
     await geo.ensureCountryGeometriesLoaded();
     surface = new THREE.SphereGeometry(1, 8, 8);
     const content = new THREE.Group();
+    renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setSize(32, 32, false);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 10);
+    camera.position.z = 3;
+    const gl = renderer.getContext();
+    const createTexture = gl.createTexture.bind(gl), deleteTexture = gl.deleteTexture.bind(gl);
+    let allocatedTextures = 0, deletedTextures = 0;
+    gl.createTexture = () => { allocatedTextures++; return createTexture(); };
+    gl.deleteTexture = (texture) => { deletedTextures++; return deleteTexture(texture); };
+    const render = () => {
+      renderer.render(content, camera);
+      check(gl.getError() === gl.NO_ERROR, "highlight upload failed");
+    };
     let origin = "IND";
     const motion = { retreatingCategories: () => [], markArrivalOf: () => 1,
       markStrengthOf: (iso, weight) => iso === origin ? 1 : weight };
@@ -55,33 +68,40 @@
     layer.setPeerStrength(0.5);
     layer.setSelectedCategory("test");
     layer.update();
+    render();
     const first = mesh.material.map;
     const firstIndia = sample(first, 78, 20)[3], firstPakistan = sample(first, 69, 30)[3];
     origin = "PAK";
     layer.update();
-    check(mesh.material.map !== first, "equal-count role change did not repaint");
+    render();
     check(sample(mesh.material.map, 78, 20)[3] === firstPakistan &&
       sample(mesh.material.map, 69, 30)[3] === firstIndia, "origin role did not swap strengths");
     layer.setSelectedCategory(null);
     layer.setExactCountry("IND", "#ff0000");
     layer.update();
+    render();
     check(sample(mesh.material.map, 78, 20)[0] === 255 &&
       sample(mesh.material.map, 78, 20)[1] === 0, "exact-country fill color incorrect");
     check(sample(mesh.material.map, 69, 30)[3] === 0, "exact mode marked a peer");
     check(mesh.material.blending === THREE.NormalBlending, "exact highlight adds unbounded light");
     layer.setExactCountry("SGP", "#00ff00");
     layer.update();
+    render();
     check(mesh.visible && mesh.material.map, "centroid-only country lost its exact highlight");
     layer.setExactCountry(null, "#ffffff");
     layer.update();
+    render();
     check(!mesh.visible && mesh.material.map === null, "clear left a country highlighted");
     check(mesh.geometry === surface, "highlight detached from shared scar surface");
+    check(allocatedTextures === 1 && deletedTextures === 1,
+      "highlight texture storage churn: " + allocatedTextures + " allocations / " + deletedTextures + " deletions");
     return { passed: true, results, roleSwap: true, exactCountry: true, centroidMarker: true,
-      borrowedSurface: true };
+      borrowedSurface: true, allocatedTextures, deletedTextures };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };
   } finally {
     layer?.destroy(); surface?.dispose();
     for (const texture of textures) texture?.dispose();
+    renderer?.dispose(); renderer?.forceContextLoss();
   }
 })()
