@@ -537,6 +537,19 @@ data. Cleanup is limited to task-owned temporaries.
   Port 3000 now serves frontend `ff6159b` with server `22a03d2`; Docker entry gzip is 226.92 kB,
   below the 246.44 kB limit. The final-source 30-minute soak remains in progress.
 
+- 2026-09-05: The final viewport matrix found two remaining profile-clearance defects.
+  At 1080x900, India's native term overlaps the painted data-sources blob: 619 sampled points
+  inside its SVG fill fall within the term's box. Clearance had only run at phone widths or
+  short heights. It now also runs on desktop, ignoring obstacles horizontally clear of the card.
+  At 568x320, Saint Vincent and the Grenadines makes the card plate overlap the header by 3.91 px;
+  the actual texts still clear. Short landscape padding and divider gaps now save 12 px of height.
+  The four slot widths, equal gaps, centered middle glyphs and all font sizes stay unchanged.
+  All 195 terms now pass at 1080x900 and 568x320 in both blue and dark themes. The longest
+  short-landscape card measures 88.375 px high; maximum indicator misalignment is 0.0078125 px.
+  The interrupted soak's last recorded sample was 1,201 seconds, 4,789 visits and 24 wraps,
+  with stable resources and zero errors. Editing the live Vite source ended its evaluator;
+  it is not counted as a complete run. Final source requires the full replacement soak.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

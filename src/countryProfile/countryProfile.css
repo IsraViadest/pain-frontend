@@ -592,3 +592,14 @@
     display: none;
   }
 }
+
+@media (max-height: 360px) and (orientation: landscape) {
+  .country-profile[data-layout="compact"][data-compact-size] {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .country-profile[data-layout="compact"] .country-profile__divider {
+    margin: 4px 0 6px;
+  }
+}

@@ -219,15 +219,14 @@ export class CountryProfileView {
     }
     if (profileRect.width === 0) return;
     let bottom = 24;
-    if (innerWidth <= 768 || innerHeight <= 500) {
-      for (const element of this.obstacles) {
-        const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        if (rect.width === 0 || rect.height === 0 || rect.right <= 0 || rect.left >= innerWidth ||
-            style.visibility === "hidden" || Number(style.opacity) === 0) continue;
-        if (innerWidth > innerHeight && (rect.right <= left - 8 || rect.left >= right + 8)) continue;
-        bottom = Math.max(bottom, innerHeight - rect.top + 12);
-      }
+    for (const element of this.obstacles) {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (rect.width === 0 || rect.height === 0 || rect.right <= 0 || rect.left >= innerWidth ||
+          style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+      if ((innerWidth > 768 || innerWidth > innerHeight) &&
+          (rect.right <= left - 8 || rect.left >= right + 8)) continue;
+      bottom = Math.max(bottom, innerHeight - rect.top + 12);
     }
     this.host.style.setProperty("--cp-bottom", `${bottom}px`);
   };
