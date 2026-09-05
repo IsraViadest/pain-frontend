@@ -54,6 +54,7 @@ import {
 import type { FieldTexturePattern } from "./fieldTexturePattern";
 import { getCountryGeometries, type IndexedCountryGeometry } from "./countryGeometry";
 import type { buildCountryDisplayGeometry } from "./countryDisplayGeometry";
+import type { StippleDetailMode } from "./stippleDetailController";
 
 export type { Co2HazeTune };
 
@@ -498,9 +499,8 @@ export class GlobeView {
   /** SHELL stipple — Points on sphere (ensureStipple → earthStippleGlobe). */
   private pointsStipple: THREE.Points | null = null;
   private pointsMaterial: THREE.ShaderMaterial | null = null;
-  private stippleCleanup: (() => void) | null = null;
-  private setStippleDisplayCountries:
-    ((countries: readonly IndexedCountryGeometry[] | null) => void) | null = null;
+  private stippleHandle: Awaited<ReturnType<typeof createEarthStippleGlobe>> | null = null;
+  private stippleDetailMode: StippleDetailMode = "fixed";
   private stipplePromise: Promise<void> | null = null;
   private stippleLandMaskUrl: string | null = null;
   /** Unwarped stipple shell; scar mode warps a copy into the points geometry. */
@@ -1480,14 +1480,11 @@ export class GlobeView {
       this.pointsStipple = null;
       this.pointsMaterial = null;
     }
-    if (this.stippleCleanup) {
-      this.stippleCleanup();
-      this.stippleCleanup = null;
-    }
+    this.stippleHandle?.dispose();
+    this.stippleHandle = null;
     this.stippleNeutralScarTexture = null;
     this.stippleNeutralHeatTexture = null;
     this.stippleLandMaskUrl = null;
-    this.setStippleDisplayCountries = null;
     this.stippleBasePositions = null;
   }
 
@@ -1794,13 +1791,15 @@ export class GlobeView {
         0.16,
         this.renderer.getPixelRatio(),
       )
-        .then(({ points, material, dispose, neutralScarTexture, neutralHeatTexture,
-          setDisplayCountries }) => {
+        .then((result) => {
+          const { points, material, neutralScarTexture, neutralHeatTexture, setDisplayCountries } = result;
           this.pointsStipple = points;
           this.pointsMaterial = material;
-          this.stippleCleanup = dispose;
-          this.setStippleDisplayCountries = setDisplayCountries;
+          this.stippleHandle = result;
           if (this.displayGeography) setDisplayCountries(this.displayGeography.countries);
+          void result.setDetailMode(this.stippleDetailMode).catch((error) => {
+            console.error("[GlobeView] stipple detail failed:", error);
+          });
           this.stippleLandMaskUrl = STIPPLE_LAND_MASK_GEOJSON_URL;
           this.stippleNeutralScarTexture = neutralScarTexture;
           this.stippleNeutralHeatTexture = neutralHeatTexture;
@@ -2554,7 +2553,7 @@ export class GlobeView {
     }
     this.bordersOutlines?.setDisplayPaths(this.displayGeography);
     this.bordersOutlines?.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
-    this.setStippleDisplayCountries?.(this.displayGeography?.countries ?? null);
+    this.stippleHandle?.setDisplayCountries(this.displayGeography?.countries ?? null);
     this.scheduleChoroplethRebuild();
   }
 
@@ -2562,6 +2561,18 @@ export class GlobeView {
     if (rounded === this.roundedScarShoulder) return;
     this.roundedScarShoulder = rounded;
     this.scheduleScarFieldRebuild();
+  }
+
+  setStippleDetailMode(mode: StippleDetailMode): void {
+    if (mode === this.stippleDetailMode) return;
+    this.stippleDetailMode = mode;
+    void this.stippleHandle?.setDetailMode(mode).catch((error) => {
+      console.error("[GlobeView] stipple detail failed:", error);
+    });
+  }
+
+  getStippleDetailStats() {
+    return this.stippleHandle?.getDetailStats() ?? null;
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */
@@ -2717,6 +2728,14 @@ export class GlobeView {
       this.pointsMaterial.uniforms.uPixelRatio.value =
         this.renderer.getPixelRatio();
       if (this.stipplePointTune.nearBoost !== 0) this.applyStipplePointScale();
+    }
+    if (this.stippleDetailMode !== "fixed" && this.pointsStipple?.visible) {
+      const { clientWidth, clientHeight } = this.renderer.domElement;
+      if (clientWidth > 0 && clientHeight > 0) {
+        this.pointsStipple.updateWorldMatrix(true, false);
+        this.camera.updateMatrixWorld();
+        this.stippleHandle?.updateDetail(this.camera, clientWidth, clientHeight, dt);
+      }
     }
     this.renderer.render(this.scene, this.camera);
   }

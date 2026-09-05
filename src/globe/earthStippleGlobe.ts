@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { rasterLandMaskFromCountries, rasterLandMaskFromGeometries } from "./landMaskRaster";
 import type { IndexedCountryGeometry } from "./countryGeometry";
+import type { createStippleDetailController, StippleDetailMode } from "./stippleDetailController";
 import { createNeutralHeatTexture } from "./painHeatField";
 
 /** Same Natural Earth source as vector coastlines / borders (WGS84 plate-carrée). */
@@ -28,6 +29,14 @@ const float EQUIRECT_INV_TWO_PI = 0.15915494309189533577;
 const float EQUIRECT_INV_PI = 0.31830988618379067154;
 
 attribute float aLand;
+attribute vec4 aRoot;
+attribute float aSizeScale;
+attribute vec3 aFade;
+uniform float uDetailMode;
+uniform float uDetailTime;
+uniform float uDetailFadeSeconds;
+uniform float uDetailFocal;
+varying float vDetailOpacity;
 varying float vLand;
 varying float vFresnel;
 varying float vFacing;
@@ -89,6 +98,28 @@ void main() {
   float baseSize = sizeByView * 0.72;
   float pointScale = mix(1.0, uPointScale, landMask);
   gl_PointSize = baseSize * uPixelRatio * pointScale;
+  vDetailOpacity = 1.0;
+  if (uDetailMode > 0.5 && landW > 0.5) {
+    // Every sibling shares one virtual root diameter. Area, not an extra alpha division,
+    // accounts for the four smaller dots; each still samples its own scar and heat field.
+    vec3 root = normalize(aRoot.xyz);
+    float rootU = fract(atan(root.z, -root.x) * EQUIRECT_INV_TWO_PI + 1.0);
+    float rootV = 0.5 - asin(clamp(root.y, -1.0, 1.0)) * EQUIRECT_INV_PI;
+    float rootH = texture2D(uScarMap, vec2(rootU, rootV)).r;
+    float rootRadius = length(position) + (rootH * uScarDispScale + uScarDispBias) * uScarActive;
+    vec3 rootView = (modelViewMatrix * vec4(root * rootRadius, 1.0)).xyz;
+    vec3 rootNormal = normalize(mat3(modelViewMatrix) * root);
+    float front = dot(rootNormal, normalize(-rootView));
+    float fresnel = pow(1.0 - clamp(abs(front), 0.0, 1.0), 2.0);
+    float minimumSize = mix(3.5, 2.5, smoothstep(0.0, 1.0, fresnel)) * 0.72 * uPointScale;
+    float spacing = uDetailFocal * rootRadius * aRoot.w / max(0.01, -rootView.z) * max(0.0, front);
+    float extraSize = max(0.0, 0.27 * spacing - minimumSize);
+    float rootSize = minimumSize + extraSize * smoothstep(0.0, 1.0, extraSize);
+    gl_PointSize = rootSize * aSizeScale * uPixelRatio;
+    float progress = uDetailFadeSeconds <= 0.0 ? 1.0 :
+      clamp((uDetailTime - aFade.z) / uDetailFadeSeconds, 0.0, 1.0);
+    vDetailOpacity = mix(aFade.x, aFade.y, smoothstep(0.0, 1.0, progress));
+  }
   gl_Position = projectionMatrix * mvPosition;
 }
 `;
@@ -112,6 +143,7 @@ varying float vLand;
 varying float vFresnel;
 varying float vFacing;
 varying vec2 vHeatUv;
+varying float vDetailOpacity;
 
 void main() {
   if (vFacing < uFacingCullMin) discard;
@@ -142,7 +174,7 @@ void main() {
     uOceanAlphaMin
   );
   float alphaLand = disk * (0.2 + 0.44 * frontFactor);
-  float alpha = mix(alphaWater, alphaLand, landMask);
+  float alpha = mix(alphaWater, alphaLand, landMask) * vDetailOpacity;
   if (alpha < 0.002) discard;
   gl_FragColor = vec4(col, alpha);
 }
@@ -265,6 +297,10 @@ interface EarthStippleGlobeResult {
   /** Black stub for `uHeatMap` when heat overlay is off. */
   neutralHeatTexture: THREE.DataTexture;
   setDisplayCountries(countries: readonly IndexedCountryGeometry[] | null): void;
+  setDetailMode(mode: StippleDetailMode): Promise<void>;
+  updateDetail(camera: THREE.PerspectiveCamera, width: number, height: number, dt: number): void;
+  getDetailStats(): { rootCount: number; descendantCount: number; familyCount: number;
+    additionalBytes: number } | null;
   dispose: () => void;
 }
 
@@ -302,6 +338,8 @@ export async function createEarthStippleGlobe(
     }
   }
 
+  let activeLand = land;
+  let activeLandIsGeoJson = landSource === "geojson";
   const positions: number[] = [];
   const normals: number[] = [];
   const lands: number[] = [];
@@ -339,6 +377,10 @@ export async function createEarthStippleGlobe(
       uOceanPointScale: { value: 1 },
       uPixelRatio: { value: initialPixelRatio },
       uPointScale: { value: 1 },
+      uDetailMode: { value: 0 },
+      uDetailTime: { value: 0 },
+      uDetailFadeSeconds: { value: 0.15 },
+      uDetailFocal: { value: 1 },
       uScarMap: { value: neutralScarTexture },
       uScarDispScale: { value: 0 },
       uScarDispBias: { value: 0 },
@@ -362,20 +404,63 @@ export async function createEarthStippleGlobe(
   });
 
   const points = new THREE.Points(geom, material);
+  material.defaultAttributeValues.aRoot = [0, 0, 0, 0];
+  material.defaultAttributeValues.aSizeScale = [1];
+  material.defaultAttributeValues.aFade = [1, 1, 0];
   points.renderOrder = 2;
   points.frustumCulled = false;
+  let detail: ReturnType<typeof createStippleDetailController> | null = null;
+  let detailPromise: Promise<void> | null = null;
+  let requestedDetail: StippleDetailMode = "fixed";
+  let disposed = false;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  async function setDetailMode(mode: StippleDetailMode): Promise<void> {
+    requestedDetail = mode;
+    if (detail) { detail.setMode(mode); return; }
+    if (mode === "fixed" || disposed) return;
+    if (!detailPromise) {
+      detailPromise = import("./stippleDetailController").then(({ createStippleDetailController }) => {
+        if (disposed || requestedDetail === "fixed") return;
+        detail = createStippleDetailController({ points, material, radius, isLand: (direction) => {
+          if (activeLand.w <= 1 || activeLand.h <= 1) return false;
+          const { u, v } = dirToLandMaskUV(direction);
+          return isLandPixel(sampleLuminanceBilinear(activeLand.data, activeLand.w, activeLand.h, u, v),
+            activeLandIsGeoJson);
+        } });
+        detail.setMode(requestedDetail);
+      }).finally(() => { detailPromise = null; });
+    }
+    return detailPromise;
+  }
 
   return {
     points,
     material,
     neutralScarTexture,
     neutralHeatTexture,
+    setDetailMode,
+    updateDetail(camera, width, height, dt): void {
+      material.uniforms.uDetailFadeSeconds.value = reducedMotion.matches ? 0 : 0.15;
+      detail?.update(camera, width, height, dt);
+    },
+    getDetailStats: () => {
+      const stats = detail?.stats() ?? {
+        rootCount: pointCount, descendantCount: 0, familyCount: 0, additionalBytes: 0,
+      };
+      return { ...stats, additionalBytes: stats.additionalBytes + land.data.byteLength +
+        (activeLand === land ? 0 : activeLand.data.byteLength) };
+    },
     setDisplayCountries(countries): void {
       const attribute = geom.getAttribute("aLand") as THREE.BufferAttribute;
       if (!countries) {
+        activeLand = land;
+        activeLandIsGeoJson = landSource === "geojson";
         attribute.copyArray(lands);
       } else {
         const mask = rasterLandMaskFromGeometries(countries);
+        activeLand = mask;
+        activeLandIsGeoJson = true;
         const normal = geom.getAttribute("normal");
         const direction = new THREE.Vector3();
         for (let i = 0; i < attribute.count; i++) {
@@ -386,8 +471,11 @@ export async function createEarthStippleGlobe(
         }
       }
       attribute.needsUpdate = true;
+      detail?.invalidateLand();
     },
     dispose: () => {
+      disposed = true;
+      detail?.dispose();
       geom.dispose();
       material.dispose();
       neutralScarTexture.dispose();

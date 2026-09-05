@@ -114,6 +114,7 @@ export interface CountryProfilePreset {
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
   physicalPointScale?: number;
+  physicalDetail?: "fixed" | "regrow" | "split1" | "split2";
   physicalPointNearBoost?: number;
   environmentalGlyph?: "simple" | "grain" | "cells";
   environmentalFieldPattern?:
@@ -412,9 +413,33 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     description: "A gentler origin/peer distinction, without changing lines, labels, or timing.",
     surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.65,
   },
+  {
+    ...COMPACT_BASE, id: "v15-control_original-dots", label: "v15: original stipple size",
+    description: "The original 82,000 points and original screen diameter, with the adopted profile.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "fixed",
+  },
+  {
+    ...COMPACT_BASE, id: "v15-a_dot-regrowth", label: "v15: stipple regrowth",
+    description: "Dots grow where their local projected spacing permits, with no added samples.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "regrow",
+  },
+  {
+    ...COMPACT_BASE, id: "v15-b_four-child-dots", label: "v15: four-child stipple",
+    description: "A readable parent resolves into four smaller geographically anchored samples.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split1",
+  },
+  {
+    ...COMPACT_BASE, id: "v15-c_two-level-dots", label: "v15: two-level stipple",
+    description: "A second split where projected room permits, within the same bounded child pool.",
+    surfaceDetail: 2, roundedScarShoulder: true, selectionPeerStrength: 0.5,
+    physicalPointScale: 1, physicalDetail: "split2",
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v14-a_half-peers";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v15-b_four-child-dots";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

@@ -506,6 +506,7 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
   emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";
+  globe.setStippleDetailMode(physical ? preset?.physicalDetail ?? "fixed" : "fixed");
   globe.setStipplePointTune({
     scale: physical ? preset?.physicalPointScale ?? 1 : 1,
     nearBoost: physical ? preset?.physicalPointNearBoost ?? 0 : 0,

@@ -104,7 +104,7 @@ claim physical-device testing from emulation.
 - [x] Phase 12: continuous rounded scars and shared surface.
 - [x] Phase 13: gently rounded shared country contours (trials retained; not adopted).
 - [x] Phase 14: wave-aware origin and peer emphasis.
-- [ ] Phase 15: physical dot growth and refinement.
+- [x] Phase 15: physical dot growth and refinement.
 - [ ] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
 - [ ] Phase 17: truthful socioeconomic color and pattern.
 - [ ] Phase 18: combined composition and measured quality tiers.
@@ -250,6 +250,35 @@ data. Cleanup is limited to task-owned temporaries.
   path has a 41.7 ms worst frame versus 16.6 ms for the one-weight control. Its extra full-map
   raster/readback work is a concrete Phase 19 profiling target; the frame interval alone does
   not identify GPU cost. Default entry is 221.39 kB gzip. No final gallery was produced.
+
+- 2026-09-05: Phase 15 complete. Adopted `v15-b_four-child-dots`, with original-size fixed,
+  regrowth-only, and second-level alternatives retained. The original 82,000 roots and ocean
+  treatment remain intact. Deterministic children sample their own land/scar/heat positions;
+  a capped dense buffer submits only active descendants, including fading parents. Local CSS
+  spacing controls growth and 5/4.25-pixel hysteresis. A short smoothstep fade conserves family
+  area, reverses from its current state, and retires descendants after merging. Reduced motion
+  snaps it. No global geometry rebuild or data request occurs on zoom.
+  The helper check compares 136 nearest-neighbor queries with every other root and verifies
+  all 1.64 million possible child directions without retaining that hierarchy. The controller
+  check covers full 131,072-record capacity, reversal, downgrade, land changes, hidden descendants,
+  disposal and cache invalidation. Actual WebGL uniform-field tests submit 3,300 / 4,596 children
+  for one/two levels; settled brightness ratios are 0.99935 / 0.99900 versus grown parents.
+  Intermediate split/merge frames stay within 0.191 percent of the matching control.
+  Actual wheel traces at the gallery camera peak at 3,948 descendants, return to zero, and make
+  zero data requests. Control/one/two levels retain 8.30 ms median with p95 9.70/10.00/10.20 ms.
+  The 393x852 desktop-GPU trace peaks at 1,336 descendants, p95 10.10 ms, and fully merges.
+  A zero-size-canvas check also proves the main render loop resumes after visibility returns.
+  Ten images were inspected: all four physical variants at camera distances 2.20 and 1.35,
+  plus the combined all-pain and narrow close view. One level keeps texture readable; regrowth
+  alone is too heavy close up. A second level offers little extra in these real scar views,
+  though the synthetic GPU view proves it activates where room permits. Normal-view regrowth,
+  one-level and two-level frames are pixel-identical, as expected before any split.
+  The selected controller's synthetic-view allocation estimate is 24.08 MiB plus the retained
+  2 MiB land mask; the public resource total includes that mask. Full-pool estimates are larger
+  and must be included in the Phase 18 aggregate budget. No physical-phone GPU claim is made.
+  Independent review approved the permitted shader/lifecycle integration; automatic read denial
+  left its controller-algorithm review incomplete. The direct tests above were run here.
+  Default entry is 222.54 kB gzip; detail code is a separate 4.85 kB gzip lazy chunk.
 
 ## Historical first-goal completion
 
