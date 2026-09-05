@@ -37,19 +37,6 @@ import type { EmoSelectionMotion } from "./selectionMotion";
 const WASH_COLOUR = "#ffffff";
 const GLOW_COLOUR = "#ffe08a";
 
-/**
- * The choropleth shell's signature in the scene graph, asserted rather than guessed.
- *
- * Three signals together, because each alone is ambiguous: the solid globe mesh is also a direct
- * child of `earthContent` with the same sphere tessellation, and is told apart by its render
- * order. If GlobeView ever changes any of them this throws, which is the point: silently missing
- * the shell would put the mark back on an unwarped sphere, and the symptom is a highlight that
- * looks merely a little off rather than an error.
- */
-const SHELL_RENDER_ORDER = 1;
-const SHELL_WIDTH_SEGMENTS = 192;
-const SHELL_HEIGHT_SEGMENTS = 128;
-
 /** Arrival fraction at which a country counts as marked. The mark has no in-between state. */
 const ARRIVED_AT = 0.5;
 
@@ -72,25 +59,6 @@ export interface EmoSelectionLayer {
   update(): void;
   setParams(next: EmoViewParams): void;
   destroy(): void;
-}
-
-function findChoroplethShellGeometry(globe: GlobeView): THREE.BufferGeometry {
-  for (const child of globe.earthContent.children) {
-    if (!(child instanceof THREE.Mesh)) continue;
-    if (child.renderOrder !== SHELL_RENDER_ORDER) continue;
-    const parameters = (child.geometry as THREE.SphereGeometry).parameters as
-      | { widthSegments?: number; heightSegments?: number }
-      | undefined;
-    if (parameters?.widthSegments !== SHELL_WIDTH_SEGMENTS) continue;
-    if (parameters.heightSegments !== SHELL_HEIGHT_SEGMENTS) continue;
-    return child.geometry;
-  }
-  throw new Error(
-    "[emoSelection] No mesh in earthContent matches the choropleth shell (renderOrder " +
-      `${SHELL_RENDER_ORDER}, ${SHELL_WIDTH_SEGMENTS} by ${SHELL_HEIGHT_SEGMENTS} sphere). ` +
-      "The selection mark would silently go back to an unwarped sphere and sit clear of the " +
-      "countries it marks. Re-read GlobeView's choroplethShell.",
-  );
 }
 
 export async function createEmoSelectionLayer(options: {
@@ -122,7 +90,7 @@ export async function createEmoSelectionLayer(options: {
     side: THREE.FrontSide,
   });
   // Borrowed, not owned. destroy() must not dispose it; see the module docstring.
-  const mesh = new THREE.Mesh(findChoroplethShellGeometry(globe), material);
+  const mesh = new THREE.Mesh(globe.getCountrySurfaceGeometry(), material);
   mesh.renderOrder = 2;
   mesh.visible = false;
   globe.earthContent.add(mesh);

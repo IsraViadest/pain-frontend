@@ -101,7 +101,7 @@ claim physical-device testing from emulation.
 - [x] Phase 9: network initialization and interaction completion.
 - [x] Phase 10: final chrome and country-cycle sequence.
 - [x] Phase 11: compact profile and glyph rounds.
-- [ ] Phase 12: continuous rounded scars and shared surface.
+- [x] Phase 12: continuous rounded scars and shared surface.
 - [ ] Phase 13: gently rounded shared country contours.
 - [ ] Phase 14: wave-aware origin and peer emphasis.
 - [ ] Phase 15: physical dot growth and refinement.
@@ -187,6 +187,21 @@ data. Cleanup is limited to task-owned temporaries.
   coordinate/continuity corrections, so old presets receive the fix; aesthetic rounding remains
   pending. The existing screenshot guard refused the dateline camera because its first label is
   culled; no image was produced or claimed there. Seam evidence is the direct numerical/GPU test.
+
+- 2026-09-05: Phase 12 complete. Adopted `v12-c_soft-surface` after inspecting original,
+  tapered, denser, and combined treatments at normal and closer zoom. The shared sphere grows
+  from 24,897 to 98,945 vertices; border sampling grows from 7,769 to 13,654 segments, keeping
+  the same draw structure. Selection now borrows the surface through an explicit accessor,
+  and geometry identity survives refinement and restoration. The taper preserves unfiltered
+  center and half-height support; after blur, isolated peaks are 1-2 byte levels shallower.
+  This measured change is a rendering choice, not a source-data change. No slope shader needed.
+  Sequential desktop traces: control and combined both 8.30 ms median / 9.00 ms p95, 11 draws,
+  5 textures; primitives rise from 293,786 to 770,511. The 393x852 trace is 8.30 / 9.20 ms,
+  still on the desktop GPU, not a physical phone. CPU/GPU parity and surface ownership checks
+  pass. A direct independent geometry/lifecycle review found no actionable issue; denied reads
+  limited its preset/test coverage. `npm run check` passes. The first phone probe yielded no
+  metrics and was rejected; the probe now returns explicit errors, and the rerun returned full
+  metrics. Rounded-contour geography is Phase 13 and has not been implemented yet.
 
 ## Historical first-goal completion
 

@@ -502,13 +502,15 @@ export class GlobeView {
   /** Unwarped stipple shell; scar mode warps a copy into the points geometry. */
   private stippleBasePositions: Float32Array | null = null;
   /** Unwarped globe sphere; scar mode warps vertices (same path as stipple + borders). */
-  private readonly globeBasePositions: Float32Array;
+  private globeBasePositions: Float32Array;
   /** Unwarped choropleth sphere; scar mode warps vertices with the same scar map as the globe. */
   private choroplethBasePositions: Float32Array | null = null;
   private displayMode: GlobeDisplayMode = "texture";
   private painVizMode: PainVisualizationMode = PAIN_VIZ_MODE.points;
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
+  private roundedScarShoulder = false;
+  private surfaceDetail: 1 | 2 = 1;
   private painHeatMap: THREE.DataTexture | null = null;
   private choroplethMap: THREE.DataTexture | null = null;
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
@@ -1735,6 +1737,7 @@ export class GlobeView {
         scarLayerId,
         {
           stampRadiusMin: this.debugTune.scarStampRadiusMin,
+          roundedShoulder: this.roundedScarShoulder,
           stampRadiusMul: this.debugTune.scarStampRadiusMul,
           stampPeakMul: this.debugTune.scarStampPeakMul,
           falloffSigma: this.debugTune.scarFalloffSigma,
@@ -1923,6 +1926,7 @@ export class GlobeView {
         resolution,
       );
       this.bordersOutlines.syncAppearance(this.visualTheme);
+      this.bordersOutlines.setMaxSegmentDegrees(this.surfaceDetail === 2 ? 0.5 : Infinity);
       this.bordersOutlines.setClippingPlanes(this.clipPlanesFront);
       this.syncScarVisualization();
       this.scene.remove(this.markersGroup);
@@ -2508,6 +2512,37 @@ export class GlobeView {
    * Pause or resume ambient globe spin around the Y axis.
    * Used to freeze the globe during the post-submit fly-to animation.
    */
+  /** The live surface shared by country fills and selection, including scar displacement. */
+  getCountrySurfaceGeometry(): THREE.BufferGeometry {
+    return this.choroplethShell.geometry;
+  }
+
+  setRoundedScarShoulder(rounded: boolean): void {
+    if (rounded === this.roundedScarShoulder) return;
+    this.roundedScarShoulder = rounded;
+    this.scheduleScarFieldRebuild();
+  }
+
+  /** Change sampling without replacing the geometry object borrowed by the selection layer. */
+  setSurfaceDetail(detail: 1 | 2): void {
+    if (detail === this.surfaceDetail) return;
+    this.surfaceDetail = detail;
+    for (const [mesh, radius] of [
+      [this.globe, RADIUS], [this.choroplethShell, CHOROPLETH_SHELL_RADIUS],
+    ] as const) {
+      const replacement = new THREE.SphereGeometry(radius, 192 * detail, 128 * detail);
+      mesh.geometry.dispose();
+      mesh.geometry.copy(replacement);
+      replacement.dispose();
+    }
+    this.globeBasePositions = new Float32Array(this.globe.geometry.attributes.position!.array);
+    this.choroplethBasePositions = new Float32Array(
+      this.choroplethShell.geometry.attributes.position!.array,
+    );
+    this.bordersOutlines?.setMaxSegmentDegrees(detail === 2 ? 0.5 : Infinity);
+    this.syncScarVisualization();
+  }
+
   setAutoSpinEnabled(enabled: boolean): void {
     this.autoSpinEnabled = enabled;
   }

@@ -80,6 +80,11 @@
  * SELECTED: inset 0.88, plate 0.36, native 0.72 with tiny desktop English. The higher inset
  * reduces the outline breathing room; a darker plate adds weight. Keep translation context.
  *
+ * ROUND v12: original shoulder, tapered shoulder, refined geometry, and their combination.
+ * SELECTED: soft surface. Border subdivision and denser shared geometry improve close contours;
+ * taper closes the hard support edge. Isolated blurred peaks change by 1-2 byte levels.
+ * Frame cadence stays 8.3 ms median / 9.0 ms p95 in the paired desktop trace; this is not GPU time.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -102,6 +107,8 @@ export interface CountryProfilePreset {
   plateOpacity?: number;
   emotionalCaption?: "quiet" | "none";
   nativeOpacity?: number;
+  roundedScarShoulder?: boolean;
+  surfaceDetail?: 1 | 2;
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
   physicalPointScale?: number;
@@ -353,9 +360,29 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     ...COMPACT_BASE, id: "v11-c_compact-base", label: "v11: adopted compact base",
     description: "Medium compact profile, inset fills, and quiet desktop translation.",
   },
+  {
+    ...COMPACT_BASE, id: "v12-control_scar-original", label: "v12: original scar shoulders",
+    description: "Compact base with corrected sampling and the original scar shoulder.",
+  },
+  {
+    ...COMPACT_BASE, id: "v12-a_scar-rounded", label: "v12: rounded scar shoulders",
+    description: "A smooth taper closes each scar shoulder without changing its center or support.",
+    roundedScarShoulder: true,
+  },
+  {
+    ...COMPACT_BASE, id: "v12-b_surface-refined", label: "v12: refined surface sampling",
+    description: "Denser shared surface and border samples at the original scar profile.",
+    surfaceDetail: 2,
+  },
+  {
+    ...COMPACT_BASE, id: "v12-c_soft-surface", label: "v12: soft sampled surface",
+    description: "Rounded shoulders added to the refined shared surface.",
+    surfaceDetail: 2,
+    roundedScarShoulder: true,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v11-c_compact-base";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v12-c_soft-surface";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

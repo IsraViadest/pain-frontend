@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { createPainScarDisplacementTexture } from "../src/globe/painScarField";
+import { createPainScarDisplacementTexture, painPointToFieldTexel, SCAR_MAP_WIDTH }
+  from "../src/globe/painScarField";
 import { sampleScarHeight01 } from "../src/globe/scarDisplacement";
 import type { PainPoint } from "../src/types/api";
 
@@ -24,4 +25,16 @@ for (const lat of [90, -90]) {
   }
   a.dispose(); b.dispose();
 }
-console.info("scar seam and pole checks passed");
+const centerPoint = point(0, 0);
+const { cx, cy } = painPointToFieldTexel(centerPoint)!;
+const unfiltered = { ...tune, blurPass1Radius: 0, blurPass2Radius: 0 };
+const original = createPainScarDisplacementTexture([centerPoint], "probe", unfiltered);
+const rounded = createPainScarDisplacementTexture([centerPoint], "probe",
+  { ...unfiltered, roundedShoulder: true });
+const at = cy * SCAR_MAP_WIDTH + cx;
+assert.equal(original.image.data[at], rounded.image.data[at], "same configured center depth");
+assert.equal(original.image.data[at + 4], rounded.image.data[at + 4], "same half-height shoulder");
+assert.equal(rounded.image.data[at + 5], 128, "rounded support reaches neutral at its edge");
+assert.ok(original.image.data[at + 5]! < 128, "control retains its hard cutoff");
+original.dispose(); rounded.dispose();
+console.info("scar continuity and rounded-shoulder checks passed");

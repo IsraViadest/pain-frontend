@@ -102,6 +102,7 @@
   const emphasised = [...document.querySelectorAll(".emo-label--emphasis")];
 
   return {
+    passed: true,
     scenario,
     viewport: [innerWidth, innerHeight],
     sampleMs,
@@ -123,4 +124,7 @@
     ).length,
     calls,
   };
-})()
+})().catch((error) => ({
+  passed: false,
+  error: error instanceof Error ? error.stack : String(error),
+}))

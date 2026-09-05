@@ -2,6 +2,8 @@
 (async () => {
   let renderer, geometry, material, target;
   const textures = [];
+  let borders;
+  const surfaces = [];
   try {
     const THREE = await import("/node_modules/.vite/deps/three.js");
     const { sampleScarHeight01 } = await import("/src/globe/scarDisplacement.ts");
@@ -47,12 +49,38 @@
       }
     }
     if (maxByteError > 1.1) throw new Error("CPU/GPU mismatch: " + maxByteError + " bytes");
+    const { GlobeView } = await import("/src/globe/GlobeView.ts");
+    const { loadGlobeBorderOutlines } = await import("/src/globe/countryBorders.ts");
+    borders = await loadGlobeBorderOutlines("/borders/", 1, new THREE.Vector2(1500, 950));
+    const countBorders = () => borders.group.children.reduce((sum, line) =>
+      sum + line.geometry.attributes.instanceStart.count, 0);
+    const originalBorders = countBorders();
+    const depth = new THREE.Mesh(new THREE.SphereGeometry(1, 192, 128));
+    const fill = new THREE.Mesh(new THREE.SphereGeometry(1.001, 192, 128));
+    surfaces.push(depth, fill);
+    let rewarps = 0;
+    const owner = { globe: depth, choroplethShell: fill, surfaceDetail: 1,
+      bordersOutlines: borders, syncScarVisualization: () => { rewarps++; } };
+    const borrowed = GlobeView.prototype.getCountrySurfaceGeometry.call(owner);
+    GlobeView.prototype.setSurfaceDetail.call(owner, 2);
+    if (borrowed !== fill.geometry || borrowed.attributes.position.count !== 98945) {
+      throw new Error("surface refinement detached the borrowed selection geometry");
+    }
+    const refinedBorders = countBorders();
+    if (refinedBorders <= originalBorders || rewarps !== 1) throw new Error("refinement not applied");
+    GlobeView.prototype.setSurfaceDetail.call(owner, 1);
+    if (countBorders() !== originalBorders || borrowed.attributes.position.count !== 24897) {
+      throw new Error("original surface sampling did not restore");
+    }
     return { passed: true, samples: samples.length * textures.length, maxByteError,
+      originalBorders, refinedBorders, sharedGeometryRetained: true,
       renderer: renderer.getContext().getParameter(renderer.getContext().VERSION) };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };
   } finally {
     for (const texture of textures) texture.dispose();
+    borders?.dispose();
+    for (const mesh of surfaces) { mesh.geometry.dispose(); mesh.material.dispose(); }
     geometry?.dispose(); material?.dispose(); target?.dispose(); renderer?.dispose();
     renderer?.forceContextLoss();
   }

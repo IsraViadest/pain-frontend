@@ -60,6 +60,8 @@ type ScarMapBuildStats = {
 
 /** CPU-side knobs for stamping + blurring before the scar DataTexture uploads to GPU. */
 type ScarHeightMapBuildParams = {
+  /** Smoothly close the outer shoulder while preserving center and half-height support. */
+  roundedShoulder: boolean;
   /** Floor on stamp radius in texture pixels (after intensity-based size). */
   stampRadiusMin: number;
   /** Scales footprint; large values merge sites and flatten detail. */
@@ -74,6 +76,7 @@ type ScarHeightMapBuildParams = {
 };
 
 const DEFAULT_SCAR_HEIGHT_MAP_BUILD: ScarHeightMapBuildParams = {
+  roundedShoulder: false,
   stampRadiusMin: 5,
   stampRadiusMul: 1,
   stampPeakMul: 1,
@@ -199,7 +202,11 @@ export function createPainScarDisplacementTexture(
         const idx = iy * SCAR_MAP_WIDTH + ix;
         const t = dist / radiusPx;
         // Smooth shoulder (vs (1−t)^3 + tiny support) removes high-frequency jigglies on outlines.
-        const falloffDepth = Math.exp(-(t * t) * cfg.falloffSigma);
+        let falloffDepth = Math.exp(-(t * t) * cfg.falloffSigma);
+        if (cfg.roundedShoulder) {
+          const edge = THREE.MathUtils.clamp((t - 0.85) / 0.15, 0, 1);
+          falloffDepth *= 1 - edge * edge * (3 - 2 * edge);
+        }
         const sub = peakDent * falloffDepth;
         depthAcc[idx] = Math.max(SCAR_MIN_DEPTH, depthAcc[idx]! - sub);
       }
