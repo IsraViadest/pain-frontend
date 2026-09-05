@@ -6,6 +6,12 @@
  */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
+import {
+  ensureCountryGeometriesLoaded,
+  getCountryGeometries,
+  hasCountryGeometry,
+  type CountryGeometry,
+} from "./countryGeometry";
 
 /** Equirectangular choropleth texture resolution (higher than scar/heat 1000×482). */
 const CHOROPLETH_MAP_WIDTH = 2048;
@@ -17,102 +23,16 @@ interface ChoroplethCountryValue {
   intensity: number;
 }
 
-type PolygonCoords = number[][][];
-type MultiPolygonCoords = number[][][][];
-
-type PolygonGeom = { type: "Polygon"; coordinates: PolygonCoords };
-type MultiPolygonGeom = { type: "MultiPolygon"; coordinates: MultiPolygonCoords };
-
-interface NeCountryProperties {
-  ISO_A3?: string;
-  ADM0_A3?: string;
-}
-
-interface NeCountryFeature {
-  properties?: NeCountryProperties;
-  geometry?: PolygonGeom | MultiPolygonGeom | { type: string };
-}
-
-interface NeCountryFeatureCollection {
-  features?: NeCountryFeature[];
-}
-
-interface ChoroplethCountryGeometry {
-  key: string;
-  geometry: PolygonGeom | MultiPolygonGeom;
-}
-
-const COUNTRIES_GEOJSON_URL = `${import.meta.env.BASE_URL}borders/ne_110m_admin_0_countries.geojson`;
-
 /** Byte range for canvas / DataTexture alpha channel. */
 const ALPHA_BYTE_MIN = 0;
 const ALPHA_BYTE_MAX = 255;
-
-let countryGeometries: ChoroplethCountryGeometry[] = [];
-let loadPromise: Promise<void> | null = null;
-
-/**
- * Prefer ISO_A3; Natural Earth uses "-99" (or empty) for some countries — fall back to ADM0_A3
- * (same rule as {@link ../api/countryCentroids.ts}).
- */
-function countryKeyFromProps(props: NeCountryProperties): string | null {
-  const iso = props.ISO_A3?.trim().toUpperCase();
-  const adm0 = props.ADM0_A3?.trim().toUpperCase();
-  if (iso && iso !== "-99") return iso;
-  if (adm0 && adm0 !== "-99") return adm0;
-  return null;
-}
-
-function isPaintGeom(
-  geom: NeCountryFeature["geometry"],
-): geom is PolygonGeom | MultiPolygonGeom {
-  return geom?.type === "Polygon" || geom?.type === "MultiPolygon";
-}
-
-function buildCountryGeometries(
-  fc: NeCountryFeatureCollection,
-): ChoroplethCountryGeometry[] {
-  const out: ChoroplethCountryGeometry[] = [];
-  for (const feature of fc.features ?? []) {
-    const props = feature.properties;
-    const geom = feature.geometry;
-    if (!props || !isPaintGeom(geom)) continue;
-    const key = countryKeyFromProps(props);
-    if (!key) continue;
-    out.push({ key, geometry: geom });
-  }
-  return out;
-}
 
 /**
  * Fetch and index Natural Earth country polygons (idempotent).
  * Call before {@link createChoroplethTexture}.
  */
 export async function ensureChoroplethCountriesLoaded(): Promise<void> {
-  if (loadPromise) return loadPromise;
-
-  loadPromise = (async () => {
-    try {
-      const res = await fetch(COUNTRIES_GEOJSON_URL);
-      if (!res.ok) {
-        console.warn(
-          "[choroplethField] GeoJSON fetch failed:",
-          res.status,
-          COUNTRIES_GEOJSON_URL,
-        );
-        countryGeometries = [];
-        return;
-      }
-      const fc = (await res.json()) as NeCountryFeatureCollection;
-      countryGeometries = buildCountryGeometries(fc);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn("[choroplethField] Failed to load country polygons:", msg);
-      countryGeometries = [];
-    }
-  })();
-
-  return loadPromise;
+  return ensureCountryGeometriesLoaded();
 }
 
 /** Equirectangular: x from lng ∈ [-180,180], y from lat ∈ [-90,90] with north at top. */
@@ -167,7 +87,7 @@ function fillPolygonWithHoles(
 
 function fillGeometry(
   ctx: CanvasRenderingContext2D,
-  geom: PolygonGeom | MultiPolygonGeom,
+  geom: CountryGeometry,
   w: number,
   h: number,
 ): void {
@@ -267,7 +187,7 @@ export function createChoroplethTexture(
     }
   }
 
-  for (const { key, geometry } of countryGeometries) {
+  for (const { key, geometry } of getCountryGeometries()) {
     const intensity = intensityByKey.get(key);
     if (intensity === undefined) continue;
     const alpha = intensityToAlphaByte(intensity);
@@ -310,7 +230,7 @@ const HIGHLIGHT_MAP_HEIGHT = 1024;
 /** Trace every ring, outer and holes alike: a hole's edge is a border too. */
 function strokeGeometry(
   ctx: CanvasRenderingContext2D,
-  geom: PolygonGeom | MultiPolygonGeom,
+  geom: CountryGeometry,
   w: number,
   h: number,
 ): void {
@@ -362,10 +282,7 @@ function traceMarker(
  * supply a label point for the ones it cannot fill. Asking here rather than keeping a second list
  * is what stops the two from drifting when the source data changes.
  */
-export function hasCountryGeometry(iso3: string): boolean {
-  const key = iso3.trim().toUpperCase();
-  return countryGeometries.some((c) => c.key === key);
-}
+export { hasCountryGeometry };
 
 /**
  * A set of countries filled and/or outlined into one otherwise transparent equirectangular
@@ -397,7 +314,7 @@ export function createCountryHighlightTexture(
   markerRadiusDeg: number,
 ): THREE.DataTexture | null {
   const keys = new Set(iso3List.map((c) => c.trim().toUpperCase()));
-  const matches = countryGeometries.filter((c) => keys.has(c.key));
+  const matches = getCountryGeometries().filter((c) => keys.has(c.key));
   const discs = markerRadiusDeg > 0 ? markers : [];
   if (matches.length === 0 && discs.length === 0) return null;
   if (fillOpacity <= 0 && outlineWidthPx <= 0) return null;

@@ -151,3 +151,8 @@ question and delegated visual round selection to Codex.
   reusable probe is `scripts/measure-country-profile-frame.js`. Docker integration remains open:
   the detached source switch worked, but the build stalled loading absent Node base-image metadata.
   The primary checkout was restored and verified clean at `feat/emo-label-views` commit `7ca5492`.
+- 2026-09-05: Phase 1, country geometry slice ready. Natural Earth loading now has one shared index
+  used by the choropleth and future profile paths. The focused check covers holes, boundaries, both
+  antimeridian sides, 177 live geometries, three real city points, and a missing microstate. The
+  full gate passed. Real Chrome retained 195 labels, selected 13 visible India-category labels, and
+  loaded the 204-row socioeconomic layer. Bundle gzip moved from 216.44 to 216.61 kB.
