@@ -108,7 +108,7 @@ claim physical-device testing from emulation.
 - [x] Phase 16: atmospheric mantle, cloudlet and volume evaluations.
 - [x] Phase 17: truthful socioeconomic color and pattern.
 - [x] Phase 18: combined composition and measured quality tiers.
-- [ ] Phase 19: final frontend/server performance and simplification.
+- [x] Phase 19: final frontend/server performance and simplification (reference host).
 - [ ] Phase 20: final product, integration, reviews and gallery.
 - [ ] Required physical-device checks; distinguish from responsive emulation.
 
@@ -472,6 +472,15 @@ data. Cleanup is limited to task-owned temporaries.
   and resulting pixels were inspected. This one-line helper fix is outside the Git worktrees.
   Default-entry JavaScript is 225.80 kB gzip, 9.36 kB above the original 216.44 baseline; bounded
   atmosphere (5.56 kB), stipple detail (5.31 kB) and profile runtime (11.69 kB) remain lazy.
+
+- 2026-09-05: Reference-host performance work is complete; physical-phone acceptance stays open.
+  Final motion checks still start at zero arc segments, reach all 924, finish after interaction,
+  reverse fully, freeze when hidden and preserve manual-country restart. The race probe passes
+  layer reversal, early Stop, manual replacement, pause announcement and focus-held idle resume.
+  Its old stop-presentation text assertion was updated to accept the approved country-cycle
+  paused status while retaining the old-preset assertion. Synthetic pointer events seed document
+  hit-testing; these checks do not claim native OrbitControls pointer capture. Phase 20 now runs
+  the 30-minute cycle, integrated build, remaining product checks and final gallery.
 
 ## Historical first-goal completion
 

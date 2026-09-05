@@ -166,7 +166,7 @@
       }
       delete labelHost.dataset.hit;
       check(hit, "no exposed manual label");
-      canvas.dispatchEvent(new PointerEvent("pointerdown", {
+      document.dispatchEvent(new PointerEvent("pointerdown", {
         bubbles: true, clientX: hit.x, clientY: hit.y,
       }));
       canvas.dispatchEvent(new MouseEvent("click", {

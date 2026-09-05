@@ -1,6 +1,6 @@
 /*
  * Browser expression for artifacts/emo-views/eval.mjs.
- * Run with cp=1, cpPreset=v2-c_fade-360, cpTimeScale=0.005, and freeze=1.
+ * Run with cp=1, cpPreset=v18-b_clear-chrome (or retained v7), cpTimeScale=0.005, and freeze=1.
  * Pipe the JSON result to `jq -e '.passed == true'` so a reported failure exits nonzero.
  */
 (async () => {
@@ -42,7 +42,7 @@
 
     toggle.click();
     await waitFor(() => toggle.dataset.state === "preparing", "presentation prepare");
-    canvas.dispatchEvent(
+    document.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, clientX: 30, clientY: 450 }),
     );
     await waitFor(
@@ -62,7 +62,7 @@
     const labelRect = selectedLabel.getBoundingClientRect();
     const clientX = labelRect.left + labelRect.width / 2;
     const clientY = labelRect.top + labelRect.height / 2;
-    canvas.dispatchEvent(
+    document.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, clientX, clientY }),
     );
     canvas.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX, clientY }));
@@ -72,7 +72,11 @@
       profile.querySelector("h2")?.textContent === selectedCountry,
       "manual selection opened the wrong country",
     );
-    require(toggle.textContent === "stop presentation", "toggle action label is stale");
+    const refined = toggle.classList.contains("country-presentation-toggle--refined");
+    require(refined
+      ? toggle.querySelector(".country-presentation-toggle__state")?.textContent === "paused" &&
+        toggle.title === "Stop country cycle"
+      : toggle.textContent === "stop presentation", "toggle action label is stale");
     require(
       document.querySelector(".country-presentation-status")?.textContent?.includes("paused"),
       "interaction pause was not announced",
@@ -82,7 +86,7 @@
 
     toggle.click();
     await waitFor(() => toggle.dataset.state === "preparing", "second prepare");
-    canvas.dispatchEvent(
+    document.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, clientX: 30, clientY: 450 }),
     );
     await waitFor(
