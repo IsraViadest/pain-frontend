@@ -706,6 +706,14 @@ data. Cleanup is limited to task-owned temporaries.
   gzip is 226.13 kB on the host, still below the 246.44 kB limit. No durable gallery files were
   added; only task-owned temporary inspection frames were used.
 
+- 2026-09-06: Post-acceptance production replay complete. Port 3000 serves asset
+  `index-QaOKTC3z.js` from frontend commit `e2a997a`. India measures 14.149/14.137/14.145 px
+  between painted edges against the 14.150 px rendered-n target; English center error is
+  0.0005 px. The production cycle is empty during travel, reveals Afghanistan with construction,
+  reaches dwell, clears for the next country, and stops cleanly without browser errors. Docker
+  entry gzip is 227.17 kB, 19.27 kB below the limit. Six temporary comparison PNGs totaling about
+  7.9 MiB were inspected and are task-owned cleanup targets; no durable gallery was added.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
