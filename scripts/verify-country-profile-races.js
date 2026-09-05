@@ -38,7 +38,7 @@
     toggle.click();
     await sleep(600);
     require(toggle.getAttribute("aria-pressed") === "false", "early stop stayed enabled");
-    require(profile.dataset.layer === "emopain", "early stop did not restore the layer");
+    await waitFor(() => profile.dataset.layer === "emopain", "early stop layer restoration");
 
     toggle.click();
     await waitFor(() => toggle.dataset.state === "preparing", "presentation prepare");

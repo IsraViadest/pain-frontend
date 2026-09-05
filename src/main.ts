@@ -635,6 +635,7 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     appRoot: appRootEl,
     profiles: runtime.profiles,
     controls: globe.controls,
+    getSelectedIso3: () => runtime.selectedIso3,
     getCurrentLayer: () => lastLayerId,
     enterAllLayers: async () => {
       if (lastLayerId !== "all-layers") await handleAllLayers();

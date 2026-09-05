@@ -8,6 +8,7 @@ type PresentationState =
   | "flying"
   | "building"
   | "dwelling"
+  | "stopping"
   | "paused-interaction"
   | "paused-user"
   | "backgrounded";
@@ -16,6 +17,7 @@ interface CountryPresentationOptions {
   appRoot: HTMLElement;
   profiles: ReadonlyMap<string, CountryPainProfile>;
   controls: OrbitControls;
+  getSelectedIso3: () => string | null;
   getCurrentLayer: () => string;
   enterAllLayers: () => Promise<void>;
   restoreLayer: (layerId: string) => void;
@@ -105,6 +107,7 @@ export class CountryPresentation {
   private previousLayer = "all-layers";
   private previousAutoSpin = true;
   private runController: AbortController | null = null;
+  private completionController: AbortController | null = null;
   private warningTimer: number | null = null;
   private resumeTimer: number | null = null;
 
@@ -159,9 +162,13 @@ export class CountryPresentation {
 
   private async start(): Promise<void> {
     if (this.enabled || this.countries.length === 0) return;
+    const finishingStop = this.completionController !== null;
+    this.cancelCompletion();
     this.enabled = true;
-    this.previousLayer = this.options.getCurrentLayer();
-    this.previousAutoSpin = this.options.getAutoSpin();
+    if (!finishingStop) {
+      this.previousLayer = this.options.getCurrentLayer();
+      this.previousAutoSpin = this.options.getAutoSpin();
+    }
     this.options.setAutoSpin(false);
     this.options.setProfileAutoplay(true);
     this.options.setPresentationTiming(
@@ -179,18 +186,18 @@ export class CountryPresentation {
     if (!this.enabled) return;
     this.enabled = false;
     this.abortRun();
+    this.cancelCompletion();
     this.clearIdleTimers();
+    this.setState("stopping");
     this.options.setProfileAutoplay(false);
-    this.options.setPresentationTiming(false, 1);
     this.options.setMotionPaused(false);
     this.options.clearCountry();
     this.options.setProfileSuppressed(false);
     this.options.setAutoSpin(this.previousAutoSpin);
-    this.options.restoreLayer(this.previousLayer);
     this.button.textContent = "presentation";
     this.button.setAttribute("aria-pressed", "false");
-    this.setState("paused-user");
     this.status.textContent = "Presentation stopped.";
+    void this.finishMotion(true);
   }
 
   private async restartCurrent(): Promise<void> {
@@ -240,23 +247,67 @@ export class CountryPresentation {
   }
 
   private pauseForInteraction(): void {
-    if (!this.enabled || this.state === "paused-user") return;
+    if (!this.enabled || this.state === "backgrounded") return;
+    if (this.state === "paused-interaction") {
+      if (!this.completionController) this.armIdleTimers();
+      return;
+    }
     this.abortRun();
-    this.options.setMotionPaused(true);
+    this.clearIdleTimers();
     this.options.setProfileAutoplay(false);
     this.setState("paused-interaction");
     this.status.textContent =
       "Presentation paused after interaction. It will resume after three minutes.";
-    this.armIdleTimers();
+    void this.finishMotion(false);
+  }
+
+  /** Completion survives cancellation of the tour, but never a newer gesture or hidden tab. */
+  private async finishMotion(stopping: boolean): Promise<void> {
+    this.cancelCompletion();
+    const controller = new AbortController();
+    this.completionController = controller;
+    try {
+      // Manual selection callbacks run before their shared selection writer. Read after it commits.
+      await delay(0, controller.signal);
+      const iso3 = this.options.getSelectedIso3();
+      await waitWhile(
+        () => this.options.isRetreating() || (iso3 !== null && this.options.isBuilding(iso3)),
+        controller.signal,
+      );
+      if (controller.signal.aborted || document.hidden) return;
+      this.completionController = null;
+      if (stopping) {
+        this.options.setPresentationTiming(false, 1);
+        this.options.restoreLayer(this.previousLayer);
+        this.setState("paused-user");
+      } else if (this.enabled && this.state === "paused-interaction") {
+        if (this.options.getSelectedIso3() === iso3) this.options.setProfileSuppressed(false);
+        this.armIdleTimers();
+      }
+    } catch (error) {
+      if (!isAbort(error)) console.error("[countryPresentation] completion failed", error);
+    }
+  }
+
+  private cancelCompletion(): void {
+    this.completionController?.abort();
+    this.completionController = null;
   }
 
   /** Let a human country click animate normally while the automated sequence remains paused. */
   allowManualMotion(): void {
+    if (!this.enabled && this.completionController) {
+      this.cancelCompletion();
+      this.options.setPresentationTiming(false, 1);
+      this.setState("paused-user");
+    }
     if (this.state !== "paused-interaction") return;
+    this.clearIdleTimers();
     this.options.setProfileSuppressed(false);
     this.options.setPresentationTiming(false, 1);
     this.options.setMotionPaused(false);
     this.options.setProfileAutoplay(false);
+    void this.finishMotion(false);
   }
 
   private onUserActivity = (event: Event): void => {
@@ -269,7 +320,7 @@ export class CountryPresentation {
     }
     if (!this.enabled) return;
     if (this.state === "paused-interaction") {
-      this.armIdleTimers();
+      if (!this.completionController) this.armIdleTimers();
       return;
     }
     this.pauseForInteraction();
@@ -280,9 +331,10 @@ export class CountryPresentation {
   };
 
   private onVisibilityChange = (): void => {
-    if (!this.enabled) return;
+    if (!this.enabled && this.state !== "stopping" && this.state !== "backgrounded") return;
     if (document.hidden) {
       this.abortRun();
+      this.cancelCompletion();
       this.clearIdleTimers();
       this.options.setMotionPaused(true);
       this.options.setProfileAutoplay(false);
@@ -291,10 +343,11 @@ export class CountryPresentation {
       return;
     }
     if (this.state === "backgrounded") {
-      this.setState("paused-interaction");
+      this.options.setMotionPaused(false);
+      this.setState(this.enabled ? "paused-interaction" : "stopping");
       this.status.textContent =
         "Presentation paused after returning. It will resume after three minutes.";
-      this.armIdleTimers();
+      void this.finishMotion(!this.enabled);
     }
   };
 
@@ -312,6 +365,7 @@ export class CountryPresentation {
 
   private resumeAfterIdle = (): void => {
     if (this.state !== "paused-interaction") return;
+    this.cancelCompletion();
     if (
       this.button.contains(document.activeElement) ||
       this.warning.contains(document.activeElement)
@@ -335,7 +389,7 @@ export class CountryPresentation {
   };
 
   private extendPause = (): void => {
-    this.armIdleTimers();
+    if (!this.completionController) this.armIdleTimers();
   };
 
   private clearIdleTimers(): void {
@@ -354,6 +408,7 @@ export class CountryPresentation {
   destroy(): void {
     this.enabled = false;
     this.abortRun();
+    this.cancelCompletion();
     this.clearIdleTimers();
     this.options.controls.removeEventListener("start", this.onControlsStart);
     document.removeEventListener("pointerdown", this.onUserActivity, true);

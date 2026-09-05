@@ -99,7 +99,7 @@ physical-device testing from emulation.
 
 ## Current validation checklist
 
-- [ ] Phase 9: network initialization and interaction completion.
+- [x] Phase 9: network initialization and interaction completion.
 - [ ] Phase 10: final chrome and country-cycle sequence.
 - [ ] Phase 11: compact profile and glyph rounds.
 - [ ] Phase 12: continuous rounded scars and shared surface.
@@ -130,6 +130,8 @@ data. Cleanup is limited to task-owned temporaries.
 
 ## Refinement progress (append only)
 
+- 2026-09-05: Revised expressive-globe plan approved for implementation. Clean source tip
+  `4b3d6f7`; existing Phases 0-8 preserved below. No refinement code implemented at approval.
 - 2026-09-05: Phase 9 arc slice: ordered geometry starts with the current revealed count before
   its first render. A deterministic clock exposed a second bug: same-category replacement
   advanced the geometry generation 150 ms before the old mesh was free. Generation now waits
@@ -137,8 +139,18 @@ data. Cleanup is limited to task-owned temporaries.
   `dev/networkMotion.check.ts` failed before the fix and passes after; existing presentation
   motion check and `npm run check` pass. The browser probe measured 0 initial and 924 settled
   segments. Controller completion verification is the next slice in this phase.
-- 2026-09-05: Revised expressive-globe plan approved for implementation. Clean source tip
-  `4b3d6f7`; existing Phases 0-8 preserved below. No refinement code implemented yet.
+- 2026-09-05: Phase 9 complete after arc commit `fe00544`. A separately cancelable completion
+  waits for active build/reverse after the tour scheduler is canceled, then reveals only the
+  current profile. Repeat pointer/control events preserve that completion; manual replacement
+  supersedes it. Hidden-page clocks still freeze and settle on return. Stop restores the prior
+  layer after reversal, and a restart or manual selection cancels stale restoration.
+  `scripts/verify-country-network-completion.js` passes with initial count 0, settled count 924,
+  completed interrupted build/reverse, visibility-state freeze, and visible Afghanistan profile.
+  The existing race probe passes layer reversal, early Stop, manual Argentina, focus and resume.
+  `npm run check` and both motion checks pass. A real Chrome screenshot confirmed the completed
+  network and profile after wheel interruption; no gallery was created. Visibility was simulated
+  in the state check and is not physical-device evidence. Early Stop verification now awaits its
+  actual layer restoration instead of assuming all queued rebuilds finish within 600 ms.
 
 ## Historical first-goal completion
 
