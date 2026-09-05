@@ -15,6 +15,7 @@ interface DetailOptions {
   material: THREE.ShaderMaterial;
   radius: number;
   isLand: (direction: THREE.Vector3) => boolean;
+  capacity?: number;
 }
 
 interface Family {
@@ -31,15 +32,23 @@ interface Family {
   start: number;
 }
 
-const CAPACITY = 131_072;
+const MAX_CAPACITY = 131_072;
 const ROOTS_PER_UPDATE = 4096;
+function validateCapacity(value: number): void {
+  if (!Number.isInteger(value) || value < 4 || value > MAX_CAPACITY || value % 4 !== 0) {
+    throw new RangeError("Stipple capacity must be a multiple of four from 4 to 131072");
+  }
+}
 const smooth = (x: number): number => {
   const t = Math.max(0, Math.min(1, x));
   return t * t * (3 - 2 * t);
 };
 
 /** Bounded display samples. This controller never changes base positions or source observations. */
-export function createStippleDetailController({ points, material, radius, isLand }: DetailOptions) {
+export function createStippleDetailController({ points, material, radius, isLand, capacity = MAX_CAPACITY }: DetailOptions) {
+  validateCapacity(capacity);
+  let capacityLimit = capacity;
+  let targetCapacity = capacity;
   const geometry = points.geometry;
   const normals = geometry.getAttribute("normal") as THREE.BufferAttribute;
   const land = geometry.getAttribute("aLand") as THREE.BufferAttribute;
@@ -77,9 +86,10 @@ export function createStippleDetailController({ points, material, radius, isLand
   uniforms.uDetailFadeSeconds ??= { value: 0.15 };
   uniforms.uDetailFocal ??= { value: 0 };
 
-  const families = new Map<number, Family>();
+  let families = new Map<number, Family>();
   const transitions = new Set<number>();
-  const slots = new Map<number, number>();
+  let slots = new Map<number, number>();
+  const retiringRoots = new Set<number>();
   let childPoints: THREE.Points | null = null;
   let childAttributes: Record<string, THREE.BufferAttribute> = {};
   let slotIds: Uint32Array | null = null;
@@ -181,12 +191,12 @@ export function createStippleDetailController({ points, material, radius, isLand
     if (childPoints) return;
     const childGeometry = new THREE.BufferGeometry();
     for (const [name, size] of Object.entries({ position: 3, normal: 3, aLand: 1, aRoot: 4, aSizeScale: 1, aFade: 3 })) {
-      const attribute = new THREE.BufferAttribute(new Float32Array(CAPACITY * size), size)
+      const attribute = new THREE.BufferAttribute(new Float32Array(capacityLimit * size), size)
         .setUsage(THREE.DynamicDrawUsage);
       childAttributes[name] = attribute;
       childGeometry.setAttribute(name, attribute);
     }
-    slotIds = new Uint32Array(CAPACITY);
+    slotIds = new Uint32Array(capacityLimit);
     childGeometry.setDrawRange(0, 0);
     childPoints = new THREE.Points(childGeometry, material);
     childPoints.name = "stipple-detail";
@@ -195,13 +205,62 @@ export function createStippleDetailController({ points, material, radius, isLand
     points.add(childPoints);
   }
 
+  function resizeBuffer(next: number): void {
+    if (next < activeCount) throw new Error("Cannot resize stipple storage below live descendants");
+    const shrinking = next < capacityLimit;
+    if (childPoints && next !== capacityLimit) {
+      const replacements: Record<string, THREE.BufferAttribute> = {};
+      for (const [name, old] of Object.entries(childAttributes)) {
+        const array = new Float32Array(next * old.itemSize);
+        array.set((old.array as Float32Array).subarray(0, activeCount * old.itemSize));
+        replacements[name] = new THREE.BufferAttribute(array, old.itemSize).setUsage(THREE.DynamicDrawUsage);
+      }
+      const ids = new Uint32Array(next);
+      ids.set(slotIds!.subarray(0, activeCount));
+      // Dispose while the old attributes are still attached, including Three's cached limits.
+      childPoints.geometry.dispose();
+      for (const [name, attribute] of Object.entries(replacements)) childPoints.geometry.setAttribute(name, attribute);
+      childAttributes = replacements;
+      slotIds = ids;
+      childPoints.geometry.setDrawRange(0, activeCount);
+      childDirtyMin = Infinity;
+      childDirtyMax = -1;
+      uploads++;
+    }
+    capacityLimit = next;
+    if (shrinking) {
+      families = new Map(families);
+      slots = new Map(slots);
+      peakSlots = activeCount;
+      peakFamilies = families.size;
+    }
+    needsMembership = true;
+    scanRemaining = rootCount;
+  }
+
+  function chooseRetirements(): void {
+    retiringRoots.clear();
+    const counts = new Map<number, number>();
+    for (let slot = 0; slot < activeCount; slot++) {
+      const root = Math.floor(slotIds![slot] / 21);
+      counts.set(root, (counts.get(root) ?? 0) + 1);
+    }
+    let remaining = activeCount;
+    // A stable order independent of source severity; every selected root returns to its base dot.
+    for (const root of [...counts.keys()].sort((a, b) => b - a)) {
+      if (remaining <= targetCapacity) break;
+      retiringRoots.add(root);
+      remaining -= counts.get(root)!;
+    }
+  }
+
   function markChild(slot: number): void {
     childDirtyMin = Math.min(childDirtyMin, slot);
     childDirtyMax = Math.max(childDirtyMax, slot);
   }
 
   function addSlot(root: number, depth: 1 | 2, path: number, direction: THREE.Vector3, opacity: number): void {
-    if (activeCount >= CAPACITY) throw new Error("Stipple detail capacity exceeded");
+    if (activeCount >= capacityLimit) throw new Error("Stipple detail capacity exceeded");
     ensureChildBuffer();
     const id = stippleDetailId(root, depth, path);
     const slot = activeCount++;
@@ -270,6 +329,7 @@ export function createStippleDetailController({ points, material, radius, isLand
       restoreParent(family, 1);
       setFade(family.id, 1, 1, time);
       families.delete(family.id);
+      if (family.depth === 0) retiringRoots.delete(family.root);
       scanRemaining = rootCount;
     }
     needsMembership = true;
@@ -277,7 +337,7 @@ export function createStippleDetailController({ points, material, radius, isLand
 
   function transition(family: Family, to: 0 | 1, snap = false): void {
     const current = weight(family);
-    if (to === 0 && family.depth === 1 && !slots.has(family.id) && activeCount === CAPACITY) snap = true;
+    if (to === 0 && family.depth === 1 && !slots.has(family.id) && activeCount === capacityLimit) snap = true;
     if (snap && to === 0) {
       for (const id of family.children) retireSlot(id);
       restoreParent(family, 1);
@@ -293,8 +353,8 @@ export function createStippleDetailController({ points, material, radius, isLand
 
   function split(root: number, depth: 0 | 1, path: number): void {
     const id = stippleDetailId(root, depth, path);
-    if (families.has(id) || angles[root] <= 0) return;
-    if (activeCount + 4 > CAPACITY) {
+    if (targetCapacity < capacityLimit || families.has(id) || angles[root] <= 0) return;
+    if (activeCount + 4 > capacityLimit) {
       capacityRefusals++;
       return;
     }
@@ -354,6 +414,7 @@ export function createStippleDetailController({ points, material, radius, isLand
     families.clear();
     transitions.clear();
     slots.clear();
+    retiringRoots.clear();
     activeCount = identitySum = 0;
     peakSlots = peakFamilies = 0;
     if (release && childPoints) {
@@ -365,12 +426,23 @@ export function createStippleDetailController({ points, material, radius, isLand
       childDirtyMin = Infinity;
       childDirtyMax = -1;
     }
+    if (targetCapacity !== capacityLimit) resizeBuffer(targetCapacity);
     scanRemaining = rootCount;
     needsMembership = true;
     flush();
   }
 
   return {
+    setCapacity(next: number): void {
+      if (disposed) return;
+      validateCapacity(next);
+      if (next === targetCapacity) return;
+      targetCapacity = next;
+      retiringRoots.clear();
+      if (activeCount <= next) resizeBuffer(next);
+      else chooseRetirements();
+      needsMembership = true;
+    },
     setMode(next: StippleDetailMode): void {
       if (disposed || next === mode) return;
       mode = next;
@@ -441,7 +513,7 @@ export function createStippleDetailController({ points, material, radius, isLand
               fillRadii(family.directions, family.radii);
               family.fieldRevision = fieldRevision;
             }
-            const keep = depth < maximumDepth && rootVisible[family.root] === 1 &&
+            const keep = !retiringRoots.has(family.root) && depth < maximumDepth && rootVisible[family.root] === 1 &&
               stippleShouldSplit(family.to === 1, diameter) &&
               fits(family.directions, family.radii, diameter / 2, family.to === 1 ? 1.02 : 1.2);
             const hasDeeper = family.children.some((id) => families.has(id));
@@ -454,7 +526,7 @@ export function createStippleDetailController({ points, material, radius, isLand
             }
           }
         }
-        rootsExamined = Math.min(ROOTS_PER_UPDATE, scanRemaining);
+        rootsExamined = targetCapacity < capacityLimit ? 0 : Math.min(ROOTS_PER_UPDATE, scanRemaining);
         for (let candidate = 0; candidate < rootsExamined; candidate++) {
           const root = scanCursor;
           scanCursor = (scanCursor + 1) % rootCount;
@@ -465,6 +537,10 @@ export function createStippleDetailController({ points, material, radius, isLand
           split(root, 0, 0);
         }
         scanRemaining -= rootsExamined;
+      }
+      if (targetCapacity < capacityLimit && retiringRoots.size === 0) {
+        if (activeCount <= targetCapacity) resizeBuffer(targetCapacity);
+        else chooseRetirements();
       }
       flush();
     },
@@ -492,8 +568,9 @@ export function createStippleDetailController({ points, material, radius, isLand
         rootCount, descendantCount: activeCount, familyCount: families.size,
         additionalBytes: disposed ? 0 : 2 * (rootBytes + childBytes) + angles.byteLength +
           rootRadii.byteLength + rootDiameters.byteLength + rootVisible.byteLength + rootRevisions.byteLength +
-          (slotIds?.byteLength ?? 0) + peakSlots * 256 + peakFamilies * 1024 + 4096,
-        descendantCapacity: childPoints ? CAPACITY : 0,
+          (slotIds?.byteLength ?? 0) + peakSlots * 256 + peakFamilies * 1024 + retiringRoots.size * 64 + 4096,
+        descendantCapacity: childPoints ? capacityLimit : 0, capacityLimit, targetCapacity,
+        pendingRootRetirements: retiringRoots.size,
         transitionCount: transitions.size, rootsExaminedLastUpdate: rootsExamined,
         rootScanRemaining: scanRemaining, uploadCount: uploads, capacityRefusals,
         descendantIdSum: identitySum,

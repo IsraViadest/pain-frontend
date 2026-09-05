@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createStippleDetailController } from "../src/globe/stippleDetailController";
 
-function fixture(count: number, landPredicate: (direction: THREE.Vector3) => boolean, fade = 0.15) {
+function fixture(count: number, landPredicate: (direction: THREE.Vector3) => boolean, fade = 0.15, initialCapacity?: number) {
   const coordinates = new Float32Array(count * 3);
   const lands = new Float32Array(count);
   const direction = new THREE.Vector3();
@@ -28,7 +28,8 @@ function fixture(count: number, landPredicate: (direction: THREE.Vector3) => boo
   const camera = new THREE.PerspectiveCamera(45, 1500 / 950, 0.05, 50);
   camera.position.set(0, 0, 1.35);
   camera.lookAt(0, 0, 0);
-  const controller = createStippleDetailController({ points, material, radius: 1, isLand: landPredicate });
+  const controller = createStippleDetailController({ points, material, radius: 1, isLand: landPredicate,
+    capacity: initialCapacity });
   const frame = (dt = 0.05, width = 1500, height = 950): void => {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
@@ -191,9 +192,88 @@ capacity.checkWeights();
 assert.equal(capacity.controller.stats().descendantCapacity, 0);
 assert.equal(capacity.geometry.getAttribute("aSizeScale").getX(0), 1);
 capacity.controller.dispose();
+
+assert.throws(() => fixture(8, () => true, 0, 5), RangeError);
+const resized = fixture(1024, () => true, 0.15, 32);
+const resizeRoots = resized.coordinates.slice();
+resized.camera.position.z = 5;
+assert.equal(resized.controller.stats().capacityLimit, 32);
+assert.equal(resized.controller.stats().targetCapacity, 32);
+assert.equal(resized.controller.stats().descendantCapacity, 0);
+resized.controller.setMode("split2");
+resized.frame(0.01, 150000, 95000);
+resized.frame(0.04, 150000, 95000);
+resized.checkWeights();
+const beforeResize = resized.controller.stats();
+assert.ok(beforeResize.descendantCount > 0 && beforeResize.descendantCount <= 32);
+const childGeometry = resized.child()!.geometry;
+let expectedOldPosition = childGeometry.getAttribute("position");
+let bufferDisposals = 0;
+childGeometry.addEventListener("dispose", () => {
+  assert.equal(childGeometry.getAttribute("position"), expectedOldPosition, "GPU disposal precedes attribute replacement");
+  bufferDisposals++;
+});
+const liveCopies = Object.fromEntries(Object.entries(childGeometry.attributes).map(([name, attribute]) =>
+  [name, attribute.array.slice(0, beforeResize.descendantCount * attribute.itemSize)]));
+for (const next of [64, 48]) {
+  resized.controller.setCapacity(next);
+  assert.equal(resized.controller.stats().capacityLimit, next);
+  assert.equal(resized.controller.stats().targetCapacity, next);
+  assert.equal(resized.controller.stats().descendantIdSum, beforeResize.descendantIdSum);
+  assert.equal(resized.child()!.geometry, childGeometry);
+  for (const [name, saved] of Object.entries(liveCopies)) {
+    assert.deepEqual(childGeometry.getAttribute(name).array.slice(0, saved.length), saved,
+      "resize preserves live attribute and fade bits");
+  }
+  resized.checkWeights();
+  expectedOldPosition = childGeometry.getAttribute("position");
+}
+assert.equal(bufferDisposals, 2);
+for (const invalid of [0, 1, 5, 32769, 131076, Infinity, NaN]) {
+  assert.throws(() => resized.controller.setCapacity(invalid), RangeError);
+}
+assert.equal(resized.controller.stats().capacityLimit, 48);
+assert.equal(resized.controller.stats().targetCapacity, 48);
+for (let i = 0; i < 24; i++) resized.frame(0.05, 150000, 95000);
+assert.ok(resized.controller.stats().descendantCount > 16, "crowded shrink fixture");
+const crowded = resized.controller.stats();
+resized.controller.setCapacity(16);
+assert.equal(resized.controller.stats().capacityLimit, 48, "keep old storage while families fade");
+assert.equal(resized.controller.stats().targetCapacity, 16);
+assert.equal(resized.controller.stats().descendantCount, crowded.descendantCount);
+for (let i = 0; i < 80 && resized.controller.stats().capacityLimit !== 16; i++) {
+  resized.frame(0.02, 150000, 95000);
+  resized.checkWeights();
+}
+assert.equal(resized.controller.stats().capacityLimit, 16);
+assert.equal(resized.controller.stats().targetCapacity, 16);
+assert.ok(resized.controller.stats().descendantCount <= 16);
+assert.ok(resized.controller.stats().additionalBytes < crowded.additionalBytes, "shrink releases buffer and Map high water");
+expectedOldPosition = childGeometry.getAttribute("position");
+for (const next of [64, 4, 32, 8]) {
+  resized.controller.setCapacity(next);
+  for (let i = 0; i < 100 && resized.controller.stats().capacityLimit !== next; i++) {
+    resized.frame(0.02, 150000, 95000);
+    resized.checkWeights();
+  }
+  assert.equal(resized.controller.stats().capacityLimit, next);
+  assert.ok(resized.controller.stats().descendantCount <= next);
+  expectedOldPosition = childGeometry.getAttribute("position");
+  resized.frame(0.02, 150000, 95000);
+  resized.checkWeights();
+}
+assert.deepEqual(resized.coordinates, resizeRoots, "resizing never changes roots");
+resized.controller.setMode("fixed");
+assert.equal(resized.controller.stats().descendantCapacity, 0);
+resized.controller.setCapacity(12);
+assert.equal(resized.controller.stats().capacityLimit, 12);
+assert.equal(resized.controller.stats().descendantCapacity, 0, "changing an inactive cap stays lazy");
+resized.controller.dispose();
+resized.controller.dispose();
 console.info("stipple detail controller check passed", {
   stableFirstLevelDescendants: firstCount,
   capacityDescendants: full.descendantCount,
   capacityFamilies: full.familyCount,
   additionalBytes: full.additionalBytes,
+  resizeDisposals: bufferDisposals,
 });

@@ -347,6 +347,13 @@ data. Cleanup is limited to task-owned temporaries.
   trip now retains the SVG with no share overlap. Short-landscape layout remains open: at 844x390
   the 516.92 px layer stack extends above/below the viewport and the profile overlaps the title.
 
+- 2026-09-05: Bounded dot-pool resizing is verified for Phase 18. Previous presets retain the
+  131,072 default. New callers may request smaller pools. Growth and fitting shrink preserve
+  live attribute/fade bits; crowded shrink reverses complete root families before replacing
+  storage. Roots remain intact. Focused tests cover small/full pools, interrupted detail,
+  repeated resize, invalid limits and eight GPU-disposal events before attribute replacement.
+  Actual draw inspection verifies 16,384/32,768/65,536-slot buffers for Light/Standard/Rich.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
