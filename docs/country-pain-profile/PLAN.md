@@ -419,7 +419,9 @@ against the 195 profile records. Representative checks:
 | Singapore | unavailable | unavailable | unavailable | 0.2280 from 1 |
 
 The focused synthetic check covers peak selection, source counts, missingness, emotional fallback,
-and proportional area. Phase 1 still needs the globe-local surface raycast before its exit passes.
+and proportional area. A real GPU browser then aimed the camera at two known local coordinates
+while the globe was rotated by 1.2 and -0.8 radians. `pickSurfaceLatLng()` recovered both points
+with errors below `4e-14` degrees. Phase 1 exit passes.
 
 ### Phase 2: One authoritative country selection path
 

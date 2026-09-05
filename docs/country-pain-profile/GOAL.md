@@ -113,7 +113,7 @@ worktrees are clean, and all accepted work is committed.
 ## Validation Checklist
 
 - [ ] Phase 0 baseline and upstream reconciliation complete.
-- [ ] Country geometry, aggregation, missingness, and data semantics verified.
+- [x] Country geometry, aggregation, missingness, and data semantics verified.
 - [ ] One authoritative selection and metrics path verified in every layer.
 - [ ] Profile rounds completed and one design adopted.
 - [ ] Layer transitions, responsive layout, and accessibility verified.
@@ -161,3 +161,7 @@ question and delegated visual round selection to Codex.
   Point-count versus peak correlation is 0.4884, 0.7608, and 0.3744 for the three spatial signals,
   so accessible text must disclose its source count. A separate 204-row socioeconomic reducer had
   zero mismatches. The focused synthetic check and full frontend gate passed.
+- 2026-09-05: Phase 1 complete. `pickSurfaceLatLng()` converts a ray hit through the globe's local
+  transform before WGS84 conversion. Real Chrome recovered two target coordinates under 1.2 and
+  -0.8 radian globe rotations with less than `4e-14` degrees error. The focused rotation check and
+  `npm run check` passed.

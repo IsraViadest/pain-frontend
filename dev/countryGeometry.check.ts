@@ -1,12 +1,20 @@
 import { readFileSync } from "node:fs";
+import * as THREE from "three";
 import {
   buildCountryGeometries,
   findCountryInGeometries,
 } from "../src/globe/countryGeometry";
+import { latLngToVector3, vector3ToLatLng } from "../src/globe/latLng";
 
 function equal(actual: unknown, expected: unknown, label: string): void {
   if (actual !== expected) {
     throw new Error(`${label}: expected ${String(expected)}, got ${String(actual)}`);
+  }
+}
+
+function close(actual: number, expected: number, label: string): void {
+  if (Math.abs(actual - expected) > 1e-9) {
+    throw new Error(`${label}: expected ${expected}, got ${actual}`);
   }
 }
 
@@ -59,5 +67,16 @@ equal(findCountryInGeometries(countries, 48.2082, 16.3738), "AUT", "Vienna");
 equal(findCountryInGeometries(countries, 28.6139, 77.209), "IND", "New Delhi");
 equal(findCountryInGeometries(countries, -41.2866, 174.7756), "NZL", "Wellington");
 equal(countries.some((country) => country.key === "SGP"), false, "Singapore absent");
+
+const earth = new THREE.Group();
+const globe = new THREE.Object3D();
+earth.add(globe);
+earth.rotation.y = 1.2;
+earth.updateMatrixWorld(true);
+const source = { lat: 51.5072, lng: -0.1276 };
+const worldPoint = globe.localToWorld(latLngToVector3(source.lat, source.lng, 1));
+const recovered = vector3ToLatLng(globe.worldToLocal(worldPoint));
+close(recovered.lat, source.lat, "rotated surface latitude");
+close(recovered.lng, source.lng, "rotated surface longitude");
 
 console.info(`country geometry check passed: ${countries.length} countries`);

@@ -2986,6 +2986,23 @@ export class GlobeView {
     return null;
   }
 
+  /** Raycast the globe and return the hit in its rotating local WGS84 frame. */
+  pickSurfaceLatLng(
+    clientX: number,
+    clientY: number,
+  ): { lat: number; lng: number } | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hit = this.raycaster.intersectObject(this.globe, false)[0];
+    if (!hit) return null;
+    return vector3ToLatLng(this.globe.worldToLocal(hit.point.clone()));
+  }
+
   /**
    * Raycast the globe surface and return the nearest pain point within
    * {@link MAX_CLICK_SOUND_RADIUS_DEG} (all viz modes).
