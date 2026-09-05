@@ -1,18 +1,34 @@
-export type FieldTexturePattern = "smooth" | "grain" | "hex";
+export type FieldTexturePattern =
+  | "smooth"
+  | "grain"
+  | "hex"
+  | "fine-grain"
+  | "fine-hex";
 
 function modulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
 }
 
-function grainMultiplier(x: number, y: number): number {
-  const cellX = Math.floor(x / 4);
-  const cellY = Math.floor(y / 4);
+function grainMultiplier(
+  x: number,
+  y: number,
+  cellSize = 4,
+  base = 0.76,
+  span = 0.48,
+): number {
+  const cellX = Math.floor(x / cellSize);
+  const cellY = Math.floor(y / cellSize);
   const raw = Math.sin(cellX * 12.9898 + cellY * 78.233) * 43758.5453;
-  return 0.76 + 0.48 * (raw - Math.floor(raw));
+  return base + span * (raw - Math.floor(raw));
 }
 
-function hexMultiplier(x: number, y: number): number {
-  const size = 12;
+function hexMultiplier(
+  x: number,
+  y: number,
+  size = 12,
+  base = 0.82,
+  span = 0.36,
+): number {
   const gridHeight = Math.sqrt(3);
   const ux = x / size;
   const uy = y / size;
@@ -25,7 +41,7 @@ function hexMultiplier(x: number, y: number): number {
   const gy = Math.abs(useA ? ay : by);
   const distance = Math.max(gx, gx * 0.5 + gy * Math.sqrt(3) / 2);
   const edge = Math.max(0, Math.min(1, (distance - 0.38) / 0.1));
-  return 0.82 + 0.36 * edge;
+  return base + span * edge;
 }
 
 /** Apply a cosmetic pattern to RGBA alpha without changing its underlying field. */
@@ -41,7 +57,11 @@ export function applyFieldTexturePattern(
       const alphaIndex = (y * width + x) * 4 + 3;
       const multiplier = pattern === "grain"
         ? grainMultiplier(x, y)
-        : hexMultiplier(x, y);
+        : pattern === "hex"
+          ? hexMultiplier(x, y)
+          : pattern === "fine-grain"
+            ? grainMultiplier(x, y, 2, 0.92, 0.16)
+            : hexMultiplier(x, y, 4, 0.94, 0.12);
       bytes[alphaIndex] = Math.min(255, Math.round(bytes[alphaIndex]! * multiplier));
     }
   }

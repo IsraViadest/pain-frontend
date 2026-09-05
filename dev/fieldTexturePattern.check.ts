@@ -7,7 +7,7 @@ if (smooth.some((value) => value !== 200)) {
   throw new Error("smooth field pattern changed the texture");
 }
 
-for (const pattern of ["grain", "hex"] as const) {
+for (const pattern of ["grain", "hex", "fine-grain", "fine-hex"] as const) {
   const bytes = makeBytes();
   applyFieldTexturePattern(bytes, 24, 24, pattern);
   const alpha = new Set(Array.from({ length: 24 * 24 }, (_, i) => bytes[i * 4 + 3]));

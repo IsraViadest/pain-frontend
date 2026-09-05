@@ -696,6 +696,18 @@ and competes with country boundaries. Close views remain readable, so the failur
 contrast rather than the texture-space approach. The two candidates remain as the upper bound for
 a finer, lower-contrast round.
 
+Environmental globe round v6 retains `v6-control_smooth-field`, `v6-a_fine-grain-field`, and
+`v6-b_fine-hex-field`. The fine candidates remain atmospheric from afar, but their structure is
+only discernible in a side-by-side crop at camera distance 1.6. Contrast strong enough to read at
+rest reproduces the v5 defects. Codex therefore selected `v6-control_smooth-field`; the globe keeps
+its smooth Temperature and CO2 shells and existing image legends. The rejected candidates remain
+URL-addressable and add no per-frame work because their texture modulation runs only on rebuild.
+
+Phase 6 exits with `v3-a_larger-points` for the physical treatment,
+`v4-b_environment-cells` for the environmental profile glyph, and the v6 smooth control for the
+environmental globe. Every selected treatment preserves country boundaries and normalized data
+semantics. No new mesh, draw path, renderer, asset, or dependency was added.
+
 Reject any candidate that exceeds the frame or bundle budgets, hides country boundaries, implies
 unsupported raw units, or introduces visible temporal aliasing.
 

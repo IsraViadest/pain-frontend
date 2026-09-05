@@ -60,6 +60,15 @@
  * REJECTED BY CODEX: both textures fail at the far camera. Grain becomes square banding and the
  * hex trace reads as a separate shell. Retain them as the upper contrast bound for round v6.
  *
+ * ROUND v6
+ * SETTLED: the smooth control and both rejected v5 upper bounds.
+ * VARIES: texture frequency and contrast.
+ * - v6-control_smooth-field: incumbent smooth fields.
+ * - v6-a_fine-grain-field: two-texel grain with one third of v5's contrast.
+ * - v6-b_fine-hex-field: four-texel cells with one third of v5's contrast.
+ * SELECTED BY CODEX: v6-control_smooth-field. The fine candidates are only discernible in a
+ * side-by-side close crop; enough contrast to read at rest reproduces the v5 defects.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -79,7 +88,12 @@ export interface CountryProfilePreset {
   physicalPointScale?: number;
   physicalPointNearBoost?: number;
   environmentalGlyph?: "simple" | "grain" | "cells";
-  environmentalFieldPattern?: "smooth" | "grain" | "hex";
+  environmentalFieldPattern?:
+    | "smooth"
+    | "grain"
+    | "hex"
+    | "fine-grain"
+    | "fine-hex";
 }
 
 const V1_PRESETS: readonly CountryProfilePreset[] = [
@@ -220,9 +234,39 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     environmentalGlyph: "cells",
     environmentalFieldPattern: "hex",
   },
+  {
+    id: "v6-control_smooth-field",
+    label: "v6 control: smooth field",
+    description: "The selected base with the incumbent smooth environmental shells.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "smooth",
+  },
+  {
+    id: "v6-a_fine-grain-field",
+    label: "v6 A: fine grain field",
+    description: "Fine low-contrast grain modulates both environmental shells.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "fine-grain",
+  },
+  {
+    id: "v6-b_fine-hex-field",
+    label: "v6 B: fine hex field",
+    description: "Fine low-contrast cells modulate both environmental shells.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "fine-hex",
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v4-b_environment-cells";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v6-control_smooth-field";
 
 /** Resolve `cpPreset`, falling back to the opening-round control. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {
