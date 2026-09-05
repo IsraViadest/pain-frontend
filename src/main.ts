@@ -574,13 +574,18 @@ function handleCountrySurfaceClick(clientX: number, clientY: number): void {
 async function ensureCountryProfileRuntime(): Promise<void> {
   if (!countryProfileEnabled || countryProfileRuntime) return;
   const { CountryProfileRuntime } = await import("./countryProfile/runtime");
-  countryProfileRuntime = await CountryProfileRuntime.create(pointCache, (change) => {
-    console.info(
-      "[countryProfile]",
-      change.action,
-      change.profile?.iso3 ?? change.previousIso3,
-    );
-  });
+  countryProfileRuntime = await CountryProfileRuntime.create(
+    pointCache,
+    appRootEl,
+    lastLayerId,
+    (change) => {
+      console.info(
+        "[countryProfile]",
+        change.action,
+        change.profile?.iso3 ?? change.previousIso3,
+      );
+    },
+  );
 }
 
 /**
@@ -622,6 +627,7 @@ function applyPendingLayerChange(layerId: string): void {
   }
   trackToggle(METRICS_KIND_LAYER, layerId, true);
   lastLayerId = layerId;
+  countryProfileRuntime?.setLayer(layerId);
   applyGlobeLayer(layerId);
   syncWordCloudForCurrentLayer();
   void loadPoints().catch((e) =>
@@ -681,6 +687,7 @@ async function handleAllLayers(): Promise<void> {
   }
   trackToggle(METRICS_KIND_LAYER, "all-layers", true);
   lastLayerId = "all-layers";
+  countryProfileRuntime?.setLayer(lastLayerId);
 
   const phys = cachedLayers.find((l) => l.id === "physpain");
   const socio = cachedLayers.find((l) => isChoroplethMapLayer(l));

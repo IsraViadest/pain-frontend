@@ -7,6 +7,7 @@ import {
 } from "../globe/countryGeometry";
 import type { PainPoint } from "../types/api";
 import { buildCountryPainProfiles, type CountryPainProfile } from "./data";
+import { createCountryProfileView, type CountryProfileView } from "./profile";
 import {
   CountrySelectionController,
   type CountrySelectionChange,
@@ -32,12 +33,16 @@ export class CountryProfileRuntime {
 
   private constructor(
     profiles: ReadonlyMap<string, CountryPainProfile>,
+    private readonly view: CountryProfileView,
     onChange: (change: CountrySelectionChange) => void,
   ) {
     this.profiles = profiles;
     this.selection = new CountrySelectionController(
       profiles,
-      onChange,
+      (change) => {
+        this.view.setProfile(change.profile);
+        onChange(change);
+      },
       (profile, enabled) => {
         trackToggle(
           METRICS_KIND_CATEGORY,
@@ -50,6 +55,8 @@ export class CountryProfileRuntime {
 
   static async create(
     pointsByLayer: ReadonlyMap<string, readonly PainPoint[]>,
+    appRoot: HTMLElement,
+    layerId: string,
     onChange: (change: CountrySelectionChange) => void,
   ): Promise<CountryProfileRuntime> {
     await ensureCountryGeometriesLoaded();
@@ -62,7 +69,11 @@ export class CountryProfileRuntime {
       },
       getCountryGeometries(),
     );
-    return new CountryProfileRuntime(profiles, onChange);
+    return new CountryProfileRuntime(
+      profiles,
+      createCountryProfileView(appRoot, layerId),
+      onChange,
+    );
   }
 
   get selectedIso3(): string | null {
@@ -84,5 +95,9 @@ export class CountryProfileRuntime {
 
   clear(human: boolean): void {
     this.selection.clear(human);
+  }
+
+  setLayer(layerId: string): void {
+    this.view.setLayer(layerId);
   }
 }
