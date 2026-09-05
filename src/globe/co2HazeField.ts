@@ -9,6 +9,10 @@ import {
   SCAR_MAP_HEIGHT,
   SCAR_MAP_WIDTH,
 } from "./painScarField";
+import {
+  applyFieldTexturePattern,
+  type FieldTexturePattern,
+} from "./fieldTexturePattern";
 
 /** pain-server `category` value that feeds the CO2 haze shell. */
 const CO2_HAZE_CATEGORY = "CO2";
@@ -172,6 +176,7 @@ export function filterCo2HazePoints(points: PainPoint[]): PainPoint[] {
 export function createCo2HazeTexture(
   co2Points: PainPoint[],
   tune: Co2HazeTune = CO2_HAZE_TUNE_DEFAULTS,
+  pattern: FieldTexturePattern = "smooth",
 ): THREE.DataTexture {
   const hazeAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
 
@@ -243,6 +248,7 @@ export function createCo2HazeTexture(
     bytes[o + 2] = rgb;
     bytes[o + 3] = alpha;
   }
+  applyFieldTexturePattern(bytes, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, pattern);
 
   return makeHazeRgbaDataTexture(bytes);
 }

@@ -9,6 +9,10 @@ import {
   SCAR_MAP_HEIGHT,
   SCAR_MAP_WIDTH,
 } from "./painScarField";
+import {
+  applyFieldTexturePattern,
+  type FieldTexturePattern,
+} from "./fieldTexturePattern";
 
 /** pain-server `category` value that feeds the temperature haze shell. */
 const TEMPERATURE_HAZE_CATEGORY = "Temperature";
@@ -133,6 +137,7 @@ export function filterTemperatureHazePoints(points: PainPoint[]): PainPoint[] {
 export function createTemperatureHazeTexture(
   temperaturePoints: PainPoint[],
   tune: TemperatureHazeTune = TEMPERATURE_HAZE_TUNE_DEFAULTS,
+  pattern: FieldTexturePattern = "smooth",
 ): THREE.DataTexture {
   const hazeAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
 
@@ -200,6 +205,7 @@ export function createTemperatureHazeTexture(
     bytes[o + 2] = HAZE_BLUE_BYTE;
     bytes[o + 3] = alpha;
   }
+  applyFieldTexturePattern(bytes, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, pattern);
 
   return makeHazeRgbaDataTexture(bytes);
 }

@@ -51,6 +51,7 @@ import {
   stipplePointScaleAtCameraDistance,
   type StipplePointTune,
 } from "./stipplePointScale";
+import type { FieldTexturePattern } from "./fieldTexturePattern";
 
 export type { Co2HazeTune };
 
@@ -568,6 +569,7 @@ export class GlobeView {
   private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
   private co2HazeTune: Co2HazeTune = { ...GLOBE_CO2_HAZE_TUNE_DEFAULTS };
   private tempHeatTune: TempHeatTune = { ...GLOBE_TEMP_HEAT_TUNE_DEFAULTS };
+  private environmentalFieldPattern: FieldTexturePattern = "smooth";
   /** Uniform scale for coast/border line shell (`bordersOutlines.group`). */
   private borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
 
@@ -984,6 +986,13 @@ export class GlobeView {
   setStipplePointTune(partial: Partial<StipplePointTune>): void {
     this.stipplePointTune = { ...this.stipplePointTune, ...partial };
     this.applyStipplePointScale();
+  }
+
+  setEnvironmentalFieldPattern(pattern: FieldTexturePattern): void {
+    if (pattern === this.environmentalFieldPattern) return;
+    this.environmentalFieldPattern = pattern;
+    this.rebuildTemperatureShellMap();
+    this.rebuildCo2HazeMap();
   }
 
   private applyStipplePointScale(): void {
@@ -2461,7 +2470,7 @@ export class GlobeView {
       blurPass2Radius: this.tempHeatTune.blurPass2Radius,
       maxAlpha: TEMPERATURE_HAZE_TUNE_DEFAULTS.maxAlpha,
       alphaThreshold: TEMPERATURE_HAZE_TUNE_DEFAULTS.alphaThreshold,
-    });
+    }, this.environmentalFieldPattern);
     mat.map = this.temperatureShellMap;
     mat.needsUpdate = true;
     this.temperatureShell.visible = true;
@@ -2484,7 +2493,11 @@ export class GlobeView {
       this.co2Haze.visible = false;
       return;
     }
-    this.co2HazeMap = createCo2HazeTexture(co2Points, this.co2HazeTune);
+    this.co2HazeMap = createCo2HazeTexture(
+      co2Points,
+      this.co2HazeTune,
+      this.environmentalFieldPattern,
+    );
     mat.map = this.co2HazeMap;
     mat.needsUpdate = true;
     this.co2Haze.visible = true;
