@@ -69,6 +69,10 @@
  * SELECTED BY CODEX: v6-control_smooth-field. The fine candidates are only discernible in a
  * side-by-side close crop; enough contrast to read at rest reproduces the v5 defects.
  *
+ * FINAL ADOPTION v7
+ * - v7-a_base consolidates the selected profile, transition, physical points, profile glyph,
+ *   and smooth environmental globe without changing their values.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -264,9 +268,19 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     environmentalGlyph: "cells",
     environmentalFieldPattern: "fine-hex",
   },
+  {
+    id: "v7-a_base",
+    label: "v7 A: adopted base",
+    description: "The consolidated selected country pain profile treatment.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "smooth",
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v6-control_smooth-field";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v7-a_base";
 
 /** Resolve `cpPreset`, falling back to the opening-round control. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

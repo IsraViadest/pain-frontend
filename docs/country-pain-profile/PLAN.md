@@ -727,6 +727,35 @@ Exit: each selected treatment has a recorded visual and measured reason to repla
 8. Measure the default entry graph without `cp=1` against the 30 kB gzip budget. Report the lazy
    experimental JavaScript and CSS chunks separately.
 
+Phase 7 found no retained rendering regression to optimize:
+
+| State | Median | p95 | Max | Draws/frame | Primitives/frame | Textures | DOM |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Selected desktop | 8.30 ms | 9.10 ms | 10.30 ms | 11 | 293,786 | 5 | 915 |
+| Selected 393 by 852 | 8.30 ms | 9.70 ms | 10.40 ms | 11 | 293,786 | 5 | 915 |
+
+The Phase 0 selected baseline was 8.30 ms median and 9.70 ms p95. Profile aggregation is outside
+the render loop and took a 71.15 ms median across ten complete 195-country builds. The experimental
+registry and profile CSS remain lazy: 5.21 kB gzip JavaScript and 1.80 kB gzip CSS, with the
+presentation controller at 2.11 kB gzip. The default entry is 219.44 kB gzip, 3.00 kB above the
+216.44 kB baseline and 27.00 kB below the limit. A normal `?ev=2` load requested no
+`countryProfile` module and created neither the profile nor presentation controls.
+
+The retained view still uses the same draw and primitive counts as its Phase 0 counterpart. There
+is no new dependency, per-point draw call, per-frame DOM measurement, or static asset. The largest
+requests remain the pre-existing background audio, layer payloads, and two detailed button SVGs;
+none is caused by this feature. Browser profile cleanup reported zero leaked `emoeval-*` or
+`emoshot-*` directories before the long stability run began. No code was changed for performance
+because every measured limit already passes.
+
+Buffered Long Tasks report five startup tasks without `cp=1` (932 ms total, 436 ms maximum) and
+six with it (1,011 ms total, 438 ms maximum). The added task is 83 ms and matches the measured
+profile aggregation. A safe 10 degree country-grid candidate reduced ten warm aggregations from a
+71.15 ms median to 62.35 ms, only 8.80 ms. Codex rejected and removed it before commit because the
+extra index and correctness surface were not justified by a one-time 12 percent reduction. Moving
+the build off-thread would cost a duplicate geometry/data transfer and is also unwarranted while
+interactive frame time, load completion, and bundle limits pass.
+
 Exit: median regression is at most 10 percent, p95 is below 16.7 ms, gzip growth is at most 30 kB,
 and the page remains responsive at the phone viewport.
 
@@ -748,6 +777,11 @@ and the page remains responsive at the phone viewport.
 10. Count user and metrics rows before and after integrated browser tests. Record the bounded delta
     and do not delete test rows without explicit approval. Use `/` rather than `/init` for health
     probes; normal application page loads still call `/init` and register a user.
+
+Final preset `v7-a_base` consolidates the selected chain without changing values. A settled India
+selection against `v6-control_smooth-field` differed by at most 2 of 255, with zero pixels above 8
+and mean delta 0.0278. The opening `v1-control_literal-row` also replayed with its literal-row
+layout, India, and all four indicators intact.
 
 Exit: all acceptance criteria pass, both repositories are clean, and all verified work is committed.
 

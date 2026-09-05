@@ -119,7 +119,7 @@ worktrees are clean, and all accepted work is committed.
 - [x] Layer transitions, responsive layout, and accessibility verified.
 - [ ] Presentation state machine and real timing verified.
 - [x] Physical and environmental rounds completed.
-- [ ] Performance and bundle limits pass.
+- [x] Performance and bundle limits pass.
 - [ ] Integrated port-3000 checks pass.
 - [ ] Independent final findings verified.
 - [ ] Deferred final gallery captured and inspected.
