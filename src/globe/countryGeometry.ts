@@ -7,7 +7,7 @@ export type CountryGeometry =
   | { type: "Polygon"; coordinates: PolygonCoords }
   | { type: "MultiPolygon"; coordinates: MultiPolygonCoords };
 
-interface IndexedCountryGeometry {
+export interface IndexedCountryGeometry {
   key: string;
   geometry: CountryGeometry;
   polygons: IndexedCountryPolygon[];

@@ -156,3 +156,8 @@ question and delegated visual round selection to Codex.
   antimeridian sides, 177 live geometries, three real city points, and a missing microstate. The
   full gate passed. Real Chrome retained 195 labels, selected 13 visible India-category labels, and
   loaded the 204-row socioeconomic layer. Bundle gzip moved from 216.44 to 216.61 kB.
+- 2026-09-05: Phase 1, profile data slice ready. The live 195-country index built in 85.9 ms.
+  Temperature, CO2, physical, and socioeconomic coverage is 132, 139, 152, and 188 countries.
+  Point-count versus peak correlation is 0.4884, 0.7608, and 0.3744 for the three spatial signals,
+  so accessible text must disclose its source count. A separate 204-row socioeconomic reducer had
+  zero mismatches. The focused synthetic check and full frontend gate passed.

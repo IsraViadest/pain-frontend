@@ -380,6 +380,47 @@ Verify:
 Exit: a country profile can be computed without changing pixels or adding requests, and its signal
 coverage and sampling-density limitation are recorded.
 
+#### Phase 1 data evidence, 2026-09-05
+
+The live index built 195 profiles from the existing cached-array shapes in 85.9 ms. It assigned
+coordinate points through the 177 Natural Earth geometries, of which 166 match the label roster.
+
+| Signal | Full 195 coverage | Mapped 166 coverage | Missing | Mapped source points |
+|---|---:|---:|---:|---:|
+| Emotional | 195 | 166 | 0 | not spatially aggregated |
+| Temperature | 132 | 132 | 63 | 2,004 |
+| CO2 | 139 | 139 | 56 | 1,857 |
+| Physical | 152 | 152 | 43 | 13,153 |
+| Socioeconomic | 188 | 160 | 7 | 188 |
+
+CO2 covers 83.7 percent of the mapped label countries, so Phase 3 may keep its permanent outer
+ring. Countries without polygon geometry cannot receive a coordinate-grid signal and remain
+explicitly unavailable for those measures.
+
+The Pearson correlation between contributing point count and the selected peak is substantial:
+
+| Signal | Correlation |
+|---|---:|
+| Temperature | 0.4884 |
+| CO2 | 0.7608 |
+| Physical | 0.3744 |
+
+The operator already selected the peak statistic. These measurements do not reopen that choice;
+they require every accessible description to include its source-point count.
+
+An independent maximum-by-ISO reduction over all 204 socioeconomic rows produced zero mismatches
+against the 195 profile records. Representative checks:
+
+| Country | Temperature | CO2 | Physical | Socioeconomic |
+|---|---|---|---|---|
+| India | 0.1511 from 31 | 0.2555 from 40 | 0.9427 from 266 | 0.1190 from 1 |
+| Austria | 0.2769 from 2 | 0.1945 from 1 | 0.0979 from 15 | 0.2304 from 1 |
+| New Zealand | 0.0035 from 7 | 0.1727 from 12 | 0.0834 from 84 | 0.2760 from 1 |
+| Singapore | unavailable | unavailable | unavailable | 0.2280 from 1 |
+
+The focused synthetic check covers peak selection, source counts, missingness, emotional fallback,
+and proportional area. Phase 1 still needs the globe-local surface raycast before its exit passes.
+
 ### Phase 2: One authoritative country selection path
 
 1. Add a country selection owner separate from emotional network state.
