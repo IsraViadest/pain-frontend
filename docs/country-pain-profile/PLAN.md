@@ -670,6 +670,17 @@ Environmental globe:
   structure nearby;
 - keep existing image legends unless the chosen treatment cannot be explained by them.
 
+Physical round v3 is complete. The visible red field is the existing 82,000-point stipple draw,
+not the dormant debug marker mesh. Its control size is already independent of camera distance:
+2.52 CSS px at the centre and 1.80 CSS px at the rim. The three retained candidates are
+`v3-control_current-points`, `v3-a_larger-points`, and `v3-b_close-boost`. At the normal camera the
+close-boost candidate is pixel-identical to control. A fixed 18 percent increase raises red-like
+coverage in the globe crop from 10,821 to 17,038 pixels at the normal camera and from 3,907 to
+5,625 pixels close up. The close-only candidate reaches 5,169 pixels close up. Codex selected
+`v3-a_larger-points`: it improves both views and does not add a draw, mesh, point, or dependency.
+Its 20-second all-pain trace remains at 8.30 ms median and 9.10 ms p95 with the same eight draws
+and 239,452 primitives per frame as the Phase 0 control.
+
 Reject any candidate that exceeds the frame or bundle budgets, hides country boundaries, implies
 unsupported raw units, or introduces visible temporal aliasing.
 

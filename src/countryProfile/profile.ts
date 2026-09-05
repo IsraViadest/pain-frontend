@@ -1,9 +1,6 @@
 import "./countryProfile.css";
 import { proportionalAreaScale, type CountryPainProfile } from "./data";
-import {
-  resolveCountryProfilePreset,
-  type CountryProfilePreset,
-} from "./presets";
+import type { CountryProfilePreset } from "./presets";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -293,7 +290,7 @@ export class CountryProfileView {
 export function createCountryProfileView(
   appRoot: HTMLElement,
   layerId: string,
+  preset: CountryProfilePreset,
 ): CountryProfileView {
-  const preset = resolveCountryProfilePreset();
   return new CountryProfileView(appRoot, preset, layerId);
 }

@@ -496,6 +496,15 @@ let countryPresentation: CountryPresentation | null = null;
 let preserveCountryProfileOnEmoClear = false;
 let presentationBaseParams: EmoViewParams | null = null;
 
+function applyCountryProfileGlobePreset(layerId: string): void {
+  const preset = countryProfileRuntime?.preset;
+  const physical = layerId === "physpain" || layerId === "all-layers";
+  globe.setStipplePointTune({
+    scale: physical ? preset?.physicalPointScale ?? 1 : 1,
+    nearBoost: physical ? preset?.physicalPointNearBoost ?? 0 : 0,
+  });
+}
+
 function applyEmoParams(next: EmoViewParams): void {
   emoParams = next;
   emoLabelLayer?.setParams(next);
@@ -622,6 +631,7 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     },
   );
   const runtime = countryProfileRuntime;
+  applyCountryProfileGlobePreset(lastLayerId);
   countryPresentation = new CountryPresentation({
     appRoot: appRootEl,
     profiles: runtime.profiles,
@@ -678,6 +688,7 @@ function applyGlobeLayer(layerId: string): void {
     layerId === "physpain" ? PAIN_VIZ_MODE.scars : PAIN_VIZ_MODE.points;
   currentPainVizMode = vizMode;
   globe.setPainVisualizationMode(vizMode);
+  applyCountryProfileGlobePreset(layerId);
 
   globe.setWordCloudEnabled(layerId === "emopain");
   syncEmoLayer(layerId);
@@ -812,6 +823,7 @@ async function handleAllLayers(): Promise<void> {
   const allPoints: PainPoint[] = [...cachedPoints, ...fetchedLists.flat()];
   globe.setMarkers(allPoints);
   await ensureCountryProfileRuntime();
+  applyCountryProfileGlobePreset(lastLayerId);
   countryProfileRuntime?.setLayer(lastLayerId);
   syncWordCloudToggle();
   setStatus(

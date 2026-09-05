@@ -33,6 +33,15 @@
  * TRAP: starting the CSS fade before either synchronous globe rebuild consumes the transition
  * while the main thread is blocked. `main.ts` starts it after `loadPoints()` resolves.
  *
+ * ROUND v3
+ * SETTLED: v2-b profile and transition.
+ * VARIES: physical-layer stipple size, using the existing single point draw.
+ * - v3-control_current-points: current 2.52 CSS px centre dots at every camera distance.
+ * - v3-a_larger-points: fixed 18 percent increase.
+ * - v3-b_close-boost: current far size, rising to 18 percent larger at minimum zoom.
+ * SELECTED BY CODEX: v3-a_larger-points. The control already stays fixed with zoom. The selected
+ * size improves the normal camera as well as the close view; the close-only boost does not.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -49,6 +58,8 @@ export interface CountryProfilePreset {
   layout: CountryProfileLayout;
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
+  physicalPointScale?: number;
+  physicalPointNearBoost?: number;
 }
 
 const V1_PRESETS: readonly CountryProfilePreset[] = [
@@ -109,9 +120,32 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     layout: QUIET_ROW.layout,
     transitionMs: 360,
   },
+  {
+    id: "v3-control_current-points",
+    label: "v3 control: current points",
+    description: "The selected profile with the current fixed stipple size.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+  },
+  {
+    id: "v3-a_larger-points",
+    label: "v3 A: larger points",
+    description: "All physical stipple dots are 18 percent larger.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+  },
+  {
+    id: "v3-b_close-boost",
+    label: "v3 B: close boost",
+    description: "Current far size, rising 18 percent toward minimum camera distance.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointNearBoost: 0.18,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v2-b_fade-240";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v3-a_larger-points";
 
 /** Resolve `cpPreset`, falling back to the opening-round control. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

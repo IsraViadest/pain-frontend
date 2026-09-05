@@ -9,6 +9,10 @@ import type { PainPoint } from "../types/api";
 import { buildCountryPainProfiles, type CountryPainProfile } from "./data";
 import { createCountryProfileView, type CountryProfileView } from "./profile";
 import {
+  resolveCountryProfilePreset,
+  type CountryProfilePreset,
+} from "./presets";
+import {
   CountrySelectionController,
   type CountrySelectionChange,
 } from "./selection";
@@ -34,6 +38,7 @@ export class CountryProfileRuntime {
   private constructor(
     profiles: ReadonlyMap<string, CountryPainProfile>,
     private readonly view: CountryProfileView,
+    readonly preset: CountryProfilePreset,
     onChange: (change: CountrySelectionChange) => void,
   ) {
     this.profiles = profiles;
@@ -69,9 +74,11 @@ export class CountryProfileRuntime {
       },
       getCountryGeometries(),
     );
+    const preset = resolveCountryProfilePreset();
     return new CountryProfileRuntime(
       profiles,
-      createCountryProfileView(appRoot, layerId),
+      createCountryProfileView(appRoot, layerId, preset),
+      preset,
       onChange,
     );
   }
