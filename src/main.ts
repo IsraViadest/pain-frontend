@@ -503,6 +503,9 @@ function applyCountryProfileGlobePreset(layerId: string): void {
     scale: physical ? preset?.physicalPointScale ?? 1 : 1,
     nearBoost: physical ? preset?.physicalPointNearBoost ?? 0 : 0,
   });
+  globe.setEnvironmentalFieldPattern(
+    preset?.environmentalFieldPattern ?? "smooth",
+  );
 }
 
 function applyEmoParams(next: EmoViewParams): void {

@@ -51,6 +51,15 @@
  * SELECTED BY CODEX: v4-b_environment-cells. It remains readable at 393 px, separates the
  * environmental glyph from the solid physical fill, and leaves the CO2 ring unobstructed.
  *
+ * ROUND v5
+ * SETTLED: v4-b profile glyph and v3-a physical points.
+ * VARIES: texture-space alpha treatment on the existing Temperature and CO2 shells.
+ * - v5-control_smooth-field: incumbent smooth fields.
+ * - v5-a_grain-field: deterministic four-texel grain.
+ * - v5-b_hex-field: restrained twelve-texel cell trace.
+ * REJECTED BY CODEX: both textures fail at the far camera. Grain becomes square banding and the
+ * hex trace reads as a separate shell. Retain them as the upper contrast bound for round v6.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -70,6 +79,7 @@ export interface CountryProfilePreset {
   physicalPointScale?: number;
   physicalPointNearBoost?: number;
   environmentalGlyph?: "simple" | "grain" | "cells";
+  environmentalFieldPattern?: "smooth" | "grain" | "hex";
 }
 
 const V1_PRESETS: readonly CountryProfilePreset[] = [
@@ -179,6 +189,36 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     transitionMs: 240,
     physicalPointScale: 1.18,
     environmentalGlyph: "cells",
+  },
+  {
+    id: "v5-control_smooth-field",
+    label: "v5 control: smooth field",
+    description: "The selected base with the incumbent smooth environmental shells.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "smooth",
+  },
+  {
+    id: "v5-a_grain-field",
+    label: "v5 A: grain field",
+    description: "Deterministic fine grain modulates both existing environmental shells.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "grain",
+  },
+  {
+    id: "v5-b_hex-field",
+    label: "v5 B: hex field",
+    description: "A restrained cell trace modulates both existing environmental shells.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "hex",
   },
 ];
 

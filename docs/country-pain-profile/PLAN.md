@@ -689,6 +689,13 @@ selected `v4-b_environment-cells`: the pattern remains readable in the 88 px des
 the CO2 ring. The pattern is decorative inside an aria-hidden SVG; the existing accessible peak
 value, missingness, and source-count text remains the semantic source.
 
+Environmental globe round v5 retains `v5-control_smooth-field`, `v5-a_grain-field`, and
+`v5-b_hex-field`. Both textured candidates fail the far-camera requirement. Four-texel grain turns
+into square banding across the outer haze; the twelve-texel cell trace reads as a separate shell
+and competes with country boundaries. Close views remain readable, so the failure is scale and
+contrast rather than the texture-space approach. The two candidates remain as the upper bound for
+a finer, lower-contrast round.
+
 Reject any candidate that exceeds the frame or bundle budgets, hides country boundaries, implies
 unsupported raw units, or introduces visible temporal aliasing.
 
