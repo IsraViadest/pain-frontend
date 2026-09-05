@@ -10,6 +10,7 @@ type GlobeFlyToOptions = {
   radius?: number;
   durationMs?: number;
   signal?: AbortSignal;
+  preserveRadius?: boolean;
 };
 
 /** Normalized time upper bound (t ∈ [0, 1]). */
@@ -35,7 +36,9 @@ export function flyGlobeToLatLng(
   earthContent: THREE.Object3D,
   options: GlobeFlyToOptions = {},
 ): Promise<void> {
-  const radius = options.radius ?? SURVEY_FLY_TO_CAMERA_RADIUS;
+  const radius = options.preserveRadius
+    ? camera.position.length()
+    : options.radius ?? SURVEY_FLY_TO_CAMERA_RADIUS;
   const durationMs = options.durationMs ?? SURVEY_FLY_TO_DURATION_MS;
   const signal = options.signal;
   if (signal?.aborted) {
@@ -49,6 +52,14 @@ export function flyGlobeToLatLng(
   targetPosition.applyEuler(new THREE.Euler(0, earthContent.rotation.y, 0));
 
   const startPosition = camera.position.clone();
+  const startDirection = startPosition.clone().normalize();
+  const targetDirection = targetPosition.clone().normalize();
+  const identityRotation = new THREE.Quaternion();
+  const targetRotation = new THREE.Quaternion().setFromUnitVectors(
+    startDirection,
+    targetDirection,
+  );
+  const frameRotation = new THREE.Quaternion();
   // Globe center — OrbitControls orbit target
   controls.target.set(0, 0, 0);
 
@@ -87,7 +98,12 @@ export function flyGlobeToLatLng(
       const t = Math.min(FLY_TO_T_MAX, elapsed / durationMs); // clamp normalized time
       const eased = easeInOutCubic(t);
 
-      camera.position.lerpVectors(startPosition, targetPosition, eased);
+      if (options.preserveRadius) {
+        frameRotation.slerpQuaternions(identityRotation, targetRotation, eased);
+        camera.position.copy(startDirection).applyQuaternion(frameRotation).multiplyScalar(radius);
+      } else {
+        camera.position.lerpVectors(startPosition, targetPosition, eased);
+      }
       controls.update();
 
       if (t < FLY_TO_T_MAX) {

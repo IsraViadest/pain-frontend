@@ -62,11 +62,13 @@ assert(motion.leaderArrivalOf("AAA") > duringPause, "resumed motion advances");
 const camera = new THREE.PerspectiveCamera();
 camera.position.set(0, 0, 2.6);
 let updates = 0;
+let radii: number[] = [];
 const controls = {
   target: new THREE.Vector3(),
   enabled: true,
   update: () => {
     updates += 1;
+    radii.push(camera.position.length());
   },
 } as unknown as OrbitControls;
 const earth = new THREE.Group();
@@ -85,6 +87,17 @@ await flyGlobeToLatLng(camera, controls, -5, -30, earth, {
 });
 const reducedTarget = latLngToVector3(-5, -30, 1).normalize().multiplyScalar(2.6);
 assert(camera.position.distanceTo(reducedTarget) < 1e-9, "zero-time flight cuts to target");
+
+camera.position.set(0, 0, 2.2);
+radii = [];
+await flyGlobeToLatLng(camera, controls, 35, 130, earth, {
+  durationMs: 30,
+  radius: 9,
+  preserveRadius: true,
+});
+assert(radii.length > 1, "rotation-only flight produced intermediate frames");
+assert(radii.every((radius) => Math.abs(radius - 2.2) < 1e-9),
+  "rotation-only flight changed camera radius");
 
 const abortController = new AbortController();
 const aborting = flyGlobeToLatLng(camera, controls, -20, 100, earth, {

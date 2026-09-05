@@ -559,7 +559,8 @@ function setPresentationTiming(active: boolean, timeScale: number): void {
     return;
   }
   if (!presentationBaseParams) presentationBaseParams = { ...emoParams };
-  const factor = (countryProfileRuntime?.preset.refinement ? 1.5 : 3) * timeScale;
+  const preset = countryProfileRuntime?.preset;
+  const factor = (preset?.cycle?.motionScale ?? (preset?.refinement ? 1.5 : 3)) * timeScale;
   applyEmoParams({
     ...presentationBaseParams,
     selectionMotionMs: presentationBaseParams.selectionMotionMs * factor,
@@ -692,7 +693,7 @@ async function ensureCountryProfileRuntime(): Promise<void> {
         centroid.lat,
         centroid.lng,
         globe.earthContent,
-        { durationMs, signal },
+        { durationMs, signal, preserveRadius: runtime.preset.cycle?.preserveZoom },
       );
     },
     selectCountry: (iso3) => {
@@ -713,6 +714,11 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     setProfileSuppressed: (suppressed) => runtime.setProfileSuppressed(suppressed),
     setProfileAutoplay: (autoplay) => runtime.setAutoplay(autoplay),
     previewCountry: (iso3) => runtime.previewCountry(iso3),
+    previewDuringFlight: runtime.preset.cycle?.previewDuringFlight,
+    revealWithNetwork: runtime.preset.cycle?.revealWithNetwork,
+    prepareMs: runtime.preset.cycle?.prepareMs,
+    flightMs: runtime.preset.cycle?.flightMs,
+    dwellMs: runtime.preset.cycle?.dwellMs,
     getAutoSpin: () => globe.isAutoSpinEnabled(),
     setAutoSpin: (enabled) => globe.setAutoSpinEnabled(enabled),
     });

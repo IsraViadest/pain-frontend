@@ -21,6 +21,7 @@
     const { DEFAULT_EMO_PARAMS } = await import("/src/emo/viewParams.ts");
     const { loadEmoData } = await import("/src/emo/emoData.ts");
     const { CountryPresentation } = await import("/src/countryProfile/presentation.ts");
+    const { resolveCountryProfilePreset } = await import("/src/countryProfile/presets.ts");
     const data = await loadEmoData();
     const params = {
       ...DEFAULT_EMO_PARAMS, networkMode: "selected", categoryGraph: "delaunay",
@@ -152,6 +153,8 @@
     await sleep(500);
     let refinedSequence = null;
     if (realToggle.classList.contains("country-presentation-toggle--refined")) {
+      const profilePreset = resolveCountryProfilePreset();
+      const revealWithNetwork = profilePreset.cycle?.revealWithNetwork === true;
       const labelHost = document.querySelector("#emo-label-host");
       const canvas = document.querySelector("canvas");
       let hit = null;
@@ -177,32 +180,63 @@
       const manual = profile.querySelector("h2").textContent;
       realToggle.click();
       await until(() => realToggle.dataset.state === "flying", "manual-country flight");
-      check(profile.dataset.stage === "heading" && !profile.hidden,
-        "country name missing during flight");
-      check(profile.querySelector("h2").textContent === manual, "cycle ignored manual country");
-      check(getComputedStyle(profile.querySelector(".country-profile__items")).visibility ===
-        "hidden", "indicators shown before network arrival");
+      if (profilePreset.cycle?.previewDuringFlight === false) {
+        check(profile.hidden, "country profile appeared during rotation-only travel");
+      } else {
+        check(profile.dataset.stage === "heading" && !profile.hidden,
+          "country name missing during flight");
+        check(profile.querySelector("h2").textContent === manual, "cycle ignored manual country");
+        check(getComputedStyle(profile.querySelector(".country-profile__items")).visibility ===
+          "hidden", "indicators shown before network arrival");
+      }
       await until(() => realToggle.dataset.state === "building", "refined build");
       const began = performance.now();
+      if (revealWithNetwork) {
+        check(profile.dataset.stage === "full" && !profile.hidden,
+          "profile did not appear with network construction");
+        check(getComputedStyle(profile.querySelector(".country-profile__items")).visibility ===
+          "visible", "indicators did not appear with network construction");
+        check(profile.dataset.revealing === "true", "soft profile reveal did not start");
+      }
       await until(() => realToggle.dataset.state === "dwelling", "refined full reveal");
       const buildRevealMs = performance.now() - began;
       check(profile.dataset.stage === "full" && !profile.hidden, "missing full profile");
       check(realToggle.textContent.includes("running"), "running state not visible");
       const scale = Number(new URL(location.href).searchParams.get("cpTimeScale") ?? 1);
-      check(Math.abs(buildRevealMs - (1160 * 1.5 + 500) * scale) < 100,
+      const motionScale = profilePreset.cycle?.motionScale ?? 1.5;
+      const revealDelay = revealWithNetwork ? 0 : 500;
+      check(Math.abs(buildRevealMs - (1160 * motionScale + revealDelay) * scale) < 100,
         "refined build/reveal duration differs from approved timing");
       realToggle.click();
       await sleep(400);
       realToggle.click();
       await until(() => realToggle.dataset.state === "flying", "saved-cursor flight");
-      check(profile.querySelector("h2").textContent === manual, "restart lost its country cursor");
-      canvas.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 0 }));
-      await sleep(100);
-      check(profile.hidden, "canceled flight left destination preview visible");
-      check(realToggle.textContent.includes("paused"), "paused state not visible");
-      realToggle.click();
-      await sleep(300);
-      refinedSequence = { manual, buildRevealMs, headingDuringFlight: true,
+      if (profilePreset.cycle?.previewDuringFlight === false) {
+        check(profile.hidden, "country appeared during saved-cursor flight");
+        canvas.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 0 }));
+        await sleep(100);
+        check(profile.hidden, "canceled flight left a country profile visible");
+        check(realToggle.textContent.includes("paused"), "paused state not visible");
+        realToggle.click();
+        await sleep(300);
+        realToggle.click();
+        await until(() => realToggle.dataset.state === "building", "saved-cursor build");
+        check(profile.querySelector("h2").textContent === manual,
+          "restart lost its country cursor");
+        realToggle.click();
+        await sleep(300);
+      } else {
+        check(profile.querySelector("h2").textContent === manual, "restart lost its country cursor");
+        canvas.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 0 }));
+        await sleep(100);
+        check(profile.hidden, "canceled flight left destination preview visible");
+        check(realToggle.textContent.includes("paused"), "paused state not visible");
+        realToggle.click();
+        await sleep(300);
+      }
+      refinedSequence = { manual, buildRevealMs,
+        headingDuringFlight: profilePreset.cycle?.previewDuringFlight !== false,
+        revealWithNetwork,
         canceledPreviewCleared: true, savedCursor: true };
     }
     return { passed: true, completeSegments, fixtureSelections: selections,

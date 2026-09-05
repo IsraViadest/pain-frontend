@@ -25,6 +25,7 @@
     const card = host.querySelector(".country-profile");
     await document.fonts.ready;
     let largestHeight = 0, longest = "", largestAlignmentError = 0;
+    let largestPaintedGapError = 0, largestEnglishCenterError = 0;
     for (const [iso3, c] of Object.entries(data.countries)) {
       const profile = {
         iso3, countryName: c.name,
@@ -53,10 +54,42 @@
       check(error < 1, iso3 + ": indicators misaligned");
       const slots = [...card.querySelectorAll("[data-indicator]")]
         .map((x) => x.getBoundingClientRect());
-      const gaps = slots.slice(1).map((r, i) => r.left - slots[i].right);
-      check(Math.max(...gaps) - Math.min(...gaps) < 1, "unequal indicator-slot spacing");
-      check(Math.max(...slots.map((r) => r.width)) - Math.min(...slots.map((r) => r.width)) < 1,
-        "unequal indicator-slot widths");
+      if (preset.profileSpacing === "painted-n") {
+        const horizontal = (nodes) => {
+          const rects = nodes.flatMap((node) => {
+            const r = node.getBoundingClientRect(), style = getComputedStyle(node);
+            return style.display !== "none" && style.visibility !== "hidden" && r.width > 0 ? [r] : [];
+          });
+          return { left: Math.min(...rects.map((r) => r.left)),
+            right: Math.max(...rects.map((r) => r.right)) };
+        };
+        const englishNode = card.querySelector(".country-profile__english");
+        const terms = horizontal([card.querySelector(".country-profile__native"), englishNode]);
+        const borders = ["environmental", "physical", "socioeconomic"].map((key) => horizontal(
+          [...card.querySelector('[data-indicator="' + key + '"]').querySelectorAll(
+            ".country-profile__outline, .country-profile__empty-outline")]
+            .filter((node) => getComputedStyle(node).display !== "none"),
+        ));
+        const edges = [terms, ...borders];
+        const gaps = edges.slice(1).map((edge, index) => edge.left - edges[index].right);
+        const target = Number.parseFloat(card.style.getPropertyValue("--cp-painted-gap"));
+        const gapError = Math.max(...gaps.map((gap) => Math.abs(gap - target)));
+        largestPaintedGapError = Math.max(largestPaintedGapError, gapError);
+        check(gapError < 1, iso3 + ": painted gaps differ from rendered n width");
+        if (preset.centerEnglishTerm && getComputedStyle(englishNode).display !== "none") {
+          const english = englishNode.getBoundingClientRect();
+          const centerError = Math.abs(english.left + english.width / 2 - native.left - native.width / 2);
+          largestEnglishCenterError = Math.max(largestEnglishCenterError, centerError);
+          check(centerError < 1, iso3 + ": English term not centered beneath native term");
+        }
+        check(getComputedStyle(card.querySelector(".country-profile__native")).textAlign === "right",
+          iso3 + ": native term is not right-aligned");
+      } else {
+        const gaps = slots.slice(1).map((r, i) => r.left - slots[i].right);
+        check(Math.max(...gaps) - Math.min(...gaps) < 1, "unequal indicator-slot spacing");
+        check(Math.max(...slots.map((r) => r.width)) - Math.min(...slots.map((r) => r.width)) < 1,
+          "unequal indicator-slot widths");
+      }
       for (const key of ["environmental", "physical"]) {
         const slot = card.querySelector('[data-indicator="' + key + '"]');
         const s = slot.getBoundingClientRect(), glyph = slot.querySelector("svg").getBoundingClientRect();
@@ -109,7 +142,8 @@
     const result = { passed: true, preset: preset.id, width: innerWidth,
       theme: document.documentElement.dataset.theme, countries: 195,
       cardWidth: card.getBoundingClientRect().width, largestHeight, longest,
-      largestAlignmentError, independentMissingness: true, layerCenters: true };
+      largestAlignmentError, largestPaintedGapError, largestEnglishCenterError,
+      independentMissingness: true, layerCenters: true };
     return result;
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };

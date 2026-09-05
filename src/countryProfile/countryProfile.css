@@ -548,6 +548,51 @@
   transform: none;
 }
 
+.country-profile[data-layout="compact"][data-profile-spacing="painted-n"]
+  .country-profile__items {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+}
+
+.country-profile[data-layout="compact"][data-profile-spacing="painted-n"]
+  .country-profile__metric {
+  flex: 0 0 var(--cp-glyph);
+  width: var(--cp-glyph);
+}
+
+.country-profile[data-layout="compact"][data-profile-spacing="painted-n"]
+  .country-profile__emotional {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.country-profile[data-layout="compact"][data-profile-glow="wide"] {
+  box-shadow:
+    0 0 0 1px rgba(220, 236, 255, 0.22),
+    0 0 26px 15px rgba(151, 195, 255, 0.14),
+    0 0 72px 42px rgba(92, 146, 235, 0.08);
+}
+
+@keyframes country-profile-soft-reveal {
+  0% {
+    opacity: 0;
+    filter: blur(7px);
+  }
+  58% {
+    opacity: 0.82;
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.country-profile[data-profile-reveal="soft"][data-revealing="true"] {
+  animation: country-profile-soft-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .country-profile[data-layout="compact"][data-layer]:not([data-layer="all-layers"])
   .country-profile__items {
   display: flex;

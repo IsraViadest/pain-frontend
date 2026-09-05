@@ -1,7 +1,7 @@
 # Country Profiles and Expressive Globe Rendering
 
-Last Updated: 2026-09-05
-Version: 2.0
+Last Updated: 2026-09-06
+Version: 2.1
 Status: approved implementation plan; current phase status and evidence are in GOAL.md
 
 ## Current objective and working boundary
@@ -261,6 +261,26 @@ and primary-checkout restoration. Run independent final reviews when available; 
 before fixes. Capture final PNGs only after fixes/performance. Inspect each; preserve old galleries.
 No new video. Clean only task-owned temporary profiles/captures, commit accepted work, leave
 relevant worktrees clean.
+
+### Post-acceptance rounds v19-v24
+
+The operator reopened the compact profile and country-cycle sequence after Phase 20. Preserve
+v18 and every earlier preset. The new default must:
+
+- space adjacent painted indicator edges by approximately one rendered lowercase `n` in the
+  country-name font, with the same gap across all three boundaries;
+- keep the native emotional term right-aligned while centering its English translation beneath
+  the native term itself;
+- add a broad, low-alpha profile edge glow that fades smoothly into transparency;
+- show no destination country during automated travel, rotate without changing camera radius,
+  and reveal the full profile as network construction begins;
+- shorten the country dwell and transition while retaining a readable artistic cadence.
+
+Rounds v19-v23 isolate spacing, translation alignment, glow, rotation-only travel, and reveal
+order. Round v24 compares 10/14/18 second dwells with corresponding 1.2/1.5/1.8 second flights.
+Choose by painted-edge measurements, live motion, mobile fit, interruption behavior, and paired
+performance. Temporary captures support inspection; do not extend the durable gallery for this
+post-acceptance round unless the operator asks.
 
 ## Verification and adoption
 

@@ -672,6 +672,40 @@ data. Cleanup is limited to task-owned temporaries.
   and historical artifacts. Physical-phone acceptance remains explicitly deferred, without a
   phone performance claim. All required work under the operator's revised acceptance is complete.
 
+- 2026-09-06: Post-acceptance rounds v19-v24 complete the operator's profile and country-cycle
+  refinement. v18 remains replayable. Baseline painted gaps were 35.06/57.70/31.02 px while a
+  lowercase `n` in the country-name font measured 14.15 px. `v19-a_painted-n-spacing` measures
+  the actual term and SVG-outline boxes after each profile update and brings all three gaps to
+  that target. Across all 195 countries, maximum gap error is 0.014 px on desktop and 0.006 px
+  at 393x852. Environmental and Physical remain centered in their own boxes.
+
+  `v20-a_centered-translation` keeps the native term right-aligned and centers English beneath
+  its painted center. Maximum center error across 195 desktop terms is 0.0005 px; English remains
+  hidden on mobile. `v21-a_wide-profile-glow` adds a three-stage 72 px low-alpha edge falloff.
+  Desktop and DPR-2 phone frames were inspected; the halo remains outside the compact content and
+  the card stays clear of the share action.
+
+  `v22-a_rotation-only` uses spherical camera interpolation at the starting radius. The focused
+  motion check samples every intermediate update and finds zero radius drift. `v23-a_network-
+  profile-reveal` keeps the profile hidden during travel, then starts a 520 ms opacity/blur reveal
+  in the same construction step that selects the country and starts the emotional wave. At the
+  first sampled construction frame the profile is visible at opacity 0 and blur 7 px; it reaches
+  opacity 1 while the wave is still building. No heading or indicators appear during travel.
+
+  Round v24 compared brisk (0.3 s empty / 1.2 s flight / 10 s dwell), balanced (0.4 / 1.5 / 14),
+  and calm (0.5 / 1.8 / 18). Balanced is selected: brisk reads as a slideshow, while calm remains
+  too close to the retired pace. The network uses the normal 1.0 motion scale. The new default is
+  `v24-b_balanced-cycle`.
+
+  The default passes the all-195 layout sweep at 1500x950 and 393x852 in blue and dark themes,
+  the network completion/reversal test, interaction and idle-resume races, Auto quality, and the
+  retained v18 regression. A 60-second accelerated soak completes 476 visits, all 195 countries
+  and two wraps with zero errors, human metrics, DOM growth, or retained highlight textures.
+  Paired 1080x684 building measurements are flat: both v18 and v24 have CPU median/p95 1.0/1.7 ms
+  and GPU median about 2.55 ms; GPU p95 is 3.09 vs 3.21 ms and frame p95 9.9 vs 10.2 ms. Main entry
+  gzip is 226.13 kB on the host, still below the 246.44 kB limit. No durable gallery files were
+  added; only task-owned temporary inspection frames were used.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

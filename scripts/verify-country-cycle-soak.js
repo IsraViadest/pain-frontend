@@ -1,9 +1,11 @@
-/* eval.mjs expression: cpPreset=v18-b_clear-chrome&cpQuality=standard&cpTimeScale=.005.
- * The 30-minute wall-clock interval is never multiplied by cpTimeScale. Keep the tab visible.
+/* eval.mjs expression: cpQuality=standard&cpTimeScale=.005, optional soakMs for bounded rounds.
+ * The wall-clock interval is never multiplied by cpTimeScale. Keep the tab visible.
  * Run alone: existing browser helpers choose uncoordinated debugging ports.
  */
 (async () => {
-  const durationMs = 30 * 60 * 1000;
+  const requestedDuration = Number(new URL(location.href).searchParams.get("soakMs"));
+  const durationMs = Number.isFinite(requestedDuration) && requestedDuration > 0
+    ? requestedDuration : 30 * 60 * 1000;
   const restore = [], errors = [], samples = [];
   const metrics = { toggles: 0, otherMetrics: 0, countryOpen: 0, countryClose: 0,
     unparsed: 0, failedResponses: 0 };
@@ -60,14 +62,20 @@
     profile = document.querySelector("#country-profile");
     heading = profile?.querySelector(".country-profile__country");
     check(app && canvas && toggle && profile && heading, "Country-cycle UI unavailable");
-    check(profile.dataset.preset === "v18-b_clear-chrome", "Use the v18-b_clear-chrome preset");
+    const requestedPreset = query.get("cpPreset") ?? "v24-b_balanced-cycle";
+    check(profile.dataset.preset === requestedPreset, "Country profile preset does not match URL/default");
     check(!document.hidden && !matchMedia("(prefers-reduced-motion: reduce)").matches,
       "Soak needs a visible tab with ordinary motion");
     check(toggle.dataset.state === "idle" && toggle.getAttribute("aria-pressed") === "false" && profile.hidden,
       "Start on a fresh page with no selected country or prior tour");
-    const [{ loadEmoData }, { useMockApi }, { getPainServerUserId }] = await Promise.all([
+    const [{ loadEmoData }, { useMockApi }, { getPainServerUserId },
+      { resolveCountryProfilePreset }] = await Promise.all([
       import("/src/emo/emoData.ts"), import("/src/api/config.ts"), import("/src/api/session.ts"),
+      import("/src/countryProfile/presets.ts"),
     ]);
+    const profilePreset = resolveCountryProfilePreset();
+    const noFlightPreview = profilePreset.cycle?.previewDuringFlight === false;
+    const revealWithNetwork = profilePreset.cycle?.revealWithNetwork === true;
     check(!useMockApi && getPainServerUserId().length > 0, "Country metrics must be enabled to verify their absence");
     const data = await loadEmoData();
     const categoryLabels = new Map(data.categories.map((category) => [category.key, category.label]));
@@ -164,12 +172,25 @@
           }
         }
         if (state === "preparing") check(profile.hidden, "Previous profile remained visible during retraction");
-        if (state === "flying" || state === "building") {
-          check(!profile.hidden && profile.dataset.stage === "heading" &&
+        if (state === "flying") {
+          if (noFlightPreview) check(profile.hidden, "Profile appeared during country travel");
+          else {
+            check(!profile.hidden && profile.dataset.stage === "heading" &&
+              heading.textContent.trim() === expected[visits % expected.length].name,
+            "Flight preview is stale or missing");
+            check(getComputedStyle(profile.querySelector(".country-profile__items")).visibility === "hidden",
+              "Profile indicators appeared during country travel");
+          }
+        }
+        if (state === "building") {
+          check(!profile.hidden &&
             heading.textContent.trim() === expected[visits % expected.length].name,
-          "Flight/build preview is stale or missing");
-          check(getComputedStyle(profile.querySelector(".country-profile__items")).visibility === "hidden",
-            "Profile indicators appeared before construction completed");
+          "Building profile is stale or missing");
+          check(profile.dataset.stage === (revealWithNetwork ? "full" : "heading"),
+            "Building profile stage does not match its reveal mode");
+          check(getComputedStyle(profile.querySelector(".country-profile__items")).visibility ===
+            (revealWithNetwork ? "visible" : "hidden"),
+          "Building indicators do not match their reveal mode");
         }
         if (state === "dwelling") {
           const current = expected[(visits - 1) % expected.length];

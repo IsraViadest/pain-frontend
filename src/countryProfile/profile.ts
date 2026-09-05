@@ -3,6 +3,7 @@ import { proportionalAreaScale, type CountryPainProfile } from "./data";
 import type { CountryProfilePreset } from "./presets";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+const textMeasureContext = document.createElement("canvas").getContext("2d");
 
 const SHAPES = {
   environmental: {
@@ -192,10 +193,14 @@ export class CountryProfileView {
   private readonly nativeTerm = document.createElement("span");
   private readonly englishTerm = document.createElement("span");
   private readonly emotional = document.createElement("div");
+  private readonly items = document.createElement("div");
   private readonly environmental: ReturnType<typeof createEnvironmentalMetric>;
   private readonly physical: ReturnType<typeof createSignalMetric>;
   private readonly socioeconomic: ReturnType<typeof createSignalMetric>;
   private readonly transitionMs: number;
+  private readonly paintedSpacing: boolean;
+  private readonly centerEnglishTerm: boolean;
+  private readonly softReveal: boolean;
   private currentLayer = "";
   private transitionRevision = 0;
   private transitionTimer: number | null = null;
@@ -205,7 +210,54 @@ export class CountryProfileView {
   private boundsObserver: ResizeObserver | null = null;
   private readonly obstacles: HTMLElement[] = [];
 
+  private syncPaintedSpacing(): void {
+    if (!this.paintedSpacing) return;
+    const metrics = [this.emotional, this.environmental.element, this.physical.element,
+      this.socioeconomic.element];
+    for (const metric of metrics.slice(1)) metric.style.marginLeft = "0px";
+    this.englishTerm.style.transform = "";
+    const visibleRect = (elements: readonly Element[]): { left: number; right: number } | null => {
+      const rects = elements.flatMap((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0
+          ? [rect] : [];
+      });
+      return rects.length ? {
+        left: Math.min(...rects.map((rect) => rect.left)),
+        right: Math.max(...rects.map((rect) => rect.right)),
+      } : null;
+    };
+    if (this.centerEnglishTerm) {
+      const native = this.nativeTerm.getBoundingClientRect();
+      const english = this.englishTerm.getBoundingClientRect();
+      if (native.width > 0 && english.width > 0) {
+        const offset = native.left + native.width / 2 - english.left - english.width / 2;
+        this.englishTerm.style.transform = `translateX(${offset.toFixed(3)}px)`;
+      }
+    }
+    if (this.currentLayer !== "all-layers") return;
+    const context = textMeasureContext;
+    if (!context) return;
+    context.font = getComputedStyle(this.countryName).font;
+    const target = context.measureText("n").width;
+    this.host.style.setProperty("--cp-painted-gap", `${target.toFixed(3)}px`);
+    const bounds = [
+      () => visibleRect([this.nativeTerm, this.englishTerm]),
+      ...metrics.slice(1).map((metric) => () => visibleRect(
+        [...metric.querySelectorAll(".country-profile__outline, .country-profile__empty-outline")],
+      )),
+    ];
+    for (let index = 1; index < metrics.length; index++) {
+      const previous = bounds[index - 1]!();
+      const current = bounds[index]!();
+      if (!previous || !current) continue;
+      metrics[index]!.style.marginLeft = `${(target - (current.left - previous.right)).toFixed(3)}px`;
+    }
+  }
+
   private syncBounds = (): void => {
+    this.syncPaintedSpacing();
     const profileRect = this.host.getBoundingClientRect();
     const nativeRect = this.nativeTerm.getBoundingClientRect();
     const left = nativeRect.width > 0 ? Math.min(profileRect.left, nativeRect.left) : profileRect.left;
@@ -250,6 +302,12 @@ export class CountryProfileView {
     this.host.dataset.environmentalGlyph = preset.environmentalGlyph ?? "simple";
     this.host.dataset.compactSize = preset.compactSize ?? "medium";
     this.host.dataset.caption = preset.emotionalCaption ?? "quiet";
+    this.host.dataset.profileSpacing = preset.profileSpacing ?? "slots";
+    this.host.dataset.profileGlow = preset.profileGlow ?? "none";
+    this.host.dataset.profileReveal = preset.profileReveal ?? "none";
+    this.paintedSpacing = preset.profileSpacing === "painted-n";
+    this.centerEnglishTerm = preset.centerEnglishTerm === true;
+    this.softReveal = preset.profileReveal === "soft";
     this.host.style.setProperty("--country-profile-plate", String(preset.plateOpacity ?? 0.36));
     this.host.style.setProperty("--country-profile-native", String(preset.nativeOpacity ?? 0.72));
     this.host.hidden = true;
@@ -265,8 +323,7 @@ export class CountryProfileView {
     this.countryName.className = "country-profile__country";
     const divider = document.createElement("div");
     divider.className = "country-profile__divider";
-    const items = document.createElement("div");
-    items.className = "country-profile__items";
+    this.items.className = "country-profile__items";
 
     this.emotional.className = "country-profile__emotional";
     this.emotional.dataset.indicator = "emotional";
@@ -275,13 +332,13 @@ export class CountryProfileView {
     this.nativeTerm.dir = "auto";
     this.englishTerm.className = "country-profile__english";
     this.emotional.append(this.nativeTerm, this.englishTerm);
-    items.append(
+    this.items.append(
       this.emotional,
       this.environmental.element,
       this.physical.element,
       this.socioeconomic.element,
     );
-    this.host.append(this.countryName, divider, items);
+    this.host.append(this.countryName, divider, this.items);
     appRoot.append(this.host);
     if (compact) {
       this.boundsObserver = new ResizeObserver(this.syncBounds);
@@ -296,6 +353,9 @@ export class CountryProfileView {
       }
       window.addEventListener("resize", this.syncBounds);
       this.syncBounds();
+      void document.fonts.ready.then(() => {
+        if (this.host.isConnected) this.syncBounds();
+      });
     }
     this.setLayer(layerId);
   }
@@ -365,9 +425,17 @@ export class CountryProfileView {
   }
 
   setSuppressed(suppressed: boolean): void {
+    const reveal = this.suppressed && !suppressed && this.profile !== null && this.softReveal &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.suppressed = suppressed;
     this.host.hidden = !this.preview && (this.profile === null || suppressed);
     if (this.boundsObserver) this.syncBounds();
+    if (suppressed) delete this.host.dataset.revealing;
+    else if (reveal) {
+      delete this.host.dataset.revealing;
+      void this.host.offsetWidth;
+      this.host.dataset.revealing = "true";
+    }
   }
 
   /** Heading-only destination preview, without changing selection, metrics, or the network. */

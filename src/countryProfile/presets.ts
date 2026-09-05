@@ -85,6 +85,14 @@
  * taper closes the hard support edge. Isolated blurred peaks change by 1-2 byte levels.
  * Frame cadence stays 8.3 ms median / 9.0 ms p95 in the paired desktop trace; this is not GPU time.
  *
+ * ROUNDS v19-v24
+ * - v19 measures regular spacing between painted edges against one lowercase n.
+ * - v20 centers English beneath the right-aligned native emotional term.
+ * - v21 adds the broad profile edge glow.
+ * - v22 preserves the camera radius during country-cycle travel.
+ * - v23 hides the destination during travel and reveals the profile with network construction.
+ * - v24 compares 10, 14, and 18 second dwell pacing. Selected: balanced at 14 seconds.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -132,6 +140,19 @@ export interface CountryProfilePreset {
     | "hex"
     | "fine-grain"
     | "fine-hex";
+  profileSpacing?: "slots" | "painted-n";
+  centerEnglishTerm?: boolean;
+  profileGlow?: "none" | "wide";
+  profileReveal?: "none" | "soft";
+  cycle?: {
+    preserveZoom?: boolean;
+    revealWithNetwork?: boolean;
+    previewDuringFlight?: boolean;
+    prepareMs?: number;
+    flightMs?: number;
+    dwellMs?: number;
+    motionScale?: number;
+  };
 }
 
 const V1_PRESETS: readonly CountryProfilePreset[] = [
@@ -178,6 +199,19 @@ const V17_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> = {
   physicalPointScale: 1, physicalDetail: "split1", atmosphereMode: "volume", atmosphereSamples: 16,
   environmentalContextOpacity: 0.25,
 };
+const V19_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> = {
+  ...V17_BASE, socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
+  socioeconomicPatternContrast: 0.1, quality: true, chromeOcclusion: true,
+};
+const V19_TIGHT = { ...V19_BASE, profileSpacing: "painted-n" } as const;
+const V20_CENTERED = { ...V19_TIGHT, centerEnglishTerm: true } as const;
+const V21_GLOW = { ...V20_CENTERED, profileGlow: "wide" } as const;
+const V22_ROTATION = { ...V21_GLOW, cycle: { preserveZoom: true } } as const;
+const V23_REVEAL = {
+  ...V21_GLOW,
+  profileReveal: "soft",
+  cycle: { preserveZoom: true, previewDuringFlight: false, revealWithNetwork: true },
+} as const;
 
 const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
   ...V1_PRESETS,
@@ -569,9 +603,71 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     socioeconomicStyle: "hatch", socioeconomicContextOpacity: 0.25,
     socioeconomicPatternContrast: 0.1, quality: true, chromeOcclusion: true,
   },
+  {
+    ...V19_BASE, id: "v19-control_composed", label: "v19 control: equal slots",
+    description: "The selected v18 composition with its equal four-column profile row.",
+  },
+  {
+    ...V19_TIGHT, id: "v19-a_painted-n-spacing", label: "v19: painted n spacing",
+    description: "Adjacent painted indicator edges are separated by one rendered lowercase n.",
+  },
+  {
+    ...V19_TIGHT, id: "v20-control_tight-spacing", label: "v20 control: tight spacing",
+    description: "The selected painted-edge spacing with the translation still right-aligned.",
+  },
+  {
+    ...V20_CENTERED, id: "v20-a_centered-translation", label: "v20: centered translation",
+    description: "English centers beneath the right-aligned native emotional term.",
+  },
+  {
+    ...V20_CENTERED, id: "v21-control_plain-profile", label: "v21 control: plain profile edge",
+    description: "The selected compact row with the incumbent translucent profile plate.",
+  },
+  {
+    ...V21_GLOW, id: "v21-a_wide-profile-glow", label: "v21: wide profile glow",
+    description: "A broad low-alpha edge glow fades outward from the translucent plate.",
+  },
+  {
+    ...V21_GLOW, id: "v22-control_existing-flight", label: "v22 control: existing flight",
+    description: "The new profile treatment with the existing camera radius change.",
+  },
+  {
+    ...V22_ROTATION, id: "v22-a_rotation-only", label: "v22: rotation-only flight",
+    description: "Country-cycle travel rotates at the current camera radius without zooming.",
+  },
+  {
+    ...V22_ROTATION, id: "v23-control_heading-after-flight", label: "v23 control: delayed profile",
+    description: "Rotation-only travel with the existing heading and post-network reveal order.",
+  },
+  {
+    ...V23_REVEAL, id: "v23-a_network-profile-reveal", label: "v23: network and profile together",
+    description: "Travel shows no country; network and a soft profile reveal begin together.",
+  },
+  {
+    ...V23_REVEAL, id: "v24-control_current-pace", label: "v24 control: current pace",
+    description: "The selected sequence at the existing 30-second dwell and 2.5-second flight.",
+  },
+  {
+    ...V23_REVEAL, id: "v24-a_brisk-cycle", label: "v24: brisk cycle",
+    description: "A 10-second dwell, 1.2-second flight, and 0.3-second empty beat.",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 300, flightMs: 1200, dwellMs: 10000,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v24-b_balanced-cycle", label: "v24: balanced cycle",
+    description: "A 14-second dwell, 1.5-second flight, and 0.4-second empty beat.",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 14000,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v24-c_calm-cycle", label: "v24: calm cycle",
+    description: "An 18-second dwell, 1.8-second flight, and 0.5-second empty beat.",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 500, flightMs: 1800, dwellMs: 18000,
+      motionScale: 1.25 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v18-b_clear-chrome";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v24-b_balanced-cycle";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

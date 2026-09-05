@@ -33,6 +33,11 @@ interface CountryPresentationOptions {
   setProfileSuppressed: (suppressed: boolean) => void;
   setProfileAutoplay: (autoplay: boolean) => void;
   previewCountry?: (iso3: string | null) => void;
+  previewDuringFlight?: boolean;
+  revealWithNetwork?: boolean;
+  prepareMs?: number;
+  flightMs?: number;
+  dwellMs?: number;
   getAutoSpin: () => boolean;
   setAutoSpin: (enabled: boolean) => void;
 }
@@ -252,25 +257,35 @@ export class CountryPresentation {
       this.options.setProfileSuppressed(true);
       this.options.clearCountry();
       await waitWhile(this.options.isRetreating, signal);
-      await delay((this.options.refinement ? 1000 : PREPARE_MS) * this.timeScale, signal);
+      await delay((this.options.prepareMs ?? (this.options.refinement ? 1000 : PREPARE_MS)) *
+        this.timeScale, signal);
 
       this.setState("flying");
-      if (this.options.refinement) this.options.previewCountry?.(country.iso3);
+      if (this.options.refinement && this.options.previewDuringFlight !== false) {
+        this.options.previewCountry?.(country.iso3);
+      }
       await this.options.moveTo(
         country.iso3,
         signal,
-        this.reducedMotion.matches ? 0 : SURVEY_FLY_TO_DURATION_MS * this.timeScale,
+        this.reducedMotion.matches ? 0 :
+          (this.options.flightMs ?? SURVEY_FLY_TO_DURATION_MS) * this.timeScale,
       );
 
       this.setState("building");
       this.options.selectCountry(country.iso3);
+      if (this.options.revealWithNetwork) {
+        this.options.previewCountry?.(null);
+        this.options.setProfileSuppressed(false);
+      }
       await waitWhile(() => this.options.isBuilding(country.iso3), signal);
-      await delay((this.options.refinement ? 500 : REVEAL_DELAY_MS) * this.timeScale, signal);
-      this.options.previewCountry?.(null);
-      this.options.setProfileSuppressed(false);
+      if (!this.options.revealWithNetwork) {
+        await delay((this.options.refinement ? 500 : REVEAL_DELAY_MS) * this.timeScale, signal);
+        this.options.previewCountry?.(null);
+        this.options.setProfileSuppressed(false);
+      }
 
       this.setState("dwelling");
-      await delay(DWELL_MS * this.timeScale, signal);
+      await delay((this.options.dwellMs ?? DWELL_MS) * this.timeScale, signal);
       this.index = (this.index + 1) % this.countries.length;
     }
   }
