@@ -118,6 +118,7 @@ equal(profiles.size, 2, "profile count");
 const alpha = profiles.get("AAA")!;
 equal(alpha.countryName, "Alpha", "country name");
 equal(alpha.emotional.nativeTerm, "Dolor", "native term");
+equal(alpha.emotional.englishTerm, "Hurt", "English category term");
 equal(alpha.temperature.value, 0.8, "temperature peak");
 equal(alpha.temperature.pointCount, 2, "temperature count");
 equal(alpha.co2.value, 0.4, "CO2 peak");

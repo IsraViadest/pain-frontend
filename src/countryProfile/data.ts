@@ -22,6 +22,8 @@ export interface CountryPainProfile {
     category: string;
     nativeTerm: string;
     englishTerm: string;
+    language: string;
+    script: string;
     value: number;
   };
   temperature: CountrySignal;
@@ -113,7 +115,9 @@ export function buildCountryPainProfiles(
       emotional: {
         category: category.label,
         nativeTerm: country.term.trim() || category.label,
-        englishTerm: country.en.trim() || category.label,
+        englishTerm: category.label,
+        language: country.lang,
+        script: country.script,
         value: country.score,
       },
       temperature: temperature.get(iso3) ?? missingSignal(),

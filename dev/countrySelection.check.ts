@@ -13,6 +13,8 @@ function profile(iso3: string): CountryPainProfile {
       category: "Hurt",
       nativeTerm: "Hurt",
       englishTerm: "Hurt",
+      language: "en",
+      script: "Latn",
       value: 0.5,
     },
     temperature: signal,
