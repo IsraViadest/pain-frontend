@@ -42,6 +42,15 @@
  * SELECTED BY CODEX: v3-a_larger-points. The control already stays fixed with zoom. The selected
  * size improves the normal camera as well as the close view; the close-only boost does not.
  *
+ * ROUND v4
+ * SETTLED: v3-a physical points and the selected profile structure.
+ * VARIES: texture inside the temperature fill. The CO2 ring and every data scale stay fixed.
+ * - v4-control_simple-environment: plain temperature fill.
+ * - v4-a_environment-grain: sparse irregular flecks.
+ * - v4-b_environment-cells: a fine hexagonal cell trace.
+ * SELECTED BY CODEX: v4-b_environment-cells. It remains readable at 393 px, separates the
+ * environmental glyph from the solid physical fill, and leaves the CO2 ring unobstructed.
+ *
  * Run: http://127.0.0.1:5173/?cp=1&cpPreset=<id>
  */
 
@@ -60,6 +69,7 @@ export interface CountryProfilePreset {
   transitionMs?: number;
   physicalPointScale?: number;
   physicalPointNearBoost?: number;
+  environmentalGlyph?: "simple" | "grain" | "cells";
 }
 
 const V1_PRESETS: readonly CountryProfilePreset[] = [
@@ -143,9 +153,36 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     transitionMs: 240,
     physicalPointNearBoost: 0.18,
   },
+  {
+    id: "v4-control_simple-environment",
+    label: "v4 control: simple environment",
+    description: "The selected base with a plain temperature fill.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "simple",
+  },
+  {
+    id: "v4-a_environment-grain",
+    label: "v4 A: environmental grain",
+    description: "Sparse flecks texture the temperature fill without adding a value.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "grain",
+  },
+  {
+    id: "v4-b_environment-cells",
+    label: "v4 B: environmental cells",
+    description: "A fine hexagonal trace textures the temperature fill.",
+    layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v3-a_larger-points";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v4-b_environment-cells";
 
 /** Resolve `cpPreset`, falling back to the opening-round control. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

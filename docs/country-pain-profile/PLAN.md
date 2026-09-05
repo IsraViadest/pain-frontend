@@ -681,6 +681,14 @@ coverage in the globe crop from 10,821 to 17,038 pixels at the normal camera and
 Its 20-second all-pain trace remains at 8.30 ms median and 9.10 ms p95 with the same eight draws
 and 239,452 primitives per frame as the Phase 0 control.
 
+Environmental profile round v4 is complete. `v4-control_simple-environment` retains the solid
+temperature fill, `v4-a_environment-grain` adds sparse flecks, and `v4-b_environment-cells` adds a
+fine cell trace. Every candidate keeps the same proportional area and independent CO2 ring. Codex
+selected `v4-b_environment-cells`: the pattern remains readable in the 88 px desktop glyph and the
+70 px phone glyph, distinguishes Temperature from the solid physical fill, and does not obscure
+the CO2 ring. The pattern is decorative inside an aria-hidden SVG; the existing accessible peak
+value, missingness, and source-count text remains the semantic source.
+
 Reject any candidate that exceeds the frame or bundle budgets, hides country boundaries, implies
 unsupported raw units, or introduces visible temporal aliasing.
 

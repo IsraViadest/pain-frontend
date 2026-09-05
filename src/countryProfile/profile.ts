@@ -115,7 +115,27 @@ function createEnvironmentalMetric(): {
     "country-profile__fill country-profile__temperature",
     SHAPES.environmental.path,
   );
-  svg.append(outline, co2, temperature);
+  const defs = document.createElementNS(SVG_NS, "defs");
+  defs.innerHTML = `
+    <pattern id="country-profile-grain" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="5" r="2.2" fill="rgba(255,255,255,.62)" />
+      <circle cx="13" cy="12" r="1.3" fill="rgba(255,255,255,.42)" />
+    </pattern>
+    <pattern id="country-profile-cells" width="18" height="15.6" patternUnits="userSpaceOnUse">
+      <path d="M4.5 0H13.5L18 7.8L13.5 15.6H4.5L0 7.8Z"
+        fill="none" stroke="rgba(255,255,255,.48)" stroke-width="1.4" />
+    </pattern>`;
+  const grain = svgPath(
+    "country-profile__environment-texture country-profile__environment-texture--grain",
+    SHAPES.environmental.path,
+  );
+  grain.style.fill = "url(#country-profile-grain)";
+  const cells = svgPath(
+    "country-profile__environment-texture country-profile__environment-texture--cells",
+    SHAPES.environmental.path,
+  );
+  cells.style.fill = "url(#country-profile-cells)";
+  svg.append(defs, outline, co2, temperature, grain, cells);
 
   const caption = document.createElement("span");
   caption.className = "country-profile__caption";
@@ -130,6 +150,8 @@ function createEnvironmentalMetric(): {
     update(profile): void {
       const tempScale = proportionalAreaScale(profile.temperature.value);
       temperature.style.transform = `scale(${tempScale.toFixed(4)})`;
+      grain.style.transform = temperature.style.transform;
+      cells.style.transform = temperature.style.transform;
       co2.style.opacity = profile.co2.value === null
         ? "0"
         : Math.max(0.12, Math.min(1, profile.co2.value)).toFixed(3);
@@ -174,13 +196,17 @@ export class CountryProfileView {
 
   constructor(
     appRoot: HTMLElement,
-    preset: Pick<CountryProfilePreset, "id" | "layout" | "transitionMs">,
+    preset: Pick<
+      CountryProfilePreset,
+      "id" | "layout" | "transitionMs" | "environmentalGlyph"
+    >,
     layerId: string,
   ) {
     this.host.id = "country-profile";
     this.host.className = "country-profile";
     this.host.dataset.layout = preset.layout;
     this.host.dataset.preset = preset.id;
+    this.host.dataset.environmentalGlyph = preset.environmentalGlyph ?? "simple";
     this.host.hidden = true;
     this.host.setAttribute("role", "region");
     this.host.setAttribute("aria-label", "Selected country pain profile");
