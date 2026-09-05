@@ -194,3 +194,9 @@ question and delegated visual round selection to Codex.
   wall time advance tracks or wavefronts. `flyGlobeToLatLng()` accepts an AbortSignal, restores
   controls on success or abort, and stops its pending animation frame. The focused check covered
   pause, resume, completed flight, and mid-flight abort; `npm run check` passed.
+- 2026-09-05: Phase 5 controller implemented in `cd613fb`, `b314ebc`, and `eebc9e6`. Production
+  timing revealed Afghanistan at 10.04 s, hid it at 40.04 s, and began Albania at 47.26 s. The
+  accelerated run visited 195 unique alphabetical countries and wrapped through Zimbabwe to
+  Afghanistan. Exact construction pause, idle warning and replay, manual Stop and same-country
+  restart, hidden-tab state, real drag and wheel pauses, zero automated country metrics, and the
+  full gate passed. Phase 5 remains open only for the 30-minute accelerated stability run.

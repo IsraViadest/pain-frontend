@@ -611,6 +611,40 @@ dwell while monitoring timer drift, memory, DOM nodes, and stale controllers.
 
 Exit: no aborted promise, timeout, hidden tab, or prior run can advance the current presentation.
 
+#### Phase 5 evidence in progress, 2026-09-05
+
+The controller is implemented in `cd613fb`, `b314ebc`, and `eebc9e6`. Production timings for the
+first country measured:
+
+| Milestone | Time from Play |
+|---|---:|
+| Afghanistan flight starts | 3.02 s |
+| Afghanistan network starts | 5.53 s |
+| Afghanistan card appears | 10.04 s |
+| Card hides and reverse starts | 40.04 s |
+| Albania flight starts | 44.75 s |
+| Albania network starts | 47.26 s |
+
+One complete country interval is about 40.04 seconds. A 195-country loop therefore lasts about
+2 hours and 10 minutes before returning to Afghanistan.
+
+Accelerated checks preserve the same state order and established:
+
+- Afghanistan and Albania each build while hidden, reveal, dwell, and reverse before the next.
+- A complete pass contains 195 unique English-alphabetical countries and wraps from Yemen, Zambia,
+  Zimbabwe to Afghanistan, Albania, Algeria.
+- Pointer interruption during construction holds every label transform and emphasis value exactly.
+- The scaled idle warning appears at 165 seconds and replay starts at 180 seconds from the same
+  country.
+- Manual Stop during construction reverses to zero, remains stopped beyond the idle interval, and
+  Play redoes the same country.
+- A hidden-tab event enters `backgrounded`; returning enters `paused-interaction` without advancing.
+- Real Computer Use drag and wheel gestures each enter `paused-interaction` from an active state.
+- No Afghanistan or Albania country metric exists. Automated cycles remain outside click analytics.
+- The profile uses `aria-live=off` during autoplay and `polite` while paused or manual.
+
+The remaining Phase 5 check is the 30-minute accelerated stability run with memory and DOM sampling.
+
 ### Phase 6: Physical marker and environmental rounds
 
 Run independent rounds from the selected profile base.
