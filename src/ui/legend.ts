@@ -20,6 +20,7 @@ const MOBILE_MAX_WIDTH_PX = 768;
 let imgEl: HTMLImageElement | null = null;
 let currentFileName: string | null = null;
 let currentContent: SVGSVGElement | undefined;
+const generatedContentByLayer = new Map<string, SVGSVGElement>();
 let swapTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let resizeBound = false;
 
@@ -88,16 +89,21 @@ export function hideLegend(): void {
 
 /**
  * Show the legend for `layerId`, or hide it when the layer has no SVG
- * (emopain and unknown ids). Supplied SVG content replaces the image in the same host.
+ * (emopain and unknown ids). Supplied SVG content is remembered per trimmed layer id.
+ * Omit content to reuse it, or pass null to clear it and restore the legacy image.
  *
  * When already visible and switching to another legend layer, waits for the
  * 400ms slide-out before swapping the image and sliding back in.
  */
-export function showLegend(layerId: string, content?: SVGSVGElement): void {
+export function showLegend(layerId: string, content?: SVGSVGElement | null): void {
+  const layer = layerId.trim();
+  if (content === null) generatedContentByLayer.delete(layer);
+  else if (content !== undefined) generatedContentByLayer.set(layer, content);
+  content = generatedContentByLayer.get(layer);
   const host = getLegendHost();
   if (!host) return;
 
-  const fileName = LEGEND_SVG_BY_LAYER[layerId.trim()] ?? null;
+  const fileName = LEGEND_SVG_BY_LAYER[layer] ?? null;
   if (!fileName && !content) {
     hideLegend();
     return;
@@ -111,7 +117,7 @@ export function showLegend(layerId: string, content?: SVGSVGElement): void {
     imgEl.alt = "";
   }
 
-  if (imgEl) imgEl.alt = `${layerId} legend`;
+  if (imgEl) imgEl.alt = `${layer} legend`;
   const nextSrc = fileName ? legendAssetUrl(fileName) : "";
   const alreadyVisible = host.classList.contains("legend--visible");
   const switchingLegend = alreadyVisible &&
@@ -126,7 +132,7 @@ export function showLegend(layerId: string, content?: SVGSVGElement): void {
       imgEl.src = nextSrc;
       host.replaceChildren(imgEl);
     }
-    host.dataset.layer = layerId.trim();
+    host.dataset.layer = layer;
     host.classList.add("legend--visible");
     afterLegendShown();
   };

@@ -340,6 +340,13 @@ data. Cleanup is limited to task-owned temporaries.
   Automatic approval blocks the rm family. The 29 inspected Phase 16 PNGs and 12 Phase 17 PNGs
   remain in `/tmp` pending permitted cleanup. No final gallery was generated.
 
+- 2026-09-05: Phase 18's first correctness slice fixes mobile-menu legend restoration. The real
+  picker close replaced the generated environmental SVG with its old image, causing a 4.14 px
+  overlap with share at 430 px. The shared legend entry now remembers supplied content by layer;
+  omission restores it, while explicit null clears it for legacy images. The actual menu round
+  trip now retains the SVG with no share overlap. Short-landscape layout remains open: at 844x390
+  the 516.92 px layer stack extends above/below the viewport and the profile overlaps the title.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

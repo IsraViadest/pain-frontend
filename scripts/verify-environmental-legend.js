@@ -25,15 +25,25 @@
     const hit = document.elementFromPoint(x, y);
     hit.dispatchEvent(wheel);
     const { showLegend } = await import("/src/ui/legend.ts");
+    // Vite can give this direct import a different timestamp from the app's module instance.
+    // Exercise registration and restoration in one instance; the menu probe covers the app path.
+    showLegend("envpain", svg);
+    await sleep(450);
+    showLegend(" envpain ");
+    await sleep(450);
+    const cachedSvgRestored = host.querySelector("svg") === svg;
+    showLegend("envpain", null);
+    await sleep(450);
     showLegend("envpain");
     await sleep(450);
     const oldImageRestored = !!host.querySelector('img[src$="environmental_legend.svg"]');
     showLegend("envpain", svg);
     await sleep(450);
-    return { passed: !overlap && wheel.defaultPrevented && oldImageRestored &&
+    return { passed: !overlap && wheel.defaultPrevented && cachedSvgRestored && oldImageRestored &&
       colors.join(",") === "#d74846,#d74846,#69c99c,#69c99c",
     colors, overlap, wheelDefaultPrevented: wheel.defaultPrevented, hit: hit.tagName,
-    oldImageRestored, legend: [legendRect.left, legendRect.top, legendRect.width, legendRect.height],
+    cachedSvgRestored, oldImageRestored,
+    legend: [legendRect.left, legendRect.top, legendRect.width, legendRect.height],
     share: [shareRect.left, shareRect.top, shareRect.width, shareRect.height], viewport: [innerWidth, innerHeight] };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };
