@@ -12,10 +12,7 @@ import {
   resolveCountryProfilePreset,
   type CountryProfilePreset,
 } from "./presets";
-import {
-  CountrySelectionController,
-  type CountrySelectionChange,
-} from "./selection";
+import { CountrySelectionController } from "./selection";
 
 const ENVIRONMENTAL_LAYER = "envpain";
 const PHYSICAL_LAYER = "physpain";
@@ -39,14 +36,12 @@ export class CountryProfileRuntime {
     profiles: ReadonlyMap<string, CountryPainProfile>,
     private readonly view: CountryProfileView,
     readonly preset: CountryProfilePreset,
-    onChange: (change: CountrySelectionChange) => void,
   ) {
     this.profiles = profiles;
     this.selection = new CountrySelectionController(
       profiles,
       (change) => {
         this.view.setProfile(change.profile);
-        onChange(change);
       },
       (profile, enabled) => {
         trackToggle(
@@ -62,7 +57,6 @@ export class CountryProfileRuntime {
     pointsByLayer: ReadonlyMap<string, readonly PainPoint[]>,
     appRoot: HTMLElement,
     layerId: string,
-    onChange: (change: CountrySelectionChange) => void,
   ): Promise<CountryProfileRuntime> {
     await ensureCountryGeometriesLoaded();
     const profiles = buildCountryPainProfiles(
@@ -79,7 +73,6 @@ export class CountryProfileRuntime {
       profiles,
       createCountryProfileView(appRoot, layerId, preset),
       preset,
-      onChange,
     );
   }
 

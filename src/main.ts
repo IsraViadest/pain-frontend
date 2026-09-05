@@ -628,13 +628,6 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     pointCache,
     appRootEl,
     lastLayerId,
-    (change) => {
-      console.info(
-        "[countryProfile]",
-        change.action,
-        change.profile?.iso3 ?? change.previousIso3,
-      );
-    },
   );
   const runtime = countryProfileRuntime;
   applyCountryProfileGlobePreset(lastLayerId);
