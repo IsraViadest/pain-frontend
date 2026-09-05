@@ -109,7 +109,7 @@ claim physical-device testing from emulation.
 - [x] Phase 17: truthful socioeconomic color and pattern.
 - [x] Phase 18: combined composition and measured quality tiers.
 - [x] Phase 19: final frontend/server performance and simplification (reference host).
-- [x] Phase 20: reference-host product, integration and gallery; independent review unavailable.
+- [x] Phase 20: product, integration, final gallery, and independent review completed.
 - [x] Physical-device checks deferred by the operator; no physical-phone performance claim.
 
 ## Verification and stop conditions
