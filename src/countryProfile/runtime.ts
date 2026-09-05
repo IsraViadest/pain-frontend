@@ -105,6 +105,15 @@ export class CountryProfileRuntime {
     this.view.setSuppressed(suppressed);
   }
 
+  previewCountry(iso3: string | null): void {
+    if (iso3 === null) this.view.setPreview(null);
+    else {
+      const profile = this.profiles.get(iso3);
+      if (!profile) throw new Error(`Unknown preview country: ${iso3}`);
+      this.view.setPreview(profile);
+    }
+  }
+
   setAutoplay(autoplay: boolean): void {
     this.view.setAutoplay(autoplay);
   }

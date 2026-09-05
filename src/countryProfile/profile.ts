@@ -192,6 +192,7 @@ export class CountryProfileView {
   private transitionRevision = 0;
   private transitionTimer: number | null = null;
   private profile: CountryPainProfile | null = null;
+  private preview: CountryPainProfile | null = null;
   private suppressed = false;
 
   constructor(
@@ -280,7 +281,7 @@ export class CountryProfileView {
 
   setProfile(profile: CountryPainProfile | null): void {
     this.profile = profile;
-    this.host.hidden = profile === null || this.suppressed;
+    this.host.hidden = !this.preview && (profile === null || this.suppressed);
     if (!profile) return;
     this.countryName.textContent = profile.countryName;
     this.nativeTerm.textContent = profile.emotional.nativeTerm;
@@ -305,13 +306,19 @@ export class CountryProfileView {
 
   setSuppressed(suppressed: boolean): void {
     this.suppressed = suppressed;
-    this.host.hidden = this.profile === null || suppressed;
+    this.host.hidden = !this.preview && (this.profile === null || suppressed);
+  }
+
+  /** Heading-only destination preview, without changing selection, metrics, or the network. */
+  setPreview(profile: CountryPainProfile | null): void {
+    this.preview = profile;
+    this.host.dataset.stage = profile ? "heading" : "full";
+    this.host.hidden = !profile && (this.profile === null || this.suppressed);
+    this.countryName.textContent = profile?.countryName ?? this.profile?.countryName ?? "";
   }
 
   setAutoplay(autoplay: boolean): void {
     this.host.setAttribute("aria-live", autoplay ? "off" : "polite");
-    if (autoplay) this.host.setAttribute("aria-roledescription", "carousel");
-    else this.host.removeAttribute("aria-roledescription");
   }
 
   destroy(): void {

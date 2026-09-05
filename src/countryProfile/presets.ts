@@ -87,6 +87,8 @@ export interface CountryProfilePreset {
   label: string;
   description: string;
   layout: CountryProfileLayout;
+  /** The operator's expressive-globe refinement; omitted preserves the v1-v7 treatment. */
+  refinement?: boolean;
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
   physicalPointScale?: number;
@@ -273,6 +275,17 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     label: "v7 A: adopted base",
     description: "The consolidated selected country pain profile treatment.",
     layout: QUIET_ROW.layout,
+    transitionMs: 240,
+    physicalPointScale: 1.18,
+    environmentalGlyph: "cells",
+    environmentalFieldPattern: "smooth",
+  },
+  {
+    id: "v8-control_current-profile",
+    label: "v8 control: current profile",
+    description: "The v7 profile beneath the refined cycle and survey controls.",
+    layout: QUIET_ROW.layout,
+    refinement: true,
     transitionMs: 240,
     physicalPointScale: 1.18,
     environmentalGlyph: "cells",

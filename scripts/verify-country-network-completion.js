@@ -119,7 +119,8 @@
       new WheelEvent("wheel", { bubbles: true, deltaY: 0 }),
     );
     check(realToggle.dataset.state === "paused-interaction", "real gesture did not pause");
-    await until(() => !profile.hidden, "real interrupted build reveals the profile");
+    await until(() => !profile.hidden && profile.dataset.stage !== "heading",
+      "real interrupted build reveals the profile");
     const country = profile.querySelector("h2").textContent;
     realToggle.click();
     await sleep(500);
@@ -144,13 +145,69 @@
     check(labelStates() === frozen, "hidden-tab motion advanced");
     restoreHidden();
     document.dispatchEvent(new Event("visibilitychange"));
-    await until(() => !profile.hidden, "returning tab finishes and reveals");
+    await until(() => !profile.hidden && profile.dataset.stage !== "heading",
+      "returning tab finishes and reveals");
     check(realToggle.dataset.state === "paused-interaction", "returning tab resumed schedule");
     realToggle.click();
     await sleep(500);
+    let refinedSequence = null;
+    if (realToggle.classList.contains("country-presentation-toggle--refined")) {
+      const labelHost = document.querySelector("#emo-label-host");
+      const canvas = document.querySelector("canvas");
+      let hit = null;
+      labelHost.dataset.hit = "on";
+      for (const label of document.querySelectorAll(".emo-label")) {
+        const rect = label.getBoundingClientRect();
+        const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+        if (x < 0 || x >= innerWidth || y < 180 || y >= innerHeight - 160) continue;
+        if (document.elementFromPoint(x, y)?.closest(".emo-label") === label) {
+          hit = { x, y }; break;
+        }
+      }
+      delete labelHost.dataset.hit;
+      check(hit, "no exposed manual label");
+      canvas.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true, clientX: hit.x, clientY: hit.y,
+      }));
+      canvas.dispatchEvent(new MouseEvent("click", {
+        bubbles: true, clientX: hit.x, clientY: hit.y,
+      }));
+      await sleep(100);
+      check(!profile.hidden, "manual country did not open");
+      const manual = profile.querySelector("h2").textContent;
+      realToggle.click();
+      await until(() => realToggle.dataset.state === "flying", "manual-country flight");
+      check(profile.dataset.stage === "heading" && !profile.hidden,
+        "country name missing during flight");
+      check(profile.querySelector("h2").textContent === manual, "cycle ignored manual country");
+      check(getComputedStyle(profile.querySelector(".country-profile__items")).visibility ===
+        "hidden", "indicators shown before network arrival");
+      await until(() => realToggle.dataset.state === "building", "refined build");
+      const began = performance.now();
+      await until(() => realToggle.dataset.state === "dwelling", "refined full reveal");
+      const buildRevealMs = performance.now() - began;
+      check(profile.dataset.stage === "full" && !profile.hidden, "missing full profile");
+      check(realToggle.textContent.includes("running"), "running state not visible");
+      const scale = Number(new URL(location.href).searchParams.get("cpTimeScale") ?? 1);
+      check(Math.abs(buildRevealMs - (1160 * 1.5 + 500) * scale) < 100,
+        "refined build/reveal duration differs from approved timing");
+      realToggle.click();
+      await sleep(400);
+      realToggle.click();
+      await until(() => realToggle.dataset.state === "flying", "saved-cursor flight");
+      check(profile.querySelector("h2").textContent === manual, "restart lost its country cursor");
+      canvas.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 0 }));
+      await sleep(100);
+      check(profile.hidden, "canceled flight left destination preview visible");
+      check(realToggle.textContent.includes("paused"), "paused state not visible");
+      realToggle.click();
+      await sleep(300);
+      refinedSequence = { manual, buildRevealMs, headingDuringFlight: true,
+        canceledPreviewCleared: true, savedCursor: true };
+    }
     return { passed: true, completeSegments, fixtureSelections: selections,
       firstFrameCount: 0, finishedBuildAfterInteraction: true, finishedReverse: true,
-      visibilityStateFreeze: true, country };
+      visibilityStateFreeze: true, country, refinedSequence };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };
   } finally {

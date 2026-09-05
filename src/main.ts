@@ -528,7 +528,7 @@ function setPresentationTiming(active: boolean, timeScale: number): void {
     return;
   }
   if (!presentationBaseParams) presentationBaseParams = { ...emoParams };
-  const factor = 3 * timeScale;
+  const factor = (countryProfileRuntime?.preset.refinement ? 1.5 : 3) * timeScale;
   applyEmoParams({
     ...presentationBaseParams,
     selectionMotionMs: presentationBaseParams.selectionMotionMs * factor,
@@ -631,8 +631,11 @@ async function ensureCountryProfileRuntime(): Promise<void> {
   );
   const runtime = countryProfileRuntime;
   applyCountryProfileGlobePreset(lastLayerId);
+  if (runtime.preset.refinement) chrome?.setSharePainLabel("share your pain\nlocate it");
   countryPresentation = new CountryPresentation({
     appRoot: appRootEl,
+    controlHost: runtime.preset.refinement ? chrome?.countryCycleHost : undefined,
+    refinement: runtime.preset.refinement,
     profiles: runtime.profiles,
     controls: globe.controls,
     getSelectedIso3: () => runtime.selectedIso3,
@@ -677,6 +680,7 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     setPresentationTiming,
     setProfileSuppressed: (suppressed) => runtime.setProfileSuppressed(suppressed),
     setProfileAutoplay: (autoplay) => runtime.setAutoplay(autoplay),
+    previewCountry: (iso3) => runtime.previewCountry(iso3),
     getAutoSpin: () => globe.isAutoSpinEnabled(),
     setAutoSpin: (enabled) => globe.setAutoSpinEnabled(enabled),
   });

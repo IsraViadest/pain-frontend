@@ -252,6 +252,12 @@
   text-transform: lowercase;
 }
 
+#ui-share-pain .blob-button__label--two-lines {
+  white-space: pre-line;
+  line-height: 1.03;
+  font-size: clamp(0.9rem, 1.5vw, 1.12rem);
+}
+
 .blob-button--inactive .blob-button__svg {
   opacity: 0.4;
 }

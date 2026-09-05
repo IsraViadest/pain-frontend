@@ -93,14 +93,13 @@ destructive action, new semantic decision, or three failures without a new hypot
 
 Complete only after required phases pass, accepted work is committed, worktrees are clean and
 evidence is in GOAL.md. Reject a visual option only with a product or performance reason. Do not
-claim
-physical-device testing from emulation.
+claim physical-device testing from emulation.
 ```
 
 ## Current validation checklist
 
 - [x] Phase 9: network initialization and interaction completion.
-- [ ] Phase 10: final chrome and country-cycle sequence.
+- [x] Phase 10: final chrome and country-cycle sequence.
 - [ ] Phase 11: compact profile and glyph rounds.
 - [ ] Phase 12: continuous rounded scars and shared surface.
 - [ ] Phase 13: gently rounded shared country contours.
@@ -151,6 +150,16 @@ data. Cleanup is limited to task-owned temporaries.
   network and profile after wheel interruption; no gallery was created. Visibility was simulated
   in the state check and is not physical-device evidence. Early Stop verification now awaits its
   actual layer restoration instead of assuming all queued rebuilds finish within 600 ms.
+
+- 2026-09-05: Phase 10 complete. `v8-control_current-profile` keeps the old profile for comparison
+  beneath the new title-row cycle toggle and two-line survey label. Its explicit refinement flag
+  preserves old preset timing and chrome. The destination heading is a view-only preview; manual
+  country takeover, full reveal, canceled flight and saved cursor share the existing selection.
+  The browser check started from United Arab Emirates, kept that heading during flight, and
+  measured 128 ms build-to-reveal at 0.05 scale (112 ms nominal plus frame/poll rounding).
+  Interrupted preview clears, restarted cycle replays the saved country, and status is visible.
+  A 320 px Chrome screenshot confirmed both controls fit; the cycle right edge is 165.1 px.
+  `npm run check` and the combined network/cycle browser probe pass. No new gallery files.
 
 ## Historical first-goal completion
 

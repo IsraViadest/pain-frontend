@@ -32,6 +32,8 @@ type ProductionChromeCallbacks = {
 
 /** API for syncing chrome state after programmatic layer / all-layers changes. */
 export type ProductionChrome = {
+  readonly countryCycleHost: HTMLElement;
+  setSharePainLabel: (label: string) => void;
   /** Highlight one layer blob; deactivates all others. */
   setActiveLayer: (layerId: string) => void;
   /**
@@ -176,6 +178,7 @@ export async function mountProductionChrome(
   }
 
   const titleToggles = document.createElement("div");
+  titleToggles.className = "ui-title__toggles";
   titleToggles.style.display = "flex";
   titleToggles.style.flexDirection = "row";
   titleToggles.style.alignItems = "center";
@@ -330,6 +333,14 @@ export async function mountProductionChrome(
   ];
 
   return {
+    countryCycleHost: titleToggles,
+    setSharePainLabel(label: string): void {
+      const text = sharePainBtn.querySelector<HTMLElement>(".blob-button__label");
+      if (!text) throw new Error("Share button label is missing");
+      text.textContent = label;
+      text.classList.toggle("blob-button__label--two-lines", label.includes("\n"));
+      sharePainBtn.setAttribute("aria-label", label.replace(/\s+/g, " "));
+    },
     setActiveLayer(layerId: string): void {
       applyActiveLayer(layerId);
     },

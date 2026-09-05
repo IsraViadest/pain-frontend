@@ -15,6 +15,8 @@ type PresentationState =
 
 interface CountryPresentationOptions {
   appRoot: HTMLElement;
+  controlHost?: HTMLElement;
+  refinement?: boolean;
   profiles: ReadonlyMap<string, CountryPainProfile>;
   controls: OrbitControls;
   getSelectedIso3: () => string | null;
@@ -30,6 +32,7 @@ interface CountryPresentationOptions {
   setPresentationTiming: (active: boolean, timeScale: number) => void;
   setProfileSuppressed: (suppressed: boolean) => void;
   setProfileAutoplay: (autoplay: boolean) => void;
+  previewCountry?: (iso3: string | null) => void;
   getAutoSpin: () => boolean;
   setAutoSpin: (enabled: boolean) => void;
 }
@@ -96,6 +99,7 @@ export class CountryPresentation {
   private readonly warning = document.createElement("div");
   private readonly warningButton = document.createElement("button");
   private readonly status = document.createElement("span");
+  private readonly buttonStatus = document.createElement("span");
   private readonly countries: CountryPainProfile[];
   private readonly timeScale = readTestTimeScale();
   private readonly reducedMotion = window.matchMedia(
@@ -120,6 +124,15 @@ export class CountryPresentation {
     this.button.className = "country-presentation-toggle";
     this.button.dataset.countryPresentationControl = "true";
     this.button.textContent = "presentation";
+    if (options.refinement) {
+      this.button.classList.add("country-presentation-toggle--refined");
+      this.button.textContent = "country cycle ";
+      this.button.setAttribute("aria-label", "Country cycle");
+      this.buttonStatus.className = "country-presentation-toggle__state";
+      this.buttonStatus.setAttribute("aria-hidden", "true");
+      this.button.append(this.buttonStatus);
+      options.controlHost?.classList.add("ui-title__toggles--refined");
+    }
     this.button.setAttribute("aria-pressed", "false");
     this.button.addEventListener("click", this.toggle);
 
@@ -130,13 +143,14 @@ export class CountryPresentation {
     const warningText = document.createElement("span");
     warningText.textContent = "Presentation resumes in 15 seconds.";
     this.warningButton.type = "button";
-    this.warningButton.textContent = "keep paused";
+    this.warningButton.textContent = options.refinement ? "pause 3 more minutes" : "keep paused";
     this.warningButton.addEventListener("click", this.extendPause);
     this.warning.append(warningText, this.warningButton);
     this.status.className = "country-presentation-status";
     this.status.setAttribute("role", "status");
     this.status.setAttribute("aria-live", "polite");
-    options.appRoot.append(this.button, this.warning, this.status);
+    (options.controlHost ?? options.appRoot).append(this.button);
+    options.appRoot.append(this.warning, this.status);
 
     document.addEventListener("pointerdown", this.onUserActivity, true);
     document.addEventListener("wheel", this.onUserActivity, { capture: true, passive: true });
@@ -147,12 +161,18 @@ export class CountryPresentation {
     });
     document.addEventListener("visibilitychange", this.onVisibilityChange);
     options.controls.addEventListener("start", this.onControlsStart);
+    this.reducedMotion.addEventListener("change", this.onReducedMotionChange);
     this.setState(this.reducedMotion.matches ? "paused-user" : "idle");
   }
 
   private setState(state: PresentationState): void {
     this.state = state;
     this.button.dataset.state = state;
+    if (this.options.refinement) {
+      const paused = state === "paused-interaction" || state === "backgrounded";
+      this.buttonStatus.textContent = !this.enabled ? "off" : paused ? "paused" : "running";
+      this.button.title = this.enabled ? "Stop country cycle" : "Start country cycle";
+    }
   }
 
   private toggle = (): void => {
@@ -169,6 +189,11 @@ export class CountryPresentation {
       this.previousLayer = this.options.getCurrentLayer();
       this.previousAutoSpin = this.options.getAutoSpin();
     }
+    if (this.options.refinement) {
+      const selected = this.options.getSelectedIso3();
+      const index = this.countries.findIndex((country) => country.iso3 === selected);
+      if (index >= 0) this.index = index;
+    }
     this.options.setAutoSpin(false);
     this.options.setProfileAutoplay(true);
     this.options.setPresentationTiming(
@@ -176,7 +201,7 @@ export class CountryPresentation {
       this.reducedMotion.matches ? 0 : this.timeScale,
     );
     this.options.setMotionPaused(false);
-    this.button.textContent = "stop presentation";
+    if (!this.options.refinement) this.button.textContent = "stop presentation";
     this.button.setAttribute("aria-pressed", "true");
     this.status.textContent = "Presentation started.";
     await this.restartCurrent();
@@ -191,10 +216,11 @@ export class CountryPresentation {
     this.setState("stopping");
     this.options.setProfileAutoplay(false);
     this.options.setMotionPaused(false);
+    this.options.previewCountry?.(null);
     this.options.clearCountry();
     this.options.setProfileSuppressed(false);
     this.options.setAutoSpin(this.previousAutoSpin);
-    this.button.textContent = "presentation";
+    if (!this.options.refinement) this.button.textContent = "presentation";
     this.button.setAttribute("aria-pressed", "false");
     this.status.textContent = "Presentation stopped.";
     void this.finishMotion(true);
@@ -222,12 +248,14 @@ export class CountryPresentation {
     while (this.enabled && !signal.aborted) {
       const country = this.countries[this.index]!;
       this.setState("preparing");
+      this.options.previewCountry?.(null);
       this.options.setProfileSuppressed(true);
       this.options.clearCountry();
       await waitWhile(this.options.isRetreating, signal);
-      await delay(PREPARE_MS * this.timeScale, signal);
+      await delay((this.options.refinement ? 1000 : PREPARE_MS) * this.timeScale, signal);
 
       this.setState("flying");
+      if (this.options.refinement) this.options.previewCountry?.(country.iso3);
       await this.options.moveTo(
         country.iso3,
         signal,
@@ -237,7 +265,8 @@ export class CountryPresentation {
       this.setState("building");
       this.options.selectCountry(country.iso3);
       await waitWhile(() => this.options.isBuilding(country.iso3), signal);
-      await delay(REVEAL_DELAY_MS * this.timeScale, signal);
+      await delay((this.options.refinement ? 500 : REVEAL_DELAY_MS) * this.timeScale, signal);
+      this.options.previewCountry?.(null);
       this.options.setProfileSuppressed(false);
 
       this.setState("dwelling");
@@ -251,6 +280,9 @@ export class CountryPresentation {
     if (this.state === "paused-interaction") {
       if (!this.completionController) this.armIdleTimers();
       return;
+    }
+    if (this.state === "flying" || this.state === "preparing") {
+      this.options.previewCountry?.(null);
     }
     this.abortRun();
     this.clearIdleTimers();
@@ -281,7 +313,10 @@ export class CountryPresentation {
         this.options.restoreLayer(this.previousLayer);
         this.setState("paused-user");
       } else if (this.enabled && this.state === "paused-interaction") {
-        if (this.options.getSelectedIso3() === iso3) this.options.setProfileSuppressed(false);
+        if (this.options.getSelectedIso3() === iso3) {
+          this.options.previewCountry?.(null);
+          this.options.setProfileSuppressed(false);
+        }
         this.armIdleTimers();
       }
     } catch (error) {
@@ -302,6 +337,7 @@ export class CountryPresentation {
       this.setState("paused-user");
     }
     if (this.state !== "paused-interaction") return;
+    this.options.previewCountry?.(null);
     this.clearIdleTimers();
     this.options.setProfileSuppressed(false);
     this.options.setPresentationTiming(false, 1);
@@ -333,6 +369,7 @@ export class CountryPresentation {
   private onVisibilityChange = (): void => {
     if (!this.enabled && this.state !== "stopping" && this.state !== "backgrounded") return;
     if (document.hidden) {
+      this.options.previewCountry?.(null);
       this.abortRun();
       this.cancelCompletion();
       this.clearIdleTimers();
@@ -349,6 +386,12 @@ export class CountryPresentation {
         "Presentation paused after returning. It will resume after three minutes.";
       void this.finishMotion(!this.enabled);
     }
+  };
+
+  private onReducedMotionChange = (): void => {
+    if (!this.enabled) return;
+    this.options.setPresentationTiming(true, this.reducedMotion.matches ? 0 : this.timeScale);
+    if (!document.hidden) this.pauseForInteraction();
   };
 
   private armIdleTimers(): void {
@@ -411,6 +454,7 @@ export class CountryPresentation {
     this.cancelCompletion();
     this.clearIdleTimers();
     this.options.controls.removeEventListener("start", this.onControlsStart);
+    this.reducedMotion.removeEventListener("change", this.onReducedMotionChange);
     document.removeEventListener("pointerdown", this.onUserActivity, true);
     document.removeEventListener("wheel", this.onUserActivity, true);
     document.removeEventListener("keydown", this.onUserActivity, true);
