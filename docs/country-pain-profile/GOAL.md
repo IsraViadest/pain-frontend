@@ -145,3 +145,9 @@ question and delegated visual round selection to Codex.
   `origin/demo/all-features` commits through a two-parent merge after `npm run check` passed. The
   post-merge bundle is 819.73 kB JavaScript, 216.44 kB gzip, and 41.47 kB CSS. Remaining Phase 0
   work: live schema recheck, detached integration proof, and browser performance baselines.
+- 2026-09-05: Phase 0 measurement slice complete. Live metrics columns are TEXT. Chrome
+  152.0.7977.76 measured 8.3 ms median and 9.6 to 9.7 ms p95 across desktop rest, desktop India
+  settled, and the 393 by 852 viewport. Draw calls were 8 at rest and 11 when selected. The exact
+  reusable probe is `scripts/measure-country-profile-frame.js`. Docker integration remains open:
+  the detached source switch worked, but the build stalled loading absent Node base-image metadata.
+  The primary checkout was restored and verified clean at `feat/emo-label-views` commit `7ca5492`.

@@ -288,6 +288,72 @@ This is a new `figure-design-rounds` chain adapted to a live WebGL view.
 
 Exit: merged base is clean, committed, and all baseline evidence is reproducible.
 
+#### Phase 0 evidence, 2026-09-05
+
+Upstream reconciliation:
+
+- `efd736d` is a two-parent merge of the planning commit and `11152ef`.
+- It contains the expected legend, theme, and point-cache changes from `e157476`, `3f3b5f9`, and
+  `11152ef`.
+- `npm run check` passed before the merge commit.
+
+Live metrics schema:
+
+```text
+kind|text||text
+element|text||text
+```
+
+The query used `information_schema.columns` against `togglemetrics`; it did not mutate data.
+
+Bundle after the upstream merge:
+
+| Asset | Raw | Gzip |
+|---|---:|---:|
+| HTML | 2.29 kB | 0.83 kB |
+| CSS | 41.47 kB | 7.88 kB |
+| Default JavaScript entry | 819.73 kB | 216.44 kB |
+| Country-profile lazy chunk | not built | not built |
+
+Browser measurement used Google Chrome 152.0.7977.76 and the existing GPU-backed
+`artifacts/emo-views/eval.mjs` runner. The injected expression is tracked at
+`scripts/measure-country-profile-frame.js`. Each scenario sampled requestAnimationFrame gaps and
+wrapped the live WebGL draw and texture-bind methods for 20 seconds after the page settled.
+
+```bash
+eval_runner=/Users/cs/local/code/apps/web-pain-globe/artifacts/emo-views/eval.mjs
+desktop_url='http://127.0.0.1:5173/?ev=2&emoPreset=v14-a_base&freeze=1&cam=22,86,2.35'
+mobile_url='http://127.0.0.1:5173/?ev=2&emoPreset=v14-a_base&freeze=1&cam=22,86,4.0'
+
+node "$eval_runner" \
+  "${desktop_url}&perfScenario=rest&perfMs=20000" \
+  9000 1500 950 < scripts/measure-country-profile-frame.js
+
+node "$eval_runner" \
+  "${desktop_url}&perfScenario=selected&perfIso=IND&perfMs=20000" \
+  9000 1500 950 < scripts/measure-country-profile-frame.js
+
+node "$eval_runner" \
+  "${mobile_url}&perfScenario=rest&perfMs=20000" \
+  11000 393 852 < scripts/measure-country-profile-frame.js
+```
+
+| Scenario | Frames | Median | p95 | Max | Draws/frame | Primitives/frame | Textures |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Desktop, all-pain rest | 2,400 | 8.3 ms | 9.6 ms | 10.4 ms | 8 | 239,452 | 4 |
+| Desktop, India settled | 2,400 | 8.3 ms | 9.7 ms | 10.4 ms | 11 | 293,786 | 5 |
+| 393 by 852, all-pain rest | 2,401 | 8.3 ms | 9.7 ms | 10.4 ms | 8 | 239,452 | 4 |
+
+All scenarios had 1,622 DOM elements and 195 emotional labels. The desktop rest and mobile rest
+each drew 144 labels. The settled India selection drew 13 visible emphasized labels.
+
+Integrated-build proof remains open. The primary checkout was switched cleanly to detached
+`57db4ea`, but Docker stalled while loading metadata for `node:20-bookworm-slim`, which is absent
+locally. The attempted wrapper was interrupted after the log made no progress. Its shell trap did
+not run under the external interrupt, so the checkout was restored explicitly and verified clean at
+`feat/emo-label-views` commit `7ca5492`. Do not count Phase 0 complete until a later build reaches
+the feature source, serves the read-only 174-row emotional endpoint, and restores the same checkout.
+
 ### Phase 1: Country geometry and normalized data index
 
 1. Expose the existing cached Natural Earth geometries through the smallest shared API.
