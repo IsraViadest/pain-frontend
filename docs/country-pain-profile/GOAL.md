@@ -601,6 +601,19 @@ data. Cleanup is limited to task-owned temporaries.
   file cleanup could not finish because automatic approval required permission while this session
   disallowed approval prompts. No alternative deletion or denied-source access was attempted.
 
+- 2026-09-05: Completion audit after the final soak re-ran the frontend compliance gate and all
+  22 server tests plus the server TypeScript build; all pass. The retained gallery has 87 PNGs:
+  58 current v8-v18 frames and 29 earlier frames. Frontend `2c634ed` and server `22a03d2` are
+  clean. Independent review remains unavailable after two exact-diff attempts. Claude review was
+  blocked before source inspection because its mandatory skill read required approval while
+  approval prompts were disabled. Codex review ran its read-only frontend review for 300 seconds,
+  then exited 1 without review output; it did not start the server partition and was not retried.
+  Neither attempt produced findings or an approval verdict. `devicectl` identifies the paired
+  iPhone 13 `Eno`, but its state is `unavailable`; the only other paired mobile device is an
+  unavailable Apple Watch. No connected physical phone can run the required 60 Hz test. The goal
+  therefore remains active with the physical-device checklist item unchecked. Required operator
+  input: connect and unlock `Eno`, accept the Trust prompt, and enable Safari Web Inspector.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
