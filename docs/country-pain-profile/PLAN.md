@@ -528,6 +528,36 @@ the selected quiet-row base.
 
 Exit: desktop and mobile layouts do not overlap production chrome in any layer.
 
+#### Round v2 and Phase 4 evidence, 2026-09-05
+
+| Candidate | Total fade | Result |
+|---|---:|---|
+| `v2-control_instant` | 0 ms | Control; the indicator set snaps |
+| `v2-a_fade-160` | 160 ms | Fast, with little time to read each half |
+| `v2-b_fade-240` | 240 ms | Selected; visibly intentional and still quick |
+| `v2-c_fade-360` | 360 ms | Clear, but slow beside the layer controls |
+
+`v2-b_fade-240` is the default. Its two 120 ms cubic halves painted these sampled opacities:
+
+```text
+out: 0.908, 0.557, 0.061, 0.000
+in:  0.019, 0.168, 0.792, 0.992, 1.000
+```
+
+The indicator set changes only at zero opacity, while the country name remains visible. A rapid
+Environmental-to-Physical sequence ended with only the physical indicator, full opacity, and no
+stale timer. A reduced-motion probe changed directly to the environmental indicator at opacity 1.
+
+The first two implementations set the CSS transition before a synchronous globe rebuild. The main
+thread then blocked for about 230 ms, and no intermediate opacity reached a painted frame. The final
+ordering awaits `loadPoints()` and starts the profile transition after the last `setMarkers()` call.
+
+The survey button now reads `locate your pain`. Its label is 194 px wide inside a 216 px desktop
+button and 181 px inside a 201 px phone button. The phone document remained 393 px wide with no
+horizontal overflow. No gallery files were created.
+
+Phase 4 exit passes.
+
 ### Phase 5: Presentation mode
 
 Implement one abortable state machine with these states:

@@ -116,7 +116,7 @@ worktrees are clean, and all accepted work is committed.
 - [x] Country geometry, aggregation, missingness, and data semantics verified.
 - [x] One authoritative selection and metrics path verified in every layer.
 - [x] Opening profile round completed and one structural design adopted.
-- [ ] Layer transitions, responsive layout, and accessibility verified.
+- [x] Layer transitions, responsive layout, and accessibility verified.
 - [ ] Presentation state machine and real timing verified.
 - [ ] Physical and environmental rounds completed.
 - [ ] Performance and bundle limits pass.
@@ -185,3 +185,8 @@ question and delegated visual round selection to Codex.
   Opening candidates remain URL-addressable. Codex selected `v1-a_quiet-row` after desktop, phone,
   theme, missing-data, Arabic, long-name, accessibility, and chrome-overlap checks. Sixteen bounded
   category metric rows were written by browser verification and left intact. No gallery was made.
+- 2026-09-05: Phase 4 complete. Round v2 selected `v2-b_fade-240`: two 120 ms cubic halves with the
+  indicator swap at zero opacity and the country name held. Moving the transition after the cached
+  globe rebuild fixed an invisible-fade failure caused by a 230 ms main-thread block. Rapid layer
+  changes and reduced motion end in the requested indicator at full opacity. `locate your pain`
+  fits its desktop and phone blobs. Commits: `e3d1c70` and `8503c92`. No gallery was created.
