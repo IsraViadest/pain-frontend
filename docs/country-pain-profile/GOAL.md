@@ -141,3 +141,7 @@ question and delegated visual round selection to Codex.
 
 - 2026-09-05: Discovery converged. Plan v1.1 incorporates verified independent review findings.
   No implementation phase started.
+- 2026-09-05: Phase 0, upstream slice complete in `efd736d`. Merged the three approved
+  `origin/demo/all-features` commits through a two-parent merge after `npm run check` passed. The
+  post-merge bundle is 819.73 kB JavaScript, 216.44 kB gzip, and 41.47 kB CSS. Remaining Phase 0
+  work: live schema recheck, detached integration proof, and browser performance baselines.
