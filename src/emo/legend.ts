@@ -353,6 +353,16 @@ export async function createEmoLegend(options: {
     const hasPill = pill !== undefined && pill.height > 0 && pill.width > 0;
     const bottom = hasPill ? Math.max(0, window.innerHeight - pill.bottom) : CHROME_GAP_PX;
     host.style.setProperty("--emo-legend-bottom", `${Math.round(bottom)}px`);
+    const header = document.querySelector(CHROME_ABOVE);
+    host.style.maxHeight = window.innerHeight <= 500 && header
+      ? `${Math.max(0, window.innerHeight - bottom - header.getBoundingClientRect().bottom - CHROME_GAP_PX)}px`
+      : "";
+    if (window.innerHeight <= 500 && window.innerWidth <= 744 && window.innerWidth > window.innerHeight) {
+      host.style.setProperty("--emo-legend-corner-w", "100%");
+      host.style.setProperty("--emo-legend-corner-h", "0px");
+      setSplit(ordered);
+      return;
+    }
 
     const hostRect = host.getBoundingClientRect();
     const style = getComputedStyle(cornerRow);
@@ -403,6 +413,7 @@ export async function createEmoLegend(options: {
       return;
     }
     // Back to one column, in the operator's order, whatever the narrow layout last did to it.
+    host.style.maxHeight = "";
     setSplit([]);
     const above = document.querySelector(CHROME_ABOVE);
     if (above === null) return;

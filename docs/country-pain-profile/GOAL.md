@@ -373,6 +373,18 @@ data. Cleanup is limited to task-owned temporaries.
   tracked bytes, textures or geometries. Synthetic hit-testing seeds the document listener;
   native pointer capture requires a trusted browser gesture and is not claimed by these probes.
 
+- 2026-09-05: Compact chrome now accounts for actual header, profile and Share bounds. At short
+  heights the layer picker uses native scrolling; a narrow landscape gives the emotional legend
+  the space left of the centered profile. Collapsed About controls are hidden from keyboard focus.
+  The full menu/profile/legend probe passes at 320x568, 430x852, 568x320, 667x375 and 844x390,
+  including every layer button and all 14 emotional categories. A scrollable flex column needed
+  start alignment: end alignment placed its first words above the reachable scroll range.
+  All 195 country/native terms pass the profile fixture at 1500 px in blue and 320 px in dark.
+  Equal slot widths, equal gaps and the two centered middle glyphs remain verified; maximum
+  vertical alignment error is 0.008 px. Small-phone card width is bounded to 288 px at 320 px.
+  The test's unsupported `light` theme request was corrected to the actual `dark`/`blue` contract.
+  Short-landscape pixels were inspected; no physical-phone performance claim follows from this.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

@@ -364,12 +364,17 @@
   max-height: 80vh;
   width: auto;
   transform: translateY(-50%) translateX(calc(-100% - 100vw));
-  transition: transform 0.4s ease;
+  visibility: hidden;
+  opacity: 0;
+  transition: transform 0.4s ease, opacity 0.4s ease, visibility 0s 0.4s;
   pointer-events: none;
 }
 
 #ui-legend.legend--visible {
   transform: translateY(-50%) translateX(0);
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0s;
   pointer-events: none;
 }
 
@@ -388,7 +393,7 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 500px) {
   /* Reduced from 36px desktop size to avoid overlapping modal titles on small screens. */
   .info-modal__close {
     width: 24px;
@@ -449,6 +454,16 @@
     gap: 12px;
   }
 
+  #ui-bottom-left .blob-button {
+    min-width: 48px;
+    min-height: 48px;
+    max-width: 100%;
+  }
+
+  #ui-bottom-left .blob-button__svg {
+    max-width: 100%;
+  }
+
   .ui-title__top-row .ui-hamburger {
     display: block;
     flex-shrink: 0;
@@ -483,7 +498,7 @@
     top: auto;
     display: flex;
     justify-content: flex-start;
-    transform: translateX(-120%);
+    transform: translateX(calc(-100% - 20px));
   }
 
   #ui-legend.legend--visible {
@@ -504,8 +519,10 @@
 
   #ui-bottom-left {
     transform: translateX(-200%);
+    visibility: hidden;
+    opacity: 0;
     pointer-events: none;
-    transition: transform 0.35s ease;
+    transition: transform 0.35s ease, opacity 0.35s ease, visibility 0s 0.35s;
   }
 
   #app.mobile-menu-open #ui-layer-stack {
@@ -516,6 +533,77 @@
 
   #app.mobile-menu-open #ui-bottom-left {
     transform: translateX(0);
+    visibility: visible;
+    opacity: 1;
+    transition-delay: 0s;
     pointer-events: auto;
+  }
+}
+
+#ui-layer-stack[data-height-constrained] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  justify-content: flex-start;
+  transform: translateX(60px);
+}
+
+#app.mobile-menu-open #ui-layer-stack[data-height-constrained] {
+  transform: translateX(0);
+}
+
+#ui-layer-stack[data-height-constrained] .blob-button {
+  flex-shrink: 0;
+  min-height: 48px;
+}
+
+#ui-layer-stack[data-height-constrained] .blob-button__svg {
+  max-height: max(48px, var(--picker-available-height));
+}
+
+@media (max-width: 360px) {
+  #ui-bottom-left .blob-button__label {
+    font-size: 13px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-height: 500px) {
+  #ui-layer-stack {
+    width: min(200px, var(--profile-side-space, 200px));
+    gap: 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(60px);
+  }
+
+  #app.mobile-menu-open #ui-layer-stack {
+    transform: translateX(0);
+  }
+
+  #ui-layer-stack .blob-button {
+    flex-shrink: 0;
+    width: min(180px, 100%);
+    min-height: 48px;
+    margin: 0;
+  }
+
+  #ui-layer-stack .blob-button__svg,
+  #ui-bottom-left .blob-button__svg {
+    height: 48px;
+    margin-inline: auto;
+  }
+
+  #ui-layer-stack .blob-button__svg {
+    max-width: 100%;
+  }
+
+  #ui-layer-stack .blob-button__label {
+    font-size: 13px;
+  }
+
+  #ui-bottom-left {
+    flex-direction: row;
+    gap: 8px;
   }
 }

@@ -207,16 +207,25 @@ export class CountryProfileView {
 
   private syncBounds = (): void => {
     const profileRect = this.host.getBoundingClientRect();
+    const nativeRect = this.nativeTerm.getBoundingClientRect();
+    const left = nativeRect.width > 0 ? Math.min(profileRect.left, nativeRect.left) : profileRect.left;
+    const right = nativeRect.width > 0 ? Math.max(profileRect.right, nativeRect.right) : profileRect.right;
+    const besideProfile = profileRect.width > 0 && innerHeight <= 500 && innerWidth > innerHeight;
+    for (const [id, space] of [["emo-legend", left - 28],
+      ["ui-layer-stack", innerWidth - right - 28]] as const) {
+      const host = document.getElementById(id);
+      if (besideProfile) host?.style.setProperty("--profile-side-space", `${Math.max(0, space)}px`);
+      else host?.style.removeProperty("--profile-side-space");
+    }
     if (profileRect.width === 0) return;
     let bottom = 24;
-    if (innerWidth <= 768 || innerHeight <= 480) {
+    if (innerWidth <= 768 || innerHeight <= 500) {
       for (const element of this.obstacles) {
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
         if (rect.width === 0 || rect.height === 0 || rect.right <= 0 || rect.left >= innerWidth ||
             style.visibility === "hidden" || Number(style.opacity) === 0) continue;
-        if (innerWidth > 768 &&
-            (rect.right <= profileRect.left - 8 || rect.left >= profileRect.right + 8)) continue;
+        if (innerWidth > innerHeight && (rect.right <= left - 8 || rect.left >= right + 8)) continue;
         bottom = Math.max(bottom, innerHeight - rect.top + 12);
       }
     }
@@ -277,6 +286,7 @@ export class CountryProfileView {
     appRoot.append(this.host);
     if (compact) {
       this.boundsObserver = new ResizeObserver(this.syncBounds);
+      this.boundsObserver.observe(this.nativeTerm);
       for (const id of ["ui-share-pain", "ui-legend", "emo-legend", "ui-bottom-left"]) {
         const element = document.getElementById(id);
         if (element) {

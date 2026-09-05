@@ -564,7 +564,7 @@
   background: transparent;
 }
 
-@media (max-width: 768px), (max-height: 480px) {
+@media (max-width: 768px), (max-height: 500px) {
   .country-profile[data-layout="compact"][data-compact-size] {
     --cp-rail: var(--cp-phone);
     --cp-glyph: var(--cp-phone-glyph);

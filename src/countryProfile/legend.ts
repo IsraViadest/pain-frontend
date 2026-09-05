@@ -67,7 +67,8 @@ export function createEnvironmentalLegend(): SVGSVGElement {
   }
 
   const resize = (): void => {
-    const portrait = window.innerWidth <= 768 && window.innerHeight >= window.innerWidth;
+    const portrait = window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||
+      window.innerWidth <= 744 && window.innerHeight <= 500;
     const compact = !portrait && window.innerHeight <= 500;
     const layout = portrait ? "portrait" : compact ? "landscape" : "desktop";
     if (svg.dataset.layout === layout) return;
@@ -179,7 +180,8 @@ export function createSocioeconomicLegend(
     fill: "none", stroke: "currentColor", "stroke-width": 1 });
   svg.append(missing);
   const resize = (): void => {
-    const portrait = window.innerWidth <= 768 && window.innerHeight >= window.innerWidth;
+    const portrait = window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||
+      window.innerWidth <= 744 && window.innerHeight <= 500;
     const compact = !portrait && window.innerHeight <= 500;
     const layout = portrait ? "portrait" : compact ? "landscape" : "desktop";
     if (svg.dataset.layout === layout) return;

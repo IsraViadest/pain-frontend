@@ -23,6 +23,9 @@ let currentContent: SVGSVGElement | undefined;
 const generatedContentByLayer = new Map<string, SVGSVGElement>();
 let swapTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let resizeBound = false;
+let chromeBounds: ResizeObserver | undefined;
+let profileChanges: MutationObserver | undefined;
+let observedProfile: HTMLElement | null = null;
 
 function legendAssetUrl(fileName: string): string {
   const base = import.meta.env.BASE_URL;
@@ -40,7 +43,43 @@ function positionLegendUnderTitle(): void {
   const host = getLegendHost();
   if (!host) return;
   currentContent?.dispatchEvent(new Event("resize"));
-  if (window.innerWidth <= MOBILE_MAX_WIDTH_PX) {
+  const picker = document.getElementById("ui-layer-stack");
+  const title = document.getElementById("ui-title");
+  const share = document.getElementById("ui-share-pain");
+  const profile = document.getElementById("country-profile");
+  if (profile !== observedProfile) {
+    if (observedProfile) chromeBounds?.unobserve(observedProfile);
+    profileChanges?.disconnect();
+    observedProfile = profile;
+    if (profile) {
+      chromeBounds?.observe(profile);
+      profileChanges ??= new MutationObserver(positionLegendUnderTitle);
+      profileChanges.observe(profile, { attributes: true, attributeFilter: ["style", "hidden"] });
+    }
+  }
+  const compact = innerWidth <= MOBILE_MAX_WIDTH_PX || innerHeight <= 500;
+  const about = document.getElementById("ui-bottom-left");
+  if (about && share) about.style.maxWidth = compact
+    ? `${Math.max(48, share.getBoundingClientRect().left - 28)}px` : "";
+  if (picker && title && share) {
+    const top = title.getBoundingClientRect().bottom + 12;
+    let bottom = share.getBoundingClientRect().top - 12;
+    const card = profile?.getBoundingClientRect();
+    const pickerLeft = innerWidth - 20 - picker.getBoundingClientRect().width;
+    if (card && card.width > 0 && pickerLeft < card.right + 8 && innerWidth - 20 > card.left - 8) {
+      bottom = Math.min(bottom, card.top - 12);
+    }
+    const naturalHeight = picker.scrollHeight;
+    const centeredTop = innerHeight / 2 - 40 - naturalHeight / 2;
+    const constrained = compact && (innerHeight <= 500 || centeredTop < top || centeredTop + naturalHeight > bottom);
+    const available = Math.max(0, bottom - top);
+    picker.toggleAttribute("data-height-constrained", constrained);
+    picker.style.top = constrained ? `${top}px` : "";
+    picker.style.maxHeight = constrained ? `${available}px` : "";
+    if (constrained) picker.style.setProperty("--picker-available-height", `${available}px`);
+    else picker.style.removeProperty("--picker-available-height");
+  }
+  if (compact) {
     host.style.left = "";
     return;
   }
@@ -56,6 +95,11 @@ function ensureLegendResizeListener(): void {
   window.addEventListener("resize", () => {
     positionLegendUnderTitle();
   });
+  chromeBounds = new ResizeObserver(positionLegendUnderTitle);
+  for (const id of ["ui-title", "ui-share-pain"]) {
+    const element = document.getElementById(id);
+    if (element) chromeBounds.observe(element);
+  }
 }
 
 /** Position after paint (and again when the SVG finishes loading). */
@@ -78,6 +122,7 @@ function clearSwapTimeout(): void {
 
 /** Slide the legend off-screen (emopain, all-layers, unknown ids). */
 export function hideLegend(): void {
+  ensureLegendResizeListener();
   clearSwapTimeout();
   currentFileName = null;
   currentContent = undefined;
@@ -85,6 +130,7 @@ export function hideLegend(): void {
   host?.classList.remove("legend--visible");
   host?.removeAttribute("data-layer");
   if (host) host.style.left = "";
+  positionLegendUnderTitle();
 }
 
 /**

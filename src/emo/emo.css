@@ -195,7 +195,7 @@
   display: contents;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 500px) {
   .emo-legend {
     /* Read back by legend.ts. The breakpoint is written once, and this is where. */
     --emo-legend-narrow: 1;
@@ -303,6 +303,37 @@
   /* The page's own legend occupies this corner when it is open, so the box steps above it. */
   #app:has(#ui-legend.legend--visible) .emo-legend {
     bottom: calc(20px + 15vh + 14px);
+  }
+}
+
+@media (max-height: 500px) {
+  .emo-legend {
+    box-sizing: border-box;
+    justify-content: flex-start;
+    right: auto;
+    width: min(250px, calc(100vw - 40px));
+    overflow-y: auto;
+  }
+
+  .emo-legend__row {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-height: 500px) and (max-width: 744px) and (orientation: landscape) {
+  .emo-legend {
+    width: min(250px, var(--profile-side-space, 250px));
+  }
+
+  .emo-legend__row {
+    padding-inline: 4px;
+  }
+
+  .emo-legend__item {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
