@@ -399,6 +399,28 @@ data. Cleanup is limited to task-owned temporaries.
   Temporary comparison PNGs remain in /tmp because cleanup was rejected; no gallery was created.
   Next is Phase 19, optimizing the adopted composition before the final acceptance matrix.
 
+- 2026-09-05: Phase 19 measured warm layer switches before optimizing. Actual matching shader
+  submissions took 479/622/227/858 ms for Environmental/Physical/Socioeconomic/all-pain, with no
+  data requests. Removing a duplicate warm scar-surface sync preserves the generation guard and
+  completed layer outputs; it alone did not materially improve repeat timings (483/631/229/854).
+  The retained probe identifies complete drawn feature sets, not assigned layer flags. Its times
+  include instrumentation and do not claim compositor presentation or physical input-to-paint.
+
+- 2026-09-05: The approved server worktree was created from verified clean `2d6407b`. Commits
+  `d01f222` and `22a03d2` add five-minute successful layer-response caching, concurrent miss
+  coalescing and on-demand shared gzip. The 50-client read-only benchmark executes in the existing
+  Docker Node 20 environment; it refuses non-SELECT SQL and does not register users or send metrics.
+  Warm identity p95 falls from 20.97/570.70/897.07/12.78 to 6.75/30.06/49.53/3.78 ms across
+  Emotional/Environmental/Physical/Socioeconomic. Each cold group uses one query, warm groups zero;
+  the baseline uses 50 each. All 1,200 baseline/cached/gzip responses match their decoded bytes.
+  Gzip saves 78-87% of wire bytes. It costs more local CPU than identity delivery, while its
+  7.47/56.79/87.53/3.70 ms warm p95 remains below the uncached baseline. Shared Buffers avoid the
+  string-only trial's 190 MB peak RSS; final gzip peak is 86.6 MB. All 22 server tests pass.
+  Registration, survey, metrics, schemas and primary checkout are preserved. Details and the
+  runnable benchmark are in the server worktree's `docs/layer-delivery.md`. Independent review
+  could not read its source because automatic approval rejected the reviewer's requests; no
+  independent approval is claimed. This is local validation, not deployment or network testing.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

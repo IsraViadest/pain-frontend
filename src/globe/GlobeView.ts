@@ -1773,9 +1773,6 @@ export class GlobeView {
         if (generation !== this.scarBuildGeneration) return;
         this.syncScarVisualization();
       });
-      if (this.pointsStipple && this.pointsMaterial) {
-        this.syncScarVisualization();
-      }
     }, 0);
   }
 
