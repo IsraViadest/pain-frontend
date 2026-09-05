@@ -63,7 +63,8 @@ for (const [level, capacity] of [["light", 16_384], ["standard", 32_768], ["rich
   const surfacesAndBorders = 20_003_064;
   const landMask = 2_097_152;
   const cappedAtmosphere = 1_048_576 * 12 + 4176;
-  const upper = rootStorage + descendants + surfacesAndBorders + landMask + cappedAtmosphere;
+  const fieldScratch = 1000 * 482 * Float64Array.BYTES_PER_ELEMENT;
+  const upper = rootStorage + descendants + surfacesAndBorders + landMask + cappedAtmosphere + fieldScratch;
   assert.ok(upper < forced.quality.activeBudgetBytes, level + ": declared pool exceeds the aggregate detail budget");
 }
 console.log("country quality: bounded profiles, idle upgrades, prompt downgrade, cooldown, hidden tabs, forced levels OK");

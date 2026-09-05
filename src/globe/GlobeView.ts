@@ -39,6 +39,8 @@ import {
 import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
+  SCAR_MAP_HEIGHT,
+  SCAR_MAP_WIDTH,
 } from "./painScarField";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import {
@@ -2683,8 +2685,10 @@ export class GlobeView {
     const stipple = this.getStippleDetailStats()?.additionalBytes ?? 0;
     const atmosphere = this.getAtmosphereStats()?.additionalBytes ?? 0;
     const geography = this.displayGeographyStorageBytes;
-    return { surface, borders, stipple, atmosphere, geography,
-      total: surface + borders + stipple + atmosphere + geography };
+    // Reserve the synchronous blur's additional scratch even between rebuilds.
+    const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
+    return { surface, borders, stipple, atmosphere, geography, fieldScratch,
+      total: surface + borders + stipple + atmosphere + geography + fieldScratch };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */

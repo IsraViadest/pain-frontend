@@ -421,6 +421,20 @@ data. Cleanup is limited to task-owned temporaries.
   could not read its source because automatic approval rejected the reviewer's requests; no
   independent approval is claimed. This is local validation, not deployment or network testing.
 
+- 2026-09-05: Replaced four quadratic-window box blurs with one running-sum implementation.
+  Heat retains clipped longitude; scar/Temperature/CO2 retain periodic longitude. Latitude clips
+  in all four. Float64 scratch defers rounding until the original Float32 output boundary.
+  The independent naive reference passes 830 cases and 78,104 byte comparisons. Thirteen tiny
+  Float32 differences have maximum magnitude 3.65e-17; the byte mappings agree.
+  All five actual-source output textures are byte-identical before/after. Median CPU builds:
+  scars 83.9 to 9.8 ms, physical heat 165.5 to 56.4, all-pain heat 205.5 to 100.3,
+  Temperature 120.6 to 36.6 and CO2 78.3 to 20.4. The input-hash probe initially included the
+  adapter's fresh createdAt timestamp; it now excludes that non-render input. Output-byte hashes
+  were unaffected by the probe mistake. Repeat layer submissions fall to 345/333/234/392 ms.
+  The quality accounting reserves the additional 3,856,000-byte scratch even between rebuilds;
+  conservative Light/Standard/Rich totals remain below their 64/128/128 MiB limits.
+  Scar continuity, CPU/GPU sampling and retained borrowed geometry pass after the optimization.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

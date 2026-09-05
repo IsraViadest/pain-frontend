@@ -4,38 +4,12 @@
  */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
+import { boxBlurField } from "./field-box-blur";
 import {
   painPointToFieldTexel,
   SCAR_MAP_HEIGHT,
   SCAR_MAP_WIDTH,
 } from "./painScarField";
-
-function boxBlurHeat(
-  src: Float32Array,
-  width: number,
-  height: number,
-  radius: number,
-): Float32Array {
-  const out = new Float32Array(src.length);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let sum = 0;
-      let count = 0;
-      for (let dy = -radius; dy <= radius; dy++) {
-        const iy = y + dy;
-        if (iy < 0 || iy >= height) continue;
-        for (let dx = -radius; dx <= radius; dx++) {
-          const ix = x + dx;
-          if (ix < 0 || ix >= width) continue;
-          sum += src[iy * width + ix]!;
-          count++;
-        }
-      }
-      out[y * width + x] = sum / count;
-    }
-  }
-  return out;
-}
 
 function makeHeatDataTexture(bytes: Uint8Array): THREE.DataTexture {
   const tex = new THREE.DataTexture(
@@ -145,19 +119,21 @@ export function createPainHeatTexture(
   // Explicit Float32Array: heatAcc is ArrayBuffer-backed; blur returns ArrayBufferLike under TS 5.7+.
   let smoothed: Float32Array = heatAcc;
   if (blurPass1Radius > 0) {
-    smoothed = boxBlurHeat(
+    smoothed = boxBlurField(
       smoothed,
       SCAR_MAP_WIDTH,
       SCAR_MAP_HEIGHT,
       blurPass1Radius,
+      false,
     );
   }
   if (blurPass2Radius > 0) {
-    smoothed = boxBlurHeat(
+    smoothed = boxBlurField(
       smoothed,
       SCAR_MAP_WIDTH,
       SCAR_MAP_HEIGHT,
       blurPass2Radius,
+      false,
     );
   }
 
