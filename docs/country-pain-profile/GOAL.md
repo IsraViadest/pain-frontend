@@ -713,6 +713,8 @@ data. Cleanup is limited to task-owned temporaries.
   reaches dwell, clears for the next country, and stops cleanly without browser errors. Docker
   entry gzip is 227.17 kB, 19.27 kB below the limit. Six temporary comparison PNGs totaling about
   7.9 MiB were inspected and are task-owned cleanup targets; no durable gallery was added.
+  Automatic approval rejected deletion because the `rm` family is blocked outright. The six
+  files remain in `/tmp`; no alternate deletion mechanism was used to bypass that control.
 
 ## Historical first-goal completion
 
