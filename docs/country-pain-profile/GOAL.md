@@ -550,6 +550,43 @@ data. Cleanup is limited to task-owned temporaries.
   with stable resources and zero errors. Editing the live Vite source ended its evaluator;
   it is not counted as a complete run. Final source requires the full replacement soak.
 
+- 2026-09-05: Final browser regression coverage preserves the original gate: plain port 3000
+  creates no emotional labels or profile and fetches none of the lazy experimental modules.
+  `?ev=2` retains 195 labels and 13 emphasized India-category members, without profile assets.
+  Trusted input, exact-country selection, reduced motion and survey open/close checks pass.
+  The survey check declines consent and makes no survey submission. Primary frontend/server
+  checkouts remain clean at `7ca5492` and `2d6407b`.
+  All four quality requests pass native capacity/sample checks, country retention and zoom/layer
+  races, without new zoom requests or GL errors. An extra concurrent-browser timing run had a
+  66 ms CPU maximum; isolated cold tests on the updated `index-KNeeCuSh.js` have zero long tasks.
+  Both views have 8.3/10.0 ms median/p95 intervals. Maximum intervals are 10.4 ms for v7 and
+  33.3 ms for v18; readbacks are 5.9-9.6 and 4.9-7.8 ms respectively. Concurrency is a confounder,
+  not a proven cause of the earlier spike. Desktop input and DPR checks do not close phone GPU
+  acceptance. Automatic approval rejected independent source review and report-file reads;
+  direct checks and agent-reported measurements are not claimed as independent approval.
+
+- 2026-09-05: Concurrent gallery capture invalidated another soak. At 760.2 seconds and
+  2,949 visits, three persistent textures appeared after the original one-texture warmup bound.
+  There were no GL errors, missing countries, DOM growth or human metrics. The soak Chrome
+  (PID 11157) and a later gallery Chrome (PID 16326) both selected debugging port 9555. The
+  gallery then stalled and the soak ended. Three replacement textures match the atmosphere's
+  resized depth/color and volume targets, but viewport dimensions were not in that result,
+  so an application leak is not established. The resource test remains failed, not waived.
+  Finish gallery capture before starting the replacement soak. Do not run browser helpers in
+  parallel with that soak: their chosen ports are not coordinated. The soak now explicitly
+  checks its initial viewport, DPR and drawing-buffer dimensions throughout the run.
+
+- 2026-09-05: Final gallery complete on application source `82e020b`: all 48 retained v8-v18
+  candidates plus ten final states, 58 inspected PNGs totaling 51.46 MiB. The previous 29 images
+  remain intact. `scripts/capture-country-profile-gallery.mjs` prints live URLs and recipes by
+  default; --capture writes missing images and preserves existing files. Every PNG's native
+  dimensions and signature pass validation. Phone captures use actual DPR 2 drawing buffers.
+  The last landscape frame selects India's surface through an exposed canvas point: its raised
+  label is correctly occluded by the legend at that viewport. Moving the camera initially moved
+  it behind another control; no frame was written for either failed label-click attempt.
+  No application behavior changed for the gallery. The replacement viewport-guarded soak runs
+  alone at the reference 1500x950 viewport; all other helper browsers are closed.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
