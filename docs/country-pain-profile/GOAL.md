@@ -725,6 +725,15 @@ data. Cleanup is limited to task-owned temporaries.
   clearance remain within their existing bounds. The integrated visual was inspected in Chrome;
   no durable gallery file was created. The new default is `v28-a_share-and-locate`.
 
+- 2026-09-06: Legend rounds v29-v30 are complete. Environmental, Physical, and
+  Socioeconomic Pain now use generated 72x136 vertical scales aligned at the 20 px left inset.
+  At the reported 900x700 middle viewport, the Physical and Environmental profiles both remain
+  at y=470.1 instead of being raised above the legend. The desktop Emotional Pain terms gain a
+  second 7 px dark halo; the existing mobile box keeps only its original shadow. The expanded
+  chrome check now switches through Physical Pain and verifies that the legend does not displace
+  the profile. The live treatment was inspected in Chrome and the compliance gate passes. The
+  selected default is `v30-a_legend-halo`.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

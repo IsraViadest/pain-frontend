@@ -83,6 +83,10 @@ function positionLegendUnderTitle(): void {
     host.style.left = "";
     return;
   }
+  if (currentContent?.dataset.orientation === "vertical") {
+    host.style.left = `${TITLE_INSET_LEFT_PX}px`;
+    return;
+  }
   const headingEl = document.querySelector<HTMLElement>(".ui-title__heading");
   if (!headingEl) return;
   // Title block is at left: 20px; heading.offsetLeft is relative to #ui-title.

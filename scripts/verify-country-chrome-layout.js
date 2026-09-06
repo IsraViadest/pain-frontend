@@ -136,7 +136,9 @@
     const cycle = document.querySelector("#country-presentation-toggle");
     const menu = document.querySelector('.ui-hamburger[aria-label="Toggle menu"]');
     const environmental = document.querySelector('#ui-layer-stack button[data-layer="envpain"]');
-    check(canvas && profile && cycle && menu && environmental, "Country-profile chrome is unavailable");
+    const physical = document.querySelector('#ui-layer-stack button[data-layer="physpain"]');
+    check(canvas && profile && cycle && menu && environmental && physical,
+      "Country-profile chrome is unavailable");
     const verifyEmotional = async () => {
       const emotional = document.querySelector('#ui-layer-stack button[data-layer="emopain"]');
       if (!describe(emotional).visible) {
@@ -205,6 +207,15 @@
     capture("environmental");
     checkChrome();
     if (innerWidth > 768 && innerHeight > 500) {
+      const environmentalTop = profile.getBoundingClientRect().top;
+      pointerClick(physical);
+      await wait(() => legend.dataset.layer === "physpain" && legend.querySelector("svg") &&
+        legend.classList.contains("legend--visible"), "Physical generated SVG did not appear");
+      await sleep(450);
+      capture("physical");
+      checkChrome();
+      check(Math.abs(profile.getBoundingClientRect().top - environmentalTop) < 1,
+        "Physical legend displaced the profile vertically");
       const emotionalCategories = await verifyEmotional();
       return { passed: true, viewport: [innerWidth, innerHeight], compactMenuRequired: false, emotionalCategories, stages };
     }

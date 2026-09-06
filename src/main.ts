@@ -517,6 +517,10 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   const preset = countryProfileRuntime?.preset;
   const quality = countryProfileRuntime?.quality?.settings;
   emoLabelLayer?.setOcclusionRects(preset?.chromeOcclusion ? countryChromeRects : null);
+  document.getElementById("emo-legend")?.toggleAttribute(
+    "data-soft-halo",
+    preset?.emotionalLegendHalo === true,
+  );
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
     quality?.samples ?? preset?.atmosphereSamples ?? 32,

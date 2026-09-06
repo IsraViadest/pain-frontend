@@ -148,6 +148,8 @@ export interface CountryProfilePreset {
   profileHardOutline?: boolean;
   sharePainLabel?: string;
   sharePainLooseLines?: boolean;
+  generatedLegendOrientation?: "responsive" | "vertical";
+  emotionalLegendHalo?: boolean;
   cycle?: {
     preserveZoom?: boolean;
     revealWithNetwork?: boolean;
@@ -700,9 +702,32 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V23_REVEAL, id: "v29-a_vertical-legends", label: "v29: vertical value legends",
+    description: "Environmental and socioeconomic scales use a narrow vertical footprint.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain",
+    sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v30-a_legend-halo", label: "v30: quiet legend halo",
+    description: "The desktop emotional legend gains a restrained dark text halo.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain",
+    sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical",
+    emotionalLegendHalo: true,
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v28-a_share-and-locate";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v30-a_legend-halo";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

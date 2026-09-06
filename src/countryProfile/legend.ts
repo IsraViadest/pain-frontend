@@ -1,7 +1,7 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** Relative field strength; cloud height is an artistic treatment, not a measured altitude. */
-export function createEnvironmentalLegend(): SVGSVGElement {
+export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.classList.add("ui-legend__img");
   svg.setAttribute("viewBox", "0 0 184 136");
@@ -14,6 +14,7 @@ export function createEnvironmentalLegend(): SVGSVGElement {
   svg.style.color = "#ffffff";
   svg.style.fontFamily = "inherit";
   svg.style.fontSize = "14px";
+  if (vertical) svg.dataset.orientation = "vertical";
   const defs = document.createElementNS(SVG_NS, "defs");
   svg.append(defs);
   const fields: {
@@ -67,7 +68,7 @@ export function createEnvironmentalLegend(): SVGSVGElement {
   }
 
   const resize = (): void => {
-    const portrait = window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||
+    const portrait = vertical || window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||
       window.innerWidth <= 744 && window.innerHeight <= 500;
     const compact = !portrait && window.innerHeight <= 500;
     const layout = portrait ? "portrait" : compact ? "landscape" : "desktop";
@@ -106,11 +107,62 @@ export function createEnvironmentalLegend(): SVGSVGElement {
   return svg;
 }
 
+/** Compact physical scale matching the generated environmental and socioeconomic legends. */
+export function createPhysicalLegend(): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.classList.add("ui-legend__img");
+  svg.dataset.orientation = "vertical";
+  svg.setAttribute("viewBox", "0 0 72 136");
+  svg.setAttribute("width", "72");
+  svg.setAttribute("height", "136");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Physical Pain, lower to higher relative signal.");
+  svg.setAttribute("fill", "currentColor");
+  svg.style.color = "#ffffff";
+  svg.style.fontFamily = "inherit";
+  const defs = document.createElementNS(SVG_NS, "defs");
+  const gradient = document.createElementNS(SVG_NS, "linearGradient");
+  gradient.id = "country-profile-physical-scale";
+  gradient.setAttribute("y1", "100%");
+  for (const [offset, opacity] of [[0, 0.08], [1, 1]] as const) {
+    const stop = document.createElementNS(SVG_NS, "stop");
+    stop.setAttribute("offset", String(offset));
+    stop.setAttribute("stop-color", "#e4184b");
+    stop.setAttribute("stop-opacity", String(opacity));
+    gradient.append(stop);
+  }
+  defs.append(gradient);
+  const title = document.createElementNS(SVG_NS, "text");
+  title.setAttribute("transform", "translate(16, 92) rotate(-90)");
+  title.setAttribute("font-size", "11");
+  title.textContent = "Physical Pain";
+  const bar = document.createElementNS(SVG_NS, "rect");
+  bar.setAttribute("x", "24");
+  bar.setAttribute("y", "22");
+  bar.setAttribute("width", "12");
+  bar.setAttribute("height", "98");
+  bar.setAttribute("rx", "6");
+  bar.setAttribute("fill", "url(#country-profile-physical-scale)");
+  const higher = document.createElementNS(SVG_NS, "text");
+  higher.setAttribute("x", "42");
+  higher.setAttribute("y", "12");
+  higher.setAttribute("font-size", "11");
+  higher.textContent = "higher";
+  const lower = document.createElementNS(SVG_NS, "text");
+  lower.setAttribute("x", "42");
+  lower.setAttribute("y", "134");
+  lower.setAttribute("font-size", "11");
+  lower.textContent = "lower";
+  svg.append(defs, title, bar, higher, lower);
+  return svg;
+}
+
 /** Resolved pattern samples use the same alpha and contrast mapping as the globe. */
 export function createSocioeconomicLegend(
   minimumAlpha: number,
   style: "color" | "hatch" | "woven",
   contrast = 0.25,
+  vertical = false,
 ): SVGSVGElement {
   const q = Math.round(255 * minimumAlpha) / 255;
   if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || q >= 1) {
@@ -127,6 +179,7 @@ export function createSocioeconomicLegend(
     return node;
   };
   const svg = element("svg", { class: "ui-legend__img", role: "img", fill: "currentColor" });
+  if (vertical) svg.dataset.orientation = "vertical";
   svg.style.color = "#ffffff";
   svg.style.fontFamily = "inherit";
   svg.setAttribute("aria-label", "Socioeconomic continuous relative signal, lower to higher. " +
@@ -180,7 +233,7 @@ export function createSocioeconomicLegend(
     fill: "none", stroke: "currentColor", "stroke-width": 1 });
   svg.append(missing);
   const resize = (): void => {
-    const portrait = window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||
+    const portrait = vertical || window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||
       window.innerWidth <= 744 && window.innerHeight <= 500;
     const compact = !portrait && window.innerHeight <= 500;
     const layout = portrait ? "portrait" : compact ? "landscape" : "desktop";

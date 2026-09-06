@@ -13,7 +13,11 @@ import {
   type CountryProfilePreset,
 } from "./presets";
 import { CountrySelectionController } from "./selection";
-import { createEnvironmentalLegend, createSocioeconomicLegend } from "./legend";
+import {
+  createEnvironmentalLegend,
+  createPhysicalLegend,
+  createSocioeconomicLegend,
+} from "./legend";
 import { CountryRenderQuality } from "./quality";
 
 const ENVIRONMENTAL_LAYER = "envpain";
@@ -34,6 +38,7 @@ export class CountryProfileRuntime {
   readonly profiles: ReadonlyMap<string, CountryPainProfile>;
   private readonly selection: CountrySelectionController;
   private environmentalLegend: SVGSVGElement | undefined;
+  private physicalLegend: SVGSVGElement | undefined;
   private socioeconomicLegend: SVGSVGElement | undefined;
   readonly socioeconomicMinimum: number;
   readonly quality: CountryRenderQuality | null;
@@ -117,15 +122,21 @@ export class CountryProfileRuntime {
   }
 
   legendForLayer(layerId: string): SVGSVGElement | undefined {
+    if (layerId === PHYSICAL_LAYER && this.preset.generatedLegendOrientation === "vertical") {
+      return this.physicalLegend ??= createPhysicalLegend();
+    }
     if (layerId === SOCIOECONOMIC_LAYER && this.preset.socioeconomicStyle) {
       return this.socioeconomicLegend ??= createSocioeconomicLegend(
         this.socioeconomicMinimum, this.preset.socioeconomicStyle,
         this.preset.socioeconomicPatternContrast ?? 0.25,
+        this.preset.generatedLegendOrientation === "vertical",
       );
     }
     if (layerId !== ENVIRONMENTAL_LAYER || !this.preset.atmosphereMode ||
         this.preset.atmosphereMode === "control") return undefined;
-    return this.environmentalLegend ??= createEnvironmentalLegend();
+    return this.environmentalLegend ??= createEnvironmentalLegend(
+      this.preset.generatedLegendOrientation === "vertical",
+    );
   }
 
   setProfileSuppressed(suppressed: boolean): void {
