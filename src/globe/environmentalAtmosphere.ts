@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { createAtmosphereSurface } from "./atmosphereSurface";
 import { createAtmosphereVolume } from "./atmosphereVolume";
 
-export type AtmosphereMode = "control" | "flat" | "mantle" | "cloudlets" | "volume";
+export type AtmosphereMode = "control" | "flat" | "mantle" | "cloudlets" | "volume" |
+  "volume-strong" | "volume-separated" | "volume-strong-separated";
 
 const MAX_DEPTH_PIXELS = 1_048_576;
 const COLORS = { temperature: "#d74846", co2: "#69c99c" };
@@ -31,8 +32,12 @@ export function createEnvironmentalAtmosphere(options: {
   const depthScene = new THREE.Scene();
   depthScene.add(depthMesh);
   const shared = { renderer, depth, drawingSize, inverseEarth, colors: COLORS };
-  const volume = mode === "volume" ? createAtmosphereVolume(shared) : null;
-  const surface = mode !== "volume" ? createAtmosphereSurface({ ...shared, mode }) : null;
+  const volumeMode = mode.startsWith("volume");
+  const volume = volumeMode ? createAtmosphereVolume({ ...shared,
+    treatment: mode as "volume" | "volume-strong" | "volume-separated" |
+      "volume-strong-separated" }) : null;
+  const surface = volumeMode ? null : createAtmosphereSurface({ ...shared,
+    mode: mode as "flat" | "mantle" | "cloudlets" });
   const object = (volume ?? surface)!.object;
   object.visible = false;
   earthContent.add(object);

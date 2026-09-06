@@ -21,6 +21,8 @@ uniform mat4 uInverseEarth;
 uniform vec3 uTemperatureColor;
 uniform vec3 uCo2Color;
 uniform int uSamples;
+uniform float uStrong;
+uniform float uSeparated;
 
 vec3 localPosition(float depth) {
   vec4 view = uInverseProjection * vec4(vUv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
@@ -39,11 +41,22 @@ float envelope(float radius, float alpha) {
   return smoothstep(0.94, 1.0, radius) * (1.0 - smoothstep(1.005, top, radius));
 }
 
+float temperatureEnvelope(float radius, float alpha) {
+  float top = 1.018 + mix(0.025, 0.057, alpha);
+  return smoothstep(0.97, 1.0, radius) * (1.0 - smoothstep(1.006, top, radius));
+}
+
+float co2Envelope(float radius, float alpha) {
+  float top = 1.08 + 0.06 * alpha;
+  return smoothstep(1.02, 1.045, radius) * (1.0 - smoothstep(1.055, top, radius));
+}
+
 void main() {
   vec3 origin = (uInverseEarth * uCameraWorld * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   vec3 direction = normalize(localPosition(1.0) - origin);
   float b = dot(origin, direction);
-  float discriminant = b * b - dot(origin, origin) + 1.09 * 1.09;
+  float outerRadius = mix(1.09, 1.145, uSeparated);
+  float discriminant = b * b - dot(origin, origin) + outerRadius * outerRadius;
   if (discriminant <= 0.0) { gl_FragColor = vec4(0.0); return; }
   float reach = sqrt(discriminant);
   float nearDistance = max(0.0, dot(localPosition(0.0) - origin, direction));
@@ -63,13 +76,16 @@ void main() {
     vec2 uv = fieldUv(point / max(radius, 0.0001));
     float temperature = texture2D(uTemperature, uv).a;
     float co2 = texture2D(uCo2, uv).a;
-    float temperatureDensity = 0.7 * temperature * envelope(radius, temperature);
-    float co2Density = 0.4 * co2 * envelope(radius, co2);
+    float temperatureShape = mix(envelope(radius, temperature),
+      temperatureEnvelope(radius, temperature), uSeparated);
+    float co2Shape = mix(envelope(radius, co2), co2Envelope(radius, co2), uSeparated);
+    float temperatureDensity = mix(0.7, 1.1, uStrong) * temperature * temperatureShape;
+    float co2Density = mix(0.4, 0.75, uStrong) * co2 * co2Shape;
     float density = temperatureDensity + co2Density;
     if (density <= 0.0) continue;
     vec3 color = (uTemperatureColor * temperatureDensity + uCo2Color * co2Density) / density;
     // Step-length correction keeps optical opacity independent of the chosen sample count.
-    float alpha = 1.0 - exp(-12.0 * density * stepLength);
+    float alpha = 1.0 - exp(-mix(12.0, 30.0, uStrong) * density * stepLength);
     accumulated += (1.0 - opacity) * alpha * color;
     opacity += (1.0 - opacity) * alpha;
     if (opacity >= 0.995) break;
@@ -99,6 +115,8 @@ export function createAtmosphereVolume(options: {
   drawingSize: THREE.Vector2;
   inverseEarth: THREE.Matrix4;
   colors: { temperature: string; co2: string };
+  treatment: "volume" | "volume-strong" | "volume-separated" |
+    "volume-strong-separated";
 }) {
   const { renderer, drawingSize } = options;
   const neutral = new THREE.DataTexture(new Uint8Array(4), 1, 1, THREE.RGBAFormat);
@@ -132,6 +150,8 @@ export function createAtmosphereVolume(options: {
       uTemperatureColor: { value: new THREE.Color(options.colors.temperature) },
       uCo2Color: { value: new THREE.Color(options.colors.co2) },
       uSamples: { value: 16 },
+      uStrong: { value: options.treatment.includes("strong") ? 1 : 0 },
+      uSeparated: { value: options.treatment.includes("separated") ? 1 : 0 },
     },
     depthTest: false,
     depthWrite: false,
@@ -194,6 +214,7 @@ export function createAtmosphereVolume(options: {
       return {
         width: target.width, height: target.height, fieldCount,
         samples: material.uniforms.uSamples.value as 16 | 32 | 48,
+        treatment: options.treatment,
         // Attachment plus CPU/GPU copies of owned positions and the neutral pixel; driver
         // bookkeeping and compiled shader storage are not measurable from these allocations.
         additionalBytes: disposed ? 0 : target.width * target.height * 4 + 9 * 4 * 2 + 4 * 2,

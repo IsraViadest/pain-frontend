@@ -126,7 +126,8 @@ export interface CountryProfilePreset {
   physicalDetail?: "fixed" | "regrow" | "split1" | "split2" | "uniform";
   stippleAllLayers?: boolean;
   stipplePointCount?: 82_000 | 164_000;
-  atmosphereMode?: "control" | "flat" | "mantle" | "cloudlets" | "volume";
+  atmosphereMode?: "control" | "flat" | "mantle" | "cloudlets" | "volume" |
+    "volume-strong" | "volume-separated" | "volume-strong-separated";
   atmosphereSamples?: 16 | 32 | 48;
   atmosphereFraction?: number;
   environmentalContextOpacity?: number;
@@ -849,9 +850,57 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V23_REVEAL, id: "v34-control_current-air", label: "v34 control: current air",
+    description: "The selected scar treatment with the incumbent mixed translucent volume.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v34-a_stronger-air", label: "v34: stronger air",
+    description: "Temperature and CO2 gain a higher-opacity response in their existing volume.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume-strong",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v34-b_separated-air", label: "v34: separated air layers",
+    description: "Temperature stays close to Earth while CO2 occupies a higher band.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume-separated",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v34-c_strong-separated-air", label: "v34: strong separated air",
+    description: "The stronger volume uses a lower Temperature band and a higher CO2 band.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume-strong-separated",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v33-a_hillshade";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v34-c_strong-separated-air";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

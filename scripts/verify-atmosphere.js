@@ -55,18 +55,24 @@
       renderer.render(scene, camera);
       renderer.getContext().readPixels(0, 0, 320, 320,
         renderer.getContext().RGBA, renderer.getContext().UNSIGNED_BYTE, pixels);
-      const sum = { alpha: 0, upper: 0, lower: 0, red: 0, green: 0, blue: 0 };
+      const sum = { alpha: 0, upper: 0, lower: 0, red: 0, green: 0, blue: 0,
+        redRadius: 0, greenRadius: 0 };
       for (let y = 0; y < 320; y++) for (let x = 0; x < 320; x++) {
         const i = (y * 320 + x) * 4, alpha = pixels[i + 3];
         sum.alpha += alpha;
         sum[y >= 160 ? "upper" : "lower"] += alpha;
         sum.red += pixels[i]; sum.green += pixels[i + 1]; sum.blue += pixels[i + 2];
+        const radius = Math.hypot(x - 160, y - 160);
+        if (alpha > 4 && pixels[i] > pixels[i + 1] * 1.08) sum.redRadius = Math.max(sum.redRadius, radius);
+        if (alpha > 4 && pixels[i + 1] > pixels[i] * 1.08) sum.greenRadius = Math.max(sum.greenRadius, radius);
       }
       return { ...sum, pixels: [[160, 160], [160, 280], [160, 40]].map(([x, y]) => ({
         x, y, rgba: Array.from(pixels.slice((y * 320 + x) * 4, (y * 320 + x) * 4 + 4)),
       })) };
     };
-    for (const mode of ["flat", "mantle", "cloudlets", "volume"]) {
+    for (const mode of ["flat", "mantle", "cloudlets", "volume", "volume-strong",
+      "volume-separated", "volume-strong-separated"]) {
+      const isVolume = mode.startsWith("volume");
       const result = { mode };
       results.push(result);
       atmosphere = createEnvironmentalAtmosphere({ mode, renderer, camera, earthContent: earth,
@@ -107,13 +113,21 @@
       const enclosed = read();
       check(enclosed.alpha === 0, mode + ": air inside hidden surface did not clip");
       setSurface(() => 1);
-      const qualities = mode === "volume" ? [16, 32, 48].map((steps) => ({ steps, ...read(steps) })) : [];
+      const qualities = isVolume ? [16, 32, 48].map((steps) => ({ steps, ...read(steps) })) : [];
       if (qualities.length) {
         const reference = qualities[2].alpha;
         check(qualities.every((q) => Math.abs(q.alpha / reference - 1) < 0.12),
           "sample count substantially changed volume strength");
       }
-      if (mode === "volume") {
+      let separation = null;
+      if (mode.includes("separated")) {
+        atmosphere.setFields(equator, equator);
+        separation = read(48);
+        check(separation.red > 0 && separation.green > 0 &&
+          separation.greenRadius > separation.redRadius + 2,
+        mode + ": CO2 does not extend above the Temperature band");
+      }
+      if (isVolume) {
         atmosphere.setFields(equator, null);
         camera.position.z = 1.04; // Above the surface, inside the 1.09 volume bound.
         const inside = result.insideShell = { cameraRadius: camera.position.z, front: read(48) };
@@ -151,7 +165,7 @@
       atmosphere.prepare(48, 0.5);
       const resources = atmosphere.stats();
       check(resources.depthWidth * resources.depthHeight <= 1048576, mode + ": depth target unbounded");
-      if (mode === "volume") check(resources.width * resources.height <= 1048576, "volume target unbounded");
+      if (isVolume) check(resources.width * resources.height <= 1048576, "volume target unbounded");
       check(resources.additionalBytes <= 64 * 1024 * 1024, mode + ": unexpected additional allocation");
       let borrowedDisposals = 0;
       const disposed = () => borrowedDisposals++;
@@ -160,13 +174,16 @@
       for (const resource of [surface, temperature, co2]) resource.removeEventListener("dispose", disposed);
       check(borrowedDisposals === 0 && earth.children.length === 0, mode + ": teardown damaged borrowed data");
       Object.assign(result, { north, south, combined, backAlpha: back.alpha,
-        deformedUpper: deformed.upper, enclosedAlpha: enclosed.alpha, qualities, resources,
+        deformedUpper: deformed.upper, enclosedAlpha: enclosed.alpha, qualities, separation, resources,
         texturesAfterDisposal: renderer.info.memory.textures });
       renderer.setPixelRatio(1);
       renderer.setSize(320, 320, false);
       camera.aspect = 1;
       camera.updateProjectionMatrix();
     }
+    const byMode = new Map(results.map((result) => [result.mode, result]));
+    check(byMode.get("volume-strong").north.alpha > byMode.get("volume").north.alpha * 1.2,
+      "strong volume does not materially strengthen the midpoint field");
     return { passed: true, results, visibleSolidMesh: false };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error), results };

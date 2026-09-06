@@ -768,6 +768,18 @@ data. Cleanup is limited to task-owned temporaries.
   passes without child geometry, stranded detail, or errors. No durable gallery was created.
   The selected default is `v33-a_hillshade`.
 
+- 2026-09-06: Atmospheric round v34 is complete. The control, stronger mixed volume, separated
+  volume, and stronger separated volume remain directly addressable. The selected
+  `v34-c_strong-separated-air` keeps Temperature in a shallow 1.00-1.075 radius band and moves
+  CO2 into a higher 1.02-1.14 band. This is an artistic separation, not measured altitude.
+  Strong absorption makes the synthetic midpoint Temperature sample visibly coral and maximum
+  CO2 about 218/255 alpha. A direct radial test confirms the green field extends beyond the red
+  field. Zero and missing maps stay empty; source textures remain unmodified; far-side, inside-
+  surface, layer-switch, sample-count, resource, and renderer-state checks pass. Atmospheric
+  draws occur only on Environmental and all-pain layers. At 1080x684, control versus selected
+  CPU p95 stays 0.5 ms; GPU draw-sum median is 1.19 versus 2.19 ms and p95 3.30 versus 4.00 ms.
+  No durable gallery was created. The selected default is `v34-c_strong-separated-air`.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
