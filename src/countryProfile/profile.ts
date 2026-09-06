@@ -332,6 +332,7 @@ export class CountryProfileView {
     this.host.dataset.profileReveal = preset.profileReveal ?? "none";
     this.host.dataset.profileOrder = preset.profileOrder ?? "country-first";
     this.host.dataset.profileHardOutline = preset.profileHardOutline === false ? "false" : "true";
+    this.host.dataset.profilePlate = preset.profilePlate ?? "fixed";
     this.paintedSpacing = preset.profileSpacing === "painted-n";
     this.centerEnglishTerm = preset.centerEnglishTerm === true;
     this.softReveal = preset.profileReveal === "soft";

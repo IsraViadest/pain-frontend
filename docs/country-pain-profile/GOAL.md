@@ -801,6 +801,14 @@ data. Cleanup is limited to task-owned temporaries.
   and CO2 missingness, painted spacing, and alignment. The control remains at
   `v35-control_empty-missing`. The compliance gate passes; no durable gallery was created.
 
+- 2026-09-06: Profile plate round v36 is complete. The selected
+  `v36-a_content-fade-plate` removes every profile shadow and hard edge, sizes the plate from its
+  visible indicators or country name, and feathers the black translucent background to full
+  transparency at both sides. The desktop fixture is 349.45 px wide instead of the 460 px
+  control. The all-195 sweep passes at 1500x950 and 320x740 after tightening the phone maximum
+  to preserve 8 px viewport clearance. Painted gaps and English centering remain unchanged.
+  `v36-control_fixed-plate` retains the prior geometry. No durable gallery was created.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

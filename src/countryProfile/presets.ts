@@ -152,6 +152,7 @@ export interface CountryProfilePreset {
   profileOrder?: "country-first" | "indicators-first";
   profileHardOutline?: boolean;
   profileMissingPattern?: boolean;
+  profilePlate?: "fixed" | "content-fade";
   sharePainLabel?: string;
   sharePainLooseLines?: boolean;
   generatedLegendOrientation?: "responsive" | "vertical";
@@ -924,9 +925,35 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V23_REVEAL, id: "v36-control_fixed-plate", label: "v36 control: fixed profile plate",
+    description: "The selected missing glyphs inside the existing 460-pixel profile plate.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    profileMissingPattern: true,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume-strong-separated",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v36-a_content-fade-plate", label: "v36: content-width fade plate",
+    description: "The profile fits its content and fades from black to transparent at both sides.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    profileMissingPattern: true, profilePlate: "content-fade", profileGlow: "none",
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume-strong-separated",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v35-a_profile-missing-hatch";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v36-a_content-fade-plate";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

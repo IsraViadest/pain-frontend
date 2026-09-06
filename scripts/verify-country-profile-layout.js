@@ -122,6 +122,17 @@
       check(!getComputedStyle(card).boxShadow.includes("0px 0px 0px 1px"),
         "hard profile outline is still painted");
     }
+    if (preset.profilePlate === "content-fade") {
+      const style = getComputedStyle(card);
+      const items = card.querySelector(".country-profile__items").getBoundingClientRect();
+      const country = card.querySelector(".country-profile__country").getBoundingClientRect();
+      const expected = Math.max(items.width, country.width) + Number.parseFloat(style.paddingLeft) +
+        Number.parseFloat(style.paddingRight);
+      check(Math.abs(card.getBoundingClientRect().width - expected) < 1,
+        "profile plate does not fit its visible content");
+      check(style.boxShadow === "none" && style.backgroundImage.includes("linear-gradient"),
+        "content plate retained a halo or lost its side fade");
+    }
     const environment = card.querySelector('[data-indicator="environmental"]');
     check(getComputedStyle(environment.querySelector(".country-profile__outline")).display ===
       "none", "missing CO2 still has a band");

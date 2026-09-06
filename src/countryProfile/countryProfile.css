@@ -580,6 +580,21 @@
     0 0 72px 42px rgba(92, 146, 235, 0.08);
 }
 
+.country-profile[data-layout="compact"][data-profile-plate="content-fade"] {
+  width: max-content !important;
+  max-width: calc(100vw - 16px);
+  padding-inline: 38px;
+  border-radius: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 5, 18, 0) 0,
+    rgba(0, 5, 18, var(--country-profile-plate)) 38px,
+    rgba(0, 5, 18, var(--country-profile-plate)) calc(100% - 38px),
+    rgba(0, 5, 18, 0) 100%
+  );
+  box-shadow: none;
+}
+
 .country-profile[data-profile-order="indicators-first"] {
   display: flex;
   flex-direction: column;
@@ -638,6 +653,18 @@
     --cp-rail: var(--cp-phone);
     --cp-glyph: var(--cp-phone-glyph);
     padding: 8px 10px;
+  }
+
+  .country-profile[data-layout="compact"][data-profile-plate="content-fade"] {
+    max-width: calc(100vw - 16px);
+    padding-inline: 22px;
+    background: linear-gradient(
+      90deg,
+      rgba(0, 5, 18, 0) 0,
+      rgba(0, 5, 18, var(--country-profile-plate)) 22px,
+      rgba(0, 5, 18, var(--country-profile-plate)) calc(100% - 22px),
+      rgba(0, 5, 18, 0) 100%
+    );
   }
 
   .country-profile[data-layout="compact"] .country-profile__country {
