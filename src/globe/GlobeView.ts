@@ -11,6 +11,7 @@ import {
   createChoroplethTexture,
   ensureChoroplethCountriesLoaded,
   HIGHLIGHT_GROUP_BYTES,
+  type SocioeconomicMissingStyle,
 } from "./choroplethField";
 import {
   createEarthStippleGlobe,
@@ -539,6 +540,7 @@ export class GlobeView {
   private socioeconomicStyle: SocioeconomicStyle | null = null;
   private socioeconomicMinimum = 0;
   private socioeconomicContrast = 0.25;
+  private socioeconomicMissingStyle: SocioeconomicMissingStyle | undefined;
   private socioeconomicStyleGeneration = 0;
   /**
    * When true, rebuild scars + choropleth shell + CO2 haze + word clouds together
@@ -1434,6 +1436,7 @@ export class GlobeView {
       const values = aggregateChoroplethValues(points);
       this.choroplethMap = createChoroplethTexture(
         values, colorHex, this.getDisplayCountryGeometries(), this.socioeconomicMinimum,
+        this.showAllLayersMode ? undefined : this.socioeconomicMissingStyle,
       );
       this.applyChoroplethMaterial();
       this.syncGlobeSurfaceVisibility();
@@ -2571,7 +2574,12 @@ export class GlobeView {
     return this.atmosphere?.stats() ?? null;
   }
 
-  setSocioeconomicStyle(style: SocioeconomicStyle | null, minimumAlpha = 0, contrast = 0.25): void {
+  setSocioeconomicStyle(
+    style: SocioeconomicStyle | null,
+    minimumAlpha = 0,
+    contrast = 0.25,
+    missingStyle?: SocioeconomicMissingStyle,
+  ): void {
     if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || Math.round(minimumAlpha * 255) >= 255) {
       throw new RangeError("Socioeconomic reference must leave a visible range below full alpha");
     }
@@ -2579,10 +2587,12 @@ export class GlobeView {
       throw new RangeError("Socioeconomic contrast must be in [0, 1]");
     }
     if (style === this.socioeconomicStyle && minimumAlpha === this.socioeconomicMinimum &&
-        contrast === this.socioeconomicContrast) return;
+        contrast === this.socioeconomicContrast &&
+        missingStyle === this.socioeconomicMissingStyle) return;
     this.socioeconomicStyle = style;
     this.socioeconomicMinimum = minimumAlpha;
     this.socioeconomicContrast = contrast;
+    this.socioeconomicMissingStyle = missingStyle;
     const generation = ++this.socioeconomicStyleGeneration;
     void import("./socioeconomicPattern").then(({ applySocioeconomicPattern }) => {
       if (generation !== this.socioeconomicStyleGeneration) return;

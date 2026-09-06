@@ -2,7 +2,8 @@
  * Synthetic countries only. Imports code modules but never requests country or application data.
  */
 (async () => {
-  let renderer, target, geometry, material, texture, legacyTexture, floorTexture, scene, mesh;
+  let renderer, target, geometry, material, texture, legacyTexture, floorTexture, missingTexture,
+    scene, mesh;
   const rows = [];
   const shaderErrors = [];
   try {
@@ -27,8 +28,9 @@
     })) });
     const values = tiles.filter((tile) => tile.value !== null)
       .map((tile) => ({ country: tile.key, intensity: tile.value }));
-    texture = createChoroplethTexture(values, "#ffffff", countries, minimum);
-    legacyTexture = createChoroplethTexture(values, "#ffffff", countries);
+    texture = createChoroplethTexture(values, "#ffff00", countries, minimum);
+    legacyTexture = createChoroplethTexture(values, "#ffff00", countries);
+    missingTexture = createChoroplethTexture(values, "#ffff00", countries, minimum, "diagonal");
     const sourceByte = (map, tile) => {
       const { width, height, data } = map.image;
       const x = Math.floor((tile.longitude + 180) / 360 * width);
@@ -46,6 +48,18 @@
     }
     check(tiles[0].alphaByte === 64 && tiles[1].alphaByte === 0 && tiles[2].alphaByte === 0,
       "Finite zero is not distinct from absent/NaN");
+    const missingPixel = (tile) => {
+      const { width, height, data } = missingTexture.image;
+      const x = Math.floor((tile.longitude + 180) / 360 * width);
+      const offset = (Math.floor(height / 2) * width + x) * 4;
+      return [...data.slice(offset, offset + 4)];
+    };
+    const missingSample = missingPixel(tiles[1]);
+    const dataSample = missingPixel(tiles[0]);
+    check(missingSample[3] > 0 && Math.max(...missingSample.slice(0, 3)) -
+      Math.min(...missingSample.slice(0, 3)) < 10, "Missing region is not a visible neutral gray");
+    check(dataSample[0] > 200 && dataSample[1] > 200 && dataSample[2] < 20,
+      "Missing treatment changed a real socioeconomic value");
 
     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false, premultipliedAlpha: false });
     renderer.setPixelRatio(1);
@@ -212,6 +226,7 @@
     texture.dispose(); texture = null;
     legacyTexture.dispose(); legacyTexture = null;
     floorTexture.dispose(); floorTexture = null;
+    missingTexture.dispose(); missingTexture = null;
     target.dispose(); target = null;
     renderer.render(scene, camera);
     const afterDisposal = { ...renderer.info.memory };
@@ -229,7 +244,8 @@
   } finally {
     if (mesh && scene) scene.remove(mesh);
     renderer?.setRenderTarget(null);
-    material?.dispose(); geometry?.dispose(); texture?.dispose(); legacyTexture?.dispose(); floorTexture?.dispose(); target?.dispose();
+    material?.dispose(); geometry?.dispose(); texture?.dispose(); legacyTexture?.dispose();
+    floorTexture?.dispose(); missingTexture?.dispose(); target?.dispose();
     renderer?.dispose(); renderer?.forceContextLoss();
   }
 })()

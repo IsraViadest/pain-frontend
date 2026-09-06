@@ -130,6 +130,7 @@ export interface CountryProfilePreset {
   socioeconomicStyle?: "color" | "hatch" | "woven";
   socioeconomicContextOpacity?: number;
   socioeconomicPatternContrast?: number;
+  socioeconomicMissingStyle?: "diagonal" | "cross";
   quality?: boolean;
   chromeOcclusion?: boolean;
   physicalPointNearBoost?: number;
@@ -725,9 +726,35 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V23_REVEAL, id: "v31-a_missing-diagonal", label: "v31: diagonal missing data",
+    description: "Socioeconomic regions without data use a neutral rising diagonal hatch.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain",
+    sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical",
+    emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v31-b_missing-cross", label: "v31: crosshatched missing data",
+    description: "Socioeconomic regions without data use a neutral gray crosshatch.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain",
+    sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical",
+    emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "cross",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v30-a_legend-halo";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v31-a_missing-diagonal";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

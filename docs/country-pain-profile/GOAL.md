@@ -734,6 +734,17 @@ data. Cleanup is limited to task-owned temporaries.
   the profile. The live treatment was inspected in Chrome and the compliance gate passes. The
   selected default is `v30-a_legend-halo`.
 
+- 2026-09-06: Socioeconomic missing-data round v31 is complete. Natural Earth polygons without
+  a finite socioeconomic row now receive a neutral gray pattern in the single-layer view.
+  `v31-a_missing-diagonal` is selected over the crosshatch because it stays subordinate to the
+  yellow value texture; the crosshatch remains at `v31-b_missing-cross`. Live inspection shows
+  Western Sahara and Somaliland as patterned land instead of water. The same geometry rule also
+  covers South Sudan, Yemen, Eritrea, and Antarctica when they lack data. Real zero remains on
+  the yellow affine scale. The legend shows and describes the gray hatch. The synthetic WebGL
+  probe preserves value ordering, ties, deterministic phase, unresolved filtering, and resource
+  disposal, while separately proving a visible neutral missing pixel. No durable gallery was
+  created. The selected default is `v31-a_missing-diagonal`.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

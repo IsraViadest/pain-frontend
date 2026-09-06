@@ -45,6 +45,7 @@ export function applySocioeconomicPattern(
       #include <map_fragment>
       #ifdef USE_MAP
         float value = clamp((diffuseColor.a - uSocioMinimum) / (1.0 - uSocioMinimum), 0.0, 1.0);
+        float hasSocioeconomicValue = step(0.2, abs(diffuseColor.g - diffuseColor.b));
         vec2 phase = vMapUv * vec2(720.0, 360.0);
         float x = phase.x + phase.y;
         float y = phase.x - phase.y;
@@ -53,7 +54,8 @@ export function applySocioeconomicPattern(
         ${style === "woven" ? "hatch = 1.0 - (1.0 - hatch) * (1.0 - stripe(y, duty));" : ""}
         float footprint = ${style === "woven" ? "max(fwidth(x), fwidth(y))" : "fwidth(x)"};
         float detail = 1.0 - smoothstep(0.25, 0.5, footprint);
-        diffuseColor.a += uSocioContrast * detail * (1.0 - uSocioMinimum) * (hatch - value);
+        diffuseColor.a += hasSocioeconomicValue * uSocioContrast * detail *
+          (1.0 - uSocioMinimum) * (hatch - value);
       #endif
     `);
   };

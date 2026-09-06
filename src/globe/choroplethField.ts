@@ -24,6 +24,8 @@ interface ChoroplethCountryValue {
   intensity: number;
 }
 
+export type SocioeconomicMissingStyle = "diagonal" | "cross";
+
 /** Byte range for canvas / DataTexture alpha channel. */
 const ALPHA_BYTE_MIN = 0;
 const ALPHA_BYTE_MAX = 255;
@@ -101,6 +103,33 @@ function fillGeometry(
   }
 }
 
+function createMissingPattern(
+  ctx: CanvasRenderingContext2D,
+  style: SocioeconomicMissingStyle,
+): CanvasPattern {
+  const tile = document.createElement("canvas");
+  tile.width = tile.height = 12;
+  const patternContext = tile.getContext("2d");
+  if (!patternContext) throw new Error("2D canvas unsupported");
+  patternContext.fillStyle = "rgba(112, 112, 112, 0.42)";
+  patternContext.fillRect(0, 0, 12, 12);
+  patternContext.strokeStyle = "rgba(220, 220, 220, 0.62)";
+  patternContext.lineWidth = 1.5;
+  const drawDiagonal = (rising: boolean): void => {
+    patternContext.beginPath();
+    for (const offset of [-12, 0, 12]) {
+      patternContext.moveTo(offset, rising ? 12 : 0);
+      patternContext.lineTo(offset + 12, rising ? 0 : 12);
+    }
+    patternContext.stroke();
+  };
+  drawDiagonal(true);
+  if (style === "cross") drawDiagonal(false);
+  const pattern = ctx.createPattern(tile, "repeat");
+  if (!pattern) throw new Error("Canvas pattern unsupported");
+  return pattern;
+}
+
 /** Linear alpha: intensity × 255, clamped to byte range. */
 function intensityToAlphaByte(intensity: number): number {
   if (!Number.isFinite(intensity)) return ALPHA_BYTE_MIN;
@@ -158,6 +187,7 @@ export function createChoroplethTexture(
   colorHex: string | null | undefined,
   countries: readonly IndexedCountryGeometry[] = getCountryGeometries(),
   minimumAlpha = 0,
+  missingStyle?: SocioeconomicMissingStyle,
 ): THREE.DataTexture {
   const w = CHOROPLETH_MAP_WIDTH;
   const h = CHOROPLETH_MAP_HEIGHT;
@@ -188,6 +218,16 @@ export function createChoroplethTexture(
     const prev = intensityByKey.get(key);
     if (prev === undefined || v.intensity > prev) {
       intensityByKey.set(key, v.intensity);
+    }
+  }
+
+  if (missingStyle) {
+    ctx.fillStyle = createMissingPattern(ctx, missingStyle);
+    for (const { key, geometry } of countries) {
+      const intensity = intensityByKey.get(key);
+      if (intensity === undefined || !Number.isFinite(intensity)) {
+        fillGeometry(ctx, geometry, w, h);
+      }
     }
   }
 

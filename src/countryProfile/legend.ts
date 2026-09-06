@@ -163,6 +163,7 @@ export function createSocioeconomicLegend(
   style: "color" | "hatch" | "woven",
   contrast = 0.25,
   vertical = false,
+  missingStyle?: "diagonal" | "cross",
 ): SVGSVGElement {
   const q = Math.round(255 * minimumAlpha) / 255;
   if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || q >= 1) {
@@ -186,7 +187,9 @@ export function createSocioeconomicLegend(
     (style === "color" ? "Stronger yellow represents higher values. " :
       "Pattern swatches are examples of the same continuous value shown by the color strip, " +
       "not discrete bins or separate quantities. ") +
-    "Zero uses the visible minimum. The empty outline means data unavailable, not zero.");
+    "Zero uses the visible minimum. " + (missingStyle
+      ? "A neutral gray hatch means data unavailable, not zero."
+      : "The empty outline means data unavailable, not zero."));
   const defs = element("defs");
   svg.append(defs);
   const gradient = element("linearGradient", { id: "country-profile-socioeconomic-scale" });
@@ -195,6 +198,19 @@ export function createSocioeconomicLegend(
     element("stop", { offset: 1, "stop-color": "#ffff00", "stop-opacity": 1 }),
   );
   defs.append(gradient);
+  let missingFill = "none";
+  if (missingStyle) {
+    const missingPattern = element("pattern", { id: "country-profile-socioeconomic-missing",
+      width: 6, height: 6, patternUnits: "userSpaceOnUse", "data-missing": missingStyle });
+    missingPattern.append(element("rect", { width: 6, height: 6, fill: "#707070",
+      "fill-opacity": 0.42 }));
+    const lines = missingStyle === "cross" ? "M-1 1L1-1M0 6L6 0M5 7L7 5M-1 5L1 7M0 0L6 6M5-1L7 1" :
+      "M-1 1L1-1M0 6L6 0M5 7L7 5";
+    missingPattern.append(element("path", { d: lines, stroke: "#dcdcdc",
+      "stroke-opacity": 0.62, "stroke-width": 1 }));
+    defs.append(missingPattern);
+    missingFill = "url(#country-profile-socioeconomic-missing)";
+  }
   const continuous = element("rect", { fill: "url(#country-profile-socioeconomic-scale)" });
   svg.append(continuous);
   const swatches = (style === "color" ? [] : [0, 0.25, 0.5, 0.75, 1]).map((value, index) => {
@@ -230,7 +246,7 @@ export function createSocioeconomicLegend(
     return text;
   });
   const missing = element("path", { d: "M1 5C0 1 7 0 11 2C17 2 17 9 12 11C7 13 0 10 1 5Z",
-    fill: "none", stroke: "currentColor", "stroke-width": 1 });
+    fill: missingFill, stroke: "currentColor", "stroke-width": 1 });
   svg.append(missing);
   const resize = (): void => {
     const portrait = vertical || window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||

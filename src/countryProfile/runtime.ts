@@ -130,6 +130,7 @@ export class CountryProfileRuntime {
         this.socioeconomicMinimum, this.preset.socioeconomicStyle,
         this.preset.socioeconomicPatternContrast ?? 0.25,
         this.preset.generatedLegendOrientation === "vertical",
+        this.preset.socioeconomicMissingStyle,
       );
     }
     if (layerId !== ENVIRONMENTAL_LAYER || !this.preset.atmosphereMode ||

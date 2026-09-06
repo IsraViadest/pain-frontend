@@ -40,6 +40,11 @@
       factories.push({ style, contrast, zeroAlpha, fullAlpha,
         opacityRange: [Math.min(...opacities), Math.max(...opacities)] });
     }
+    const missingLegend = createSocioeconomicLegend(0.25, "hatch", 0.1, true, "diagonal");
+    check(missingLegend.querySelector('pattern[data-missing="diagonal"]') &&
+      missingLegend.querySelector(':scope > path[fill^="url("]') &&
+      missingLegend.getAttribute("aria-label").includes("gray hatch"),
+    "Missing-data hatch is absent from the socioeconomic legend");
     [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Socio-economic Pain").click();
     const host = document.querySelector("#ui-legend");
     for (let attempt = 0; attempt < 240; attempt++) {
@@ -58,8 +63,7 @@
       Number(stops[1].getAttribute("stop-opacity")) === 1, "Continuous alpha endpoints missing");
     check(svg.getAttribute("aria-label").includes("not zero"), "Missingness description absent");
     const rect = host.getBoundingClientRect();
-    const share = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("share your pain"))
-      .getBoundingClientRect();
+    const share = document.querySelector("#ui-share-pain").getBoundingClientRect();
     const overlaps = rect.left < share.right && rect.right > share.left &&
       rect.top < share.bottom && rect.bottom > share.top;
     check(!overlaps, "Legend overlaps share action");

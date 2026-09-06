@@ -526,7 +526,8 @@ function applyCountryProfileGlobePreset(layerId: string): void {
     quality?.samples ?? preset?.atmosphereSamples ?? 32,
     quality?.fraction ?? preset?.atmosphereFraction ?? 0.5);
   globe.setSocioeconomicStyle(preset?.socioeconomicStyle ?? null,
-    countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25);
+    countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25,
+    preset?.socioeconomicMissingStyle);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
   emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
