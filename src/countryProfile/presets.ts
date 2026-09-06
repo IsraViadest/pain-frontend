@@ -151,6 +151,7 @@ export interface CountryProfilePreset {
   profileReveal?: "none" | "soft";
   profileOrder?: "country-first" | "indicators-first";
   profileHardOutline?: boolean;
+  profileMissingPattern?: boolean;
   sharePainLabel?: string;
   sharePainLooseLines?: boolean;
   generatedLegendOrientation?: "responsive" | "vertical";
@@ -898,9 +899,34 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V23_REVEAL, id: "v35-control_empty-missing", label: "v35 control: empty missing glyphs",
+    description: "The selected composition with unavailable profile values left empty.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume-strong-separated",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v35-a_profile-missing-hatch", label: "v35: profile missing hatch",
+    description: "Unavailable profile values use the same neutral diagonal hatch as the map.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    profileMissingPattern: true,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade", atmosphereMode: "volume-strong-separated",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v34-c_strong-separated-air";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v35-a_profile-missing-hatch";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

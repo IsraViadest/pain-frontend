@@ -56,6 +56,14 @@ function svgPath(className: string, path: string): SVGPathElement {
   return element;
 }
 
+function missingHatch(id: string): string {
+  return `<pattern id="${id}" width="12" height="12" patternUnits="userSpaceOnUse">
+    <rect width="12" height="12" fill="#707070" fill-opacity=".52" />
+    <path d="M-3 3L3-3M0 12L12 0M9 15L15 9" stroke="#dcdcdc"
+      stroke-opacity=".72" stroke-width="1.5" />
+  </pattern>`;
+}
+
 function createSignalMetric(options: {
   key: "physical" | "socioeconomic";
   caption: string;
@@ -63,6 +71,7 @@ function createSignalMetric(options: {
   shape: (typeof SHAPES)["physical" | "socioeconomic"];
   inset: number;
   compact: boolean;
+  missingPattern: boolean;
 }): {
   element: HTMLElement;
   update: (profile: CountryPainProfile) => void;
@@ -77,16 +86,19 @@ function createSignalMetric(options: {
   svg.setAttribute("aria-hidden", "true");
   const outline = svgPath("country-profile__outline", options.shape.path);
   const fill = svgPath("country-profile__fill", options.shape.path);
-  fill.style.fill = options.color;
+  const valueFill = options.compact && options.key === "physical"
+    ? "url(#country-profile-physical-dots)" : options.color;
+  fill.style.fill = valueFill;
+  const defs = document.createElementNS(SVG_NS, "defs");
   if (options.compact && options.key === "physical") {
-    const defs = document.createElementNS(SVG_NS, "defs");
     defs.innerHTML = `<pattern id="country-profile-physical-dots" width="16" height="16"
       patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="3.5"
       fill="${options.color}"/><circle cx="12" cy="12" r="3.5"
       fill="${options.color}"/></pattern>`;
-    svg.append(defs);
-    fill.style.fill = "url(#country-profile-physical-dots)";
   }
+  const missingId = `country-profile-${options.key}-missing-hatch`;
+  if (options.missingPattern) defs.insertAdjacentHTML("beforeend", missingHatch(missingId));
+  if (defs.childElementCount > 0) svg.append(defs);
   svg.append(fill, outline);
 
   const caption = document.createElement("span");
@@ -101,8 +113,11 @@ function createSignalMetric(options: {
     element,
     update(profile): void {
       const signal = profile[options.key];
-      fill.style.transform = `scale(${(options.inset * proportionalAreaScale(signal.value))
-        .toFixed(4)})`;
+      const missingValue = signal.value === null;
+      fill.style.fill = missingValue && options.missingPattern ? `url(#${missingId})` : valueFill;
+      const scale = options.inset * (missingValue && options.missingPattern
+        ? 1 : proportionalAreaScale(signal.value));
+      fill.style.transform = `scale(${scale.toFixed(4)})`;
       missing.hidden = signal.value !== null;
       element.dataset.missing = signal.value === null ? "true" : "false";
       element.setAttribute("aria-label", describeSignal(options.caption, signal));
@@ -110,7 +125,7 @@ function createSignalMetric(options: {
   };
 }
 
-function createEnvironmentalMetric(compact: boolean, inset: number): {
+function createEnvironmentalMetric(compact: boolean, inset: number, missingPattern: boolean): {
   element: HTMLElement;
   update: (profile: CountryPainProfile) => void;
 } {
@@ -139,7 +154,8 @@ function createEnvironmentalMetric(compact: boolean, inset: number): {
     <pattern id="country-profile-cells" width="18" height="15.6" patternUnits="userSpaceOnUse">
       <path d="M4.5 0H13.5L18 7.8L13.5 15.6H4.5L0 7.8Z"
         fill="none" stroke="rgba(255,255,255,.48)" stroke-width="1.4" />
-    </pattern>`;
+    </pattern>
+    ${missingPattern ? missingHatch("country-profile-environmental-missing-hatch") : ""}`;
   const grain = svgPath(
     "country-profile__environment-texture country-profile__environment-texture--grain",
     SHAPES.environmental.path,
@@ -163,17 +179,25 @@ function createEnvironmentalMetric(compact: boolean, inset: number): {
   return {
     element,
     update(profile): void {
-      const tempScale = inset * proportionalAreaScale(profile.temperature.value);
+      const temperatureMissing = profile.temperature.value === null;
+      const co2Missing = profile.co2.value === null;
+      const tempScale = inset * (temperatureMissing && missingPattern
+        ? 1 : proportionalAreaScale(profile.temperature.value));
+      temperature.style.fill = temperatureMissing && missingPattern
+        ? "url(#country-profile-environmental-missing-hatch)" : "";
       temperature.style.transform = `scale(${tempScale.toFixed(4)})`;
       grain.style.transform = temperature.style.transform;
       cells.style.transform = temperature.style.transform;
-      co2.style.opacity = profile.co2.value === null
-        ? "0"
-        : Math.max(compact ? 0.10 : 0.12, Math.min(1, profile.co2.value)).toFixed(3);
-      const unavailable = profile.temperature.value === null && profile.co2.value === null;
+      grain.style.display = cells.style.display = temperatureMissing ? "none" : "";
+      co2.style.stroke = co2Missing && missingPattern ? "#a8a8a8" : "";
+      co2.style.strokeDasharray = co2Missing && missingPattern ? "8 5" : "";
+      co2.style.opacity = co2Missing
+        ? missingPattern ? "0.72" : "0"
+        : Math.max(compact ? 0.10 : 0.12, Math.min(1, profile.co2.value!)).toFixed(3);
+      const unavailable = temperatureMissing && co2Missing;
       if (compact) {
-        outline.style.display = profile.co2.value === null ? "none" : "";
-        unavailableOutline.style.display = unavailable ? "" : "none";
+        outline.style.display = co2Missing ? "none" : "";
+        unavailableOutline.style.display = unavailable && !missingPattern ? "" : "none";
       }
       missing.hidden = !unavailable;
       element.dataset.missing = unavailable ? "true" : "false";
@@ -290,11 +314,12 @@ export class CountryProfileView {
   ) {
     const compact = preset.layout === "compact";
     const inset = compact ? preset.glyphInset ?? 0.88 : 1;
-    this.environmental = createEnvironmentalMetric(compact, inset);
+    const missingPattern = preset.profileMissingPattern === true;
+    this.environmental = createEnvironmentalMetric(compact, inset, missingPattern);
     this.physical = createSignalMetric({ key: "physical", caption: "physical", color: "#e4184b",
-      shape: SHAPES.physical, compact, inset });
+      shape: SHAPES.physical, compact, inset, missingPattern });
     this.socioeconomic = createSignalMetric({ key: "socioeconomic", caption: "socioeconomic",
-      color: "#d9d438", shape: SHAPES.socioeconomic, compact, inset });
+      color: "#d9d438", shape: SHAPES.socioeconomic, compact, inset, missingPattern });
     this.host.id = "country-profile";
     this.host.className = "country-profile";
     this.host.dataset.layout = preset.layout;

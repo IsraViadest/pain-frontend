@@ -793,6 +793,14 @@ data. Cleanup is limited to task-owned temporaries.
   restored clean at `7ca5492` and `2d6407b`; the experimental worktree is clean. Physical-phone
   acceptance remains deferred. No durable gallery was created.
 
+- 2026-09-06: Profile missingness round v35 is complete. The selected
+  `v35-a_profile-missing-hatch` shows a full inset neutral diagonal hatch for unavailable
+  Physical and Socioeconomic values. Missing Temperature uses the same hatch inside its glyph;
+  missing CO2 uses a gray dashed outer band. Real zero retains the data color and proportional
+  scale. The all-195 layout probe verifies all four missing treatments, independent Temperature
+  and CO2 missingness, painted spacing, and alignment. The control remains at
+  `v35-control_empty-missing`. The compliance gate passes; no durable gallery was created.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

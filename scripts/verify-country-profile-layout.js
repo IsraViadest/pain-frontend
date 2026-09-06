@@ -134,8 +134,24 @@
       "inset broke proportional scale");
     fixture.temperature = { value: null, pointCount: 0 };
     view.setProfile(fixture);
-    check(getComputedStyle(environment.querySelector(".country-profile__empty-outline")).display !==
-      "none", "fully unavailable environmental glyph vanished");
+    if (preset.profileMissingPattern) {
+      check(environment.querySelector(".country-profile__temperature").style.fill.includes(
+        "environmental-missing-hatch"), "missing Temperature has no neutral hatch");
+      const missingCo2 = environment.querySelector(".country-profile__co2");
+      check(Number(missingCo2.style.opacity) > 0 && missingCo2.style.strokeDasharray,
+        "missing CO2 has no neutral dashed band");
+      fixture.physical = { value: null, pointCount: 0 };
+      fixture.socioeconomic = { value: null, pointCount: 0 };
+      view.setProfile(fixture);
+      for (const key of ["physical", "socioeconomic"]) {
+        const missingFill = card.querySelector('[data-indicator="' + key + '"] .country-profile__fill');
+        check(missingFill.style.fill.includes(key + "-missing-hatch"),
+          key + ": missing value has no neutral hatch");
+      }
+    } else {
+      check(getComputedStyle(environment.querySelector(".country-profile__empty-outline")).display !==
+        "none", "fully unavailable environmental glyph vanished");
+    }
     fixture.co2 = { value: 0, pointCount: 1 };
     view.setProfile(fixture);
     check(Number(environment.querySelector(".country-profile__co2").style.opacity) === 0.1,
