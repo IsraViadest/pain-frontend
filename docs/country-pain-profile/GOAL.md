@@ -780,6 +780,19 @@ data. Cleanup is limited to task-owned temporaries.
   CPU p95 stays 0.5 ms; GPU draw-sum median is 1.19 versus 2.19 ms and p95 3.30 versus 4.00 ms.
   No durable gallery was created. The selected default is `v34-c_strong-separated-air`.
 
+- 2026-09-06: Post-acceptance rounds v25-v34 are integrated and complete. The exact port-3000
+  image combines frontend `542b0d7` with server `48b3be8` and serves `index-DoTZuyww.js`.
+  Production reports default preset `v34-c_strong-separated-air`, the vertical generated legend,
+  and the revised two-line survey action. Its 900x700 chrome replay passes all layer transitions,
+  including equal lower placement for Environmental and Physical profiles. Vite verification
+  covers all 195 profiles at 1500x950 and 393x852, mobile menu restoration, 924 completed network
+  segments with an empty first frame, full reversal after interruption, hidden-tab clocks, and
+  rapid layer races. All-pain frame intervals are 8.3/9.3 ms median/p95, with GPU callback
+  duration 0.74/1.15 ms and CPU callback duration 0.6/0.8 ms. The main entry is 227.38 kB gzip,
+  below the established 246.44 kB limit. The compliance gate passes. Primary checkouts were
+  restored clean at `7ca5492` and `2d6407b`; the experimental worktree is clean. Physical-phone
+  acceptance remains deferred. No durable gallery was created.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
