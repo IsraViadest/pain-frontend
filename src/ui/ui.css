@@ -274,7 +274,7 @@
   opacity: 1;
 }
 
-/* Info modal (About / Data Sources) — below survey modal (z-index 8). */
+/* Info modal (About / about our data) — below survey modal (z-index 8). */
 
 .info-modal {
   position: fixed;

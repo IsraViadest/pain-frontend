@@ -22,9 +22,9 @@ export const INFO_MODAL_ABOUT: Readonly<{ title: string; body: string }> = {
 `.trim(),
 };
 
-/** Data Sources info modal — body is HTML (same render path as {@link INFO_MODAL_ABOUT}). */
+/** About-our-data info modal — body is HTML (same render path as {@link INFO_MODAL_ABOUT}). */
 export const INFO_MODAL_DATA_SOURCES: Readonly<{ title: string; body: string }> = {
-  title: "Data Sources",
+  title: "about our data",
   body: `
 <h2 style="font-family: 'Atelier', serif;">How the layers are visualized</h2>
 
@@ -54,7 +54,7 @@ function bodyContainsHtml(body: string): boolean {
 }
 
 /**
- * Show a centered info modal (About / Data Sources) with title and body text.
+ * Show a centered info modal (About / about our data) with title and body text.
  *
  * Replaces any existing info modal. Close is a top-right × on the panel.
  * When `body` contains HTML tags, it is set via `innerHTML` on a div; otherwise
