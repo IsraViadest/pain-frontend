@@ -152,6 +152,8 @@ uniform sampler2D uScarMap;
 uniform float uScarActive;
 uniform float uScarDepthMode;
 uniform vec2 uScarTexelSize;
+uniform vec3 uScarReliefLow;
+uniform vec3 uScarReliefHigh;
 varying float vLand;
 uniform float uContextOpacity;
 varying float vFresnel;
@@ -195,13 +197,20 @@ void main() {
     float contourWidth = max(fwidth(contourPhase) * 1.25, 0.055);
     float contour = 1.0 - smoothstep(0.0, contourWidth, contourDistance);
     float useHillshade = uScarDepthMode == 1.0 || uScarDepthMode == 4.0 ? 1.0 : 0.0;
-    float useContour = uScarDepthMode >= 2.0 ? 1.0 : 0.0;
+    float useContour = uScarDepthMode == 2.0 || uScarDepthMode == 3.0 ||
+      uScarDepthMode == 4.0 ? 1.0 : 0.0;
     float contourMask = uScarDepthMode == 3.0 ? 1.0 : landMask;
     col *= mix(1.0, hillshade, useHillshade * landMask *
       (uScarDepthMode == 4.0 ? 0.65 : 1.0));
     col += vec3(0.16, 0.18, 0.22) * max(0.0, hillshade - 1.0) * useHillshade * landMask;
     col = mix(col, vec3(0.58, 0.66, 0.76), contour * contourMask * useContour *
       (uScarDepthMode == 4.0 ? 0.24 : 0.42));
+    if (uScarDepthMode == 5.0) {
+      float valley = smoothstep(0.02, 0.32, max(0.0, 0.50196 - scar));
+      vec3 relief = mix(uScarReliefHigh, uScarReliefLow, valley);
+      relief *= mix(0.82, 1.18, clamp(hillshade * 0.5, 0.0, 1.0));
+      col = mix(col, relief, 0.88 * landMask);
+    }
   }
 
   float alphaWater = max(
@@ -437,6 +446,8 @@ export async function createEarthStippleGlobe(
       uFacingCullMin: { value: 0.04 },
       uScarDepthMode: { value: 0 },
       uScarTexelSize: { value: new THREE.Vector2(1 / 1000, 1 / 482) },
+      uScarReliefLow: { value: new THREE.Color(0x320611) },
+      uScarReliefHigh: { value: new THREE.Color(0xff6f78) },
     },
     vertexShader: VS,
     fragmentShader: FS,

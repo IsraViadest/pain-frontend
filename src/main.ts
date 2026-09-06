@@ -523,6 +523,8 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   );
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setScarDepthStyle(preset?.scarDepthStyle ?? "none");
+  globe.setScarReliefPalette(preset?.scarReliefPalette ?? "coral");
+  globe.setPhysicalOceanBlue(preset?.physicalOceanBlue === true);
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
     quality?.samples ?? preset?.atmosphereSamples ?? 32,
     quality?.fraction ?? preset?.atmosphereFraction ?? 0.5);
@@ -530,6 +532,8 @@ function applyCountryProfileGlobePreset(layerId: string): void {
     countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25,
     preset?.socioeconomicMissingStyle);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
+  globe.setScarContourLevels(preset?.scarContourLevels ?? 24);
+  globe.setScarContourStyle(preset?.scarContourStyle ?? null);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
   emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";

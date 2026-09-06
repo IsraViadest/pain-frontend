@@ -61,9 +61,12 @@ import type { buildCountryDisplayGeometry } from "./countryDisplayGeometry";
 import type { StippleDetailMode } from "./stippleDetailController";
 import type { AtmosphereMode, createEnvironmentalAtmosphere } from "./environmentalAtmosphere";
 import type { SocioeconomicStyle } from "./socioeconomicPattern";
+import type { createScarContourLayer, ScarContourStyle } from "./scarContourLayer";
 
 export type { Co2HazeTune };
-type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid";
+type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
+  "relief";
+type ScarReliefPalette = "coral" | "crimson" | "rose";
 
 /**
  * “Inner black sphere” in scar mode is usually NOT a mesh — land/ocean stipple is GPU-dented;
@@ -531,6 +534,12 @@ export class GlobeView {
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private roundedScarShoulder = false;
   private scarDepthStyle: ScarDepthStyle = "none";
+  private scarContourStyle: ScarContourStyle | null = null;
+  private scarContourLayer: ReturnType<typeof createScarContourLayer> | null = null;
+  private scarContourGeneration = 0;
+  private scarContourLevels: 16 | 24 = 24;
+  private physicalOceanBlue = false;
+  private scarReliefPalette: ScarReliefPalette = "coral";
   private surfaceDetail: 1 | 2 = 1;
   private originalSurfaceStorageBytes = 0;
   private displayGeographyStorageBytes = 0;
@@ -1626,7 +1635,10 @@ export class GlobeView {
    * Does not add meshes; updates existing shells. See painScarField.ts, painHeatField.ts.
    */
   private syncScarVisualization(): void {
-    if (this.shouldSuppressScarsForChoropleth()) return;
+    if (this.shouldSuppressScarsForChoropleth()) {
+      this.scarContourLayer?.setField(null, 0, 0);
+      return;
+    }
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const mat = this.globe.material as THREE.MeshStandardMaterial;
@@ -1676,6 +1688,7 @@ export class GlobeView {
     this.applyGlobeScarShellMaterial();
     this.applyStippleScarUniforms();
     this.applyStippleHeatUniforms();
+    this.syncScarContourLayer();
     this.applyDebugLayerVisibility();
 
     if (isDebugScarVisual() && DEBUG_SCAR_VISUAL.logScarSync) {
@@ -1837,6 +1850,7 @@ export class GlobeView {
           this.pointsStipple = points;
           this.pointsMaterial = material;
           material.uniforms.uScarDepthMode.value = this.scarDepthMode();
+          this.applyScarReliefPalette();
           material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
           this.stippleHandle = result;
           this.stippleBuiltPointCount = requestedPointCount;
@@ -1898,7 +1912,15 @@ export class GlobeView {
     const physpainHex = this.showAllLayersMode
       ? getMapLayerById("physpain")?.color
       : undefined;
-    if (emopainHex && physpainHex) {
+    if (this.physicalOceanBlue && this.currentLayerId === "physpain") {
+      const oceanHex = getMapLayerById("emopain")?.color ?? "#546edb";
+      const oceanRgb = getLayerBaseColorLinear(oceanHex, this.visualTheme);
+      const landRgb = this.getActiveLayerColorLinear();
+      u.uTint.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
+      u.uShadeBase.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
+      u.uLandTint.value.set(landRgb[0], landRgb[1], landRgb[2]);
+      u.uLandTintStrength.value = 1;
+    } else if (emopainHex && physpainHex) {
       const oceanRgb = getLayerBaseColorLinear(emopainHex, this.visualTheme);
       const landRgb = getLayerBaseColorLinear(physpainHex, this.visualTheme);
       u.uTint.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
@@ -2086,6 +2108,9 @@ export class GlobeView {
     this.atmosphereGeneration++;
     this.atmosphere?.dispose();
     this.atmosphere = null;
+    this.scarContourGeneration++;
+    this.scarContourLayer?.dispose();
+    this.scarContourLayer = null;
     window.removeEventListener("resize", this.onResize);
     this.painVizMode = PAIN_VIZ_MODE.points;
     this.lastPainPoints = [];
@@ -2681,7 +2706,8 @@ export class GlobeView {
   }
 
   private scarDepthMode(): number {
-    return { none: 0, hillshade: 1, "contour-land": 2, "contour-all": 3, hybrid: 4 }[
+    return { none: 0, hillshade: 1, "contour-land": 2, "contour-all": 3, hybrid: 4,
+      relief: 5 }[
       this.scarDepthStyle
     ];
   }
@@ -2692,6 +2718,66 @@ export class GlobeView {
     if (this.pointsMaterial) this.pointsMaterial.uniforms.uScarDepthMode.value = this.scarDepthMode();
     this.syncGlobeSurfaceVisibility();
     this.applyGlobeScarShellMaterial();
+  }
+
+  private syncScarContourLayer(): void {
+    const scars =
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
+    const physical = this.currentLayerId === "physpain" || this.showAllLayersMode;
+    const map = physical && scars && !this.shouldSuppressScarsForChoropleth()
+      ? this.scarDisplacementMap : null;
+    this.scarContourLayer?.setField(
+      map,
+      this.debugTune.scarDispScale,
+      this.debugTune.scarDispBias,
+    );
+  }
+
+  setScarContourStyle(style: ScarContourStyle | null): void {
+    if (style === this.scarContourStyle) return;
+    this.scarContourStyle = style;
+    const generation = ++this.scarContourGeneration;
+    this.scarContourLayer?.dispose();
+    this.scarContourLayer = null;
+    if (!style) return;
+    void import("./scarContourLayer").then(({ createScarContourLayer }) => {
+      if (generation !== this.scarContourGeneration || this.scarContourStyle !== style) return;
+      const layer = createScarContourLayer(this.surfaceDetail, this.getDisplayCountryGeometries());
+      layer.setStyle(style);
+      layer.setLevels(this.scarContourLevels);
+      this.scarContourLayer = layer;
+      this.earthContent.add(layer.object);
+      this.syncScarContourLayer();
+    }).catch((error) => { console.error("[GlobeView] scar contours failed:", error); });
+  }
+
+  setScarContourLevels(levels: 16 | 24): void {
+    if (levels === this.scarContourLevels) return;
+    this.scarContourLevels = levels;
+    this.scarContourLayer?.setLevels(levels);
+  }
+
+  setPhysicalOceanBlue(enabled: boolean): void {
+    if (enabled === this.physicalOceanBlue) return;
+    this.physicalOceanBlue = enabled;
+    this.applyPointsTint();
+  }
+
+  private applyScarReliefPalette(): void {
+    if (!this.pointsMaterial) return;
+    const colors = {
+      coral: [0x320611, 0xff6f78],
+      crimson: [0x250008, 0xff334f],
+      rose: [0x480c18, 0xffa0aa],
+    }[this.scarReliefPalette];
+    this.pointsMaterial.uniforms.uScarReliefLow.value.setHex(colors[0]);
+    this.pointsMaterial.uniforms.uScarReliefHigh.value.setHex(colors[1]);
+  }
+
+  setScarReliefPalette(palette: ScarReliefPalette): void {
+    if (palette === this.scarReliefPalette) return;
+    this.scarReliefPalette = palette;
+    this.applyScarReliefPalette();
   }
 
   setStippleDetailMode(mode: StippleDetailMode): void {
@@ -2744,13 +2830,15 @@ export class GlobeView {
     const borders = this.bordersOutlines?.additionalStorageBytes() ?? 0;
     const stipple = this.getStippleDetailStats()?.additionalBytes ?? 0;
     const atmosphere = this.getAtmosphereStats()?.additionalBytes ?? 0;
+    const contours = this.scarContourLayer?.stats().additionalBytes ?? 0;
     const geography = this.displayGeographyStorageBytes;
     // Reserve the synchronous blur's additional scratch even between rebuilds.
     const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
     // Origin/peer painting can read two weight groups; legacy painting reads only one.
     const highlightScratch = HIGHLIGHT_GROUP_BYTES;
-    return { surface, borders, stipple, atmosphere, geography, fieldScratch, highlightScratch,
-      total: surface + borders + stipple + atmosphere + geography + fieldScratch + highlightScratch };
+    return { surface, borders, stipple, atmosphere, contours, geography, fieldScratch,
+      highlightScratch, total: surface + borders + stipple + atmosphere + contours + geography +
+        fieldScratch + highlightScratch };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */
@@ -2770,6 +2858,11 @@ export class GlobeView {
       this.choroplethShell.geometry.attributes.position!.array,
     );
     this.bordersOutlines?.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
+    if (this.scarContourStyle) {
+      const style = this.scarContourStyle;
+      this.scarContourStyle = null;
+      this.setScarContourStyle(style);
+    }
     this.syncScarVisualization();
   }
 

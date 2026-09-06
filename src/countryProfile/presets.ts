@@ -116,7 +116,12 @@ export interface CountryProfilePreset {
   emotionalCaption?: "quiet" | "none";
   nativeOpacity?: number;
   roundedScarShoulder?: boolean;
-  scarDepthStyle?: "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid";
+  scarDepthStyle?: "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
+    "relief";
+  scarContourStyle?: "land-blue" | "all-blue" | "land-red" | "all-red";
+  scarContourLevels?: 16 | 24;
+  scarReliefPalette?: "coral" | "crimson" | "rose";
+  physicalOceanBlue?: boolean;
   surfaceDetail?: 1 | 2;
   countryContourDegrees?: number;
   selectionPeerStrength?: number;
@@ -225,6 +230,26 @@ const V23_REVEAL = {
   profileReveal: "soft",
   cycle: { preserveZoom: true, previewDuringFlight: false, revealWithNetwork: true },
 } as const;
+const V37_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> = {
+  ...V23_REVEAL,
+  profileOrder: "indicators-first",
+  profileHardOutline: false,
+  profileMissingPattern: true,
+  profilePlate: "content-fade",
+  profileGlow: "none",
+  sharePainLabel: "share and locate\nyour pain",
+  sharePainLooseLines: true,
+  generatedLegendOrientation: "vertical",
+  emotionalLegendHalo: true,
+  socioeconomicMissingStyle: "diagonal",
+  physicalDetail: "regrow",
+  physicalPointScale: 1.18,
+  stippleAllLayers: true,
+  stipplePointCount: 82_000,
+  atmosphereMode: "volume-strong-separated",
+  cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+    motionScale: 1 },
+};
 
 const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
   ...V1_PRESETS,
@@ -951,9 +976,59 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V37_BASE, id: "v37-control_filled-hillshade", label: "v37 control: filled hillshade",
+    description: "The selected composition with the dark solid hillshade surface.",
+    scarDepthStyle: "hillshade",
+  },
+  {
+    ...V37_BASE, id: "v37-a_transparent-coral", label: "v37: transparent coral relief",
+    description: "Blue baseline dots remain transparent while scar valleys darken from coral.",
+    scarDepthStyle: "relief", scarReliefPalette: "coral", physicalOceanBlue: true,
+  },
+  {
+    ...V37_BASE, id: "v37-b_land-blue-contours", label: "v37: land blue contours",
+    description: "Continuous pale-blue height contours cross country borders on land.",
+    scarDepthStyle: "relief", scarReliefPalette: "coral", physicalOceanBlue: true,
+    scarContourStyle: "land-blue",
+  },
+  {
+    ...V37_BASE, id: "v37-c_global-blue-contours", label: "v37: global blue contours",
+    description: "Continuous pale-blue height contours follow the scar field on land and ocean.",
+    scarDepthStyle: "relief", scarReliefPalette: "coral", physicalOceanBlue: true,
+    scarContourStyle: "all-blue",
+  },
+  {
+    ...V37_BASE, id: "v37-d_global-red-contours", label: "v37: global red contours",
+    description: "Continuous coral height contours follow the scar field on land and ocean.",
+    scarDepthStyle: "relief", scarReliefPalette: "coral", physicalOceanBlue: true,
+    scarContourStyle: "all-red",
+  },
+  {
+    ...V37_BASE, id: "v37-e_transparent-crimson", label: "v37: transparent crimson relief",
+    description: "The transparent point relief uses a darker crimson range without contours.",
+    scarDepthStyle: "relief", scarReliefPalette: "crimson", physicalOceanBlue: true,
+  },
+  {
+    ...V37_BASE, id: "v37-f_transparent-rose", label: "v37: transparent rose relief",
+    description: "The transparent point relief uses a lighter rose range without contours.",
+    scarDepthStyle: "relief", scarReliefPalette: "rose", physicalOceanBlue: true,
+  },
+  {
+    ...V37_BASE, id: "v37-g_land-red-contours", label: "v37: land coral contours",
+    description: "Continuous coral height contours cross country borders while ocean stays clear.",
+    scarDepthStyle: "relief", scarReliefPalette: "coral", physicalOceanBlue: true,
+    scarContourStyle: "land-red",
+  },
+  {
+    ...V37_BASE, id: "v37-h_sparse-land-contours", label: "v37: sparse land contours",
+    description: "Sixteen coral height bands cross country borders while ocean stays clear.",
+    scarDepthStyle: "relief", scarReliefPalette: "coral", physicalOceanBlue: true,
+    scarContourStyle: "land-red", scarContourLevels: 16,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v36-a_content-fade-plate";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v37-h_sparse-land-contours";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

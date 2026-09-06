@@ -809,6 +809,18 @@ data. Cleanup is limited to task-owned temporaries.
   to preserve 8 px viewport clearance. Painted gaps and English centering remain unchanged.
   `v36-control_fixed-plate` retains the prior geometry. No durable gallery was created.
 
+- 2026-09-06: Physical relief and contour round v37 is complete. The old solid hillshade remains
+  as a control. New point relief restores the transparent globe, uses the original blue baseline
+  for ocean dots, and maps deeper scar values to dark red and higher surfaces to light coral.
+  The previous point-recoloring contour experiment was replaced by a continuous transparent
+  contour shell driven by the global scar texture. It crosses country borders and offers
+  land/all-surface plus blue/coral variants. The selected `v37-h_sparse-land-contours` uses 16
+  land-only coral bands; 24 bands read too busily, blue competed with country borders, and global
+  contours cluttered the ocean. A real draw probe confirms one contour pass only on Physical and
+  all-pain layers, with land-only=1 and levels=16. GPU draw-sum median/p95 is 1.31/2.17 ms versus
+  0.54/0.91 ms without contours; CPU is 0.5/0.8 ms. Zoom requests no data and strands no detail.
+  The optional contour module is 1.35 kB gzip. No durable gallery was created.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
