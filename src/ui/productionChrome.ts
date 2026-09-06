@@ -295,8 +295,8 @@ export async function mountProductionChrome(
   sharePainHost.appendChild(sharePainBtn);
 
   const aboutBtn = await createBlobButton({
-    svgName: "about.svg",
-    label: "about",
+    svgName: "new/blob_about.svg",
+    label: "about P.A.I.N.",
     variant: "info",
     soundFile: SOUND_BUTTON_INFO,
     onClick: () => {
@@ -309,7 +309,7 @@ export async function mountProductionChrome(
 
   const dataSourcesBtn = await createBlobButton({
     svgName: "data_sources.svg",
-    label: "data sources",
+    label: "about our data",
     variant: "info",
     soundFile: SOUND_BUTTON_INFO,
     onClick: () => {
