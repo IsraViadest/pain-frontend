@@ -295,7 +295,7 @@ export async function mountProductionChrome(
   sharePainHost.appendChild(sharePainBtn);
 
   const aboutBtn = await createBlobButton({
-    svgName: "about.svg",
+    svgName: "new/blob_about.svg",
     label: "about P.A.I.N.",
     variant: "info",
     soundFile: SOUND_BUTTON_INFO,
