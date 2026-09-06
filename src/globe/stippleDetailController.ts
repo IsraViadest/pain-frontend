@@ -8,7 +8,7 @@ import {
   writeStippleChildren,
 } from "./stippleDetail";
 
-export type StippleDetailMode = "fixed" | "regrow" | "split1" | "split2";
+export type StippleDetailMode = "fixed" | "regrow" | "split1" | "split2" | "uniform";
 
 interface DetailOptions {
   points: THREE.Points;

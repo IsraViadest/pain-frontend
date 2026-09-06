@@ -745,6 +745,17 @@ data. Cleanup is limited to task-owned temporaries.
   disposal, while separately proving a visible neutral missing pixel. No durable gallery was
   created. The selected default is `v31-a_missing-diagonal`.
 
+- 2026-09-06: Physical-dot round v32 is complete. `v32-a_consistent-dots` is selected: the
+  original 82,000-point Fibonacci field keeps uniform spacing, regrows without splitting, and
+  uses the same point-size/detail treatment on every layer. `v32-b_uniform-double-density`
+  retains the requested alternative: a single 164,000-point Fibonacci field uses every second
+  dot at distance, then smoothly includes all dots at close range while preserving total dot
+  area. It removes four-dot islands but is too fine and faint at the inspected close view.
+  Actual WebGL wheel probes for both candidates submitted one root draw, no child geometry, no
+  zoom-time data request, and no stranded detail. Their p95 frame intervals were 9.3 and 8.8 ms
+  on the reference desktop host. No physical-phone claim is made. No durable gallery was created.
+  The selected default is `v32-a_consistent-dots`.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

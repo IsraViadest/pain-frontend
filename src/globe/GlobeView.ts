@@ -513,6 +513,8 @@ export class GlobeView {
   private stippleHandle: Awaited<ReturnType<typeof createEarthStippleGlobe>> | null = null;
   private stippleDetailMode: StippleDetailMode = "fixed";
   private stippleDetailCapacity = 131_072;
+  private stipplePointCount: 82_000 | 164_000 = 82_000;
+  private stippleBuiltPointCount = 0;
   private stippleContextOpacity = 1;
   private stipplePromise: Promise<void> | null = null;
   private stippleLandMaskUrl: string | null = null;
@@ -1508,6 +1510,7 @@ export class GlobeView {
     this.stippleNeutralHeatTexture = null;
     this.stippleLandMaskUrl = null;
     this.stippleBasePositions = null;
+    this.stippleBuiltPointCount = 0;
   }
 
   private captureStippleBasePositions(): void {
@@ -1785,7 +1788,8 @@ export class GlobeView {
   private ensureStipple(): Promise<void> {
     if (
       this.pointsStipple &&
-      this.stippleLandMaskUrl === STIPPLE_LAND_MASK_GEOJSON_URL
+      this.stippleLandMaskUrl === STIPPLE_LAND_MASK_GEOJSON_URL &&
+      this.stippleBuiltPointCount === this.stipplePointCount
     ) {
       if (!this.stippleBasePositions) {
         this.captureStippleBasePositions();
@@ -1796,12 +1800,13 @@ export class GlobeView {
       this.disposeStipple();
     }
     if (!this.stipplePromise) {
+      const requestedPointCount = this.stipplePointCount;
       const tint = new THREE.Vector3().fromArray(
         this.getActiveLayerColorLinear(),
       );
       this.stipplePromise = createEarthStippleGlobe(
         RADIUS,
-        82_000,
+        requestedPointCount,
         STIPPLE_LAND_MASK_GEOJSON_URL,
         tint,
         new THREE.Vector3(1, 1, 1),
@@ -1810,11 +1815,16 @@ export class GlobeView {
         this.renderer.getPixelRatio(),
       )
         .then((result) => {
+          if (requestedPointCount !== this.stipplePointCount) {
+            result.dispose();
+            return;
+          }
           const { points, material, neutralScarTexture, neutralHeatTexture, setDisplayCountries } = result;
           this.pointsStipple = points;
           this.pointsMaterial = material;
           material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
           this.stippleHandle = result;
+          this.stippleBuiltPointCount = requestedPointCount;
           result.setDetailCapacity(this.stippleDetailCapacity);
           if (this.displayGeography) setDisplayCountries(this.displayGeography.countries);
           void result.setDetailMode(this.stippleDetailMode).catch((error) => {
@@ -1842,6 +1852,9 @@ export class GlobeView {
         })
         .finally(() => {
           this.stipplePromise = null;
+          if (!this.stippleHandle && requestedPointCount !== this.stipplePointCount) {
+            void this.ensureStipple();
+          }
         });
     }
     return this.stipplePromise ?? Promise.resolve();
@@ -2658,6 +2671,13 @@ export class GlobeView {
     void this.stippleHandle?.setDetailMode(mode).catch((error) => {
       console.error("[GlobeView] stipple detail failed:", error);
     });
+  }
+
+  setStipplePointCount(count: 82_000 | 164_000): void {
+    if (count === this.stipplePointCount) return;
+    this.stipplePointCount = count;
+    this.disposeStipple();
+    void this.ensureStipple();
   }
 
   setStippleContextOpacity(opacity: number): void {

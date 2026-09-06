@@ -32,10 +32,12 @@ attribute float aLand;
 attribute vec4 aRoot;
 attribute float aSizeScale;
 attribute vec3 aFade;
+attribute float aUniformDetail;
 uniform float uDetailMode;
 uniform float uDetailTime;
 uniform float uDetailFadeSeconds;
 uniform float uDetailFocal;
+uniform float uUniformDetailMix;
 varying float vDetailOpacity;
 varying float vLand;
 varying float vFresnel;
@@ -99,7 +101,12 @@ void main() {
   float pointScale = mix(1.0, uPointScale, landMask);
   gl_PointSize = baseSize * uPixelRatio * pointScale;
   vDetailOpacity = 1.0;
-  if (uDetailMode > 0.5 && landW > 0.5) {
+  if (uDetailMode > 1.5) {
+    float uniformArea = aUniformDetail < 0.5
+      ? 1.0 - 0.5 * uUniformDetailMix
+      : 0.5 * uUniformDetailMix;
+    gl_PointSize *= sqrt(max(0.0, uniformArea));
+  } else if (uDetailMode > 0.5 && landW > 0.5) {
     // Every sibling shares one virtual root diameter. Area, not an extra alpha division,
     // accounts for the four smaller dots; each still samples its own scar and heat field.
     vec3 root = normalize(aRoot.xyz);
@@ -345,6 +352,7 @@ export async function createEarthStippleGlobe(
   const positions: number[] = [];
   const normals: number[] = [];
   const lands: number[] = [];
+  const uniformDetail: number[] = [];
 
   for (let i = 0; i < pointCount; i++) {
     const p = fibonacciPointOnSphere(i, pointCount, radius);
@@ -358,12 +366,14 @@ export async function createEarthStippleGlobe(
     positions.push(p.x, p.y, p.z);
     normals.push(dir.x, dir.y, dir.z);
     lands.push(L);
+    uniformDetail.push(i % 2);
   }
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geom.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geom.setAttribute("aLand", new THREE.Float32BufferAttribute(lands, 1));
+  geom.setAttribute("aUniformDetail", new THREE.Float32BufferAttribute(uniformDetail, 1));
 
   const neutralScarTexture = createNeutralScarTexture();
   const neutralHeatTexture = createNeutralHeatTexture();
@@ -384,6 +394,7 @@ export async function createEarthStippleGlobe(
       uDetailTime: { value: 0 },
       uDetailFadeSeconds: { value: 0.15 },
       uDetailFocal: { value: 1 },
+      uUniformDetailMix: { value: 0 },
       uScarMap: { value: neutralScarTexture },
       uScarDispScale: { value: 0 },
       uScarDispBias: { value: 0 },
@@ -410,6 +421,7 @@ export async function createEarthStippleGlobe(
   material.defaultAttributeValues.aRoot = [0, 0, 0, 0];
   material.defaultAttributeValues.aSizeScale = [1];
   material.defaultAttributeValues.aFade = [1, 1, 0];
+  material.defaultAttributeValues.aUniformDetail = [0];
   points.renderOrder = 2;
   points.frustumCulled = false;
   let detail: ReturnType<typeof createStippleDetailController> | null = null;
@@ -421,8 +433,16 @@ export async function createEarthStippleGlobe(
 
   async function setDetailMode(mode: StippleDetailMode): Promise<void> {
     requestedDetail = mode;
+    if (mode === "uniform") {
+      detail?.setMode("fixed");
+      material.uniforms.uDetailMode.value = 2;
+      return;
+    }
     if (detail) { detail.setMode(mode); return; }
-    if (mode === "fixed" || disposed) return;
+    if (mode === "fixed" || disposed) {
+      material.uniforms.uDetailMode.value = 0;
+      return;
+    }
     if (!detailPromise) {
       detailPromise = import("./stippleDetailController").then(({ createStippleDetailController }) => {
         if (disposed || requestedDetail === "fixed") return;
@@ -451,6 +471,11 @@ export async function createEarthStippleGlobe(
     },
     updateDetail(camera, width, height, dt): void {
       material.uniforms.uDetailFadeSeconds.value = reducedMotion.matches ? 0 : 0.15;
+      if (requestedDetail === "uniform") {
+        const near = THREE.MathUtils.clamp((2.05 - camera.position.length()) / 0.5, 0, 1);
+        material.uniforms.uUniformDetailMix.value = near * near * (3 - 2 * near);
+        return;
+      }
       detail?.update(camera, width, height, dt);
     },
     getDetailStats: () => {

@@ -122,7 +122,9 @@ export interface CountryProfilePreset {
   /** Total indicator fade-out plus fade-in time. Omitted means the v1 instant switch. */
   transitionMs?: number;
   physicalPointScale?: number;
-  physicalDetail?: "fixed" | "regrow" | "split1" | "split2";
+  physicalDetail?: "fixed" | "regrow" | "split1" | "split2" | "uniform";
+  stippleAllLayers?: boolean;
+  stipplePointCount?: 82_000 | 164_000;
   atmosphereMode?: "control" | "flat" | "mantle" | "cloudlets" | "volume";
   atmosphereSamples?: 16 | 32 | 48;
   atmosphereFraction?: number;
@@ -752,9 +754,43 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V23_REVEAL, id: "v32-a_consistent-dots", label: "v32: consistent larger dots",
+    description: "Original uniform dots regrow without splitting and use the same tuning on every layer.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain",
+    sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical",
+    emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal",
+    physicalDetail: "regrow",
+    physicalPointScale: 1.18,
+    stippleAllLayers: true,
+    stipplePointCount: 82_000,
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v32-b_uniform-double-density", label: "v32: uniform double density",
+    description: "All dots resolve into one uniform 164,000-point field on approach.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain",
+    sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical",
+    emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal",
+    physicalDetail: "uniform",
+    physicalPointScale: 1.18,
+    stippleAllLayers: true,
+    stipplePointCount: 164_000,
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v31-a_missing-diagonal";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v32-a_consistent-dots";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

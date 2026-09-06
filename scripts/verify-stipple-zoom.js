@@ -16,13 +16,15 @@
     const zoom = (deltaY) => canvas.dispatchEvent(new WheelEvent("wheel", {
       bubbles: true, cancelable: true, deltaY,
     }));
+    const mode = new URL(location.href).searchParams.get("cpPreset");
+    const rootCount = mode.includes("uniform-double-density") ? 164000 : 82000;
     const rows = [], started = performance.now();
     let previous = started;
     await new Promise((resolve) => {
       let frame = 0;
       const sample = (now) => {
         rows.push({ frame, ms: now - previous, children: counts.reduce((n, count) =>
-          n + (count === 82000 ? 0 : count), 0), base: counts.includes(82000) });
+          n + (count === rootCount ? 0 : count), 0), base: counts.includes(rootCount) });
         previous = now;
         counts = [];
         if (frame === 15) zoom(-400);
@@ -37,11 +39,12 @@
     const sampleRows = rows.slice(2);
     const ordered = sampleRows.map((row) => row.ms).sort((a, b) => a - b);
     const peak = Math.max(...sampleRows.map((row) => row.children));
-    const mode = new URL(location.href).searchParams.get("cpPreset");
-    if (sampleRows.some((row) => !row.base)) throw Error("original point draw disappeared");
+    if (sampleRows.some((row) => !row.base)) throw Error("root point draw disappeared");
     if (peak > 131072) throw Error("submitted more than the child budget");
     if (mode.includes("four-child") || mode.includes("two-level")) {
       if (peak === 0) throw Error("real close-view gesture never refined");
+    } else if (mode.includes("uniform-double-density")) {
+      if (peak !== 0) throw Error("uniform density unexpectedly drew child geometry");
     } else if (peak !== 0) throw Error("control unexpectedly drew descendants");
     if (sampleRows.slice(-15).some((row) => row.children !== 0)) throw Error("zoom-out stranded descendants");
     const requests = performance.getEntriesByType("resource").filter((entry) =>
@@ -54,7 +57,7 @@
     } finally { canvas.style.display = previousDisplay; }
     counts = [];
     await sleep(60);
-    if (!counts.includes(82000)) throw Error("zero-size canvas stopped the render loop");
+    if (!counts.includes(rootCount)) throw Error("zero-size canvas stopped the render loop");
     return { passed: true, preset: mode, peakDescendants: peak,
       medianMs: ordered[Math.floor(ordered.length / 2)],
       p95Ms: ordered[Math.ceil(ordered.length * 0.95) - 1], maxMs: ordered.at(-1),
