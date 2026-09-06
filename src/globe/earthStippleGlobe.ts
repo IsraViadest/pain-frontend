@@ -54,6 +54,8 @@ uniform float uScarActive;
 uniform float uScarLandOnly;
 /** Discard points with dot(normal, viewDir) below this (no hardware clip — avoids limb artifacts). */
 uniform float uFacingCullMin;
+uniform float uScarDepthMode;
+uniform vec2 uScarTexelSize;
 
 void main() {
   vec3 dir = normalize(position);
@@ -146,6 +148,10 @@ uniform vec3 uHeatHot;
 uniform float uShowLand;
 uniform float uShowOcean;
 uniform float uFacingCullMin;
+uniform sampler2D uScarMap;
+uniform float uScarActive;
+uniform float uScarDepthMode;
+uniform vec2 uScarTexelSize;
 varying float vLand;
 uniform float uContextOpacity;
 varying float vFresnel;
@@ -176,6 +182,27 @@ void main() {
   float heatMix = clamp(heat * uHeatStrength, 0.0, 1.0) * landMask;
   landCol = mix(landCol, heatCol, heatMix);
   vec3 col = mix(waterCol, landCol, landFrontMix);
+  if (uScarActive > 0.5 && uScarDepthMode > 0.5) {
+    float scar = texture2D(uScarMap, vHeatUv).r;
+    float west = texture2D(uScarMap, vHeatUv - vec2(uScarTexelSize.x, 0.0)).r;
+    float east = texture2D(uScarMap, vHeatUv + vec2(uScarTexelSize.x, 0.0)).r;
+    float south = texture2D(uScarMap, vHeatUv - vec2(0.0, uScarTexelSize.y)).r;
+    float north = texture2D(uScarMap, vHeatUv + vec2(0.0, uScarTexelSize.y)).r;
+    vec2 slope = vec2(east - west, north - south);
+    float hillshade = clamp(1.0 + dot(slope, normalize(vec2(-0.7, 0.7))) * 35.0, 0.5, 1.5);
+    float contourPhase = scar * 12.0;
+    float contourDistance = abs(fract(contourPhase + 0.5) - 0.5);
+    float contourWidth = max(fwidth(contourPhase) * 1.25, 0.055);
+    float contour = 1.0 - smoothstep(0.0, contourWidth, contourDistance);
+    float useHillshade = uScarDepthMode == 1.0 || uScarDepthMode == 4.0 ? 1.0 : 0.0;
+    float useContour = uScarDepthMode >= 2.0 ? 1.0 : 0.0;
+    float contourMask = uScarDepthMode == 3.0 ? 1.0 : landMask;
+    col *= mix(1.0, hillshade, useHillshade * landMask *
+      (uScarDepthMode == 4.0 ? 0.65 : 1.0));
+    col += vec3(0.16, 0.18, 0.22) * max(0.0, hillshade - 1.0) * useHillshade * landMask;
+    col = mix(col, vec3(0.58, 0.66, 0.76), contour * contourMask * useContour *
+      (uScarDepthMode == 4.0 ? 0.24 : 0.42));
+  }
 
   float alphaWater = max(
     min(disk * (0.1 + 0.35 * frontFactor) * uOceanAlphaBoost, 1.0),
@@ -408,6 +435,8 @@ export async function createEarthStippleGlobe(
       uShowLand: { value: 1 },
       uShowOcean: { value: 1 },
       uFacingCullMin: { value: 0.04 },
+      uScarDepthMode: { value: 0 },
+      uScarTexelSize: { value: new THREE.Vector2(1 / 1000, 1 / 482) },
     },
     vertexShader: VS,
     fragmentShader: FS,

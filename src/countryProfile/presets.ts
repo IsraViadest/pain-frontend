@@ -116,6 +116,7 @@ export interface CountryProfilePreset {
   emotionalCaption?: "quiet" | "none";
   nativeOpacity?: number;
   roundedScarShoulder?: boolean;
+  scarDepthStyle?: "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid";
   surfaceDetail?: 1 | 2;
   countryContourDegrees?: number;
   selectionPeerStrength?: number;
@@ -788,9 +789,69 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
       motionScale: 1 },
   },
+  {
+    ...V23_REVEAL, id: "v33-control_soft-scars", label: "v33 control: soft scars",
+    description: "The selected unsplit dots with existing unshaded scar displacement.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "none",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v33-a_hillshade", label: "v33: scar hillshade",
+    description: "Directional local shading reveals the slopes of scar hills and valleys.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hillshade",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v33-b_contours-land", label: "v33: land scar contours",
+    description: "Thin equal-displacement bands appear only on land.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "contour-land",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v33-c_contours-ocean", label: "v33: land and ocean contours",
+    description: "Equal-displacement bands continue across the shared ocean surface.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "contour-all",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v33-d_hybrid-relief", label: "v33: restrained hybrid relief",
+    description: "Softer hillshade and land contours reinforce the same scar displacement.",
+    profileOrder: "indicators-first", profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain", sharePainLooseLines: true,
+    generatedLegendOrientation: "vertical", emotionalLegendHalo: true,
+    socioeconomicMissingStyle: "diagonal", physicalDetail: "regrow",
+    physicalPointScale: 1.18, stippleAllLayers: true, stipplePointCount: 82_000,
+    scarDepthStyle: "hybrid",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v32-a_consistent-dots";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v33-a_hillshade";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

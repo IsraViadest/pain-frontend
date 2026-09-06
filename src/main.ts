@@ -522,6 +522,7 @@ function applyCountryProfileGlobePreset(layerId: string): void {
     preset?.emotionalLegendHalo === true,
   );
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
+  globe.setScarDepthStyle(preset?.scarDepthStyle ?? "none");
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
     quality?.samples ?? preset?.atmosphereSamples ?? 32,
     quality?.fraction ?? preset?.atmosphereFraction ?? 0.5);

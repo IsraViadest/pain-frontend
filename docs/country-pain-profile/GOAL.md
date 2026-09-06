@@ -756,6 +756,18 @@ data. Cleanup is limited to task-owned temporaries.
   on the reference desktop host. No physical-phone claim is made. No durable gallery was created.
   The selected default is `v32-a_consistent-dots`.
 
+- 2026-09-06: Scar-depth round v33 is complete. It compares the selected soft-scar control,
+  directional hillshade, land-only contours, land-and-ocean contours, and a restrained hybrid.
+  The selected `v33-a_hillshade` adds a slightly inset shared surface under the stipple and uses
+  its already displaced geometry and recomputed normals for directional depth. This is a
+  qualitative display cue, not altitude data. Contour candidates remain replayable but were
+  rejected because lines sampled only by sparse point sprites are too faint, while ocean lines
+  add noise. The shader path adds no data request, geometry rebuild, or new contour draw. On the
+  1080x684 reference host, control versus hillshade CPU median/p95 stays 0.3/0.4 ms; GPU draw-sum
+  median changes from 0.83 to 1.83 ms and p95 from 1.33 to 3.35 ms. The actual WebGL zoom probe
+  passes without child geometry, stranded detail, or errors. No durable gallery was created.
+  The selected default is `v33-a_hillshade`.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

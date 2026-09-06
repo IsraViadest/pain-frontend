@@ -63,6 +63,7 @@ import type { AtmosphereMode, createEnvironmentalAtmosphere } from "./environmen
 import type { SocioeconomicStyle } from "./socioeconomicPattern";
 
 export type { Co2HazeTune };
+type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid";
 
 /**
  * “Inner black sphere” in scar mode is usually NOT a mesh — land/ocean stipple is GPU-dented;
@@ -529,6 +530,7 @@ export class GlobeView {
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
   private roundedScarShoulder = false;
+  private scarDepthStyle: ScarDepthStyle = "none";
   private surfaceDetail: 1 | 2 = 1;
   private originalSurfaceStorageBytes = 0;
   private displayGeographyStorageBytes = 0;
@@ -1095,6 +1097,8 @@ export class GlobeView {
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
       return (
+        this.scarDepthStyle === "hillshade" ||
+        this.scarDepthStyle === "hybrid" ||
         GLOBE_SHELL_VISIBLE_IN_SCAR_MODE ||
         (isDebugScarVisual() && DEBUG_SCAR_VISUAL.showGlobeMeshInScarMode)
       );
@@ -1453,6 +1457,16 @@ export class GlobeView {
     if (!scars || this.displayMode !== "points") return;
     if (isDebugScarVisual()) {
       this.applyDebugGlobeMaterial();
+      return;
+    }
+    if (this.scarDepthStyle === "hillshade" || this.scarDepthStyle === "hybrid") {
+      this.applyGlobeShellColor();
+      const mat = this.globe.material as THREE.MeshStandardMaterial;
+      mat.color.setHex(0x111827);
+      mat.roughness = 0.72;
+      mat.metalness = 0.02;
+      this.globe.scale.setScalar(0.998);
+      mat.needsUpdate = true;
       return;
     }
     this.applyGlobeShellColor();
@@ -1822,6 +1836,7 @@ export class GlobeView {
           const { points, material, neutralScarTexture, neutralHeatTexture, setDisplayCountries } = result;
           this.pointsStipple = points;
           this.pointsMaterial = material;
+          material.uniforms.uScarDepthMode.value = this.scarDepthMode();
           material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
           this.stippleHandle = result;
           this.stippleBuiltPointCount = requestedPointCount;
@@ -2663,6 +2678,20 @@ export class GlobeView {
     if (rounded === this.roundedScarShoulder) return;
     this.roundedScarShoulder = rounded;
     this.scheduleScarFieldRebuild();
+  }
+
+  private scarDepthMode(): number {
+    return { none: 0, hillshade: 1, "contour-land": 2, "contour-all": 3, hybrid: 4 }[
+      this.scarDepthStyle
+    ];
+  }
+
+  setScarDepthStyle(style: ScarDepthStyle): void {
+    if (style === this.scarDepthStyle) return;
+    this.scarDepthStyle = style;
+    if (this.pointsMaterial) this.pointsMaterial.uniforms.uScarDepthMode.value = this.scarDepthMode();
+    this.syncGlobeSurfaceVisibility();
+    this.applyGlobeScarShellMaterial();
   }
 
   setStippleDetailMode(mode: StippleDetailMode): void {
