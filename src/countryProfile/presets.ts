@@ -132,7 +132,10 @@ export interface CountryProfilePreset {
   stippleAllLayers?: boolean;
   stipplePointCount?: 82_000 | 164_000;
   atmosphereMode?: "control" | "flat" | "mantle" | "cloudlets" | "volume" |
-    "volume-strong" | "volume-separated" | "volume-strong-separated";
+    "volume-strong" | "volume-separated" | "volume-strong-separated" |
+    "volume-very-strong-separated" | "volume-near-opaque-separated" |
+    "volume-log-separated" |
+    "volume-log-near-opaque-separated";
   atmosphereSamples?: 16 | 32 | 48;
   atmosphereFraction?: number;
   environmentalContextOpacity?: number;
@@ -249,6 +252,14 @@ const V37_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> = {
   atmosphereMode: "volume-strong-separated",
   cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
     motionScale: 1 },
+};
+const V38_BASE: Omit<CountryProfilePreset, "id" | "label" | "description"> = {
+  ...V37_BASE,
+  scarDepthStyle: "relief",
+  scarReliefPalette: "coral",
+  physicalOceanBlue: true,
+  scarContourStyle: "land-red",
+  scarContourLevels: 16,
 };
 
 const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
@@ -1026,9 +1037,34 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     scarDepthStyle: "relief", scarReliefPalette: "coral", physicalOceanBlue: true,
     scarContourStyle: "land-red", scarContourLevels: 16,
   },
+  {
+    ...V38_BASE, id: "v38-control_strong-linear-air", label: "v38 control: strong linear air",
+    description: "The selected separated volume with its existing strong linear response.",
+    atmosphereMode: "volume-strong-separated",
+  },
+  {
+    ...V38_BASE, id: "v38-a_near-opaque-linear", label: "v38: near-opaque linear air",
+    description: "Both separated fields approach opacity while preserving the linear response.",
+    atmosphereMode: "volume-near-opaque-separated",
+  },
+  {
+    ...V38_BASE, id: "v38-b_log-strong-air", label: "v38: logarithmic strong air",
+    description: "A logarithmic display curve lifts low and middle values at strong opacity.",
+    atmosphereMode: "volume-log-separated",
+  },
+  {
+    ...V38_BASE, id: "v38-c_log-near-opaque", label: "v38: logarithmic near-opaque air",
+    description: "The logarithmic display curve is combined with the near-opaque response.",
+    atmosphereMode: "volume-log-near-opaque-separated",
+  },
+  {
+    ...V38_BASE, id: "v38-d_very-strong-linear", label: "v38: very strong linear air",
+    description: "A linear midpoint between the strong and near-opaque separated volumes.",
+    atmosphereMode: "volume-very-strong-separated",
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v37-h_sparse-land-contours";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v38-d_very-strong-linear";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

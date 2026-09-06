@@ -3,7 +3,9 @@ import { createAtmosphereSurface } from "./atmosphereSurface";
 import { createAtmosphereVolume } from "./atmosphereVolume";
 
 export type AtmosphereMode = "control" | "flat" | "mantle" | "cloudlets" | "volume" |
-  "volume-strong" | "volume-separated" | "volume-strong-separated";
+  "volume-strong" | "volume-separated" | "volume-strong-separated" |
+  "volume-very-strong-separated" | "volume-near-opaque-separated" | "volume-log-separated" |
+  "volume-log-near-opaque-separated";
 
 const MAX_DEPTH_PIXELS = 1_048_576;
 const COLORS = { temperature: "#d74846", co2: "#69c99c" };
@@ -35,7 +37,9 @@ export function createEnvironmentalAtmosphere(options: {
   const volumeMode = mode.startsWith("volume");
   const volume = volumeMode ? createAtmosphereVolume({ ...shared,
     treatment: mode as "volume" | "volume-strong" | "volume-separated" |
-      "volume-strong-separated" }) : null;
+      "volume-strong-separated" | "volume-near-opaque-separated" |
+      "volume-very-strong-separated" | "volume-log-separated" |
+      "volume-log-near-opaque-separated" }) : null;
   const surface = volumeMode ? null : createAtmosphereSurface({ ...shared,
     mode: mode as "flat" | "mantle" | "cloudlets" });
   const object = (volume ?? surface)!.object;

@@ -56,12 +56,13 @@
       renderer.getContext().readPixels(0, 0, 320, 320,
         renderer.getContext().RGBA, renderer.getContext().UNSIGNED_BYTE, pixels);
       const sum = { alpha: 0, upper: 0, lower: 0, red: 0, green: 0, blue: 0,
-        redRadius: 0, greenRadius: 0 };
+        redRadius: 0, greenRadius: 0, maxAlpha: 0 };
       for (let y = 0; y < 320; y++) for (let x = 0; x < 320; x++) {
         const i = (y * 320 + x) * 4, alpha = pixels[i + 3];
         sum.alpha += alpha;
         sum[y >= 160 ? "upper" : "lower"] += alpha;
         sum.red += pixels[i]; sum.green += pixels[i + 1]; sum.blue += pixels[i + 2];
+        sum.maxAlpha = Math.max(sum.maxAlpha, alpha);
         const radius = Math.hypot(x - 160, y - 160);
         if (alpha > 4 && pixels[i] > pixels[i + 1] * 1.08) sum.redRadius = Math.max(sum.redRadius, radius);
         if (alpha > 4 && pixels[i + 1] > pixels[i] * 1.08) sum.greenRadius = Math.max(sum.greenRadius, radius);
@@ -71,7 +72,9 @@
       })) };
     };
     for (const mode of ["flat", "mantle", "cloudlets", "volume", "volume-strong",
-      "volume-separated", "volume-strong-separated"]) {
+      "volume-separated", "volume-strong-separated", "volume-near-opaque-separated",
+      "volume-very-strong-separated", "volume-log-separated",
+      "volume-log-near-opaque-separated"]) {
       const isVolume = mode.startsWith("volume");
       const result = { mode };
       results.push(result);
@@ -184,6 +187,18 @@
     const byMode = new Map(results.map((result) => [result.mode, result]));
     check(byMode.get("volume-strong").north.alpha > byMode.get("volume").north.alpha * 1.2,
       "strong volume does not materially strengthen the midpoint field");
+    const separated = byMode.get("volume-strong-separated");
+    const veryStrong = byMode.get("volume-very-strong-separated");
+    const nearOpaque = byMode.get("volume-near-opaque-separated");
+    const logarithmic = byMode.get("volume-log-separated");
+    check(nearOpaque.north.alpha > separated.north.alpha * 1.25 &&
+      nearOpaque.insideShell.front.maxAlpha >= 245,
+    "near-opaque response is not strong at midpoint and close high-value views");
+    check(veryStrong.north.alpha > separated.north.alpha &&
+      veryStrong.north.alpha < nearOpaque.north.alpha,
+    "very-strong linear response is not between strong and near-opaque");
+    check(logarithmic.north.alpha > separated.north.alpha * 1.15,
+      "log response did not lift the middle of the normalized range");
     return { passed: true, results, visibleSolidMesh: false };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error), results };

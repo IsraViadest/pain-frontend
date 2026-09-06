@@ -21,8 +21,9 @@ uniform mat4 uInverseEarth;
 uniform vec3 uTemperatureColor;
 uniform vec3 uCo2Color;
 uniform int uSamples;
-uniform float uStrong;
+uniform float uOpacityTier;
 uniform float uSeparated;
+uniform float uLogResponse;
 
 vec3 localPosition(float depth) {
   vec4 view = uInverseProjection * vec4(vUv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
@@ -51,6 +52,11 @@ float co2Envelope(float radius, float alpha) {
   return smoothstep(1.02, 1.045, radius) * (1.0 - smoothstep(1.055, top, radius));
 }
 
+float displayResponse(float value) {
+  float expanded = log(1.0 + 9.0 * value) / log(10.0);
+  return mix(value, expanded, uLogResponse);
+}
+
 void main() {
   vec3 origin = (uInverseEarth * uCameraWorld * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   vec3 direction = normalize(localPosition(1.0) - origin);
@@ -74,18 +80,22 @@ void main() {
     vec3 point = origin + direction * (start + (float(i) + 0.5) * stepLength);
     float radius = length(point);
     vec2 uv = fieldUv(point / max(radius, 0.0001));
-    float temperature = texture2D(uTemperature, uv).a;
-    float co2 = texture2D(uCo2, uv).a;
+    float temperature = displayResponse(texture2D(uTemperature, uv).a);
+    float co2 = displayResponse(texture2D(uCo2, uv).a);
     float temperatureShape = mix(envelope(radius, temperature),
       temperatureEnvelope(radius, temperature), uSeparated);
     float co2Shape = mix(envelope(radius, co2), co2Envelope(radius, co2), uSeparated);
-    float temperatureDensity = mix(0.7, 1.1, uStrong) * temperature * temperatureShape;
-    float co2Density = mix(0.4, 0.75, uStrong) * co2 * co2Shape;
+    float strong = min(uOpacityTier, 1.0);
+    float nearOpaque = max(0.0, uOpacityTier - 1.0);
+    float temperatureDensity = mix(mix(0.7, 1.1, strong), 1.35, nearOpaque) *
+      temperature * temperatureShape;
+    float co2Density = mix(mix(0.4, 0.75, strong), 1.0, nearOpaque) * co2 * co2Shape;
     float density = temperatureDensity + co2Density;
     if (density <= 0.0) continue;
     vec3 color = (uTemperatureColor * temperatureDensity + uCo2Color * co2Density) / density;
     // Step-length correction keeps optical opacity independent of the chosen sample count.
-    float alpha = 1.0 - exp(-mix(12.0, 30.0, uStrong) * density * stepLength);
+    float absorption = mix(mix(12.0, 30.0, strong), 72.0, nearOpaque);
+    float alpha = 1.0 - exp(-absorption * density * stepLength);
     accumulated += (1.0 - opacity) * alpha * color;
     opacity += (1.0 - opacity) * alpha;
     if (opacity >= 0.995) break;
@@ -116,7 +126,9 @@ export function createAtmosphereVolume(options: {
   inverseEarth: THREE.Matrix4;
   colors: { temperature: string; co2: string };
   treatment: "volume" | "volume-strong" | "volume-separated" |
-    "volume-strong-separated";
+    "volume-strong-separated" | "volume-near-opaque-separated" |
+    "volume-very-strong-separated" | "volume-log-separated" |
+    "volume-log-near-opaque-separated";
 }) {
   const { renderer, drawingSize } = options;
   const neutral = new THREE.DataTexture(new Uint8Array(4), 1, 1, THREE.RGBAFormat);
@@ -150,8 +162,11 @@ export function createAtmosphereVolume(options: {
       uTemperatureColor: { value: new THREE.Color(options.colors.temperature) },
       uCo2Color: { value: new THREE.Color(options.colors.co2) },
       uSamples: { value: 16 },
-      uStrong: { value: options.treatment.includes("strong") ? 1 : 0 },
+      uOpacityTier: { value: options.treatment.includes("near-opaque") ? 2 :
+        options.treatment.includes("very-strong") ? 1.5 :
+        options.treatment.includes("strong") || options.treatment.includes("log") ? 1 : 0 },
       uSeparated: { value: options.treatment.includes("separated") ? 1 : 0 },
+      uLogResponse: { value: options.treatment.includes("log") ? 1 : 0 },
     },
     depthTest: false,
     depthWrite: false,

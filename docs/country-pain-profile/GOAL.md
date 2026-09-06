@@ -821,6 +821,17 @@ data. Cleanup is limited to task-owned temporaries.
   0.54/0.91 ms without contours; CPU is 0.5/0.8 ms. Zoom requests no data and strands no detail.
   The optional contour module is 1.35 kB gzip. No durable gallery was created.
 
+- 2026-09-06: Environmental opacity round v38 is complete. The control, near-opaque linear,
+  strong logarithmic, near-opaque logarithmic, and very-strong linear separated volumes remain
+  addressable. Near-opaque reaches 245/255 above a synthetic maximum but obscures land. Logarithmic
+  response preserves zero and maximum yet lifts the midpoint enough to flatten geographic
+  contrast. The selected `v38-d_very-strong-linear` stays linear and lies numerically between the
+  previous strong and near-opaque treatments: midpoint aggregate alpha 1.77M versus 1.20M and
+  2.14M, with close maximum 223/255 versus 169 and 245. CO2 remains above Temperature. Zero,
+  missingness, field registration, occlusion, renderer state, sample stability, and layer gating
+  pass. Environmental GPU draw-sum median/p95 is 1.49/2.85 ms; CPU is 0.6/1.1 ms. No durable
+  gallery was created.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
