@@ -832,6 +832,20 @@ data. Cleanup is limited to task-owned temporaries.
   pass. Environmental GPU draw-sum median/p95 is 1.49/2.85 ms; CPU is 0.6/1.1 ms. No durable
   gallery was created.
 
+- 2026-09-06: Rounds v35-v38 are integrated and complete. Port 3000 serves frontend code
+  `0c98b34` with server `48b3be8` from asset `index-BlgR35hL.js`; default preset is
+  `v38-d_very-strong-linear`. Production selection of Cuba confirms its real socioeconomic value
+  is unavailable, the profile uses the missing hatch, the content plate is 373.30 px wide, and
+  box-shadow is none. The final all-195 layout checks pass at 1500x950 and 320x740. Contours draw
+  once only in Physical and all-pain views. Atmosphere draws only in Environmental and all-pain.
+  Network verification completes 924 segments, reverse motion, and hidden-tab settlement. Its
+  first cold timing run exceeded the narrow animation-duration tolerance; a fresh settled run
+  passed at 144.4 ms under `cpTimeScale=.05`, with no functional state failure in either run.
+  Combined all-pain frame intervals are 8.3/9.2 ms median/p95; CPU callback duration is 1.4/2.1
+  ms and GPU callback duration 2.09/4.10 ms. Main entry is 228.18 kB gzip, below the 246.44 kB
+  limit. Primary checkouts are restored clean. Physical-phone acceptance remains deferred and no
+  durable gallery was created.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any
