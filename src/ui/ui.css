@@ -258,6 +258,10 @@
   font-size: clamp(0.9rem, 1.5vw, 1.12rem);
 }
 
+#ui-share-pain .blob-button__label--loose-lines {
+  line-height: 1.1;
+}
+
 .blob-button--inactive .blob-button__svg {
   opacity: 0.4;
 }

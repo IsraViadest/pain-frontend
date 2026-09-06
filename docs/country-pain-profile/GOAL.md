@@ -716,6 +716,15 @@ data. Cleanup is limited to task-owned temporaries.
   Automatic approval rejected deletion because the `rm` family is blocked outright. The six
   files remain in `/tmp`; no alternate deletion mechanism was used to bypass that control.
 
+- 2026-09-06: Profile and cycle refinement rounds v25-v28 are complete. The selected dwell is
+  10.5 seconds, exactly 25 percent below v24's 14 seconds. Indicators now sit above the divider
+  and country name. The broad halo remains while its hard one-pixel outline is removed. The
+  survey action reads `share and locate / your pain` with a 1.1 line height. v24 and each
+  intermediate change remain directly addressable. All 195 profiles pass at 1500x950 and
+  393x852. Painted gaps, middle-glyph centering, English centering, missingness, and chrome
+  clearance remain within their existing bounds. The integrated visual was inspected in Chrome;
+  no durable gallery file was created. The new default is `v28-a_share-and-locate`.
+
 ## Historical first-goal completion
 
 The prior goal's Phases 0-8 passed and ended at `4b3d6f7`. That completion does not mark any

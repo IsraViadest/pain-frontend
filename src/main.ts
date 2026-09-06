@@ -664,7 +664,12 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     );
     const runtime = countryProfileRuntime;
     applyCountryProfileGlobePreset(lastLayerId);
-    if (runtime.preset.refinement) chrome?.setSharePainLabel("share your pain\nlocate it");
+    if (runtime.preset.refinement) {
+      chrome?.setSharePainLabel(
+        runtime.preset.sharePainLabel ?? "share your pain\nlocate it",
+        runtime.preset.sharePainLooseLines,
+      );
+    }
     countryPresentation = new CountryPresentation({
     appRoot: appRootEl,
     controlHost: runtime.preset.refinement ? chrome?.countryCycleHost : undefined,

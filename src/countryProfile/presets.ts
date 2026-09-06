@@ -144,6 +144,10 @@ export interface CountryProfilePreset {
   centerEnglishTerm?: boolean;
   profileGlow?: "none" | "wide";
   profileReveal?: "none" | "soft";
+  profileOrder?: "country-first" | "indicators-first";
+  profileHardOutline?: boolean;
+  sharePainLabel?: string;
+  sharePainLooseLines?: boolean;
   cycle?: {
     preserveZoom?: boolean;
     revealWithNetwork?: boolean;
@@ -665,9 +669,40 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     cycle: { ...V23_REVEAL.cycle, prepareMs: 500, flightMs: 1800, dwellMs: 18000,
       motionScale: 1.25 },
   },
+  {
+    ...V23_REVEAL, id: "v25-a_quicker-dwell", label: "v25: 25 percent shorter dwell",
+    description: "The selected cycle with country dwell reduced from 14 to 10.5 seconds.",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v26-a_indicators-first", label: "v26: indicators above country",
+    description: "The four pain indicators sit above the divider and country name.",
+    profileOrder: "indicators-first",
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v27-a_soft-halo", label: "v27: soft halo only",
+    description: "The broad profile halo remains without the hard one-pixel outline.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
+  {
+    ...V23_REVEAL, id: "v28-a_share-and-locate", label: "v28: share and locate",
+    description: "The action reads share and locate your pain with looser line spacing.",
+    profileOrder: "indicators-first",
+    profileHardOutline: false,
+    sharePainLabel: "share and locate\nyour pain",
+    sharePainLooseLines: true,
+    cycle: { ...V23_REVEAL.cycle, prepareMs: 400, flightMs: 1500, dwellMs: 10500,
+      motionScale: 1 },
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v24-b_balanced-cycle";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v28-a_share-and-locate";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {

@@ -574,6 +574,30 @@
     0 0 72px 42px rgba(92, 146, 235, 0.08);
 }
 
+.country-profile[data-layout="compact"][data-profile-glow="wide"][data-profile-hard-outline="false"] {
+  box-shadow:
+    0 0 26px 15px rgba(151, 195, 255, 0.14),
+    0 0 72px 42px rgba(92, 146, 235, 0.08);
+}
+
+.country-profile[data-profile-order="indicators-first"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.country-profile[data-profile-order="indicators-first"] .country-profile__items {
+  order: 1;
+}
+
+.country-profile[data-profile-order="indicators-first"] .country-profile__divider {
+  order: 2;
+  margin: 8px 0 6px;
+}
+
+.country-profile[data-profile-order="indicators-first"] .country-profile__country {
+  order: 3;
+}
+
 @keyframes country-profile-soft-reveal {
   0% {
     opacity: 0;

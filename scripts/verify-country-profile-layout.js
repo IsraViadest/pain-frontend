@@ -111,6 +111,17 @@
       physical: { value: 1, pointCount: 1 }, socioeconomic: { value: 0, pointCount: 1 },
     };
     view.setProfile(fixture);
+    if (preset.profileOrder === "indicators-first") {
+      const items = card.querySelector(".country-profile__items").getBoundingClientRect();
+      const divider = card.querySelector(".country-profile__divider").getBoundingClientRect();
+      const country = card.querySelector(".country-profile__country").getBoundingClientRect();
+      check(items.bottom <= divider.top + 1 && divider.bottom <= country.top + 1,
+        "indicators-first visual order is incorrect");
+    }
+    if (preset.profileHardOutline === false) {
+      check(!getComputedStyle(card).boxShadow.includes("0px 0px 0px 1px"),
+        "hard profile outline is still painted");
+    }
     const environment = card.querySelector('[data-indicator="environmental"]');
     check(getComputedStyle(environment.querySelector(".country-profile__outline")).display ===
       "none", "missing CO2 still has a band");
