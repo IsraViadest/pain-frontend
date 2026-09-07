@@ -1,6 +1,7 @@
 type SurveyResultModalOptions = {
   lat: number;
   lng: number;
+  message: string;
   onClose: () => void;
 };
 
@@ -22,7 +23,7 @@ function formatCoordinates(lat: number, lng: number): string {
 /** Centered result card after post-submit globe fly-to. */
 export function showSurveyResultModal(
   host: HTMLElement,
-  { lat, lng, onClose }: SurveyResultModalOptions,
+  { lat, lng, message, onClose }: SurveyResultModalOptions,
 ): void {
   hideSurveyResultModal();
 
@@ -51,6 +52,10 @@ export function showSurveyResultModal(
   coords.className = "survey-result-modal__coords";
   coords.textContent = formatCoordinates(lat, lng);
 
+  const messageEl = document.createElement("p");
+  messageEl.className = "survey-result-modal__message";
+  messageEl.textContent = message;
+
   const handleClose = (): void => {
     const cb = closeHandler;
     hideSurveyResultModal();
@@ -58,7 +63,7 @@ export function showSurveyResultModal(
   };
 
   closeBtn.addEventListener("click", handleClose);
-  panel.append(title, coords, closeBtn);
+  panel.append(title, coords, messageEl, closeBtn);
   modalEl.append(panel);
   host.appendChild(modalEl);
 }
