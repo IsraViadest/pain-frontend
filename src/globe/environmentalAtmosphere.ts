@@ -8,7 +8,7 @@ export type AtmosphereMode = "control" | "flat" | "mantle" | "cloudlets" | "volu
   "volume-log-near-opaque-separated";
 
 const MAX_DEPTH_PIXELS = 1_048_576;
-const COLORS = { temperature: "#d74846", co2: "#69c99c" };
+const COLORS = { temperature: "#d74846", co2: "#90dcb5" };
 
 /** A private depth pass clips air against the actual surface without hiding ground stipple. */
 export function createEnvironmentalAtmosphere(options: {
@@ -22,6 +22,10 @@ export function createEnvironmentalAtmosphere(options: {
   const { mode, renderer, camera, earthContent, surfaceGeometry } = options;
   const drawingSize = new THREE.Vector2();
   const inverseEarth = new THREE.Matrix4();
+  const surfaceRadius = { value: 0 };
+  let surfacePositions: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | null = null;
+  let surfaceVersion = -1;
+  let sphericalRadius = 0;
   const depth = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
   depth.minFilter = depth.magFilter = THREE.NearestFilter;
   const depthTarget = new THREE.WebGLRenderTarget(1, 1, {
@@ -34,7 +38,8 @@ export function createEnvironmentalAtmosphere(options: {
   depthMesh.matrixAutoUpdate = false;
   const depthScene = new THREE.Scene();
   depthScene.add(depthMesh);
-  const shared = { renderer, depth, drawingSize, inverseEarth, colors: COLORS, smooth: options.smooth };
+  const shared = { renderer, depth, drawingSize, inverseEarth, surfaceRadius,
+    colors: COLORS, smooth: options.smooth };
   const volumeMode = mode.startsWith("volume");
   const volume = volumeMode ? createAtmosphereVolume({ ...shared,
     treatment: mode as "volume" | "volume-strong" | "volume-separated" |
@@ -66,6 +71,26 @@ export function createEnvironmentalAtmosphere(options: {
       if (disposed || (!temperature && !co2)) return;
       renderer.getDrawingBufferSize(drawingSize);
       if (drawingSize.x <= 0 || drawingSize.y <= 0) return;
+      const positions = surfaceGeometry.getAttribute("position");
+      const version = positions instanceof THREE.InterleavedBufferAttribute
+        ? positions.data.version : positions.version;
+      if (positions !== surfacePositions || version !== surfaceVersion) {
+        surfacePositions = positions;
+        surfaceVersion = version;
+        const radiusSquared = positions.getX(0) ** 2 + positions.getY(0) ** 2 + positions.getZ(0) ** 2;
+        sphericalRadius = Math.sqrt(radiusSquared);
+        for (let i = 1; i < positions.count; i++) {
+          const squared = positions.getX(i) ** 2 + positions.getY(i) ** 2 + positions.getZ(i) ** 2;
+          if (Math.abs(squared - radiusSquared) > 0.00001) {
+            sphericalRadius = 0;
+            break;
+          }
+        }
+      }
+      // Only the complete closed sphere can replace its depth raster analytically.
+      const range = surfaceGeometry.drawRange;
+      surfaceRadius.value = range.start === 0 && range.count >= (surfaceGeometry.index?.count ?? positions.count)
+        ? sphericalRadius : 0;
       const ratio = Math.min(options.smooth ? fraction : 0.5, 1,
         Math.sqrt((options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS) / (drawingSize.x * drawingSize.y)),
         renderer.capabilities.maxTextureSize / Math.max(drawingSize.x, drawingSize.y));

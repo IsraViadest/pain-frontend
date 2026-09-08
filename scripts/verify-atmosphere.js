@@ -195,6 +195,39 @@
       camera.aspect = 1;
       camera.updateProjectionMatrix();
     }
+    // Rear air is visible outside the globe but clipped inside its silhouette. This exposes
+    // the stepped nearest-depth edge which the front-facing field checks cannot detect.
+    renderer.setSize(640, 640, false);
+    camera.position.z = 3.5;
+    const edgeSurface = new THREE.SphereGeometry(1, 192, 128);
+    const edgeBytes = new Uint8Array(128 * 4);
+    for (let x = 64; x < 128; x++) edgeBytes[x * 4 + 3] = 100;
+    const edgeField = new THREE.DataTexture(edgeBytes, 128, 1, THREE.RGBAFormat);
+    edgeField.minFilter = edgeField.magFilter = THREE.LinearFilter;
+    edgeField.needsUpdate = true;
+    owned.push(edgeSurface, edgeField);
+    const edgeCaptures = [];
+    for (const [smooth, fraction] of [[false, 0.25], [true, 1]]) {
+      atmosphere = createEnvironmentalAtmosphere({ mode: "volume-very-strong-separated",
+        smooth, renderer, camera, earthContent: earth, surfaceGeometry: edgeSurface });
+      atmosphere.setFields(null, edgeField);
+      atmosphere.prepare(48, fraction);
+      renderer.render(scene, camera);
+      const rgba = new Uint8Array(640 * 640 * 4), gl = renderer.getContext();
+      gl.readPixels(0, 0, 640, 640, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+      edgeCaptures.push(rgba);
+      atmosphere.dispose(); atmosphere = null;
+    }
+    const projectedRadius = 640 / (2 * Math.tan(Math.PI / 8) * Math.sqrt(3.5 ** 2 - 1));
+    let edgeError = 0, edgePixelCount = 0;
+    for (let y = 30; y < 610; y++) for (let x = 30; x < 610; x++) {
+      if (Math.abs(Math.hypot(x + 0.5 - 320, y + 0.5 - 320) - projectedRadius) > 6) continue;
+      const index = (y * 640 + x) * 4 + 3;
+      edgeError += Math.abs(edgeCaptures[0][index] - edgeCaptures[1][index]);
+      edgePixelCount++;
+    }
+    const edgeMeanAlphaError = edgeError / edgePixelCount;
+    check(edgeMeanAlphaError < 31, "Rear atmospheric edge reverted to nearest depth: " + edgeMeanAlphaError);
     const byMode = new Map(results.map((result) => [result.mode, result]));
     check(byMode.get("volume-strong").north.alpha > byMode.get("volume").north.alpha * 1.2,
       "strong volume does not materially strengthen the midpoint field");
@@ -203,14 +236,15 @@
     const nearOpaque = byMode.get("volume-near-opaque-separated");
     const logarithmic = byMode.get("volume-log-separated");
     check(nearOpaque.north.alpha > separated.north.alpha * 1.25 &&
-      nearOpaque.insideShell.front.maxAlpha >= 245,
+      // Exact spherical clipping removes the mesh chord's extra optical depth (one alpha byte).
+      nearOpaque.insideShell.front.maxAlpha >= 244,
     "near-opaque response is not strong at midpoint and close high-value views");
     check(veryStrong.north.alpha > separated.north.alpha &&
       veryStrong.north.alpha < nearOpaque.north.alpha,
     "very-strong linear response is not between strong and near-opaque");
     check(logarithmic.north.alpha > separated.north.alpha * 1.15,
       "log response did not lift the middle of the normalized range");
-    return { passed: true, results, visibleSolidMesh: false };
+    return { passed: true, results, visibleSolidMesh: false, edgeMeanAlphaError };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error), results };
   } finally {

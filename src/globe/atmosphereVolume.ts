@@ -24,8 +24,8 @@ uniform int uSamples;
 uniform float uOpacityTier;
 uniform float uSeparated;
 uniform float uLogResponse;
-uniform bool uSmooth;
 uniform vec2 uDepthSize;
+uniform float uSurfaceRadius;
 
 vec3 localPosition(float depth) {
   vec4 view = uInverseProjection * vec4(vUv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
@@ -34,9 +34,11 @@ vec3 localPosition(float depth) {
 
 // Interpolate view-space distances, never nonlinear depth-buffer values.
 float surfaceDistance(vec3 origin, vec3 direction, float farDistance) {
-  if (!uSmooth) {
-    float depth = texture2D(uDepth, vUv).r;
-    return depth < 1.0 ? dot(localPosition(depth) - origin, direction) : farDistance;
+  if (uSurfaceRadius > 0.0) {
+    float b = dot(origin, direction);
+    float discriminant = b * b - dot(origin, origin) + uSurfaceRadius * uSurfaceRadius;
+    if (discriminant <= 0.0) return farDistance;
+    return max(0.0, -b - sqrt(discriminant));
   }
   vec2 grid = vUv * uDepthSize - 0.5;
   vec2 f = fract(grid);
@@ -122,19 +124,17 @@ void main() {
     opacity += (1.0 - opacity) * alpha;
     if (opacity >= 0.995) break;
   }
-  // Smooth targets interpolate premultiplied linear color to avoid dark transparent fringes.
-  gl_FragColor = vec4(uSmooth ? accumulated :
-    (opacity > 0.0 ? accumulated / opacity : vec3(0.0)), opacity);
+  // Keep color premultiplied while the reduced-resolution target is interpolated.
+  gl_FragColor = vec4(accumulated, opacity);
 }
 `;
 
 const COMPOSITE_FRAGMENT = /* glsl */ `
 varying vec2 vUv;
 uniform sampler2D uVolume;
-uniform bool uSmooth;
 void main() {
   gl_FragColor = texture2D(uVolume, vUv);
-  if (uSmooth && gl_FragColor.a > 0.0) gl_FragColor.rgb /= gl_FragColor.a;
+  if (gl_FragColor.a > 0.0) gl_FragColor.rgb /= gl_FragColor.a;
   #include <colorspace_fragment>
 }
 `;
@@ -149,6 +149,7 @@ export function createAtmosphereVolume(options: {
   depth: THREE.DepthTexture;
   drawingSize: THREE.Vector2;
   inverseEarth: THREE.Matrix4;
+  surfaceRadius: { value: number };
   colors: { temperature: string; co2: string };
   smooth?: boolean;
   treatment: "volume" | "volume-strong" | "volume-separated" |
@@ -188,8 +189,8 @@ export function createAtmosphereVolume(options: {
       uTemperatureColor: { value: new THREE.Color(options.colors.temperature) },
       uCo2Color: { value: new THREE.Color(options.colors.co2) },
       uSamples: { value: 16 },
-      uSmooth: { value: options.smooth === true },
       uDepthSize: { value: new THREE.Vector2(1, 1) },
+      uSurfaceRadius: options.surfaceRadius,
       uOpacityTier: { value: options.treatment.includes("near-opaque") ? 2 :
         options.treatment.includes("very-strong") ? 1.5 :
         options.treatment.includes("strong") || options.treatment.includes("log") ? 1 : 0 },
@@ -204,7 +205,7 @@ export function createAtmosphereVolume(options: {
   const compositeMaterial = new THREE.ShaderMaterial({
     vertexShader: VERTEX,
     fragmentShader: COMPOSITE_FRAGMENT,
-    uniforms: { uVolume: { value: target.texture }, uSmooth: { value: options.smooth === true } },
+    uniforms: { uVolume: { value: target.texture } },
     transparent: true,
     depthTest: false,
     depthWrite: false,
