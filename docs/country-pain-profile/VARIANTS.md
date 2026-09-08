@@ -44,12 +44,12 @@ button reopens the video. The festival link opens the official project listing i
 | Video variation | Live link | Difference and judgement |
 |---|---|---|
 | Video A: black cinema | [Open black stage](http://127.0.0.1:3000/?cp=1&cpPreset=v46-dots_water-depth&cpVideo=black&cpVideoIntro=1) | Borderless black surroundings blend with the encoded video's black matte. This preserves the film's colours, but changes the site's blue background to black while playing. |
-| Video B: theme blend, chosen | [Open theme-matched stage](http://127.0.0.1:3000/?cp=1&cpPreset=v46-dots_water-depth&cpVideo=theme&cpVideoIntro=1) | The site's existing background continues behind the film. Screen blending makes its black matte disappear, helping the film replace the globe visually. It also gives dark footage some of the background's blue tone; use A if colour fidelity matters more. |
+| Video B: untinted theme match, chosen | [Open theme-matched stage](http://127.0.0.1:3000/?cp=1&cpPreset=v46-dots_water-depth&cpVideo=theme&cpVideoIntro=1) | The site's background continues behind a frame-synchronised cut-out. The footage uses normal blending, with no colour filter or tint. The outline is reconstructed from the opaque source; an exact original alpha boundary is unavailable. |
 
 B is the default video treatment; the globe preset itself is unchanged. These comparison links
 include `cpVideoIntro=1` to replay the large invitation even after dismissal. Ordinary links omit
 that parameter and remember the compact replay state. Both use floating blob quality buttons,
-a native playback timeline and no forced browser fullscreen. Playback buffers progressively.
+a separate playback timeline and no forced browser fullscreen. Playback buffers progressively.
 
 ## Interactive emotion subsets
 

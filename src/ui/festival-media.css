@@ -161,8 +161,9 @@
   background: transparent;
 }
 
-.pain-video[data-surface="theme"] video {
-  mix-blend-mode: screen;
+.pain-video[data-surface="theme"][data-matte="loading"],
+.pain-video[data-surface="theme"][data-matte="loading"]::backdrop {
+  background: #000;
 }
 
 .pain-video__toolbar {
@@ -300,4 +301,42 @@
   .video-invitation--docked .festival-media__play {
     font-size: 11px;
   }
+}
+
+.pain-video__transport {
+  position: absolute;
+  bottom: max(14px,env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(760px,calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+.pain-video__transport button {
+  flex: 0 0 60px;
+  height: 36px;
+  border: 0;
+  background: #ffffff30;
+  color: #fff;
+  font: 12px "Apercu Pro",sans-serif;
+  cursor: pointer;
+}
+.pain-video__transport input {
+  min-width: 0;
+  flex: 1;
+  accent-color: #ddd;
+}
+.pain-video__transport output {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pain-video__transport :focus-visible {
+  outline: 2px solid #a7d0ff;
+  outline-offset: 2px;
+}
+.pain-video__transport button:focus-visible {
+  background: #b5d9ff;
+  color: #080808;
 }

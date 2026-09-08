@@ -55,7 +55,7 @@ export function mountFestivalMedia(host: HTMLElement): HTMLButtonElement {
   dialog.dataset.surface = query.get("cpVideo") === "black" ? "black" : "theme";
   dialog.setAttribute("aria-label", "P.A.I.N. video player");
   const video = document.createElement("video");
-  video.controls = true;
+  video.controls = false;
   video.playsInline = true;
   video.preload = "none";
   video.width = 1920;
@@ -91,7 +91,38 @@ export function mountFestivalMedia(host: HTMLElement): HTMLButtonElement {
   const status = document.createElement("p");
   status.className = "pain-video__status";
   status.setAttribute("role", "status");
-  dialog.append(video, toolbar, status);
+  const transport = document.createElement("div");
+  transport.className = "pain-video__transport";
+  const playback = document.createElement("button");
+  playback.type = "button";
+  playback.style.clipPath = VIDEO_POSTER_CLIP;
+  const mute = document.createElement("button");
+  mute.type = "button";
+  mute.style.clipPath = VIDEO_POSTER_CLIP;
+  const seek = document.createElement("input");
+  seek.type = "range"; seek.min = "0"; seek.max = "0"; seek.step = "0.1"; seek.disabled = true;
+  seek.setAttribute("aria-label", "Video position");
+  const elapsed = document.createElement("output");
+  const time = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  const syncTransport = () => {
+    playback.textContent = video.paused ? "Play" : "Pause";
+    playback.setAttribute("aria-label", `${playback.textContent} video`);
+    mute.textContent = video.muted ? "Unmute" : "Mute";
+    mute.setAttribute("aria-label", `${mute.textContent} video`);
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    seek.disabled = duration === 0; seek.max = String(duration); seek.value = String(video.currentTime);
+    seek.setAttribute("aria-valuetext", `${time(video.currentTime)} of ${time(duration)}`);
+    elapsed.textContent = `${time(video.currentTime)} / ${time(duration)}`;
+  };
+  playback.addEventListener("click", () => { if (video.paused) play(); else video.pause(); });
+  mute.addEventListener("click", () => { video.muted = !video.muted; });
+  seek.addEventListener("input", () => { video.currentTime = Number(seek.value); });
+  for (const event of ["play", "pause", "timeupdate", "loadedmetadata", "volumechange", "emptied"]) {
+    video.addEventListener(event, syncTransport);
+  }
+  syncTransport();
+  transport.append(playback, seek, elapsed, mute);
+  dialog.append(video, toolbar, status, transport);
   document.body.append(dialog);
 
   const forceIntro = query.get("cpVideoIntro") === "1";
@@ -151,9 +182,34 @@ export function mountFestivalMedia(host: HTMLElement): HTMLButtonElement {
   const play = () => { void video.play().catch((error: DOMException) => {
     if (dialog.open && error.name !== "AbortError") status.textContent = "Press play to start the video.";
   }); };
+  type VideoMatte = Awaited<ReturnType<typeof import("./video-matte")["createVideoMatte"]>>;
+  let matte: VideoMatte | null = null;
+  let matteReady: Promise<VideoMatte> | null = null;
+  let opening = 0;
+  let matteError = "";
   trigger.addEventListener("click", () => {
     if (dialog.open) return;
+    const revision = ++opening;
+    matteError = "";
+    dialog.dataset.matte = "loading";
     dialog.showModal();
+    if (dialog.dataset.surface === "theme") {
+      matteReady ??= import("./video-matte").then(({ createVideoMatte }) => createVideoMatte(video));
+      void matteReady.then((mask) => {
+        matte = mask;
+        if (dialog.open && revision === opening) {
+          mask.start(); dialog.dataset.matte = "ready";
+        }
+      }).catch((error) => {
+        matteReady = null;
+        if (dialog.open && revision === opening) {
+          video.pause();
+          matteError = "Could not load the video outline. Please close and retry.";
+          status.textContent = matteError;
+          console.error(error);
+        }
+      });
+    }
     setBackgroundMusicSuppressed(true);
     status.textContent = "Loading video…";
     video.src = `/media/pain-${quality}.mp4`;
@@ -183,6 +239,8 @@ export function mountFestivalMedia(host: HTMLElement): HTMLButtonElement {
   }
   close.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => {
+    opening++;
+    matte?.stop();
     cancelRestore();
     pendingQuality = null;
     video.pause();
@@ -196,8 +254,8 @@ export function mountFestivalMedia(host: HTMLElement): HTMLButtonElement {
   });
   video.addEventListener("ended", () => { dock("watched"); dialog.close(); });
   video.addEventListener("waiting", () => { status.textContent = "Buffering…"; });
-  video.addEventListener("playing", () => { status.textContent = ""; });
-  video.addEventListener("canplay", () => { status.textContent = ""; });
+  video.addEventListener("playing", () => { status.textContent = matteError; });
+  video.addEventListener("canplay", () => { status.textContent = matteError; });
   video.addEventListener("error", () => {
     if (dialog.open) status.textContent = "Could not load this video. Please choose another quality or reopen it.";
   });

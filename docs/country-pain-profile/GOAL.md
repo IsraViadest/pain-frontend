@@ -1082,3 +1082,22 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
   replay on return visits, quality changes during playback, frame-free dialogs and lower label
   placement. Review reproduced keyboard Skip losing focus; it now focuses replay, with a passing
   focused-control regression. Theme-blended and black stages were both inspected playing.
+
+
+## 2026-09-08: untinted theme-matched video
+
+- Replaced screen blending with a frame-synchronised CSS silhouette. Retained footage RGB is
+  decoded and painted normally. Theme backgrounds remain visible outside the cut-out.
+- Offline OpenCV extraction checks all 3,508 frames, including the dark 25-28 second section.
+  Interior holes and substantive detached parts remain included. The opaque source supplies no
+  alpha channel, so the inferred boundary is not claimed to be original source alpha.
+- Compressed frame geometry plus header costs 968,868 bytes. It is loaded on demand, shared
+  across quality levels, and updated with presented media timestamps. No videos were re-encoded.
+  Rebuild: /opt/homebrew/bin/python3.11 scripts/build-video-matte.py '<source MP4>'.
+- Playback, mute and seek controls live outside the clipped video so they remain usable.
+  The existing quality controls, first-visit docking and progressive buffering remain.
+- Validation covers desktop/mobile playback, normal blend/no filter, frame alignment after
+  seeking and quality changes, and close cleanup. The paused 26-second frame was inspected.
+  The loader handles both HTTP-decoded gzip (Vite) and raw gzip files (static delivery).
+- Supersedes the earlier tinted theme-blend choice. Black cinema remains available. The catalogue
+  now describes the untinted cut-out and its source-alpha limitation. No gallery was generated.

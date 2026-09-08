@@ -38,6 +38,13 @@
   button.click();
   check(dialog.open&&!document.fullscreenElement&&video.playsInline,'Wrong fullscreen behavior');
   await until(()=>video.currentTime>0,'first decoded playback');
+  if(dialog.dataset.surface==='theme') {
+    await until(()=>dialog.dataset.matte==='ready' && video.dataset.matteFrame!==undefined,'video outline');
+    const paint=getComputedStyle(video);
+    check(paint.mixBlendMode==='normal' && paint.filter==='none' && paint.opacity==='1',
+      'Video colours are being blended or tinted');
+    check(paint.clipPath!=='none','Video has no moving cut-out');
+  }
   const bufferedAtStart=video.buffered.length?video.buffered.end(video.buffered.length-1):0;
   const viewport=dialog.getBoundingClientRect();
   check(viewport.width<=innerWidth&&viewport.height<=innerHeight,'Dialog outside screen');
@@ -52,6 +59,9 @@
   await until(()=>video.currentSrc.includes('pain-720')&&!video.paused&&video.currentTime>12.3,'playing quality switch');
   quality('1080');
   await until(()=>video.videoHeight===1080&&!video.paused&&video.currentTime>12.5,'1080p playback');
+  if(dialog.dataset.surface==='theme') await until(()=>
+    Math.abs(Number(video.dataset.matteFrame)-video.currentTime*30000/1001)<2,
+    'outline follows frame after quality changes');
   if(dismiss==='watched') {
     video.currentTime=video.duration-.1;
     await until(()=>!dialog.open,'finish and return to globe');
@@ -75,8 +85,18 @@
   check(!dialog.open&&video.paused&&!video.getAttribute('src'),'Close failed to release playback');
   check(localStorage.getItem('pain-sound-enabled')===preference,'Music preference changed');
   check(document.activeElement===button,'Focus not restored');
+  button.click();
+  await until(()=>video.currentTime>.1,'replay');
+  video.pause();
+  const position=dialog.querySelector('input[aria-label="Video position"]');
+  position.value='26'; position.dispatchEvent(new Event('input'));
+  await until(()=>!video.seeking && Math.abs(video.currentTime-26)<.2,'custom seek control');
+  if(dialog.dataset.surface==='theme') await until(()=>
+    Math.abs(Number(video.dataset.matteFrame)-26*30000/1001)<2,'paused frame outline after replay');
+  dialog.querySelector('.pain-video__close').click(); await sleep(100);
+  check(video.style.clipPath==='' && !video.getAttribute('src'),'Matte callbacks/clip not released');
   const r=await fetch('/media/pain-480.mp4',{headers:{Range:'bytes=0-1023'}});
   check(r.status===206&&(await r.arrayBuffer()).byteLength===1024,'Server does not serve video byte ranges');
   return{passed:true,viewport:[innerWidth,innerHeight],button:[rect.x,rect.y,rect.width,rect.height],bufferedAtStart,duration:117.05,rangeStatus:r.status,festival:link.href};
- }catch(error){return{passed:false,error:String(error.stack??error),url:location.href,status:document.querySelector('#status')?.textContent}}
+ }catch(error){return{passed:false,error:String(error.stack??error),url:location.href,status:document.querySelector('#status')?.textContent,mediaStatus:document.querySelector('.pain-video__status')?.textContent}}
 })()
