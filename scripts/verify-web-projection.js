@@ -26,16 +26,24 @@
       return r.left > innerWidth * .25 && r.right < innerWidth * .75 && r.top > 100 &&
         r.bottom < innerHeight - 120 && css.visibility === "visible" && Number(css.opacity) > .5;
     });
-    let selected;
+    let selected, selectedPoint;
     for (const el of candidates) {
       const r = el.getBoundingClientRect(), clientX = r.x + r.width / 2, clientY = r.y + r.height / 2;
       document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX, clientY }));
       canvas.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX, clientY }));
       await sleep(80);
-      if (!card.hidden) { selected = el.dataset.iso3; break; }
+      if (!card.hidden) { selected = el.dataset.iso3; selectedPoint = { clientX, clientY }; break; }
     }
     check(selected, "no label click revealed a profile");
     await sleep(1400);
+    canvas.dispatchEvent(new PointerEvent("pointermove", { ...selectedPoint, pointerType: "mouse" }));
+    await sleep(150);
+    check(canvas.style.cursor === "pointer", "label hover cursor absent");
+    // At portrait zoom the globe can cover all four viewport corners. This ray must miss it.
+    canvas.dispatchEvent(new PointerEvent("pointermove", { clientX: -10000, clientY: -10000, pointerType: "mouse" }));
+    await sleep(150);
+    check(canvas.style.cursor === "default", "empty background has country cursor");
+    canvas.dispatchEvent(new PointerEvent("pointerleave"));
     const country = card.querySelector(".country-profile__country").textContent;
     check(country && country === country.toLocaleLowerCase("en"), "country casing wrong");
     const railAfter = document.getElementById("ui-layer-stack").getBoundingClientRect();

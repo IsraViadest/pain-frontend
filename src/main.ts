@@ -1067,6 +1067,7 @@ async function loadPoints(): Promise<void> {
 }
 
 // --- render loop + initial API bootstrap ---
+let detailStatsAt = -Infinity;
 function loop(now: number): void {
   globe.tick();
   const selectedOrigin = countryProfileRuntime?.selectedIso3;
@@ -1105,7 +1106,8 @@ function loop(now: number): void {
       pool.targetCapacity === quality.settings.capacity;
     const change = quality.tick(now, busy, ready, document.hidden);
     if (change === "apply") applyCountryProfileGlobePreset(lastLayerId);
-    if (change) {
+    if (change || now - detailStatsAt >= 1000) {
+      detailStatsAt = now;
       const storage = globe.getRenderDetailStorage();
       appRootEl.dataset.cpQuality = quality.level;
       appRootEl.dataset.cpQualityTarget = quality.target;
