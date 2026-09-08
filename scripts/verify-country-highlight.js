@@ -8,6 +8,7 @@
     const geo = await import("/src/globe/countryGeometry.ts");
     const { createCountryHighlightTexture } = await import("/src/globe/choroplethField.ts");
     const { createEmoSelectionLayer } = await import("/src/emo/selection.ts");
+    const { GlobeView } = await import("/src/globe/GlobeView.ts");
     const { resolveEmoViewFromUrl } = await import("/src/emo/emoViewConfig.ts");
     const rectangle = (key, left, right) => ({ properties: { ISO_A3: key },
       geometry: { type: "Polygon", coordinates: [[[left, 0], [right, 0],
@@ -57,12 +58,20 @@
       renderer.render(content, camera);
       check(gl.getError() === gl.NO_ERROR, "highlight upload failed");
     };
-    let origin = "IND";
+    let origin = "IND", borderStorage = 0, surfaceProjection = true;
+    const projectedArrays = new WeakSet();
     const motion = { retreatingCategories: () => [], markArrivalOf: () => 1,
       markStrengthOf: (iso, weight) => iso === origin ? 1 : weight };
-    const params = resolveEmoViewFromUrl().params;
-    layer = await createEmoSelectionLayer({ globe: { earthContent: content,
-      getCountrySurfaceGeometry: () => surface, getDisplayCountryGeometries: geo.getCountryGeometries },
+    const params = { ...resolveEmoViewFromUrl().params, selectionOutline: 2 };
+    layer = await createEmoSelectionLayer({ globe: { earthContent: content, renderer, camera,
+      getCountrySurfaceGeometry: () => surface, getDisplayCountryGeometries: geo.getCountryGeometries,
+      projectCountryOutlinePositions: (base, out) => {
+        projectedArrays.add(out);
+        if (surfaceProjection) GlobeView.prototype.projectCountryOutlinePositions.call(
+          { choroplethShell: { geometry: surface } }, base, out);
+        else out.set(base);
+      },
+      setSelectionBorderStorageBytes: (bytes) => { borderStorage = bytes; } },
       params, motion, data: { countries: { IND: { cat: "test" }, PAK: { cat: "test" } } } });
     const mesh = content.children[0];
     layer.setPeerStrength(0.5);
@@ -84,6 +93,57 @@
       sample(mesh.material.map, 78, 20)[1] === 0, "exact-country fill color incorrect");
     check(sample(mesh.material.map, 69, 30)[3] === 0, "exact mode marked a peer");
     check(mesh.material.blending === THREE.NormalBlending, "exact highlight adds unbounded light");
+    const vectorBorders = content.getObjectByName("emo-country-selection-borders");
+    check(vectorBorders && vectorBorders.children.some((line) => line.visible &&
+      line.geometry.getAttribute("instanceStart").count > 0), "selected country lacks vector border");
+    check(borderStorage > 2048, "vector border storage was omitted from the resource accounting");
+    const line = vectorBorders.children.find((child) => child.visible);
+    const instanceBuffer = line.geometry.getAttribute("instanceStart").data;
+    check(projectedArrays.has(instanceBuffer.array), "line buffer copied away from live projected positions");
+    const previous = instanceBuffer.array.slice();
+    const surfacePositions = surface.getAttribute("position");
+    for (let i = 0; i < surfacePositions.count; i++) surfacePositions.setXYZ(i,
+      surfacePositions.getX(i) * 0.8, surfacePositions.getY(i) * 0.8, surfacePositions.getZ(i) * 0.8);
+    surfacePositions.needsUpdate = true;
+    surface.computeBoundingSphere();
+    layer.update();
+    render();
+    check(line.geometry.getAttribute("instanceStart").data === instanceBuffer,
+      "surface deformation replaced the border buffer");
+    check(previous.every((value, i) => Math.abs(instanceBuffer.array[i] - value * 0.8) < 1e-6),
+      "country border did not follow live surface deformation");
+
+    const depthMesh = content.children.find((child) => child.material?.colorWrite === false);
+    check(depthMesh?.geometry === surface && depthMesh.material.depthWrite &&
+      depthMesh.renderOrder < mesh.renderOrder, "selection depth pass detached from borrowed surface");
+    // Two camera-facing folds: a transparent foreground over the selected country's rear fold.
+    // The colorless prepass must hide the rear country without requiring a visible globe.
+    const positions = [], uvs = [];
+    for (const [z, lng, lat] of [[0.2, 69, 30], [0, 78, 20]]) {
+      for (const [x, y] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5],
+        [-0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) {
+        positions.push(x, y, z);
+        uvs.push((lng + 180) / 360, (lat + 90) / 180);
+      }
+    }
+    const folds = new THREE.BufferGeometry();
+    folds.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    folds.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    surfaceProjection = false;
+    surface.copy(folds);
+    folds.dispose();
+    surface.computeBoundingSphere();
+    const pixel = new Uint8Array(4);
+    const redAtCenter = () => {
+      render();
+      gl.readPixels(16, 16, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      return pixel[0];
+    };
+    vectorBorders.visible = false;
+    depthMesh.visible = false;
+    check(redAtCenter() > 0, "occlusion control did not expose the rear country");
+    depthMesh.visible = true;
+    check(redAtCenter() === 0, "rear country bled through the transparent foreground");
     layer.setExactCountry("SGP", "#00ff00");
     layer.update();
     render();
@@ -91,12 +151,15 @@
     layer.setExactCountry(null, "#ffffff");
     layer.update();
     render();
-    check(!mesh.visible && mesh.material.map === null, "clear left a country highlighted");
+    check(!mesh.visible && !depthMesh.visible && mesh.material.map === null,
+      "clear left a country highlighted or its depth mask active");
     check(mesh.geometry === surface, "highlight detached from shared scar surface");
     check(allocatedTextures === 1 && deletedTextures === 1,
       "highlight texture storage churn: " + allocatedTextures + " allocations / " + deletedTextures + " deletions");
     return { passed: true, results, roleSwap: true, exactCountry: true, centroidMarker: true,
-      borrowedSurface: true, allocatedTextures, deletedTextures };
+      borrowedSurface: true, foldedSurfaceOcclusion: true, vectorCountryBorder: true,
+      liveBorderBuffer: true, surfaceDeformation: true,
+      allocatedTextures, deletedTextures };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };
   } finally {

@@ -32,6 +32,7 @@ import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/country
 import type { EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import type { EmoSelectionMotion } from "./selectionMotion";
+import { createCountrySelectionBorders } from "./selectionBorders";
 
 /** White covers the country's own colour; the warm tint adds to it. See `selectionStyle`. */
 const WASH_COLOUR = "#ffffff";
@@ -96,6 +97,16 @@ export async function createEmoSelectionLayer(options: {
   mesh.renderOrder = 2;
   mesh.visible = false;
   globe.earthContent.add(mesh);
+  // The visible globe may be absent. Write its borrowed surface immediately before the wash
+  // so concave scars cannot reveal a far-side country through the transparent foreground.
+  const depthMaterial = new THREE.MeshBasicMaterial({
+    colorWrite: false, depthWrite: true, transparent: true,
+  });
+  const depthMesh = new THREE.Mesh(mesh.geometry, depthMaterial);
+  depthMesh.renderOrder = mesh.renderOrder - 0.01;
+  depthMesh.visible = false;
+  globe.earthContent.add(depthMesh);
+  const borders = createCountrySelectionBorders(globe);
 
   let selectedCat: string | null = null;
   let peerStrength: number | null = null;
@@ -155,13 +166,15 @@ export async function createEmoSelectionLayer(options: {
             members,
             exactCountry ? exactColor : glow ? GLOW_COLOUR : WASH_COLOUR,
             exactCountry ? Math.min(params.selectionFill, 0.18) : params.selectionFill,
-            params.selectionOutline,
+            0,
             discs,
             params.selectionMarkerDeg,
             paintedGeography,
             peerStrength !== null || exactCountry !== null ? strengths : undefined,
-            exactCountry ? WASH_COLOUR : undefined,
           );
+    borders.paint(paintedGeography, strengths, discs, params.selectionMarkerDeg,
+      exactCountry ? WASH_COLOUR : glow ? GLOW_COLOUR : WASH_COLOUR,
+      params.selectionOutline, glow);
     if (material.map && texture) {
       // Keep the allocated GPU image while replacing its pixels for the next arrival step.
       material.map.image = texture.image;
@@ -176,6 +189,7 @@ export async function createEmoSelectionLayer(options: {
     // A category made only of countries with no polygon yields null while `selectionMarkerDeg` is
     // 0, as does asking for neither a fill nor an outline.
     mesh.visible = texture !== null;
+    depthMesh.visible = texture !== null || (members.length > 0 && params.selectionOutline > 0);
     material.needsUpdate = true;
   }
 
@@ -200,6 +214,7 @@ export async function createEmoSelectionLayer(options: {
       paintedKey = null;
     },
     update(): void {
+      borders.update();
       // Read the current wave once. Raster work happens only when its marks or geography change.
       const arrived = arrivedMembers();
       if (arrived.key === paintedKey &&
@@ -224,7 +239,10 @@ export async function createEmoSelectionLayer(options: {
     destroy(): void {
       material.map?.dispose();
       material.dispose();
+      depthMaterial.dispose();
+      borders.destroy();
       globe.earthContent.remove(mesh);
+      globe.earthContent.remove(depthMesh);
     },
   };
 }

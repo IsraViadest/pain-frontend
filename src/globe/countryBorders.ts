@@ -37,7 +37,7 @@ const INNER_BORDER_LINEWIDTH = 0.00085;
  */
 const LINE_BIAS_FRACTION = 0.55;
 
-function appendOpenLineString(
+export function appendOpenLineString(
   coords: number[][],
   radius: number,
   out: number[],
