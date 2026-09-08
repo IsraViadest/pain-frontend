@@ -31,11 +31,13 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LEXICON = join(ROOT, "data-src/lexicon-by-country.tsv");
-const combined = process.argv.includes("--combined-v2");
+const noAnger = process.argv.includes("--no-anger");
+const combined = process.argv.includes("--combined-v2") || noAnger;
+const dataset = noAnger ? "combined-v2-no-anger" : "combined-v2";
 const sourceName = combined ? "country-emotion-combined-v2.csv" : "country-emotion-percentages-dummy.csv";
 const PERCENTAGES = process.argv.find((arg) => arg.startsWith("--source="))?.slice(9) ??
   join(ROOT, "data-src", sourceName);
-const OUT = join(ROOT, combined ? "public/emo/combined-v2/emo-data.json" : "public/emo/emo-data.json");
+const OUT = join(ROOT, combined ? `public/emo/${dataset}/emo-data.json` : "public/emo/emo-data.json");
 
 /** Classifier `cat_key` -> lexicon column prefix. The two vocabularies are 1:1. */
 const CAT_KEY_TO_LEXICON = {
@@ -85,7 +87,8 @@ const lexRows = parseDelimited(readFileSync(LEXICON, "utf8"), "\t");
 const pctRows = parseDelimited(readFileSync(PERCENTAGES, "utf8"), ",");
 const lex = new Map(lexRows.map((r) => [r.iso3, r]));
 
-const catKeys = Object.keys(CAT_KEY_TO_LEXICON);
+const allCatKeys = Object.keys(CAT_KEY_TO_LEXICON);
+const catKeys = allCatKeys.filter((key) => !noAnger || key !== "anger_moral_injury");
 const lexiconCats = Object.values(CAT_KEY_TO_LEXICON);
 
 /** English category labels come from the lexicon's own English-language row (USA). */
@@ -109,12 +112,12 @@ for (const row of pctRows) {
   if (!lr) { warnings.push(`no lexicon row for ${iso3}`); continue; }
   if (combined) {
     if (countries[iso3] || missingCountries[iso3]) throw new Error(`Duplicate country: ${iso3}`);
-    const empty = catKeys.filter((key) => row[key]?.trim() === "").length;
-    if (empty === catKeys.length) {
+    const empty = allCatKeys.filter((key) => row[key]?.trim() === "").length;
+    if (empty === allCatKeys.length) {
       missingCountries[iso3] = { name: lr.country, lang: lr.lang_code, script: lr.script };
       continue;
     }
-    for (const key of [...catKeys, ...NON_PAIN_COLUMNS]) {
+    for (const key of [...allCatKeys, ...NON_PAIN_COLUMNS]) {
       const value = Number(row[key]);
       if (!row[key]?.trim() || !Number.isFinite(value) || value < 0 || value > 1) {
         throw new Error(`Invalid ${key} for ${iso3}`);
@@ -154,7 +157,7 @@ for (const row of pctRows) {
   }
 
   const scores = {};
-  for (const c of [...catKeys, ...NON_PAIN_COLUMNS]) scores[c] = Number.parseFloat(row[c]);
+  for (const c of [...allCatKeys, ...NON_PAIN_COLUMNS]) scores[c] = Number.parseFloat(row[c]);
 
   countries[iso3] = {
     name: lr.country,
@@ -179,7 +182,9 @@ const out = {
       percentages: `data-src/${sourceName}`,
       percentagesAreDummy: !combined,
     },
-    rule: "argmax over the 14 pain categories; no_pain and out_of_scope excluded",
+    rule: noAnger
+      ? "argmax over the 13 remaining pain categories; anger_moral_injury, no_pain and out_of_scope excluded; source scores unchanged"
+      : "argmax over the 14 pain categories; no_pain and out_of_scope excluded",
     countryCount: Object.keys(countries).length,
     categoryCount: categories.length,
     englishFallbackCount: fallbackCount,

@@ -54,16 +54,17 @@ export interface EmoData {
   missingCountries?: Record<string, { name: string; lang: string; script: string }>;
 }
 
-type EmoDataset = "original" | "combined-v2";
+type EmoDataset = "original" | "combined-v2" | "combined-v2-no-anger";
 const cached = new Map<EmoDataset, EmoData>();
 
 /** Fetch and cache the generated dataset. Safe to call repeatedly. */
 export async function loadEmoData(dataset: EmoDataset = "original"): Promise<EmoData> {
   if (dataset === "combined-v2") await import("./fonts.combined-v2.generated.css");
+  if (dataset === "combined-v2-no-anger") await import("./fonts.combined-v2-no-anger.generated.css");
   document.documentElement.dataset.emoDataset = dataset;
   const existing = cached.get(dataset);
   if (existing) return existing;
-  const url = `${import.meta.env.BASE_URL}emo/${dataset === "combined-v2" ? "combined-v2/" : ""}emo-data.json`;
+  const url = `${import.meta.env.BASE_URL}emo/${dataset === "original" ? "" : `${dataset}/`}emo-data.json`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`[emoData] ${url} responded ${res.status}`);

@@ -30,14 +30,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const combined = process.argv.includes("--combined-v2");
-const ASSET = combined ? "emo/combined-v2" : "emo";
+const noAnger = process.argv.includes("--no-anger");
+const combined = process.argv.includes("--combined-v2") || noAnger;
+const dataset = noAnger ? "combined-v2-no-anger" : "combined-v2";
+const ASSET = combined ? `emo/${dataset}` : "emo";
 const DATA = join(ROOT, "public", ASSET, "emo-data.json");
 const BRAND = join(ROOT, "public/fonts/Apercu Pro Regular.otf");
 const OUT_FONTS = join(ROOT, "public", ASSET, "fonts");
-const OUT_CSS = join(ROOT, combined ? "src/emo/fonts.combined-v2.generated.css" : "src/emo/fonts.generated.css");
-const FAMILY_PREFIX = combined ? "NotoEmoV2" : "NotoEmo";
-const SCOPE = combined ? 'html[data-emo-dataset="combined-v2"] ' : "";
+const OUT_CSS = join(ROOT, combined ? `src/emo/fonts.${dataset}.generated.css` : "src/emo/fonts.generated.css");
+const FAMILY_PREFIX = noAnger ? "NotoEmoV2NoAnger" : combined ? "NotoEmoV2" : "NotoEmo";
+const SCOPE = combined ? `html[data-emo-dataset="${dataset}"] ` : "";
 const CACHE = join(ROOT, "node_modules/.cache/emo-fonts");
 
 /** Script code -> google/fonts `ofl/<dir>` holding a Noto face for it. */
