@@ -50,6 +50,21 @@
     contours=createScarContourLayer(1,[]); scene.add(contours.object);
     contours.setStyle('water-blue'); contours.setField(field(.25),.4,-.2);
     const front=read(); check(front>0,'Water contours invisible');
+    const depthColors = {};
+    for (const color of ['blue', 'coral', 'dots']) {
+      contours.setStyle(`water-${color}-depth`);
+      contours.object.material.uniforms.uLevels.value = 255 / 16;
+      depthColors[color] = [96, 32].map((height) => {
+        const map = new THREE.DataTexture(new Uint8Array([height]),1,1,THREE.RedFormat);
+        map.needsUpdate = true; owned.push(map);
+        contours.setField(map,0,0);
+        check(read() > 0, 'Depth-colored contour absent');
+        const i = (128 * 256 + 128) * 4;
+        return [...pixels.slice(i,i+3)].reduce((sum,v)=>sum+v,0) / pixels[i+3];
+      });
+      check(depthColors[color][1] < depthColors[color][0], 'Deeper contour is not darker');
+    }
+    contours.setStyle('water-blue'); contours.setLevels(24);
     contours.setField(field(.75),.4,-.2);
     const back=read(); check(back===0,'Far-side contours bleed through');
     contours.setField(field(.25),.4,-.2);
@@ -75,8 +90,14 @@
     u.uScarDepthSize.value=0; const baseWidth=dotWidth();
     u.uScarDepthSize.value=1; const deepWidth=dotWidth();
     check(Math.abs(deepWidth/baseWidth-2)<.12,'Deepest dot is not 2x diameter');
+    u.uScarDepthSize.value=-1; const reversedDeepWidth=dotWidth();
+    zero.image.data[0]=128; zero.needsUpdate=true;
+    const reversedSurfaceWidth=dotWidth();
+    check(Math.abs(reversedDeepWidth/baseWidth-.75)<.1 &&
+      Math.abs(reversedSurfaceWidth/baseWidth-1.5)<.1,'Reversed dot ramp is not 150% to 75%');
     return {passed:true,gdpCountries:gdp.length,emotionalCountries:192,profiles:profiles.size,
-      waterContourAlpha:front,backContourAlpha:back,dotWidths:[baseWidth,deepWidth]};
+      waterContourAlpha:front,backContourAlpha:back,dotWidths:[baseWidth,deepWidth],depthColors,
+      reversedDotWidths:[reversedSurfaceWidth,reversedDeepWidth]};
   } catch(error){ return {passed:false,error:String(error.stack??error)}; }
   finally {contours?.dispose();dots?.dispose();owned.forEach(x=>x.dispose());
     renderer?.dispose(); renderer?.forceContextLoss();}

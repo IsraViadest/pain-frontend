@@ -36,6 +36,8 @@ uniform float uLandOnly;
 uniform float uOpacity;
 uniform float uLevels;
 uniform vec3 uColor;
+uniform vec3 uDeepColor;
+uniform float uDepthColor;
 varying vec3 vDirection;
 varying vec3 vWorldPosition;
 varying vec3 vWorldDirection;
@@ -59,13 +61,16 @@ void main() {
   float width = max(fwidth(phase), 0.008);
   float line = 1.0 - smoothstep(0.01, 0.01 + width * 0.8, distanceToLine);
   if (line < 0.01) discard;
-  gl_FragColor = vec4(uColor, line * uOpacity);
+  float levelDepth = clamp(floor(phase + 0.5) / (uLevels * (128.0 / 255.0)), 0.0, 1.0);
+  vec3 color = mix(uColor, uDeepColor, levelDepth * uDepthColor);
+  gl_FragColor = vec4(color, line * uOpacity);
   #include <colorspace_fragment>
 }
 `;
 
 export type ScarContourStyle = "land-blue" | "all-blue" | "land-red" | "all-red" |
-  "water-blue" | "water-coral" | "water-dots";
+  "water-blue" | "water-coral" | "water-dots" |
+  "water-blue-depth" | "water-coral-depth" | "water-dots-depth";
 
 export function createScarContourLayer(
   detail: 1 | 2,
@@ -101,6 +106,8 @@ export function createScarContourLayer(
       uOpacity: { value: 0.52 },
       uLevels: { value: 24 },
       uColor: { value: new THREE.Color(0x88a9dc) },
+      uDeepColor: { value: new THREE.Color(0x304f88) },
+      uDepthColor: { value: 0 },
     },
     transparent: true,
     depthWrite: false,
@@ -118,9 +125,13 @@ export function createScarContourLayer(
   return {
     object,
     setStyle(style: ScarContourStyle): void {
+      const color = style.replace(/-depth$/, "");
       material.uniforms.uLandOnly.value = style.startsWith("water") ? -1 : style.startsWith("land") ? 1 : 0;
-      material.uniforms.uColor.value.set(style.endsWith("dots") ? 0xe4184b :
-        style.endsWith("red") || style.endsWith("coral") ? 0xff7888 : 0x88a9dc);
+      material.uniforms.uColor.value.set(color.endsWith("dots") ? 0xe4184b :
+        color.endsWith("red") || color.endsWith("coral") ? 0xff7888 : 0x88a9dc);
+      material.uniforms.uDeepColor.value.set(color.endsWith("dots") ? 0x94102f :
+        color.endsWith("coral") ? 0xad3e53 : 0x304f88);
+      material.uniforms.uDepthColor.value = style.endsWith("-depth") ? 1 : 0;
     },
     setLevels(levels: 16 | 24): void {
       material.uniforms.uLevels.value = levels;

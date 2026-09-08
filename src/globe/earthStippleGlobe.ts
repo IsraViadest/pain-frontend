@@ -131,8 +131,10 @@ void main() {
       clamp((uDetailTime - aFade.z) / uDetailFadeSeconds, 0.0, 1.0);
     vDetailOpacity = mix(aFade.x, aFade.y, smoothstep(0.0, 1.0, progress));
   }
-  gl_PointSize *= 1.0 + uScarDepthSize * landW * uScarActive *
-    clamp((128.0 / 255.0 - h) / max(uScarMaxDepth, 0.00001), 0.0, 1.0);
+  float relativeDepth = clamp((128.0 / 255.0 - h) / max(uScarMaxDepth, 0.00001), 0.0, 1.0);
+  float depthSize = uScarDepthSize < 0.0 ? 1.5 - 0.75 * relativeDepth :
+    1.0 + uScarDepthSize * relativeDepth;
+  gl_PointSize *= mix(1.0, depthSize, landW * uScarActive);
   gl_Position = projectionMatrix * mvPosition;
 }
 `;

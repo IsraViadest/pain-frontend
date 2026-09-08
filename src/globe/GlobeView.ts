@@ -540,7 +540,7 @@ export class GlobeView {
   private scarContourGeneration = 0;
   private scarContourLevels: 16 | 24 = 24;
   private physicalOceanBlue = false;
-  private scarDepthSize = false;
+  private scarDepthSize = 0;
   private scarSizeMap: THREE.DataTexture | null = null;
   private scarMaxDepth = 128 / 255;
   private scarReliefPalette: ScarReliefPalette = "coral";
@@ -1853,7 +1853,7 @@ export class GlobeView {
           const { points, material, neutralScarTexture, neutralHeatTexture, setDisplayCountries } = result;
           this.pointsStipple = points;
           this.pointsMaterial = material;
-          material.uniforms.uScarDepthSize.value = this.scarDepthSize ? 1 : 0;
+          material.uniforms.uScarDepthSize.value = this.scarDepthSize;
           material.uniforms.uScarDepthMode.value = this.scarDepthMode();
           this.applyScarReliefPalette();
           material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
@@ -2779,9 +2779,9 @@ export class GlobeView {
     this.applyPointsTint();
   }
 
-  setScarDepthSize(enabled: boolean): void {
-    this.scarDepthSize = enabled;
-    if (this.pointsMaterial) this.pointsMaterial.uniforms.uScarDepthSize.value = enabled ? 1 : 0;
+  setScarDepthSize(mode: boolean | "recessed-small"): void {
+    this.scarDepthSize = mode === "recessed-small" ? -1 : mode ? 1 : 0;
+    if (this.pointsMaterial) this.pointsMaterial.uniforms.uScarDepthSize.value = this.scarDepthSize;
   }
 
   private applyScarReliefPalette(): void {
