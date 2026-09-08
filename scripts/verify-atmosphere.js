@@ -228,6 +228,35 @@
     }
     const edgeMeanAlphaError = edgeError / edgePixelCount;
     check(edgeMeanAlphaError < 1, "Rear atmospheric edge is still magnified from low resolution: " + edgeMeanAlphaError);
+    // A 2x image with one ray per pixel provides the exact four spatial sample positions.
+    // Disable its own AA so the reference does not accidentally supersample twice.
+    renderer.setSize(1280, 1280, false);
+    atmosphere = createEnvironmentalAtmosphere({ mode: "volume-very-strong-separated", smooth: true,
+      renderer, camera, earthContent: earth, surfaceGeometry: edgeSurface });
+    const composite = earth.children.find((child) => child.material?.uniforms?.uVolume).material;
+    const originalFragment = composite.fragmentShader;
+    composite.fragmentShader = originalFragment.replace("if (abs(edge) <= 0.5 * pixelWidth)", "if (false)");
+    check(composite.fragmentShader !== originalFragment, "Cannot disable reference subpixel AA");
+    composite.needsUpdate = true;
+    atmosphere.setFields(null, edgeField); atmosphere.prepare(16, 1); renderer.render(scene, camera);
+    const referencePixels = new Uint8Array(1280 * 1280 * 4), gl = renderer.getContext();
+    gl.readPixels(0, 0, 1280, 1280, gl.RGBA, gl.UNSIGNED_BYTE, referencePixels);
+    let coverageError = 0, coveragePixels = 0;
+    for (let y = 30; y < 610; y++) for (let x = 30; x < 610; x++) {
+      const outside = [[-.25, -.25], [-.25, .25], [.25, -.25], [.25, .25]]
+        .filter(([dx, dy]) => Math.hypot(x + .5 + dx - 320, y + .5 + dy - 320) > projectedRadius).length;
+      if (outside === 0 || outside === 4) continue;
+      let referenceAlpha = 0;
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+        referenceAlpha += referencePixels[((2 * y + dy) * 1280 + 2 * x + dx) * 4 + 3] / 4;
+      }
+      coverageError += Math.abs(referenceAlpha - edgeCaptures[0][(y * 640 + x) * 4 + 3]);
+      coveragePixels++;
+    }
+    const coverageMeanAlphaError = coverageError / coveragePixels;
+    check(coveragePixels > 100 && coverageMeanAlphaError < 1,
+      "Output-pixel silhouette coverage differs from 2x spatial reference: " + coverageMeanAlphaError);
+    atmosphere.dispose(); atmosphere = null;
     const byMode = new Map(results.map((result) => [result.mode, result]));
     check(byMode.get("volume-strong").north.alpha > byMode.get("volume").north.alpha * 1.2,
       "strong volume does not materially strengthen the midpoint field");
@@ -244,7 +273,8 @@
     "very-strong linear response is not between strong and near-opaque");
     check(logarithmic.north.alpha > separated.north.alpha * 1.15,
       "log response did not lift the middle of the normalized range");
-    return { passed: true, results, visibleSolidMesh: false, edgeMeanAlphaError };
+    return { passed: true, results, visibleSolidMesh: false, edgeMeanAlphaError,
+      coverageMeanAlphaError, coveragePixels };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error), results };
   } finally {

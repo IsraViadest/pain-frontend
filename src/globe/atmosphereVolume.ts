@@ -147,7 +147,14 @@ void main() {
     // Cover the complete bilinear source footprint, then evaluate those rays at output resolution.
     vec2 footprint = uOutputSize / uVolumeSize;
     float band = abs(dFdx(edge)) * footprint.x + abs(dFdy(edge)) * footprint.y;
-    if (abs(edge) <= band + fwidth(edge)) gl_FragColor = integrateVolume(vUv);
+    float pixelWidth = fwidth(edge);
+    if (abs(edge) <= 0.5 * pixelWidth) {
+      // Four spatial samples only where this output pixel intersects the globe silhouette.
+      vec2 offset = 0.25 / uOutputSize;
+      gl_FragColor = 0.25 * (integrateVolume(vUv + offset) + integrateVolume(vUv - offset) +
+        integrateVolume(vUv + vec2(offset.x, -offset.y)) +
+        integrateVolume(vUv + vec2(-offset.x, offset.y)));
+    } else if (abs(edge) <= band + pixelWidth) gl_FragColor = integrateVolume(vUv);
   }
   if (gl_FragColor.a > 0.0) gl_FragColor.rgb /= gl_FragColor.a;
   #include <colorspace_fragment>
