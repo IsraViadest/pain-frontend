@@ -8,7 +8,8 @@
     const app = document.getElementById("app");
     const card = document.getElementById("country-profile");
     check(card?.dataset.preset === "v48-a_web", "new default did not initialize: " +
-      JSON.stringify({ preset: card?.dataset.preset, body: document.body.innerText.slice(-1500) }));
+      JSON.stringify({ preset: card?.dataset.preset, status: document.getElementById("status")?.textContent,
+        body: document.body.innerText.slice(-1500) }));
     const share = document.getElementById("ui-share-pain");
     const shareBox = share.getBoundingClientRect();
     check(shareBox.width > 0 && shareBox.height > 0, "share footprint collapsed");
@@ -26,19 +27,19 @@
       return r.left > innerWidth * .25 && r.right < innerWidth * .75 && r.top > 100 &&
         r.bottom < innerHeight - 120 && css.visibility === "visible" && Number(css.opacity) > .5;
     });
-    let selected, selectedPoint;
+    let selected;
     for (const el of candidates) {
       const r = el.getBoundingClientRect(), clientX = r.x + r.width / 2, clientY = r.y + r.height / 2;
+      canvas.dispatchEvent(new PointerEvent("pointermove", { clientX, clientY, pointerType: "mouse" }));
+      await sleep(150);
+      if (canvas.style.cursor !== "pointer") continue;
       document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX, clientY }));
       canvas.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX, clientY }));
       await sleep(80);
-      if (!card.hidden) { selected = el.dataset.iso3; selectedPoint = { clientX, clientY }; break; }
+      if (!card.hidden) { selected = el.dataset.iso3; break; }
     }
     check(selected, "no label click revealed a profile");
     await sleep(1400);
-    canvas.dispatchEvent(new PointerEvent("pointermove", { ...selectedPoint, pointerType: "mouse" }));
-    await sleep(150);
-    check(canvas.style.cursor === "pointer", "label hover cursor absent");
     // At portrait zoom the globe can cover all four viewport corners. This ray must miss it.
     canvas.dispatchEvent(new PointerEvent("pointermove", { clientX: -10000, clientY: -10000, pointerType: "mouse" }));
     await sleep(150);
@@ -47,7 +48,9 @@
     const country = card.querySelector(".country-profile__country").textContent;
     check(country && country === country.toLocaleLowerCase("en"), "country casing wrong");
     const railAfter = document.getElementById("ui-layer-stack").getBoundingClientRect();
-    check(Math.abs(railBefore.bottom - railAfter.bottom) < 1, "selection moved button rail");
+    const railWasOnScreen = railBefore.left < innerWidth && railBefore.right > 0;
+    check(!railWasOnScreen || Math.abs(railBefore.bottom - railAfter.bottom) < 1,
+      "selection moved visible button rail: " + JSON.stringify({ before: railBefore.toJSON(), after: railAfter.toJSON() }));
     let gdpCountries;
     if (!new URL(location.href).searchParams.has("testBundled")) {
       const { loadGdpPerCapita } = await import("/src/countryProfile/gdpPerCapita.ts");

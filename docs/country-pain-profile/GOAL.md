@@ -1270,3 +1270,27 @@ failed to reach profile initialization within the bounded probe. Do not call thi
 Remaining: final mobile/projection selection geometry, hover/rotation behavior, the smaller
 Light depth target, paired live performance, and integrated port-3000 verification.
 Physical-device acceptance remains explicitly deferred. No gallery exports were created.
+
+Follow-up validation in this session: preview must run with VITE_USE_MOCK_API=false;
+otherwise its /init requests do not reach the real backend. That test-setup defect contributed
+to the initial failures. With the corrected proxy, bundled desktop web and projection pass:
+country selection, lowercase profile, GDP min above the bright endpoint, unchanged visible
+button rail, and preserved share footprint. HQ is 3240 x 2052 versus normal 2160 x 1368 at
+1080 x 684 CSS pixels. Projection at 393 x 852 also passes, including cursor checks; output
+1179 x 2556, detail allocation 69,543,254 bytes, below 128 MiB. Web Light measured 56,151,989
+bytes, below 64 MiB. These are detail allocations, not total browser/GPU memory.
+
+The 320 px test initially assumed a viewport corner was outside the globe and that a hidden
+mobile menu could not resize. Both assumptions were wrong. Its corrected final run and full
+painted composition remain open because fresh initialization became intermittent again.
+A captured 320 px frame showed the intended festival layout, but no initialized globe; it
+must not be counted as full product acceptance. CUA control also repeatedly timed out.
+
+Final npm run check passes; default entry is 235.07 kB gzip (18.63 kB above the 216.44 kB
+baseline, inside the 30 kB allowance). Font binaries remain unchanged. No new dependencies.
+Docker API calls have wedged again after a successful restart. Original checkouts remain on
+feat/emo-label-views and feat/survey-custom-message, clean. The new bundled preview is at
+http://127.0.0.1:4174/?cp=1; port 3000 has not been rebuilt with this round. Finish Docker
+integration, 320 px/landscape inspection, real rotate/hover inspection, Light silhouette and
+paired GPU/frame-pacing checks after the host recovers. Do not infer these passed from the
+isolated rendering tests. The About video still needs an upstream URL.
