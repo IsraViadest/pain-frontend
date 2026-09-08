@@ -34,6 +34,23 @@ The default remains [v38-d_very-strong-linear](http://127.0.0.1:3000/?cp=1&cpPre
 | Emotion data | [All emotions](http://127.0.0.1:3000/?cp=1&cpPreset=v44-a_with-anger); [anger excluded](http://127.0.0.1:3000/?cp=1&cpPreset=v44-b_without-anger) | Compare country reassignment and rebuilt category networks, then try the small legend × controls. |
 | Short screens | [Height-scaled controls](http://127.0.0.1:3000/?cp=1&cpPreset=v45-a_fit-short-screen) | Test landscape and widths/heights where the right controls previously ran out of room. |
 
+## Video presentation comparisons
+
+Both variations use the same video, quality choices and first-frame silhouette. The first
+invitation is large and bottom-centred. Watching, skipping, closing early or clicking elsewhere
+moves it above the share button; the choice is remembered in this browser. Clicking the compact
+button reopens the video. The festival link opens the official project listing in a new tab.
+
+| Video variation | Live link | Difference and judgement |
+|---|---|---|
+| Video A: black cinema | [Open black stage](http://127.0.0.1:3000/?cp=1&cpPreset=v46-dots_water-depth&cpVideo=black&cpVideoIntro=1) | Borderless black surroundings blend with the encoded video's black matte. This preserves the film's colours, but changes the site's blue background to black while playing. |
+| Video B: theme blend, chosen | [Open theme-matched stage](http://127.0.0.1:3000/?cp=1&cpPreset=v46-dots_water-depth&cpVideo=theme&cpVideoIntro=1) | The site's existing background continues behind the film. Screen blending makes its black matte disappear, helping the film replace the globe visually. It also gives dark footage some of the background's blue tone; use A if colour fidelity matters more. |
+
+B is the default video treatment; the globe preset itself is unchanged. These comparison links
+include `cpVideoIntro=1` to replay the large invitation even after dismissal. Ordinary links omit
+that parameter and remember the compact replay state. Both use floating blob quality buttons,
+a native playback timeline and no forced browser fullscreen. Playback buffers progressively.
+
 ## Interactive emotion subsets
 
 On the **Emotional Pain** layer, each legend name has a small × control.

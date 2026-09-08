@@ -1028,3 +1028,57 @@ instead; no new gallery or image export is required by this request.
   subset restoration. They also verify disabled states, painted strike-through, retained profile,
   unchanged country-click metrics and viewport/share-button clearance. npm run check passes.
 - Updated the linked catalogue; no new presets or image exports.
+
+
+## 2026-09-08: festival invitation and on-demand video
+
+- Added a responsive invitation to the official P.A.I.N. listing at Ars Electronica Festival
+  2026, using the festival site's existing logo. These controls are inside the cp experimental
+  gate. The normal original view and the original frontend branch remain separate.
+- The Start video button uses the actual first frame of the supplied PAIN Animation.mp4.
+  Its cropped transparent poster and 68-point click boundary preserve the concave outline.
+  Transparent corners do not intercept globe gestures; white text has a dark overlay/shadow.
+- Native dialog/video provide an almost full-window player without forced fullscreen, keyboard
+  dismissal and native playback controls. Video URLs are assigned only after opening. Closing
+  removes the source and stops downloads/playback. Background music is temporarily muted without
+  changing its saved preference. An open dialog prevents the country cycle's idle resume.
+- Manual 480p/720p/1080p choices preserve time, paused/playing state and playback rate, including
+  rapid quality changes. MP4 metadata precedes media; server byte ranges enable progressive
+  playback. This is browser-managed buffering, not an automatic adaptive-bitrate HLS player.
+- Generated assets: 13,221,648 / 24,517,997 / 44,763,432 bytes; poster 93,500 bytes. All videos
+  retain H.264/AAC and 117.050271 seconds; maximum keyframe interval 2.002 seconds. The 151 MB
+  Downloads source was not copied into the repository or altered.
+- Rebuild: python3 scripts/build-pain-video.py '/Users/cs/Downloads/PAIN Animation.mp4'.
+  The builder uses existing ffmpeg/Pillow and validates dimensions, duration and metadata order.
+- Browser checks passed desktop, phone portrait/landscape, tablet and 568x320. They verify no
+  initial video request, shaped hit testing, actual decoded playback, all quality levels,
+  rapid switches, close/focus cleanup and HTTP 206. Playback began with 15-31 seconds buffered
+  out of 117 seconds on this host. These are desktop-browser checks, not physical-phone evidence.
+- Local Docker web service was restarted on operator request; the stopped Vite preview was also
+  restarted. No database data was changed. Action metrics distinguish festival visits, video
+  open/close and quality choices. No gallery was generated.
+
+Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/view/p-a-i-n-personal-and-interconnected-with-nature-38e38ddb450c813fb61cf19ba69e41af/),
+[logo](https://ars.electronica.art/negotiatinghumanity/files/2026/02/arselectronicalogo-150x150.png),
+[HTTP Range](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Range_requests),
+[FFmpeg faststart](https://ffmpeg.org/ffmpeg-formats.html#mov_002c-mp4_002c-ismv).
+
+
+### Final video presentation refinement
+
+- Large bottom-centred first-visit invitation, with explicit Skip and outside-click dismissal.
+  Watched films return to the globe automatically. Replay docks above the share button; browser
+  localStorage remembers dismissal. cpVideoIntro=1 explicitly replays the invitation for review.
+- Compared cpVideo=black (source colours preserved) with cpVideo=theme (screen blend onto the
+  existing background). Chose theme for continuity with the globe, retaining black as the
+  colour-faithful alternative. The blend can tint dark footage; this tradeoff is in VARIANTS.
+- Removed the panel frame. The stage fills the browser viewport, with floating blob quality
+  buttons and Back to globe. Native playback controls remain available. No fullscreen API call.
+- Replay docking expands the existing footer; the existing control-height calculation now
+  accommodates that occupied space. Share and data-sources labels move down to 56% of their
+  button boxes. The official festival URL is confirmed by the operator and uses target=_blank.
+
+- Final refinement checks pass first-visit centring, watched/skip/outside docking, remembered
+  replay on return visits, quality changes during playback, frame-free dialogs and lower label
+  placement. Review reproduced keyboard Skip losing focus; it now focuses replay, with a passing
+  focused-control regression. Theme-blended and black stages were both inspected playing.
