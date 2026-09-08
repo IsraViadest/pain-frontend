@@ -51,7 +51,7 @@ export interface EmoData {
   categories: EmoCategory[];
   countries: Record<string, EmoCountry>;
   /** Country identity remains available when the selected source has no emotional observations. */
-  missingCountries?: Record<string, { name: string; lang: string; script: string }>;
+  missingCountries?: Record<string, { name: string; lang: string; script: string; filteredOut?: boolean }>;
 }
 
 type EmoDataset = "original" | "combined-v2" | "combined-v2-no-anger";
