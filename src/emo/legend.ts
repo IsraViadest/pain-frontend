@@ -66,7 +66,7 @@
  * is also what keeps the join at or above the pill's top edge, so the full-width background above
  * cannot reach behind the pill; that is now true by construction rather than by measurement.
  */
-import type { EmoData } from "./emoData";
+import { emoCategoryLabel, type EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/countryCentroids";
 import { mulberry32 } from "./rng";
@@ -227,13 +227,14 @@ export async function createEmoLegend(options: {
   /** Every word, in the operator's long-medium-short-medium-long order. */
   const ordered: HTMLElement[] = [];
   for (const category of legendOrder(data.categories)) {
+    const label = emoCategoryLabel(category);
     const el = document.createElement("button");
     el.type = "button";
     // The same font as a Latin label, by sharing its class rather than by copying the stack.
     el.className = "emo-legend__item emo-sc-Latn";
     el.dataset.cat = category.key;
-    el.dataset.label = category.label;
-    el.textContent = category.label;
+    el.dataset.label = label;
+    el.textContent = label;
     if ((members.get(category.key)?.length ?? 0) === 0) {
       el.disabled = true;
       el.title = "No countries in this dataset have this category as their highest score";
@@ -241,13 +242,13 @@ export async function createEmoLegend(options: {
     if (options.onToggleCategory) {
       const name = document.createElement("span");
       name.className = "emo-legend__name";
-      name.textContent = category.label;
+      name.textContent = label;
       const count = document.createElement("span");
       count.className = "emo-legend__count";
       count.setAttribute("aria-hidden", "true");
       counts.set(category.key, count);
       el.replaceChildren(name, count);
-      el.setAttribute("aria-label", category.label);
+      el.setAttribute("aria-label", label);
       const choice = document.createElement("span");
       choice.className = "emo-legend__choice";
       choice.dataset.cat = category.key;
@@ -256,7 +257,7 @@ export async function createEmoLegend(options: {
       toggle.className = "emo-legend__exclude emo-sc-Latn";
       toggle.textContent = "×";
       toggle.dataset.cat = category.key;
-      toggle.setAttribute("aria-label", `Exclude ${category.label}`);
+      toggle.setAttribute("aria-label", `Exclude ${label}`);
       toggles.set(category.key, toggle);
       choice.append(el, toggle);
       wideRow.append(choice);

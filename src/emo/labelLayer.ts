@@ -16,7 +16,7 @@ import * as THREE from "three";
 import type { GlobeView } from "../globe/GlobeView";
 import { latLngToVector3 } from "../globe/latLng";
 import { ensureCountryCentroidsLoaded, getCountryCentroid } from "../api/countryCentroids";
-import type { EmoData } from "./emoData";
+import { emoCategoryLabel, emoNativeTerm, type EmoData } from "./emoData";
 import type { EmoViewParams } from "./viewParams";
 import { emoCategoryShells, emoLabelStandoff, emoSunkStandoff, emoZoomRamp, ramp } from "./layout";
 import type { EmoSelectionMotion } from "./selectionMotion";
@@ -104,6 +104,7 @@ export interface EmoLabelLayer {
    * preset whose click toggles a language or reshuffles a random network.
    */
   selectCountry(iso3: string): void;
+  countryAtPoint(x: number, y: number): string | null;
   /**
    * Drop the selection and tell everyone who mirrors it, as though the country had been clicked
    * a second time. Called when the globe leaves the emotional layer: the labels go away with the
@@ -174,7 +175,7 @@ export async function createEmoLabelLayer(options: {
 
   await ensureCountryCentroidsLoaded();
 
-  const categoryLabel = new Map(data.categories.map((c) => [c.key, c.label]));
+  const categoryLabel = new Map(data.categories.map((c) => [c.key, emoCategoryLabel(c)]));
   const categoryFamily = new Map(data.categories.map((c) => [c.key, c.family]));
   const categoryShell = emoCategoryShells(data);
 
@@ -189,7 +190,8 @@ export async function createEmoLabelLayer(options: {
       return;
     }
     const englishCategory = categoryLabel.get(country.cat) ?? country.cat;
-    const englishGloss = country.en;
+    const englishGloss = country.cat === "01_pain" && country.en.toLowerCase() === "pain"
+      ? englishCategory : country.en.toLocaleLowerCase("en");
     const hasNative = country.term.length > 0;
 
     const el = document.createElement("div");
@@ -207,10 +209,12 @@ export async function createEmoLabelLayer(options: {
 
     const nativeEl = document.createElement("div");
     nativeEl.className = "emo-label__native";
-    nativeEl.textContent = country.term;
+    nativeEl.lang = hasNative ? country.lang : "en";
+    nativeEl.textContent = emoNativeTerm(country);
 
     const englishEl = document.createElement("div");
     englishEl.className = "emo-label__english";
+    englishEl.lang = "en";
 
     el.append(nativeEl, englishEl);
     host.appendChild(el);
@@ -703,6 +707,7 @@ export async function createEmoLabelLayer(options: {
 
   return {
     update,
+    countryAtPoint: (x, y) => labelAt(x, y)?.iso3 ?? null,
     setOcclusionRects(provider): void {
       if (provider === occlusionRects) return;
       occlusionRects = provider;

@@ -433,7 +433,7 @@ export class CountryProfileView {
     this.profile = profile;
     this.host.hidden = !this.preview && (profile === null || this.suppressed);
     if (!profile) return;
-    this.countryName.textContent = profile.countryName;
+    this.countryName.textContent = profile.countryName.toLocaleLowerCase("en");
     const emotionMissing = profile.emotional.value === null;
     this.emotional.dataset.missing = String(emotionMissing);
     this.nativeTerm.textContent = emotionMissing
@@ -479,7 +479,7 @@ export class CountryProfileView {
     this.preview = profile;
     this.host.dataset.stage = profile ? "heading" : "full";
     this.host.hidden = !profile && (this.profile === null || this.suppressed);
-    this.countryName.textContent = profile?.countryName ?? this.profile?.countryName ?? "";
+    this.countryName.textContent = (profile?.countryName ?? this.profile?.countryName ?? "").toLocaleLowerCase("en");
     if (this.boundsObserver) this.syncBounds();
   }
 

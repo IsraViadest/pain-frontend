@@ -1,4 +1,4 @@
-import type { EmoData } from "../emo/emoData";
+import { emoCategoryLabel, emoNativeTerm, type EmoData } from "../emo/emoData";
 import { aggregateChoroplethValues } from "../globe/choroplethField";
 import {
   findCountryInGeometries,
@@ -131,8 +131,9 @@ export function emotionalSignal(data: EmoData, iso3: string): CountryPainProfile
   }
   const category = data.categories.find((c) => c.key === country.cat);
   if (!category) throw new Error(`Unknown emotional category: ${country.cat}`);
-  return { categoryKey: country.cat, category: category.label,
-    nativeTerm: country.term.trim() || category.label, englishTerm: category.label,
+  return { categoryKey: country.cat, category: emoCategoryLabel(category),
+    nativeTerm: emoNativeTerm(country).trim() || emoCategoryLabel(category),
+    englishTerm: emoCategoryLabel(category),
     language: country.lang, script: country.script, value: country.score };
 }
 

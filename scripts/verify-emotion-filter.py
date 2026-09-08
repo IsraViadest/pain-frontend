@@ -1,6 +1,7 @@
 """Check all selectable glyphs and source scores; --browser also tests the live filter in Vite."""
 import csv
 import json
+import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -16,6 +17,44 @@ control = json.loads((root / 'public/emo/emo-data.json').read_text())
 categories = control['categories']
 assert len(categories) == 14
 needed = defaultdict(set)
+display_check = r'''
+const assert = require('node:assert/strict');
+const { readFileSync } = require('node:fs');
+const { emoCategoryLabel, emoNativeTerm } = require('./src/emo/emoData.ts');
+const { rows, categories } = JSON.parse(readFileSync(0, 'utf8'));
+const before = JSON.stringify({ rows, categories });
+const points = {};
+const add = (script, word) => {
+  points[script] ??= new Set();
+  for (const ch of word) points[script].add(ch.codePointAt(0));
+};
+for (const category of categories) {
+  assert.equal(emoCategoryLabel(category), category.key === '01_pain' ? 'body pain' : category.label.toLowerCase());
+  add('Latn', emoCategoryLabel(category));
+  for (const row of rows) {
+    const term = row[category.key + '_term'].trim();
+    if (term && term !== 'NO TERM FOUND') {
+      const word = emoNativeTerm({ cat: category.key, term, lang: row.lang_code });
+      assert.equal(word, category.key === '01_pain' && row.lang_code === 'en'
+        ? 'body pain' : term.toLocaleLowerCase(row.lang_code));
+      add(row.script, word);
+    }
+    add('Latn', row[category.key + '_english'].toLocaleLowerCase('en'));
+  }
+}
+for (const [lang, term, expected] of [['de', 'Schmerz', 'schmerz'], ['tr', 'IĞDIR', 'ığdır'],
+    ['az', 'İNAM', 'inam'], ['el', 'ΦΟΒΟΣ', 'φοβος']]) {
+  assert.equal(emoNativeTerm({ cat: '01_pain', term, lang }), expected);
+}
+assert.equal(emoNativeTerm({ cat: '01_pain', term: '', lang: 'en' }), '');
+assert.equal(JSON.stringify({ rows, categories }), before);
+console.log(JSON.stringify(Object.fromEntries(Object.entries(points).map(([script, set]) => [script, [...set]]))));
+'''
+lowercase = json.loads(subprocess.check_output(
+    [str(root / 'node_modules/.bin/tsx'), '-e', display_check], cwd=root,
+    input=json.dumps({'rows': list(lexicon.values()), 'categories': categories}), text=True))
+for script, points in lowercase.items():
+    needed[script].update(points)
 for iso, row in lexicon.items():
     needed['Latn'].update(map(ord, row['country']))
     for category in categories:
@@ -51,7 +90,10 @@ for dataset in ['', 'combined-v2/']:
                 -float(rows[iso][category['catKey']]), category['key']))
             winners[iso] = [winner['key'], float(rows[iso][winner['catKey']])]
         cases.append({'dataset': dataset, 'excluded': excluded, 'winners': winners})
-print('All 195 script identities, 195 x 14 native terms, GSUB, source scores: PASS')
+for flags in [[], ['--combined-v2'], ['--no-anger'], ['--all-terms']]:
+    subprocess.run(['node', 'scripts/build-emo-fonts.mjs', *flags, '--verify'], cwd=root,
+                   env={**os.environ, 'PYTHON': sys.executable}, check=True)
+print('All 195 script identities, 195 x 14 original/lowercase terms, locale casing, body pain, GSUB, source scores: PASS')
 
 if '--browser' in sys.argv:
     expression = r'''(async () => {

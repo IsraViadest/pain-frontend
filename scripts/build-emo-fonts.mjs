@@ -12,12 +12,10 @@
  * the viewer's OS happens to have, which is fine on macOS and shows tofu on many Windows and
  * Linux machines.
  *
- * SCOPE: only the codepoints actually rendered by the current dataset (~148 across 19 scripts,
- * ~38 KB total), not the full 195x15 lexicon (~640 codepoints, ~152 KB). This is deliberate and
- * it couples the font build to the data build: if emo-data.json changes what is displayed, this
- * script must be re-run or unseen glyphs render as tofu. The npm script `build:emo` runs both.
- * --all-terms builds a separate, lazy subset for all 195 x 14 selectable native terms, used
- * when interactive filtering can reveal any category. Existing dataset subsets stay intact.
+ * Dataset subsets cover their displayed words. --all-terms builds the shared lazy subset for
+ * every one of the 195 x 14 selectable native terms and all dataset glosses. Both original and
+ * locale-lowercase glyphs are retained, so exclusion reranking and lowercase artwork are covered.
+ * Re-run after data or lexicon changes. Add --verify to check committed font cmaps without writes.
  *
  * Codepoints already covered by Apercu Pro are excluded, so Latin, Greek and Cyrillic keep the
  * project's own typography and Noto only fills real gaps.
@@ -33,6 +31,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const allTerms = process.argv.includes("--all-terms");
+const verifyOnly = process.argv.includes("--verify");
 const noAnger = process.argv.includes("--no-anger");
 const combined = process.argv.includes("--combined-v2") || noAnger;
 if (allTerms && combined) throw new Error("--all-terms builds the shared lexicon subset; do not combine with dataset flags");
@@ -45,7 +44,7 @@ const OUT_FONTS = join(ROOT, "public", FONT_ASSET);
 const OUT_CSS = join(ROOT, allTerms ? "src/emo/fonts.filter.generated.css" :
   combined ? `src/emo/fonts.${dataset}.generated.css` : "src/emo/fonts.generated.css");
 const FAMILY_PREFIX = allTerms ? "NotoEmoFilter" : noAnger ? "NotoEmoV2NoAnger" : combined ? "NotoEmoV2" : "NotoEmo";
-const SCOPE = allTerms ? "html[data-emo-filter-fonts] " : combined ? `html[data-emo-dataset="${dataset}"] ` : "";
+const SCOPE = allTerms ? "html[data-emo-dataset][data-emo-filter-fonts] " : combined ? `html[data-emo-dataset="${dataset}"] ` : "";
 const CACHE = join(ROOT, "node_modules/.cache/emo-fonts");
 
 /** Script code -> google/fonts `ofl/<dir>` holding a Noto face for it. */
@@ -66,18 +65,25 @@ function py(code) {
 // ---- 1. every string the views can render, grouped by script -------------------------------
 const data = JSON.parse(readFileSync(DATA, "utf8"));
 const byScript = new Map();
-const addTo = (script, text) => {
+const addTo = (script, text, locale = "en") => {
   if (!byScript.has(script)) byScript.set(script, new Set());
   const set = byScript.get(script);
-  for (const ch of text ?? "") if (!/\s/.test(ch)) set.add(ch.codePointAt(0));
+  for (const ch of text + text.toLocaleLowerCase(locale)) {
+    if (!/\s/.test(ch)) set.add(ch.codePointAt(0));
+  }
 };
-for (const c of Object.values(data.countries)) {
-  addTo(c.script, c.term);      // native term, in its own script
-  addTo("Latn", c.en);          // English gloss, always Latin
-  addTo("Latn", c.name);        // country name (tooltips)
+const datasets = allTerms ? [data, ...["combined-v2", "combined-v2-no-anger"].map((name) =>
+  JSON.parse(readFileSync(join(ROOT, "public/emo", name, "emo-data.json"), "utf8")))] : [data];
+for (const source of datasets) {
+  for (const c of Object.values(source.countries)) {
+    addTo(c.script, c.term, c.lang); // Native words use their declared language for casing.
+    addTo("Latn", c.en);
+    addTo("Latn", c.name);
+  }
+  for (const c of Object.values(source.missingCountries ?? {})) addTo("Latn", c.name);
+  for (const c of source.categories) addTo("Latn", c.label);
 }
-for (const c of Object.values(data.missingCountries ?? {})) addTo("Latn", c.name);
-for (const c of data.categories) addTo("Latn", c.label);
+addTo("Latn", "body pain");
 const filterScripts = {};
 if (allTerms) {
   const [header, ...lines] = readFileSync(join(ROOT, "data-src/lexicon-by-country.tsv"), "utf8")
@@ -93,7 +99,7 @@ if (allTerms) {
     for (const { key } of data.categories) {
       const term = row[`${key}_term`].trim();
       const english = row[`${key}_english`].trim();
-      if (term && term !== "NO TERM FOUND") addTo(row.script, term);
+      if (term && term !== "NO TERM FOUND") addTo(row.script, term, row.lang_code);
       if (english && english !== "NO TERM FOUND") addTo("Latn", english);
     }
   }
@@ -110,6 +116,29 @@ const needed = new Map();
 for (const [script, set] of byScript) {
   const miss = [...set].filter((c) => !brandCodepoints.has(c)).sort((a, b) => a - b);
   if (miss.length) needed.set(script, miss);
+}
+
+function verifyCoverage() {
+  const required = JSON.stringify(Object.fromEntries(needed));
+  py(`import json\nfrom pathlib import Path\nfrom fontTools.ttLib import TTFont
+required = json.loads(${JSON.stringify(required)})
+for script, points in required.items():
+    path = Path(${JSON.stringify(OUT_FONTS)}) / (script + '.woff2')
+    font = TTFont(path)
+    cmap = font.getBestCmap()
+    missing = set(points) - cmap.keys()
+    assert not missing, (str(path), 'missing glyphs', [hex(p) for p in sorted(missing)])
+    assert 'GSUB' in font, (str(path), 'missing shaping rules')
+    cached = Path(${JSON.stringify(CACHE)}) / (script + '.400.ttf')
+    if cached.exists():
+        assert len(cmap) < len(TTFont(cached).getBestCmap()), (str(path), 'not a subset')
+`);
+  console.log(`[build-emo-fonts] cmap coverage and shaping: PASS (${allTerms ? "all 195 x 14 terms and all datasets" : ASSET}; original + lowercase)`);
+}
+
+if (verifyOnly) {
+  verifyCoverage();
+  process.exit(0);
 }
 
 // ---- 3. fetch a Noto source per script (cached outside git) ---------------------------------
@@ -165,6 +194,7 @@ for (const [script, codepoints] of [...needed].sort((a, b) => b[1].length - a[1]
   faces.push({ script, codepoints: codepoints.length, bytes });
   console.log(`  ${script.padEnd(5)} ${String(codepoints.length).padStart(4)} cps  ${String(bytes).padStart(7)} B`);
 }
+verifyCoverage();
 
 // ---- 5. emit the CSS ------------------------------------------------------------------------
 const css = [

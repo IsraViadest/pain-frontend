@@ -54,6 +54,16 @@ export interface EmoData {
   missingCountries?: Record<string, { name: string; lang: string; script: string; filteredOut?: boolean }>;
 }
 
+/** Artwork labels only; keep category keys and source observations intact. */
+export function emoCategoryLabel(category: Pick<EmoCategory, "key" | "label">): string {
+  return category.key === "01_pain" ? "body pain" : category.label.toLocaleLowerCase("en");
+}
+
+export function emoNativeTerm(country: Pick<EmoCountry, "cat" | "term" | "lang">): string {
+  return country.cat === "01_pain" && country.lang === "en" && country.term
+    ? "body pain" : country.term.toLocaleLowerCase(country.lang);
+}
+
 type EmoDataset = "original" | "combined-v2" | "combined-v2-no-anger";
 const cached = new Map<EmoDataset, EmoData>();
 
