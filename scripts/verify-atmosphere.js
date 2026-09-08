@@ -74,11 +74,13 @@
     for (const mode of ["flat", "mantle", "cloudlets", "volume", "volume-strong",
       "volume-separated", "volume-strong-separated", "volume-near-opaque-separated",
       "volume-very-strong-separated", "volume-log-separated",
-      "volume-log-near-opaque-separated"]) {
+      "volume-log-near-opaque-separated", "volume-very-strong-separated-smooth"]) {
+      const smooth = mode.endsWith("-smooth");
       const isVolume = mode.startsWith("volume");
       const result = { mode };
       results.push(result);
-      atmosphere = createEnvironmentalAtmosphere({ mode, renderer, camera, earthContent: earth,
+      atmosphere = createEnvironmentalAtmosphere({ mode: mode.replace(/-smooth$/, ""), smooth,
+        renderer, camera, earthContent: earth,
         surfaceGeometry: surface });
       atmosphere.setFields(zero, zero);
       result.zeroFields = read();
@@ -167,9 +169,18 @@
       camera.updateProjectionMatrix();
       atmosphere.prepare(48, 0.5);
       const resources = atmosphere.stats();
-      check(resources.depthWidth * resources.depthHeight <= 1048576, mode + ": depth target unbounded");
-      if (isVolume) check(resources.width * resources.height <= 1048576, "volume target unbounded");
+      const pixelCap = smooth ? 2097152 : 1048576;
+      check(resources.depthWidth * resources.depthHeight <= pixelCap, mode + ": depth target unbounded");
+      if (isVolume) check(resources.width * resources.height <= pixelCap, "volume target unbounded");
       check(resources.additionalBytes <= 64 * 1024 * 1024, mode + ": unexpected additional allocation");
+      if (smooth) {
+        atmosphere.prepare(16, 0.25);
+        const light = atmosphere.stats();
+        check(light.samples === 16 && light.width <= 750 && light.height <= 475 &&
+          light.depthWidth <= 750 && light.depthHeight <= 475 &&
+          light.additionalBytes < resources.additionalBytes,
+        "smooth volume ignores requested Light quality");
+      }
       let borrowedDisposals = 0;
       const disposed = () => borrowedDisposals++;
       for (const resource of [surface, temperature, co2]) resource.addEventListener("dispose", disposed);

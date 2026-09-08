@@ -8,6 +8,8 @@ uniform float uScarScale;
 uniform float uScarBias;
 uniform float uScarActive;
 varying vec3 vDirection;
+varying vec3 vWorldPosition;
+varying vec3 vWorldDirection;
 
 vec2 fieldUv(vec3 direction) {
   vec3 n = normalize(direction);
@@ -20,6 +22,8 @@ void main() {
   float height = texture2D(uScarMap, fieldUv(direction)).r;
   float radial = (height * uScarScale + uScarBias) * uScarActive + 0.002;
   vDirection = direction;
+  vWorldPosition = (modelMatrix * vec4(position + direction * radial, 1.0)).xyz;
+  vWorldDirection = normalize(mat3(modelMatrix) * direction);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position + direction * radial, 1.0);
 }
 `;
@@ -33,6 +37,8 @@ uniform float uOpacity;
 uniform float uLevels;
 uniform vec3 uColor;
 varying vec3 vDirection;
+varying vec3 vWorldPosition;
+varying vec3 vWorldDirection;
 
 vec2 fieldUv(vec3 direction) {
   vec3 n = normalize(direction);
@@ -42,10 +48,12 @@ vec2 fieldUv(vec3 direction) {
 
 void main() {
   if (uScarActive < 0.5) discard;
+  if (dot(normalize(vWorldDirection), normalize(cameraPosition - vWorldPosition)) <= 0.0) discard;
   vec2 uv = fieldUv(vDirection);
   float depth = max(0.0, 0.50196 - texture2D(uScarMap, uv).r);
   if (depth < 0.008) discard;
   if (uLandOnly > 0.5 && texture2D(uLandMap, uv).r < 0.5) discard;
+  if (uLandOnly < -0.5 && texture2D(uLandMap, uv).r >= 0.5) discard;
   float phase = depth * uLevels;
   float distanceToLine = abs(fract(phase + 0.5) - 0.5);
   float width = max(fwidth(phase), 0.008);
@@ -56,7 +64,8 @@ void main() {
 }
 `;
 
-export type ScarContourStyle = "land-blue" | "all-blue" | "land-red" | "all-red";
+export type ScarContourStyle = "land-blue" | "all-blue" | "land-red" | "all-red" |
+  "water-blue" | "water-coral" | "water-dots";
 
 export function createScarContourLayer(
   detail: 1 | 2,
@@ -109,8 +118,9 @@ export function createScarContourLayer(
   return {
     object,
     setStyle(style: ScarContourStyle): void {
-      material.uniforms.uLandOnly.value = style.startsWith("land") ? 1 : 0;
-      material.uniforms.uColor.value.set(style.endsWith("red") ? 0xff7888 : 0x88a9dc);
+      material.uniforms.uLandOnly.value = style.startsWith("water") ? -1 : style.startsWith("land") ? 1 : 0;
+      material.uniforms.uColor.value.set(style.endsWith("dots") ? 0xe4184b :
+        style.endsWith("red") || style.endsWith("coral") ? 0xff7888 : 0x88a9dc);
     },
     setLevels(levels: 16 | 24): void {
       material.uniforms.uLevels.value = levels;

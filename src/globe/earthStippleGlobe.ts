@@ -50,6 +50,8 @@ uniform sampler2D uScarMap;
 uniform float uScarDispScale;
 uniform float uScarDispBias;
 uniform float uScarActive;
+uniform float uScarDepthSize;
+uniform float uScarMaxDepth;
 /** 1 = dents on land only; 0 = ocean + land (same shell — reduces “inner sphere”). */
 uniform float uScarLandOnly;
 /** Discard points with dot(normal, viewDir) below this (no hardware clip — avoids limb artifacts). */
@@ -129,6 +131,8 @@ void main() {
       clamp((uDetailTime - aFade.z) / uDetailFadeSeconds, 0.0, 1.0);
     vDetailOpacity = mix(aFade.x, aFade.y, smoothstep(0.0, 1.0, progress));
   }
+  gl_PointSize *= 1.0 + uScarDepthSize * landW * uScarActive *
+    clamp((128.0 / 255.0 - h) / max(uScarMaxDepth, 0.00001), 0.0, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 }
 `;
@@ -210,6 +214,9 @@ void main() {
       vec3 relief = mix(uScarReliefHigh, uScarReliefLow, valley);
       relief *= mix(0.82, 1.18, clamp(hillshade * 0.5, 0.0, 1.0));
       col = mix(col, relief, 0.88 * landMask);
+    }
+    if (uScarDepthMode == 6.0) {
+      col *= 1.0 - 0.45 * landMask * smoothstep(0.02, 0.32, max(0.0, 128.0 / 255.0 - scar));
     }
   }
 
@@ -435,6 +442,8 @@ export async function createEarthStippleGlobe(
       uScarDispScale: { value: 0 },
       uScarDispBias: { value: 0 },
       uScarActive: { value: 0 },
+      uScarDepthSize: { value: 0 },
+      uScarMaxDepth: { value: 128 / 255 },
       uScarLandOnly: { value: 1 },
       uHeatMap: { value: neutralHeatTexture },
       uHeatActive: { value: 0 },

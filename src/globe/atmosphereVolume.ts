@@ -24,10 +24,33 @@ uniform int uSamples;
 uniform float uOpacityTier;
 uniform float uSeparated;
 uniform float uLogResponse;
+uniform bool uSmooth;
+uniform vec2 uDepthSize;
 
 vec3 localPosition(float depth) {
   vec4 view = uInverseProjection * vec4(vUv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
   return (uInverseEarth * uCameraWorld * vec4(view.xyz / view.w, 1.0)).xyz;
+}
+
+// Interpolate view-space distances, never nonlinear depth-buffer values.
+float surfaceDistance(vec3 origin, vec3 direction, float farDistance) {
+  if (!uSmooth) {
+    float depth = texture2D(uDepth, vUv).r;
+    return depth < 1.0 ? dot(localPosition(depth) - origin, direction) : farDistance;
+  }
+  vec2 grid = vUv * uDepthSize - 0.5;
+  vec2 f = fract(grid);
+  vec2 base = (floor(grid) + 0.5) / uDepthSize;
+  vec2 stepUv = 1.0 / uDepthSize;
+  vec4 depths = vec4(texture2D(uDepth, base).r,
+    texture2D(uDepth, base + vec2(stepUv.x, 0.0)).r,
+    texture2D(uDepth, base + vec2(0.0, stepUv.y)).r,
+    texture2D(uDepth, base + stepUv).r);
+  vec4 distances;
+  for (int j = 0; j < 4; j++) {
+    distances[j] = depths[j] < 1.0 ? dot(localPosition(depths[j]) - origin, direction) : farDistance;
+  }
+  return mix(mix(distances.x, distances.y, f.x), mix(distances.z, distances.w, f.x), f.y);
 }
 
 // SphereGeometry's north is v=1; both borrowed RGBA field maps have flipY=true.
@@ -68,8 +91,7 @@ void main() {
   float nearDistance = max(0.0, dot(localPosition(0.0) - origin, direction));
   float start = max(nearDistance, -b - reach);
   float end = -b + reach;
-  float depth = texture2D(uDepth, vUv).r;
-  if (depth < 1.0) end = min(end, dot(localPosition(depth) - origin, direction));
+  end = min(end, surfaceDistance(origin, direction, end));
   if (end <= start) { gl_FragColor = vec4(0.0); return; }
 
   float stepLength = (end - start) / float(uSamples);
@@ -100,16 +122,19 @@ void main() {
     opacity += (1.0 - opacity) * alpha;
     if (opacity >= 0.995) break;
   }
-  // The target stores straight linear RGB, not premultiplied color or display-encoded RGB.
-  gl_FragColor = vec4(opacity > 0.0 ? accumulated / opacity : vec3(0.0), opacity);
+  // Smooth targets interpolate premultiplied linear color to avoid dark transparent fringes.
+  gl_FragColor = vec4(uSmooth ? accumulated :
+    (opacity > 0.0 ? accumulated / opacity : vec3(0.0)), opacity);
 }
 `;
 
 const COMPOSITE_FRAGMENT = /* glsl */ `
 varying vec2 vUv;
 uniform sampler2D uVolume;
+uniform bool uSmooth;
 void main() {
   gl_FragColor = texture2D(uVolume, vUv);
+  if (uSmooth && gl_FragColor.a > 0.0) gl_FragColor.rgb /= gl_FragColor.a;
   #include <colorspace_fragment>
 }
 `;
@@ -125,6 +150,7 @@ export function createAtmosphereVolume(options: {
   drawingSize: THREE.Vector2;
   inverseEarth: THREE.Matrix4;
   colors: { temperature: string; co2: string };
+  smooth?: boolean;
   treatment: "volume" | "volume-strong" | "volume-separated" |
     "volume-strong-separated" | "volume-near-opaque-separated" |
     "volume-very-strong-separated" | "volume-log-separated" |
@@ -162,6 +188,8 @@ export function createAtmosphereVolume(options: {
       uTemperatureColor: { value: new THREE.Color(options.colors.temperature) },
       uCo2Color: { value: new THREE.Color(options.colors.co2) },
       uSamples: { value: 16 },
+      uSmooth: { value: options.smooth === true },
+      uDepthSize: { value: new THREE.Vector2(1, 1) },
       uOpacityTier: { value: options.treatment.includes("near-opaque") ? 2 :
         options.treatment.includes("very-strong") ? 1.5 :
         options.treatment.includes("strong") || options.treatment.includes("log") ? 1 : 0 },
@@ -176,7 +204,7 @@ export function createAtmosphereVolume(options: {
   const compositeMaterial = new THREE.ShaderMaterial({
     vertexShader: VERTEX,
     fragmentShader: COMPOSITE_FRAGMENT,
-    uniforms: { uVolume: { value: target.texture } },
+    uniforms: { uVolume: { value: target.texture }, uSmooth: { value: options.smooth === true } },
     transparent: true,
     depthTest: false,
     depthWrite: false,
@@ -209,7 +237,8 @@ export function createAtmosphereVolume(options: {
       if (disposed || fieldCount === 0 || !Number.isFinite(fraction) || fraction <= 0 ||
           !Number.isFinite(drawingSize.x) || !Number.isFinite(drawingSize.y) ||
           drawingSize.x <= 0 || drawingSize.y <= 0) return;
-      const scale = Math.min(fraction, 1, Math.sqrt(MAX_PIXELS / (drawingSize.x * drawingSize.y)),
+      const scale = Math.min(fraction, 1,
+        Math.sqrt((options.smooth ? 2 * MAX_PIXELS : MAX_PIXELS) / (drawingSize.x * drawingSize.y)),
         renderer.capabilities.maxTextureSize / drawingSize.x,
         renderer.capabilities.maxTextureSize / drawingSize.y);
       const width = Math.max(1, Math.floor(drawingSize.x * scale));
@@ -218,6 +247,7 @@ export function createAtmosphereVolume(options: {
       material.uniforms.uInverseProjection.value.copy(camera.projectionMatrixInverse);
       material.uniforms.uCameraWorld.value.copy(camera.matrixWorld);
       material.uniforms.uSamples.value = samples;
+      material.uniforms.uDepthSize.value.set(options.depth.image.width, options.depth.image.height);
       renderer.setRenderTarget(target);
       renderer.setScissorTest(false);
       renderer.setClearColor(0x000000, 0);

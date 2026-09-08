@@ -65,8 +65,8 @@ import type { createScarContourLayer, ScarContourStyle } from "./scarContourLaye
 
 export type { Co2HazeTune };
 type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
-  "relief";
-type ScarReliefPalette = "coral" | "crimson" | "rose";
+  "relief" | "shadow";
+type ScarReliefPalette = "coral" | "crimson" | "rose" | "vibrant";
 
 /**
  * “Inner black sphere” in scar mode is usually NOT a mesh — land/ocean stipple is GPU-dented;
@@ -490,6 +490,7 @@ export class GlobeView {
   private atmosphereMode: AtmosphereMode = "control";
   private atmosphereSamples: 16 | 32 | 48 = 32;
   private atmosphereFraction = 0.5;
+  private atmosphereSmooth = false;
   private atmosphereGeneration = 0;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
@@ -539,6 +540,9 @@ export class GlobeView {
   private scarContourGeneration = 0;
   private scarContourLevels: 16 | 24 = 24;
   private physicalOceanBlue = false;
+  private scarDepthSize = false;
+  private scarSizeMap: THREE.DataTexture | null = null;
+  private scarMaxDepth = 128 / 255;
   private scarReliefPalette: ScarReliefPalette = "coral";
   private surfaceDetail: 1 | 2 = 1;
   private originalSurfaceStorageBytes = 0;
@@ -1849,6 +1853,7 @@ export class GlobeView {
           const { points, material, neutralScarTexture, neutralHeatTexture, setDisplayCountries } = result;
           this.pointsStipple = points;
           this.pointsMaterial = material;
+          material.uniforms.uScarDepthSize.value = this.scarDepthSize ? 1 : 0;
           material.uniforms.uScarDepthMode.value = this.scarDepthMode();
           this.applyScarReliefPalette();
           material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
@@ -1967,6 +1972,14 @@ export class GlobeView {
     u.uScarActive.value = active;
     if (scarOn && this.scarDisplacementMap) {
       u.uScarMap.value = this.scarDisplacementMap;
+      if (this.scarSizeMap !== this.scarDisplacementMap) {
+        this.scarSizeMap = this.scarDisplacementMap;
+        const bytes = this.scarDisplacementMap.image.data as Uint8Array;
+        let minimum = 128;
+        for (const byte of bytes) minimum = Math.min(minimum, byte);
+        this.scarMaxDepth = (128 - minimum) / 255;
+      }
+      u.uScarMaxDepth.value = this.scarMaxDepth;
     } else if (this.stippleNeutralScarTexture) {
       u.uScarMap.value = this.stippleNeutralScarTexture;
     }
@@ -2605,10 +2618,12 @@ export class GlobeView {
     this.co2Haze.visible = this.co2HazeMap !== null && this.atmosphere === null;
   }
 
-  setEnvironmentalAtmosphere(mode: AtmosphereMode, samples: 16 | 32 | 48 = 32, fraction = 0.5): void {
+  setEnvironmentalAtmosphere(mode: AtmosphereMode, samples: 16 | 32 | 48 = 32, fraction = 0.5,
+    smooth = false): void {
     this.atmosphereSamples = samples;
     this.atmosphereFraction = fraction;
-    if (mode === this.atmosphereMode) return;
+    if (mode === this.atmosphereMode && smooth === this.atmosphereSmooth) return;
+    this.atmosphereSmooth = smooth;
     this.atmosphereMode = mode;
     const generation = ++this.atmosphereGeneration;
     this.atmosphere?.dispose();
@@ -2618,7 +2633,8 @@ export class GlobeView {
     void import("./environmentalAtmosphere").then(({ createEnvironmentalAtmosphere }) => {
       if (generation !== this.atmosphereGeneration) return;
       this.atmosphere = createEnvironmentalAtmosphere({ mode, renderer: this.renderer,
-        camera: this.camera, earthContent: this.earthContent, surfaceGeometry: this.globe.geometry });
+        camera: this.camera, earthContent: this.earthContent, surfaceGeometry: this.globe.geometry,
+        smooth });
       this.syncAtmosphereFields();
     }).catch((error) => { console.error("[GlobeView] atmosphere failed:", error); });
   }
@@ -2707,7 +2723,7 @@ export class GlobeView {
 
   private scarDepthMode(): number {
     return { none: 0, hillshade: 1, "contour-land": 2, "contour-all": 3, hybrid: 4,
-      relief: 5 }[
+      relief: 5, shadow: 6 }[
       this.scarDepthStyle
     ];
   }
@@ -2763,12 +2779,18 @@ export class GlobeView {
     this.applyPointsTint();
   }
 
+  setScarDepthSize(enabled: boolean): void {
+    this.scarDepthSize = enabled;
+    if (this.pointsMaterial) this.pointsMaterial.uniforms.uScarDepthSize.value = enabled ? 1 : 0;
+  }
+
   private applyScarReliefPalette(): void {
     if (!this.pointsMaterial) return;
     const colors = {
       coral: [0x320611, 0xff6f78],
       crimson: [0x250008, 0xff334f],
       rose: [0x480c18, 0xffa0aa],
+      vibrant: [0xb71938, 0xff6f78],
     }[this.scarReliefPalette];
     this.pointsMaterial.uniforms.uScarReliefLow.value.setHex(colors[0]);
     this.pointsMaterial.uniforms.uScarReliefHigh.value.setHex(colors[1]);

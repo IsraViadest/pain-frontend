@@ -17,6 +17,7 @@ export function createEnvironmentalAtmosphere(options: {
   camera: THREE.PerspectiveCamera;
   earthContent: THREE.Group;
   surfaceGeometry: THREE.BufferGeometry;
+  smooth?: boolean;
 }) {
   const { mode, renderer, camera, earthContent, surfaceGeometry } = options;
   const drawingSize = new THREE.Vector2();
@@ -33,7 +34,7 @@ export function createEnvironmentalAtmosphere(options: {
   depthMesh.matrixAutoUpdate = false;
   const depthScene = new THREE.Scene();
   depthScene.add(depthMesh);
-  const shared = { renderer, depth, drawingSize, inverseEarth, colors: COLORS };
+  const shared = { renderer, depth, drawingSize, inverseEarth, colors: COLORS, smooth: options.smooth };
   const volumeMode = mode.startsWith("volume");
   const volume = volumeMode ? createAtmosphereVolume({ ...shared,
     treatment: mode as "volume" | "volume-strong" | "volume-separated" |
@@ -65,7 +66,8 @@ export function createEnvironmentalAtmosphere(options: {
       if (disposed || (!temperature && !co2)) return;
       renderer.getDrawingBufferSize(drawingSize);
       if (drawingSize.x <= 0 || drawingSize.y <= 0) return;
-      const ratio = Math.min(0.5, Math.sqrt(MAX_DEPTH_PIXELS / (drawingSize.x * drawingSize.y)),
+      const ratio = Math.min(options.smooth ? fraction : 0.5, 1,
+        Math.sqrt((options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS) / (drawingSize.x * drawingSize.y)),
         renderer.capabilities.maxTextureSize / Math.max(drawingSize.x, drawingSize.y));
       depthTarget.setSize(Math.max(1, Math.floor(drawingSize.x * ratio)),
         Math.max(1, Math.floor(drawingSize.y * ratio)));
