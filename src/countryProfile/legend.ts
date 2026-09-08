@@ -11,7 +11,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
   svg.setAttribute("width", "184");
   svg.setAttribute("height", "136");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "Temperature Change in coral above Emissions (CO2) in green. " +
+  svg.setAttribute("aria-label", "temperature change in coral above emissions (co2) in green. " +
     "Each field runs from lower to higher relative strength. Cloud height is artistic.");
   svg.setAttribute("fill", "currentColor");
   svg.style.color = "#ffffff";
@@ -27,8 +27,8 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
   }[] = [];
 
   for (const [index, [label, color, key]] of ([
-    ["Temperature Change", "#d74846", "temperature"],
-    ["Emissions (CO2)", "#b4ffd2", "co2"],
+    ["temperature change", "#d74846", "temperature"],
+    ["emissions (co2)", "#b4ffd2", "co2"],
   ] as const).entries()) {
     const id = `country-profile-legend-${key}`;
     const gradient = document.createElementNS(SVG_NS, "linearGradient");
@@ -98,7 +98,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
       text.replaceChildren();
       if (portrait) {
         text.setAttribute("transform", `translate(18, ${48 + index * 112}) rotate(-90)`);
-        for (const [line, label] of (index === 0 ? ["Temperature", "Change"] : ["Emissions", "(CO2)"]).entries()) {
+        for (const [line, label] of (index === 0 ? ["temperature", "change"] : ["emissions", "(co2)"]).entries()) {
           const span = document.createElementNS(SVG_NS, "tspan");
           span.setAttribute("x", "0");
           span.setAttribute("y", String(line * 12));
@@ -107,7 +107,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
         }
       } else {
         text.removeAttribute("transform");
-        text.textContent = index === 0 ? "Temperature Change" : "Emissions (CO2)";
+        text.textContent = index === 0 ? "temperature change" : "emissions (co2)";
       }
       bar.setAttribute("x", String(portrait ? 42 : 0));
       bar.setAttribute("y", String(portrait ? 8 + index * 112 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
@@ -148,7 +148,7 @@ export function createPhysicalLegend(
   svg.setAttribute("width", "92");
   svg.setAttribute("height", "170");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "Global health conditions. Minimum at the top, maximum at the " +
+  svg.setAttribute("aria-label", "global health conditions. Minimum at the top, maximum at the " +
     "bottom of the dotted V. Dot diameter follows the active scar-size mapping; " +
     "these enlarged samples show relative sizes, not map pixel sizes.");
   svg.setAttribute("fill", "currentColor");
@@ -159,7 +159,7 @@ export function createPhysicalLegend(
   title.setAttribute("transform", "translate(12, 90) rotate(-90)");
   title.setAttribute("text-anchor", "middle");
   title.setAttribute("font-size", "11");
-  title.textContent = "Global health conditions";
+  title.textContent = "global health conditions";
   const dots = document.createElementNS(SVG_NS, "g");
   for (let row = 0; row <= 16; row++) {
     const depth = row / 16;
@@ -295,8 +295,8 @@ export function createSocioeconomicLegend(
     svg.append(swatch);
     return swatch;
   });
-  const labels = [gdpPerCapita ? "GDP/person 2024" : "Country based wealth (GDP)",
-    gdpPerCapita ? "min / richer" : "min", gdpPerCapita ? "max / poorer" : "max",
+  const labels = [gdpPerCapita ? "country-based wealth (GDP) by capita" : "country-based wealth (GDP)",
+    gdpPerCapita ? "max" : "min", gdpPerCapita ? "min" : "max",
     style === "color" ? "continuous relative signal" : "same continuous value; examples", "no data"].map((label) => {
     const text = element("text");
     text.textContent = label;
@@ -342,16 +342,18 @@ export function createSocioeconomicLegend(
       text.style.display = index === 3 && (portrait || compact) ? "none" : "";
       if (index === 0 && portrait) text.setAttribute("transform", "translate(12, 63) rotate(-90)");
       else text.removeAttribute("transform");
-      if (index === 0 && !gdpPerCapita) {
+      if (index === 0) {
         text.setAttribute("font-size", "11");
         text.replaceChildren();
         if (portrait) {
-          for (const [line, label] of ["Country based", "wealth (GDP)"].entries()) {
-            const span = element("tspan", { x: 0, y: line * 12 });
+          if (gdpPerCapita) text.setAttribute("transform", "translate(8, 63) rotate(-90)");
+          const lines = ["country-based", "wealth (GDP)", ...(gdpPerCapita ? ["by capita"] : [])];
+          for (const [line, label] of lines.entries()) {
+            const span = element("tspan", { x: 0, y: line * (gdpPerCapita ? 9 : 12) });
             span.textContent = label;
             text.append(span);
           }
-        } else text.textContent = "Country based wealth (GDP)";
+        } else text.textContent = gdpPerCapita ? "country-based wealth (GDP) by capita" : "country-based wealth (GDP)";
       }
     }
     missing.setAttribute("transform", `translate(${portrait ? 7 : 0}, ${portrait ? 123 : compact ? 83 : 117})`);

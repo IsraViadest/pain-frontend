@@ -1141,9 +1141,16 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     atmosphereMode: "volume-very-strong-separated", scarDepthSize: "recessed-small",
     scarReliefPalette: palette, scarContourStyle: contours,
   })),
+  {
+    ...V38_BASE, id: "v48-a_web", label: "v48: web and projection",
+    description: "Dark red water contours, all combined emotions, and inverse GDP per capita. Projection retains the share-button space and defaults to high resolution.",
+    atmosphereMode: "volume-very-strong-separated", scarContourStyle: "water-dots-depth",
+    socioeconomicDataset: "gdp-per-capita-2024", emotionDataset: "combined-v2",
+    fitShortScreenControls: true,
+  },
 ];
 
-const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v38-d_very-strong-linear";
+const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v48-a_web";
 
 /** Resolve `cpPreset`, falling back to the adopted preset. */
 export function resolveCountryProfilePreset(): CountryProfilePreset {
