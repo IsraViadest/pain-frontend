@@ -9,6 +9,7 @@ import {
 import {
   aggregateChoroplethValues,
   createChoroplethTexture,
+  createChoroplethMissingMask,
   ensureChoroplethCountriesLoaded,
   HIGHLIGHT_GROUP_BYTES,
   type SocioeconomicMissingStyle,
@@ -558,6 +559,7 @@ export class GlobeView {
   private socioeconomicMinimum = 0;
   private socioeconomicContrast = 0.25;
   private socioeconomicMissingStyle: SocioeconomicMissingStyle | undefined;
+  private socioeconomicMissingMap: THREE.DataTexture | null = null;
   private socioeconomicStyleGeneration = 0;
   /**
    * When true, rebuild scars + choropleth shell + CO2 haze + word clouds together
@@ -1280,6 +1282,9 @@ export class GlobeView {
     }
     if (this.pointsMaterial) {
       const u = this.pointsMaterial.uniforms;
+      u.uSocioMissingMap.value = this.socioeconomicMissingMap;
+      u.uSocioMissingActive.value = this.shouldSuppressScarsForChoropleth() &&
+        this.socioeconomicMissingMap ? 1 : 0;
       const stippleOn = this.pointsStipple?.visible ?? false;
       u.uShowLand.value = this.resolveDebugLayerVisibility(
         "stippleLand",
@@ -1401,6 +1406,12 @@ export class GlobeView {
   }
 
   private disposeChoroplethMap(): void {
+    if (this.pointsMaterial) {
+      this.pointsMaterial.uniforms.uSocioMissingActive.value = 0;
+      this.pointsMaterial.uniforms.uSocioMissingMap.value = null;
+    }
+    this.socioeconomicMissingMap?.dispose();
+    this.socioeconomicMissingMap = null;
     const mat = this.choroplethShell.material;
     if (mat.map === this.choroplethMap) {
       mat.map = null;
@@ -1450,14 +1461,21 @@ export class GlobeView {
       : this.currentLayerColorHex;
     void (async () => {
       await ensureChoroplethCountriesLoaded();
+      const { applySocioeconomicPattern } = await import("./socioeconomicPattern");
       if (generation !== this.choroplethBuildGeneration) return;
       if (!this.shouldPaintChoropleth()) return;
       const values = aggregateChoroplethValues(points);
+      if (!this.showAllLayersMode) this.socioeconomicMissingMap = createChoroplethMissingMask(
+        values, this.getDisplayCountryGeometries());
       this.choroplethMap = createChoroplethTexture(
         values, colorHex, this.getDisplayCountryGeometries(), this.socioeconomicMinimum,
         this.showAllLayersMode ? undefined : this.socioeconomicMissingStyle,
       );
       this.applyChoroplethMaterial();
+      applySocioeconomicPattern(this.choroplethShell.material, this.socioeconomicStyle,
+        this.socioeconomicMinimum, this.socioeconomicContrast,
+        this.showAllLayersMode ? undefined : this.socioeconomicMissingStyle,
+        this.socioeconomicMissingMap);
       this.syncGlobeSurfaceVisibility();
     })();
   }
@@ -2665,7 +2683,8 @@ export class GlobeView {
     const generation = ++this.socioeconomicStyleGeneration;
     void import("./socioeconomicPattern").then(({ applySocioeconomicPattern }) => {
       if (generation !== this.socioeconomicStyleGeneration) return;
-      applySocioeconomicPattern(this.choroplethShell.material, style, minimumAlpha, contrast);
+      applySocioeconomicPattern(this.choroplethShell.material, style, minimumAlpha, contrast,
+        this.showAllLayersMode ? undefined : missingStyle, this.socioeconomicMissingMap);
       this.scheduleChoroplethRebuild();
     }).catch((error) => { console.error("[GlobeView] socioeconomic style failed:", error); });
   }
@@ -2854,13 +2873,18 @@ export class GlobeView {
     const atmosphere = this.getAtmosphereStats()?.additionalBytes ?? 0;
     const contours = this.scarContourLayer?.stats().additionalBytes ?? 0;
     const geography = this.displayGeographyStorageBytes;
+    const missingMaskBytes = this.socioeconomicMissingMap?.image.data.byteLength ?? 0;
+    // CPU bytes plus GPU storage, and the temporary RGBA canvas/readback used during rebuild.
+    const socioeconomicMissing = 2 * missingMaskBytes;
+    const socioeconomicMissingScratch = 8 * missingMaskBytes;
     // Reserve the synchronous blur's additional scratch even between rebuilds.
     const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
     // Origin/peer painting can read two weight groups; legacy painting reads only one.
     const highlightScratch = HIGHLIGHT_GROUP_BYTES;
     return { surface, borders, stipple, atmosphere, contours, geography, fieldScratch,
+      socioeconomicMissing, socioeconomicMissingScratch,
       highlightScratch, total: surface + borders + stipple + atmosphere + contours + geography +
-        fieldScratch + highlightScratch };
+        fieldScratch + highlightScratch + socioeconomicMissing + socioeconomicMissingScratch };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */

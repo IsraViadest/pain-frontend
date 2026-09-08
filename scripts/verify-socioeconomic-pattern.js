@@ -3,13 +3,14 @@
  */
 (async () => {
   let renderer, target, geometry, material, texture, legacyTexture, floorTexture, missingTexture,
-    scene, mesh;
+    scene, mesh, missingMask;
   const rows = [];
   const shaderErrors = [];
   try {
     const THREE = await import("/node_modules/.vite/deps/three.js");
     const { buildCountryGeometries } = await import("/src/globe/countryGeometry.ts");
-    const { createChoroplethTexture } = await import("/src/globe/choroplethField.ts");
+    const { createChoroplethTexture, createChoroplethMissingMask } =
+      await import("/src/globe/choroplethField.ts");
     const { applySocioeconomicPattern } = await import("/src/globe/socioeconomicPattern.ts");
     const check = (condition, message) => { if (!condition) throw new Error(message); };
     const minimum = 0.25;
@@ -31,6 +32,14 @@
     texture = createChoroplethTexture(values, "#ffff00", countries, minimum);
     legacyTexture = createChoroplethTexture(values, "#ffff00", countries);
     missingTexture = createChoroplethTexture(values, "#ffff00", countries, minimum, "diagonal");
+    missingMask = createChoroplethMissingMask(values, countries);
+    for (const tile of tiles) {
+      const { width, height, data } = missingMask.image;
+      const x = Math.floor((tile.longitude + 180) / 360 * width);
+      const expected = tile.value === null || !Number.isFinite(tile.value) ? 255 : 0;
+      check(data[Math.floor(height / 2) * width + x] === expected,
+        tile.label + ': missing mask confused genuine zero and absence');
+    }
     const sourceByte = (map, tile) => {
       const { width, height, data } = map.image;
       const x = Math.floor((tile.longitude + 180) / 360 * width);
@@ -219,6 +228,29 @@
     }
     check(unresolvedDifferenceBytes === 0, "Unresolved pattern does not return the color control");
 
+    // Magnify one missing-data stripe to expose raster blur. Only its antialiased edge may blend.
+    material.map = missingTexture;
+    target.setSize(256, 256);
+    const uv = geometry.getAttribute('uv');
+    const centerU = (tiles[1].longitude + 180) / 360;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i,
+      centerU + geometry.attributes.position.getX(i) * 6 / 2048,
+      0.5 + geometry.attributes.position.getY(i) * 0.01 / 1024);
+    uv.needsUpdate = true;
+    applySocioeconomicPattern(material, 'color', minimum, 0.25, 'diagonal', missingMask);
+    renderer.setRenderTarget(target); renderer.render(scene, camera);
+    const missingPixels = new Uint8Array(256 * 256 * 4);
+    renderer.readRenderTargetPixels(target, 0, 0, 256, 256, missingPixels);
+    const missingSummary = summarize(missingPixels);
+    check(missingSummary.max - missingSummary.min > 75, 'Crisp missing stripes absent');
+    let blendedEdges = 0;
+    for (let x = 0; x < 256; x++) {
+      const alpha = missingPixels[(128 * 256 + x) * 4 + 3];
+      if (alpha > missingSummary.min + 3 && alpha < missingSummary.max - 3) blendedEdges++;
+    }
+    check(blendedEdges <= 4, 'Missing stripe edge is raster blurred: ' + blendedEdges);
+    check(shaderErrors.length === 0, 'Missing stripe shader failed');
+
     renderer.setRenderTarget(null);
     scene.remove(mesh);
     material.dispose(); material = null;
@@ -227,6 +259,7 @@
     legacyTexture.dispose(); legacyTexture = null;
     floorTexture.dispose(); floorTexture = null;
     missingTexture.dispose(); missingTexture = null;
+    missingMask.dispose(); missingMask = null;
     target.dispose(); target = null;
     renderer.render(scene, camera);
     const afterDisposal = { ...renderer.info.memory };
@@ -237,7 +270,7 @@
       unresolved: { pixelsPerSide: 8, footprint: 1, maximumByteDifference: unresolvedDifferenceBytes },
       maximumMeanErrorBytes: Number(maxMeanErrorBytes.toFixed(4)),
       maximumTieDifferenceBytes: maxTieDifferenceBytes, rerenderDifferenceBytes,
-      contrastChecks, sameMaterialFloorUpdateByte: changedFloorByte,
+      contrastChecks, sameMaterialFloorUpdateByte: changedFloorByte, missingStripeBlendedPixels: blendedEdges,
       resources: { baseline, afterDisposal }, syntheticDataOnly: true };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error), rows, shaderErrors };
@@ -245,7 +278,7 @@
     if (mesh && scene) scene.remove(mesh);
     renderer?.setRenderTarget(null);
     material?.dispose(); geometry?.dispose(); texture?.dispose(); legacyTexture?.dispose();
-    floorTexture?.dispose(); missingTexture?.dispose(); target?.dispose();
+    floorTexture?.dispose(); missingTexture?.dispose(); missingMask?.dispose(); target?.dispose();
     renderer?.dispose(); renderer?.forceContextLoss();
   }
 })()

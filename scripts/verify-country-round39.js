@@ -95,6 +95,18 @@
     const reversedSurfaceWidth=dotWidth();
     check(Math.abs(reversedDeepWidth/baseWidth-.75)<.1 &&
       Math.abs(reversedSurfaceWidth/baseWidth-1.5)<.1,'Reversed dot ramp is not 150% to 75%');
+    const missing = new THREE.DataTexture(new Uint8Array([255]),1,1,THREE.RedFormat);
+    missing.needsUpdate=true; owned.push(missing);
+    u.uSocioMissingMap.value=missing; u.uSocioMissingActive.value=1;
+    check(read()===0,'Socioeconomic missing-country dot is not fully transparent');
+    missing.image.data[0]=0; missing.needsUpdate=true;
+    check(read()>0,'Real zero coverage incorrectly hides socioeconomic dots');
+    missing.image.data[0]=255; missing.needsUpdate=true;
+    geo.attributes.aLand.setX(0,0); geo.attributes.aLand.needsUpdate=true;
+    check(read()>0,'Missing mask hides ocean context');
+    geo.attributes.aLand.setX(0,1); geo.attributes.aLand.needsUpdate=true;
+    u.uSocioMissingActive.value=0;
+    check(read()>0,'Leaving socioeconomic view fails to restore dots');
     return {passed:true,gdpCountries:gdp.length,emotionalCountries:192,profiles:profiles.size,
       waterContourAlpha:front,backContourAlpha:back,dotWidths:[baseWidth,deepWidth],depthColors,
       reversedDotWidths:[reversedSurfaceWidth,reversedDeepWidth]};

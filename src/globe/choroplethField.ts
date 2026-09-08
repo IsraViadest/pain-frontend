@@ -103,31 +103,30 @@ function fillGeometry(
   }
 }
 
-function createMissingPattern(
-  ctx: CanvasRenderingContext2D,
-  style: SocioeconomicMissingStyle,
-): CanvasPattern {
-  const tile = document.createElement("canvas");
-  tile.width = tile.height = 12;
-  const patternContext = tile.getContext("2d");
-  if (!patternContext) throw new Error("2D canvas unsupported");
-  patternContext.fillStyle = "rgba(112, 112, 112, 0.42)";
-  patternContext.fillRect(0, 0, 12, 12);
-  patternContext.strokeStyle = "rgba(220, 220, 220, 0.62)";
-  patternContext.lineWidth = 1.5;
-  const drawDiagonal = (rising: boolean): void => {
-    patternContext.beginPath();
-    for (const offset of [-12, 0, 12]) {
-      patternContext.moveTo(offset, rising ? 12 : 0);
-      patternContext.lineTo(offset + 12, rising ? 0 : 12);
-    }
-    patternContext.stroke();
-  };
-  drawDiagonal(true);
-  if (style === "cross") drawDiagonal(false);
-  const pattern = ctx.createPattern(tile, "repeat");
-  if (!pattern) throw new Error("Canvas pattern unsupported");
-  return pattern;
+/** White marks absent/nonfinite values. Genuine zero and ocean stay black. */
+export function createChoroplethMissingMask(
+  values: ChoroplethCountryValue[],
+  countries: readonly IndexedCountryGeometry[],
+): THREE.DataTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = CHOROPLETH_MAP_WIDTH;
+  canvas.height = CHOROPLETH_MAP_HEIGHT;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("2D canvas unsupported");
+  const covered = new Set(values.filter((v) => Number.isFinite(v.intensity))
+    .map((v) => v.country.trim().toUpperCase()));
+  ctx.fillStyle = "white";
+  for (const { key, geometry } of countries) {
+    if (!covered.has(key)) fillGeometry(ctx, geometry, canvas.width, canvas.height);
+  }
+  const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  const bytes = new Uint8Array(canvas.width * canvas.height);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = rgba[i * 4 + 3]!;
+  const texture = new THREE.DataTexture(bytes, canvas.width, canvas.height, THREE.RedFormat);
+  texture.minFilter = texture.magFilter = THREE.LinearFilter;
+  texture.flipY = true;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 /** Linear alpha: intensity × 255, clamped to byte range. */
@@ -222,7 +221,8 @@ export function createChoroplethTexture(
   }
 
   if (missingStyle) {
-    ctx.fillStyle = createMissingPattern(ctx, missingStyle);
+    // Crisp stripes are evaluated by the material shader, not magnified from this raster.
+    ctx.fillStyle = "rgba(112, 112, 112, 0.42)";
     for (const { key, geometry } of countries) {
       const intensity = intensityByKey.get(key);
       if (intensity === undefined || !Number.isFinite(intensity)) {

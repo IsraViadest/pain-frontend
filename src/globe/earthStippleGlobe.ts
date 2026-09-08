@@ -162,6 +162,8 @@ uniform vec3 uScarReliefLow;
 uniform vec3 uScarReliefHigh;
 varying float vLand;
 uniform float uContextOpacity;
+uniform sampler2D uSocioMissingMap;
+uniform float uSocioMissingActive;
 varying float vFresnel;
 varying float vFacing;
 varying vec2 vHeatUv;
@@ -177,6 +179,8 @@ void main() {
   float landMask = vLand;
   if (landMask > 0.5 && uShowLand < 0.5) discard;
   if (landMask < 0.5 && uShowOcean < 0.5) discard;
+  if (landMask > 0.5 && uSocioMissingActive > 0.5 &&
+      texture2D(uSocioMissingMap, vec2(vHeatUv.x, 1.0 - vHeatUv.y)).r > 0.5) discard;
   float landFrontMix = landMask * (0.34 + 0.66 * frontFactor);
 
   vec3 baseCol = mix(uShadeBase * 0.86, uTint, 0.54);
@@ -435,6 +439,8 @@ export async function createEarthStippleGlobe(
       uPixelRatio: { value: initialPixelRatio },
       uPointScale: { value: 1 },
       uContextOpacity: { value: 1 },
+      uSocioMissingMap: { value: null },
+      uSocioMissingActive: { value: 0 },
       uDetailMode: { value: 0 },
       uDetailTime: { value: 0 },
       uDetailFadeSeconds: { value: 0.15 },
