@@ -562,6 +562,8 @@ async function fetchViewPoints(layer: string, signal?: AbortSignal): Promise<Pai
   return fetchPoints(layer, signal);
 }
 let countryPresentation: CountryPresentation | null = null;
+// Retain the cycle implementation for later comparison without mounting or running it.
+const countryCycleEnabled = false;
 let preserveCountryProfileOnEmoClear = false;
 let presentationBaseParams: EmoViewParams | null = null;
 
@@ -606,7 +608,8 @@ function applyCountryProfileGlobePreset(layerId: string): void {
     preset?.socioeconomicMissingStyle);
   globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
   globe.setScarContourLevels(preset?.scarContourLevels ?? 24);
-  globe.setScarContourStyle(preset?.scarContourStyle ?? null);
+  globe.setScarContourStyle(layerId === "physpain" || layerId === "all-layers"
+    ? preset?.scarContourStyle ?? null : null);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";
   const enhancedStipple = physical || preset?.stippleAllLayers === true;
@@ -744,10 +747,7 @@ function handleCountrySurfaceClick(clientX: number, clientY: number): void {
 async function ensureCountryProfileRuntime(): Promise<void> {
   if (!countryProfileEnabled || countryProfileRuntime) return;
   countryProfileRuntimeReady ??= (async () => {
-    const [{ CountryProfileRuntime }, { CountryPresentation }] = await Promise.all([
-      import("./countryProfile/runtime"),
-      import("./countryProfile/presentation"),
-    ]);
+    const { CountryProfileRuntime } = await import("./countryProfile/runtime");
     countryProfileRuntime = await CountryProfileRuntime.create(
       pointCache,
       appRootEl,
@@ -762,6 +762,8 @@ async function ensureCountryProfileRuntime(): Promise<void> {
         runtime.preset.sharePainLooseLines,
       );
     }
+    if (!countryCycleEnabled) return;
+    const { CountryPresentation } = await import("./countryProfile/presentation");
     countryPresentation = new CountryPresentation({
     appRoot: appRootEl,
     controlHost: runtime.preset.refinement ? chrome?.countryCycleHost : undefined,

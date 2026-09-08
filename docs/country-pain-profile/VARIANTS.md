@@ -12,6 +12,10 @@ The default remains [v38-d_very-strong-linear](http://127.0.0.1:3000/?cp=1&cpPre
 
 ## How to compare
 
+Video and country-cycle functionality is now hidden across all URLs. Their rows below describe
+retained historical comparisons, not currently available controls. The Ars invitation stays visible.
+Updated legend names, min/max endpoints and contour layer isolation apply to old URLs too.
+
 - Use each row's named baseline and the same layer, country, zoom, and window size.
 - A new round is not necessarily the previous round plus one setting: frozen bases are reused.
   The table compares the complete resolved preset objects, including inherited fields.

@@ -336,7 +336,8 @@ export async function mountProductionChrome(
     sharePainBtn.classList.add("blob-button--lower-label");
     dataSourcesBtn.classList.add("blob-button--lower-label");
     const { mountFestivalMedia } = await import("./festival-media");
-    chromeActionButtons.push(mountFestivalMedia(titleHost));
+    const videoButton = mountFestivalMedia(titleHost);
+    if (videoButton) chromeActionButtons.push(videoButton);
   }
 
   return {

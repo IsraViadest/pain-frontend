@@ -53,8 +53,8 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
 
   const annotations: SVGTextElement[] = [];
   for (const [label, x, y, anchor] of [
-    ["lower", 0, 110, "start"],
-    ["higher", 184, 110, "end"],
+    ["min", 0, 110, "start"],
+    ["max", 184, 110, "end"],
     ["relative field strength", 0, 132, "start"],
   ] as const) {
     const text = document.createElementNS(SVG_NS, "text");
@@ -112,47 +112,53 @@ export function createPhysicalLegend(): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.classList.add("ui-legend__img");
   svg.dataset.orientation = "vertical";
-  svg.setAttribute("viewBox", "0 0 72 136");
-  svg.setAttribute("width", "72");
-  svg.setAttribute("height", "136");
+  svg.setAttribute("viewBox", "0 0 84 170");
+  svg.setAttribute("width", "84");
+  svg.setAttribute("height", "170");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "Physical Pain, lower to higher relative signal.");
+  svg.setAttribute("aria-label", "Global health conditions. Minimum at the top, maximum at the " +
+    "bottom of the V. Deeper scars represent a stronger relative physical pain signal.");
   svg.setAttribute("fill", "currentColor");
   svg.style.color = "#ffffff";
   svg.style.fontFamily = "inherit";
   const defs = document.createElementNS(SVG_NS, "defs");
   const gradient = document.createElementNS(SVG_NS, "linearGradient");
   gradient.id = "country-profile-physical-scale";
-  gradient.setAttribute("y1", "100%");
-  for (const [offset, opacity] of [[0, 0.08], [1, 1]] as const) {
+  gradient.setAttribute("x2", "0%");
+  gradient.setAttribute("y2", "100%");
+  for (const [offset, color] of [[0, "#ff7888"], [1, "#94102f"]] as const) {
     const stop = document.createElementNS(SVG_NS, "stop");
     stop.setAttribute("offset", String(offset));
-    stop.setAttribute("stop-color", "#e4184b");
-    stop.setAttribute("stop-opacity", String(opacity));
+    stop.setAttribute("stop-color", color);
     gradient.append(stop);
   }
   defs.append(gradient);
   const title = document.createElementNS(SVG_NS, "text");
-  title.setAttribute("transform", "translate(16, 92) rotate(-90)");
+  title.setAttribute("transform", "translate(12, 85) rotate(-90)");
+  title.setAttribute("text-anchor", "middle");
   title.setAttribute("font-size", "11");
-  title.textContent = "Physical Pain";
-  const bar = document.createElementNS(SVG_NS, "rect");
-  bar.setAttribute("x", "24");
-  bar.setAttribute("y", "22");
-  bar.setAttribute("width", "12");
-  bar.setAttribute("height", "98");
-  bar.setAttribute("rx", "6");
-  bar.setAttribute("fill", "url(#country-profile-physical-scale)");
+  title.textContent = "Global health conditions";
+  const bar = document.createElementNS(SVG_NS, "path");
+  // Original physical legend's V, fitted to the compact vertical rail.
+  bar.setAttribute("d", "M99 16H191L260 426.5L328 16L420 16.0001");
+  bar.setAttribute("transform", "translate(5, 22) scale(.17 .30)");
+  bar.setAttribute("fill", "none");
+  bar.setAttribute("stroke", "url(#country-profile-physical-scale)");
+  bar.setAttribute("stroke-width", "2");
+  bar.setAttribute("vector-effect", "non-scaling-stroke");
+  bar.setAttribute("stroke-linejoin", "round");
   const higher = document.createElementNS(SVG_NS, "text");
-  higher.setAttribute("x", "42");
-  higher.setAttribute("y", "12");
+  higher.setAttribute("x", "48");
+  higher.setAttribute("y", "16");
+  higher.setAttribute("text-anchor", "middle");
   higher.setAttribute("font-size", "11");
-  higher.textContent = "higher";
+  higher.textContent = "min";
   const lower = document.createElementNS(SVG_NS, "text");
-  lower.setAttribute("x", "42");
-  lower.setAttribute("y", "134");
+  lower.setAttribute("x", "48");
+  lower.setAttribute("y", "166");
+  lower.setAttribute("text-anchor", "middle");
   lower.setAttribute("font-size", "11");
-  lower.textContent = "lower";
+  lower.textContent = "max";
   svg.append(defs, title, bar, higher, lower);
   return svg;
 }
@@ -243,8 +249,8 @@ export function createSocioeconomicLegend(
     svg.append(swatch);
     return swatch;
   });
-  const labels = [gdpPerCapita ? "GDP/person 2024" : "Socioeconomic",
-    gdpPerCapita ? "richer" : "lower", gdpPerCapita ? "poorer" : "higher",
+  const labels = [gdpPerCapita ? "GDP/person 2024" : "Country based wealth (GDP)",
+    gdpPerCapita ? "min / richer" : "min", gdpPerCapita ? "max / poorer" : "max",
     style === "color" ? "continuous relative signal" : "same continuous value; examples", "no data"].map((label) => {
     const text = element("text");
     text.textContent = label;
@@ -290,6 +296,17 @@ export function createSocioeconomicLegend(
       text.style.display = index === 3 && (portrait || compact) ? "none" : "";
       if (index === 0 && portrait) text.setAttribute("transform", "translate(46, 63) rotate(-90)");
       else text.removeAttribute("transform");
+      if (index === 0 && !gdpPerCapita) {
+        text.setAttribute("font-size", "11");
+        text.replaceChildren();
+        if (portrait) {
+          for (const [line, label] of ["Country based", "wealth (GDP)"].entries()) {
+            const span = element("tspan", { x: 0, y: line * 12 });
+            span.textContent = label;
+            text.append(span);
+          }
+        } else text.textContent = "Country based wealth (GDP)";
+      }
     }
     missing.setAttribute("transform", `translate(${portrait ? 7 : 0}, ${portrait ? 123 : compact ? 83 : 117})`);
   };

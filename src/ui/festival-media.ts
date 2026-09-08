@@ -7,7 +7,7 @@ const FESTIVAL_URL = "https://ars.electronica.art/negotiatinghumanity/en/view/p-
 const INTRO_KEY = "pain-video-intro-dismissed-v1";
 
 /** First-visit invitation, persistent replay button and a native, on-demand video stage. */
-export function mountFestivalMedia(host: HTMLElement): HTMLButtonElement {
+export function mountFestivalMedia(host: HTMLElement, videoEnabled = false): HTMLButtonElement | null {
   const app = document.getElementById("app")!;
   const share = document.getElementById("ui-share-pain")!;
   const query = new URLSearchParams(location.search);
@@ -29,6 +29,9 @@ export function mountFestivalMedia(host: HTMLElement): HTMLButtonElement {
   link.addEventListener("click", () => trackToggle(METRICS_KIND_CATEGORY, "festival:visit", true));
   row.append(link);
   host.append(row);
+
+  // The festival invitation stays available while the video feature is hidden.
+  if (!videoEnabled) return null;
 
   const entry = document.createElement("div");
   entry.id = "video-invitation";

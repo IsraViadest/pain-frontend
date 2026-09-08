@@ -1101,3 +1101,24 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
   The loader handles both HTTP-decoded gzip (Vite) and raw gzip files (static delivery).
 - Supersedes the earlier tinted theme-blend choice. Black cinema remains available. The catalogue
   now describes the untinted cut-out and its source-alpha limitation. No gallery was generated.
+
+## 2026-09-08: quiet controls, explicit legends and missing-data rendering
+
+- Video and country cycle no longer mount or run, including explicit video-intro URLs.
+  The Ars invitation remains. Existing implementations and media files are retained.
+- Emotional title: "Strongest emotion by country". Physical title: "Global health conditions".
+  Total GDP title: "Country based wealth (GDP)". Legends show min/max; inverse GDP/person
+  keeps richer/poorer qualifiers. The old physical V now runs light red at its minimum upper
+  arms to dark red at its maximum lower point, following the original depth direction.
+- Contours are disposed when leaving all-pain or physical pain. The selected
+  v46-dots_water-depth comparison retains dot-red water contours and its darker-depth ramp.
+- Missing socioeconomic countries retain gray procedural hatching but have no land dots.
+  Finite zero and ocean remain distinct from missing; other layers retain their dots.
+  The mask costs 4 MiB CPU/GPU plus 16 MiB transient build storage, included in accounting.
+- Compliance and GPU fixtures pass. Live control/legend/layer probes pass at 1080x684 and
+  393x852. Desktop V and missing-country hatching inspected. Physical phone remains deferred.
+- One mobile probe was interrupted by a source reload, then passed on stable code. Its test
+  Chrome process was stopped. Automatic review rejected removal of its temporary profile,
+  /var/folders/sc/3sxw5lhd5hs05l8sr8tc1lqc0000gn/T/emoeval-kUojJu.
+- Lighter CO2 is pending clarification of the unfinished condition about the planet edge.
+  No gallery export, data changes, publication or deployment.
