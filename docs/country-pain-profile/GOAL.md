@@ -1144,3 +1144,29 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
   1080x684 and 393x852, including height and dot-size/color checks. Dotted V inspected in browser.
   A retained 136px CSS cap was caught by the first height test and removed before the rerun.
 - No gallery files. Physical-phone testing remains deferred.
+
+## 2026-09-08: smaller dotted V and researched atmospheric edge correction
+
+- Legend dots are one-third smaller; short horizontal strokes meet the outer top dots.
+  The active depth-size ratios and shared colors are unchanged. Live legend probe passes.
+- Live diagnosis at v47-e, Light, camera 22,145,2.35: the surface is spherical and exact
+  clipping is active. The atmosphere is rendered at 270x171 then displayed at 1080x684.
+  Increasing depth resolution produces identical pixels; raising 16 to 48 ray steps retains
+  the staircase; increasing atmosphere image resolution reduces its scale.
+- Wiki recall found no relevant graphics material. AGY's required read was rejected by
+  execution policy before a provider call; independent primary-source web research followed.
+  [GPU Gems 3 chapter 30](https://developer.nvidia.com/gpugems/gpugems3/part-v-physics-simulation/chapter-30-real-time-simulation-and-rendering-3d-fluids)
+  describes this low-resolution volume failure and full-resolution rendering of problem edges.
+  [Chapter 23](https://developer.nvidia.com/gpugems/gpugems3/part-iv-image-effects/chapter-23-high-speed-screen-particles)
+  explains mixed-resolution silhouettes, mask coverage and interpolation leakage.
+- Usual alternatives include depth-aware upsampling, spatial supersampling and temporal
+  accumulation. The adopted correction reuses the existing integration function only in a
+  native-resolution spherical silhouette band. It replaces the coarse sample without adding
+  another atmosphere layer. One existing target and its allocation/sample caps remain.
+  Scarred surfaces retain their actual depth path; no spherical approximation is applied there.
+- The actual four-pixel staircase is removed; ordinary native-pixel coverage remains visible
+  under 3x diagnostic magnification. The matched 16-step edge test now has 0.0195/255 mean alpha
+  error against its full-resolution reference and all 12 atmospheric GPU families pass.
+- A reversed-order paired run measured GPU median 0.6446ms control versus 0.7967ms corrected.
+  Frame pacing remained 8.3ms median and 9.2ms p95. The other ordering was noisy and is not
+  evidence of a speedup. No physical-phone claim or gallery export.

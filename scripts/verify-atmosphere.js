@@ -211,7 +211,7 @@
       atmosphere = createEnvironmentalAtmosphere({ mode: "volume-very-strong-separated",
         smooth, renderer, camera, earthContent: earth, surfaceGeometry: edgeSurface });
       atmosphere.setFields(null, edgeField);
-      atmosphere.prepare(48, fraction);
+      atmosphere.prepare(16, fraction);
       renderer.render(scene, camera);
       const rgba = new Uint8Array(640 * 640 * 4), gl = renderer.getContext();
       gl.readPixels(0, 0, 640, 640, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
@@ -227,7 +227,7 @@
       edgePixelCount++;
     }
     const edgeMeanAlphaError = edgeError / edgePixelCount;
-    check(edgeMeanAlphaError < 31, "Rear atmospheric edge reverted to nearest depth: " + edgeMeanAlphaError);
+    check(edgeMeanAlphaError < 1, "Rear atmospheric edge is still magnified from low resolution: " + edgeMeanAlphaError);
     const byMode = new Map(results.map((result) => [result.mode, result]));
     check(byMode.get("volume-strong").north.alpha > byMode.get("volume").north.alpha * 1.2,
       "strong volume does not materially strengthen the midpoint field");
