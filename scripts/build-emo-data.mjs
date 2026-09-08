@@ -31,8 +31,11 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LEXICON = join(ROOT, "data-src/lexicon-by-country.tsv");
-const PERCENTAGES = join(ROOT, "data-src/country-emotion-percentages-dummy.csv");
-const OUT = join(ROOT, "public/emo/emo-data.json");
+const combined = process.argv.includes("--combined-v2");
+const sourceName = combined ? "country-emotion-combined-v2.csv" : "country-emotion-percentages-dummy.csv";
+const PERCENTAGES = process.argv.find((arg) => arg.startsWith("--source="))?.slice(9) ??
+  join(ROOT, "data-src", sourceName);
+const OUT = join(ROOT, combined ? "public/emo/combined-v2/emo-data.json" : "public/emo/emo-data.json");
 
 /** Classifier `cat_key` -> lexicon column prefix. The two vocabularies are 1:1. */
 const CAT_KEY_TO_LEXICON = {
@@ -95,6 +98,7 @@ const categories = catKeys.map((catKey) => {
 });
 
 const countries = {};
+const missingCountries = {};
 const warnings = [];
 let fallbackCount = 0;
 let tiedCount = 0;
@@ -103,6 +107,20 @@ for (const row of pctRows) {
   const iso3 = row.iso3;
   const lr = lex.get(iso3);
   if (!lr) { warnings.push(`no lexicon row for ${iso3}`); continue; }
+  if (combined) {
+    if (countries[iso3] || missingCountries[iso3]) throw new Error(`Duplicate country: ${iso3}`);
+    const empty = catKeys.filter((key) => row[key]?.trim() === "").length;
+    if (empty === catKeys.length) {
+      missingCountries[iso3] = { name: lr.country, lang: lr.lang_code, script: lr.script };
+      continue;
+    }
+    for (const key of [...catKeys, ...NON_PAIN_COLUMNS]) {
+      const value = Number(row[key]);
+      if (!row[key]?.trim() || !Number.isFinite(value) || value < 0 || value > 1) {
+        throw new Error(`Invalid ${key} for ${iso3}`);
+      }
+    }
+  }
 
   // `catKeys` is in category-number order, and the comparison is strictly greater-than, so the
   // lowest-numbered category wins a tie. See the TIE-BREAK note in the file header.
@@ -115,7 +133,11 @@ for (const row of pctRows) {
     if (v > best) { best = v; winner = catKey; tiedWith = 0; }
     else if (v === best) { tiedWith += 1; }
   }
-  if (winner == null) { warnings.push(`${iso3}: no winning category`); continue; }
+  if (winner == null) {
+    warnings.push(`${iso3}: no winning category`);
+    missingCountries[iso3] = { name: lr.country, lang: lr.lang_code, script: lr.script };
+    continue;
+  }
   if (tiedWith > 0) tiedCount += 1;
 
   const cat = CAT_KEY_TO_LEXICON[winner];
@@ -154,8 +176,8 @@ const out = {
     generated: new Date().toISOString(),
     source: {
       lexicon: "data-src/lexicon-by-country.tsv",
-      percentages: "data-src/country-emotion-percentages-dummy.csv",
-      percentagesAreDummy: true,
+      percentages: `data-src/${sourceName}`,
+      percentagesAreDummy: !combined,
     },
     rule: "argmax over the 14 pain categories; no_pain and out_of_scope excluded",
     countryCount: Object.keys(countries).length,
@@ -165,6 +187,7 @@ const out = {
   },
   categories,
   countries,
+  ...(combined ? { missingCountries } : {}),
 };
 
 mkdirSync(dirname(OUT), { recursive: true });

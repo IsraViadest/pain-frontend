@@ -30,10 +30,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const DATA = join(ROOT, "public/emo/emo-data.json");
+const combined = process.argv.includes("--combined-v2");
+const ASSET = combined ? "emo/combined-v2" : "emo";
+const DATA = join(ROOT, "public", ASSET, "emo-data.json");
 const BRAND = join(ROOT, "public/fonts/Apercu Pro Regular.otf");
-const OUT_FONTS = join(ROOT, "public/emo/fonts");
-const OUT_CSS = join(ROOT, "src/emo/fonts.generated.css");
+const OUT_FONTS = join(ROOT, "public", ASSET, "fonts");
+const OUT_CSS = join(ROOT, combined ? "src/emo/fonts.combined-v2.generated.css" : "src/emo/fonts.generated.css");
+const FAMILY_PREFIX = combined ? "NotoEmoV2" : "NotoEmo";
+const SCOPE = combined ? 'html[data-emo-dataset="combined-v2"] ' : "";
 const CACHE = join(ROOT, "node_modules/.cache/emo-fonts");
 
 /** Script code -> google/fonts `ofl/<dir>` holding a Noto face for it. */
@@ -48,7 +52,7 @@ const SCRIPT_SOURCE = {
 };
 
 function py(code) {
-  return execFileSync("python3", ["-c", code], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  return execFileSync(process.env.PYTHON ?? "python3", ["-c", code], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
 // ---- 1. every string the views can render, grouped by script -------------------------------
@@ -64,6 +68,7 @@ for (const c of Object.values(data.countries)) {
   addTo("Latn", c.en);          // English gloss, always Latin
   addTo("Latn", c.name);        // country name (tooltips)
 }
+for (const c of Object.values(data.missingCountries ?? {})) addTo("Latn", c.name);
 for (const c of data.categories) addTo("Latn", c.label);
 
 // ---- 2. drop anything Apercu Pro already covers ---------------------------------------------
@@ -108,9 +113,9 @@ let total = 0;
 for (const [script, codepoints] of [...needed].sort((a, b) => b[1].length - a[1].length)) {
   const dir = SCRIPT_SOURCE[script];
   if (!dir) throw new Error(`no Noto source mapped for script "${script}"`);
-  const src = await sourceFor(dir);
   const pinned = join(CACHE, `${script}.400.ttf`);
   if (!existsSync(pinned)) {
+    const src = await sourceFor(dir);
     py(
       `from fontTools.ttLib import TTFont;from fontTools.varLib import instancer;` +
       `f=TTFont(${JSON.stringify(src)});` +
@@ -139,14 +144,14 @@ const css = [
   "   supplies only the characters it lacks. font-display:block avoids a flash of tofu. */",
   "",
   ...faces.map(({ script }) =>
-    `@font-face {\n  font-family: "NotoEmo-${script}";\n  src: url("/emo/fonts/${script}.woff2") format("woff2");\n  font-weight: 400;\n  font-style: normal;\n  font-display: block;\n}`),
+    `@font-face {\n  font-family: "${FAMILY_PREFIX}-${script}";\n  src: url("/${ASSET}/fonts/${script}.woff2") format("woff2");\n  font-weight: 400;\n  font-style: normal;\n  font-display: block;\n}`),
   "",
   ...faces.map(({ script }) =>
-    `.emo-sc-${script} {\n  font-family: "Apercu Pro", "NotoEmo-${script}", system-ui, sans-serif;\n}`),
+    `${SCOPE}.emo-sc-${script} {\n  font-family: "Apercu Pro", "${FAMILY_PREFIX}-${script}", system-ui, sans-serif;\n}`),
   "",
   "/* Scripts fully covered by the brand face need no Noto subset. */",
   ...[...byScript.keys()].filter((s) => !needed.has(s)).map((s) =>
-    `.emo-sc-${s} {\n  font-family: "Apercu Pro", system-ui, sans-serif;\n}`),
+    `${SCOPE}.emo-sc-${s} {\n  font-family: "Apercu Pro", system-ui, sans-serif;\n}`),
   "",
 ].join("\n");
 mkdirSync(dirname(OUT_CSS), { recursive: true });
