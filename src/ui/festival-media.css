@@ -1,13 +1,15 @@
 .festival-media {
-  position: absolute;
-  top: 14px;
-  left: clamp(220px,26vw,360px);
-  width: 190px;
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  width: 300px;
+  text-align: right;
   pointer-events: none;
 }
 
 .festival-media__link {
   display: flex;
+  flex-direction: row-reverse;
   align-items: center;
   gap: 8px;
   color: var(--text-primary,#e8eaef);
@@ -26,9 +28,20 @@
   border-radius: 3px;
 }
 
-.festival-media__link:focus-visible {
+.festival-media__link:focus-visible,
+.festival-media__workshop:focus-visible {
   outline: 2px solid #a7d0ff;
   outline-offset: 4px;
+}
+
+.festival-media__workshop {
+  display: block;
+  margin-top: 4px;
+  padding-right: 36px;
+  color: var(--text-primary,#e8eaef);
+  font: 11px/1.4 "Apercu Pro",sans-serif;
+  text-shadow: 0 1px 4px #000;
+  pointer-events: auto;
 }
 
 .video-invitation {
@@ -113,10 +126,6 @@
 
 .video-invitation--docked .festival-media__play {
   font-size: 13px;
-}
-
-.blob-button--lower-label .blob-button__label {
-  top: 56%;
 }
 
 #app.has-docked-video #ui-layer-stack[data-height-constrained] {
@@ -238,9 +247,15 @@
     position: static;
     width: min(100%,260px);
     margin-top: 6px;
+    text-align: left;
   }
   .festival-media__link {
+    flex-direction: row;
     font-size: 11px;
+  }
+  .festival-media__workshop {
+    padding: 0 0 0 32px;
+    margin-top: 4px;
   }
   .festival-media__link img {
     width: 24px;
@@ -278,13 +293,6 @@
 }
 
 @media (max-height: 500px) and (min-width: 520px) {
-  .festival-media {
-    position: absolute;
-    left: 190px;
-    top: 0;
-    width: 210px;
-    margin: 0;
-  }
   .festival-media__link {
     font-size: 11px;
   }
