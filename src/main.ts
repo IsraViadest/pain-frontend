@@ -540,8 +540,8 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setScarDepthStyle(preset?.scarDepthStyle ?? "none");
   globe.setScarReliefPalette(preset?.scarReliefPalette ?? "coral");
-  globe.setScarDepthSize(preset?.scarDepthSize === true &&
-    (layerId === "physpain" || layerId === "all-layers"));
+  globe.setScarDepthSize(layerId === "physpain" || layerId === "all-layers"
+    ? preset?.scarDepthSize ?? false : false);
   globe.setPhysicalOceanBlue(preset?.physicalOceanBlue === true);
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
     quality?.samples ?? preset?.atmosphereSamples ?? 32,

@@ -119,10 +119,11 @@ export interface CountryProfilePreset {
   scarDepthStyle?: "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
     "relief" | "shadow";
   scarContourStyle?: "land-blue" | "all-blue" | "land-red" | "all-red" |
-    "water-blue" | "water-coral" | "water-dots";
+    "water-blue" | "water-coral" | "water-dots" |
+    "water-blue-depth" | "water-coral-depth" | "water-dots-depth";
   scarContourLevels?: 16 | 24;
   scarReliefPalette?: "coral" | "crimson" | "rose" | "vibrant";
-  scarDepthSize?: boolean;
+  scarDepthSize?: boolean | "recessed-small";
   physicalOceanBlue?: boolean;
   surfaceDetail?: 1 | 2;
   countryContourDegrees?: number;
@@ -142,7 +143,8 @@ export interface CountryProfilePreset {
   atmosphereFraction?: number;
   atmosphereSmooth?: boolean;
   socioeconomicDataset?: "gdp-per-capita-2024";
-  emotionDataset?: "combined-v2";
+  emotionDataset?: "combined-v2" | "combined-v2-no-anger";
+  fitShortScreenControls?: boolean;
   environmentalContextOpacity?: number;
   socioeconomicStyle?: "color" | "hatch" | "woven";
   socioeconomicContextOpacity?: number;
@@ -1107,6 +1109,38 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     description: "2026-09-05 combined emotion data with dedicated native-word font subsets.",
     atmosphereMode: "volume-very-strong-separated", emotionDataset: "combined-v2",
   },
+  {
+    ...V38_BASE, id: "v44-a_with-anger", label: "v44: new emotions, including anger",
+    description: "All 14 pain categories compete for each country's label.",
+    atmosphereMode: "volume-very-strong-separated", emotionDataset: "combined-v2",
+  },
+  {
+    ...V38_BASE, id: "v44-b_without-anger", label: "v44: new emotions, excluding anger",
+    description: "Each country shows its highest remaining pain category when anger is excluded.",
+    atmosphereMode: "volume-very-strong-separated", emotionDataset: "combined-v2-no-anger",
+  },
+  {
+    ...V38_BASE, id: "v45-a_fit-short-screen", label: "v45: scale controls to available height",
+    description: "Below 650px height, shrink the right controls while retaining usable tap targets.",
+    atmosphereMode: "volume-very-strong-separated", fitShortScreenControls: true,
+  },
+  ...(["blue", "coral", "dots"] as const).map((color): CountryProfilePreset => ({
+    ...V38_BASE, id: `v46-${color}_water-depth`, label: `v46: ${color} contours, darker with depth`,
+    description: "Water-only scar contours use progressively darker colors at deeper levels.",
+    atmosphereMode: "volume-very-strong-separated", scarContourStyle: `water-${color}-depth`,
+  })),
+  ...([
+    ["a_original-red", "coral", undefined],
+    ["b_vibrant-red", "vibrant", undefined],
+    ["c_blue-contours", "vibrant", "water-blue-depth"],
+    ["d_coral-contours", "vibrant", "water-coral-depth"],
+    ["e_red-contours", "vibrant", "water-dots-depth"],
+  ] as const).map(([id, palette, contours]): CountryProfilePreset => ({
+    ...V38_BASE, id: `v47-${id}`, label: `v47: reversed depth size, ${id.slice(2)}`,
+    description: "Land dots taper from 150% diameter at neutral surface to 75% at the deepest scar.",
+    atmosphereMode: "volume-very-strong-separated", scarDepthSize: "recessed-small",
+    scarReliefPalette: palette, scarContourStyle: contours,
+  })),
 ];
 
 const DEFAULT_COUNTRY_PROFILE_PRESET_ID = "v38-d_very-strong-linear";

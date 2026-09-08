@@ -965,3 +965,27 @@ current refinement phase complete. Its original progress follows.
   The accelerated new-data cycle visited all 195 countries, wrapped twice, then a manual input
   paused it at 97 seconds. This is an interrupted run, not a full soak pass.
 - Default remains v38-d. Physical-phone acceptance stays deferred. No gallery images were made.
+
+
+## 2026-09-08: rounds v44-v47
+
+- v44-a retains anger in the new data; v44-b excludes it from winner selection and the legend.
+  The remaining 13 categories compete, without altering any source score. Same 192 valid and
+  three missing countries. Hurt 55, Shame 48, Hardship 41 are the largest resulting groups.
+  Separate native-word subsets total 37,516 bytes; both independent font/data checks pass.
+  Build scripts accept --no-anger. Existing generated assets remain untouched.
+- v45 scales the right-side layer controls below 650 CSS pixels using their available height.
+  Landscape starts below the hamburger rather than below the left-side subtitle. Share-button
+  artwork and text also shrink. Normal landscape fits without scrolling; exceptionally small
+  viewports retain scrolling rather than shrinking tap targets below 24 pixels.
+- v46 blue, coral and physical-red ocean contours darken per scar contour level. These represent
+  the artwork's displacement, not measured bathymetry. Land masking and far-side rejection stay.
+- v47 reverses depth sizing as requested: neutral land diameter 150%, deepest scar 75% of the
+  baseline. The previous 100%-200% views remain. Variants retain the incumbent or vibrant red
+  palette without contours, or vibrant dots with each of the three depth-colored water contours.
+  Ocean dots and non-physical single-layer contexts retain their baseline sizing.
+- Browser checks cover 852x393, 568x320, 393x852, selected-profile landscape and 320x240.
+  The last is intentionally scrollable. Physical-device acceptance remains deferred.
+  GPU checks verify all three deeper colors darken and the new dot size endpoints; the
+  no-anger network fixture completes all 1,752 segments and reverses fully after interaction.
+- No default promotion or gallery capture. Temporary inspection images are task-owned.

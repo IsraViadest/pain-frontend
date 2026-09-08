@@ -57,12 +57,19 @@ function positionLegendUnderTitle(): void {
       profileChanges.observe(profile, { attributes: true, attributeFilter: ["style", "hidden"] });
     }
   }
-  const compact = innerWidth <= MOBILE_MAX_WIDTH_PX || innerHeight <= 500;
+  const fitControls = document.getElementById("app")?.hasAttribute("data-cp-fit-controls") &&
+    innerHeight < 650;
+  const compact = innerWidth <= MOBILE_MAX_WIDTH_PX || innerHeight <= 500 || fitControls;
   const about = document.getElementById("ui-bottom-left");
   if (about && share) about.style.maxWidth = compact
     ? `${Math.max(48, share.getBoundingClientRect().left - 28)}px` : "";
   if (picker && title && share) {
-    const top = title.getBoundingClientRect().bottom + 12;
+    const hamburger = title.querySelector<HTMLElement>(".ui-hamburger");
+    // Landscape controls occupy the right rail, clear of the subtitle on the left.
+    const top = fitControls && innerWidth > innerHeight
+      ? hamburger && getComputedStyle(hamburger).display !== "none"
+        ? hamburger.getBoundingClientRect().bottom + 12 : 20
+      : title.getBoundingClientRect().bottom + 12;
     let bottom = share.getBoundingClientRect().top - 12;
     const card = profile?.getBoundingClientRect();
     const pickerLeft = innerWidth - 20 - picker.getBoundingClientRect().width;
@@ -75,7 +82,13 @@ function positionLegendUnderTitle(): void {
     const available = Math.max(0, bottom - top);
     picker.toggleAttribute("data-height-constrained", constrained);
     picker.style.top = constrained ? `${top}px` : "";
-    picker.style.maxHeight = constrained ? `${available}px` : "";
+    // Below 24px tap height, keep scrolling instead of shrinking controls further.
+    const smallestButton = Math.min(...Array.from(picker.children, (button) =>
+      (button as HTMLElement).offsetHeight));
+    const scale = fitControls && constrained && naturalHeight > 0
+      ? Math.min(1, Math.max(24 / Math.max(24, smallestButton), available / naturalHeight)) : 1;
+    picker.style.setProperty("--picker-fit-scale", String(scale));
+    picker.style.maxHeight = constrained ? `${available / scale}px` : "";
     if (constrained) picker.style.setProperty("--picker-available-height", `${available}px`);
     else picker.style.removeProperty("--picker-available-height");
   }

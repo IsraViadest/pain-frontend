@@ -312,6 +312,7 @@ export class CountryProfileView {
     preset: CountryProfilePreset,
     layerId: string,
   ) {
+    appRoot.toggleAttribute("data-cp-fit-controls", preset.fitShortScreenControls === true);
     const compact = preset.layout === "compact";
     const inset = compact ? preset.glyphInset ?? 0.88 : 1;
     const missingPattern = preset.profileMissingPattern === true;
