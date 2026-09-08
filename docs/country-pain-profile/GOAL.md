@@ -1209,3 +1209,34 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
 - Compliance and live legend probes pass at 1080x684, 393x852, and 1080x600, including equal
   bar heights, left-side titles, V centering/clearance, and the requested reference URL.
   Physical-phone acceptance remains deferred; no gallery export.
+
+## 2026-09-08: centered environmental gap and scarred atmospheric edges
+
+- The desktop environmental gap is centered vertically: bars end/start at SVG y88/y120,
+  whose midpoint is 104 in a 208-unit view box. The gap doubles from 16 to 32 units;
+  titles move six units closer to the bars. Physical and socioeconomic legend positions stay.
+  Automatic fitting in short windows is a provisional design assumption while the optional
+  preference question is unanswered. Mobile retains its existing bottom anchoring.
+- All-pain uses the actual displaced surface as its depth guide. Coverage/depth discontinuities
+  trigger native-resolution rays and subpixel samples; no sphere substitutes for the scars.
+  Cross-surface depth averaging is removed. The existing target uses R8 plus 32-bit depth,
+  totaling five bytes per pixel, with bounded 2x sampling when the pixel cap permits it.
+- The initial 1500px candidate required 111,740,492 additional bytes. Even substituting the
+  prior small atmosphere allocation estimates 81.06MB, above the original 64MiB Light target.
+  Light now caps surface detail at 1; higher tiers retain the preset's detail. The depth cap
+  is 3,000,000 pixels for Light, 4,194,304 otherwise. No memory budget was raised.
+- Actual additional storage: 63,955,656 bytes at 1080x684 Light; 64,344,716 at 1500x950 Light;
+  93,366,776 at 1080x684 Standard. Large Light reaches its cap at about 1.45x depth sampling,
+  rather than full 2x. Counts cover known arrays/attachments, not driver bookkeeping.
+- All 12 GPU families and 16 R8 framebuffer checks pass. A non-spherical reference explicitly
+  verifies the sampled-depth path and has 0.2695/255 mean alpha error. Same-detail all-pain
+  before/after images and Standard detail-2 imagery were inspected. GPU overhead is about
+  1.3-1.5ms in paired runs; frame pacing remains 8.3ms median and about 9.0-9.1ms p95.
+- Compliance and live UI/resource probes pass at 1500x950 and 1080x684, including centered gap,
+  closer titles, retained controls, and the 64MiB Light limit. Physical-phone testing is deferred.
+- Live verification was interrupted by Docker's ENOSPC failure writing its VM log. Existing
+  quit/start helpers restored the stack without reset or pruning. Failed bootstrap captures
+  were not accepted as renderer evidence. One earlier browser check failed amid source updates;
+  its process was stopped, but automatic review blocked rm of its temporary profile:
+  /var/folders/sc/3sxw5lhd5hs05l8sr8tc1lqc0000gn/T/emoeval-hQ3E09.
+  No gallery export.

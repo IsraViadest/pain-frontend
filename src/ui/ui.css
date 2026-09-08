@@ -360,6 +360,7 @@
 
 #ui-legend {
   --legend-unit-height: min(272px, calc((100vh - 300px) * 136 / 192));
+  --environment-stack-space: 100vh;
   position: fixed;
   left: 20px;
   top: 50%;
@@ -400,8 +401,8 @@
 }
 
 #ui-legend svg.ui-legend__img[data-stacked] {
-  height: calc(var(--legend-unit-height) * 192 / 136);
-  max-height: calc(64vh * 192 / 136);
+  height: calc(var(--legend-unit-height) * 208 / 136);
+  max-height: min(calc(64vh * 208 / 136), var(--environment-stack-space));
 }
 
 /* Mobile chrome slot — hidden on desktop; shown under max-width 768px. */
@@ -534,7 +535,7 @@
   }
 
   #ui-legend svg.ui-legend__img[data-stacked] {
-    max-height: calc(30vh * 192 / 136);
+    max-height: calc(30vh * 208 / 136);
   }
 
   #ui-layer-stack {

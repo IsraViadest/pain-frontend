@@ -83,7 +83,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
     if (svg.dataset.layout === layout) return;
     svg.dataset.layout = layout;
     const width = portrait ? 72 : 184;
-    const height = portrait ? 192 : compact ? 98 : 136;
+    const height = portrait ? 208 : compact ? 98 : 136;
     svg.toggleAttribute("data-stacked", portrait);
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("width", String(width));
@@ -97,7 +97,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
       text.setAttribute("text-anchor", portrait ? "middle" : "start");
       text.replaceChildren();
       if (portrait) {
-        text.setAttribute("transform", `translate(12, ${48 + index * 96}) rotate(-90)`);
+        text.setAttribute("transform", `translate(18, ${48 + index * 112}) rotate(-90)`);
         for (const [line, label] of (index === 0 ? ["Temperature", "Change"] : ["Emissions", "(CO2)"]).entries()) {
           const span = document.createElementNS(SVG_NS, "tspan");
           span.setAttribute("x", "0");
@@ -110,7 +110,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
         text.textContent = index === 0 ? "Temperature Change" : "Emissions (CO2)";
       }
       bar.setAttribute("x", String(portrait ? 42 : 0));
-      bar.setAttribute("y", String(portrait ? 8 + index * 96 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
+      bar.setAttribute("y", String(portrait ? 8 + index * 112 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
       bar.setAttribute("width", String(portrait ? 12 : 184));
       bar.setAttribute("height", String(portrait ? 80 : compact ? 10 : 14));
       bar.setAttribute("rx", portrait ? "6" : compact ? "5" : "7");
@@ -126,7 +126,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
     for (const [index, text] of co2Endpoints.entries()) {
       text.setAttribute("font-size", "6");
       text.setAttribute("x", "48");
-      text.setAttribute("y", index === 1 ? "102" : "190");
+      text.setAttribute("y", index === 1 ? "118" : "206");
       text.setAttribute("text-anchor", "middle");
       text.style.display = portrait ? "" : "none";
     }

@@ -52,9 +52,11 @@
         const height = svg.getBoundingClientRect().height;
         const mobile = innerWidth <= 768 || innerHeight <= 500;
         const unit = Math.min(272, mobile ? innerHeight * .3 : (innerHeight - 300) * 136 / 192);
-        const ratio = name === 'Environmental Pain' ? 192 / 136 : name === 'Physical Pain' ? 170 / 136 : 1;
+        const ratio = name === 'Environmental Pain' ? 208 / 136 : name === 'Physical Pain' ? 170 / 136 : 1;
+        const stackSpace = Math.max(0, innerHeight - 2 * (document.querySelector('#ui-title').getBoundingClientRect().bottom + 12));
         const expectedHeight = Math.min(unit * ratio,
-          innerHeight * (mobile ? .3 : .64) * (name === 'Environmental Pain' ? ratio : 1));
+          innerHeight * (mobile ? .3 : .64) * (name === 'Environmental Pain' ? ratio : 1),
+          name === 'Environmental Pain' && !mobile ? stackSpace : Infinity);
         check(Math.abs(height - expectedHeight) < 2, `Legend height ${height}, expected ${expectedHeight}`);
         if (name === 'Physical Pain') {
           const endpoint = svg.querySelector('circle[data-depth="1"]').getAttribute('fill');
@@ -85,10 +87,15 @@
           const bars = [...svg.querySelectorAll('rect')].map(e => e.getBoundingClientRect());
           check(Math.abs(bars[0].left - bars[1].left) < 1 && bars[0].bottom < bars[1].top,
             'Environmental scales not stacked');
-          check(bars.every(r => Math.abs(r.height - socioeconomicBarHeight) < 1),
-            'Environmental scales differ in height from socioeconomic');
+          check(Math.abs(bars[0].height - bars[1].height) < 1 &&
+            bars[0].height <= socioeconomicBarHeight + 1, 'Inconsistent environmental scale size');
+          if (!mobile) check(Math.abs((bars[0].bottom + bars[1].top) / 2 - innerHeight / 2) < 1,
+            'Environmental gap is not vertically centered');
+          check(Math.abs((bars[1].top - bars[0].bottom) / bars[0].height - 32 / 80) < .01,
+            'Environmental groups are not separated by the intended larger gap');
           for (const [i, title] of [...svg.querySelectorAll('text')].slice(0, 2).entries()) {
-            check(title.getBoundingClientRect().right < bars[i].left, 'Environmental title not left of scale');
+            const gap = bars[i].left - title.getBoundingClientRect().right;
+            check(gap > 0 && gap < bars[i].height * .18, 'Environmental title not close to scale');
           }
           const bounds = svg.getBoundingClientRect();
           for (const label of svg.querySelectorAll('text')) {
@@ -99,7 +106,12 @@
           }
         }
       }
-      results.push({ layer: name, contours: expected, text });
+      const storage = name === 'all the pain' ? globe.getRenderDetailStorage() : undefined;
+      if (storage && new URL(location.href).searchParams.get('cpQuality') === 'light') {
+        check(storage.total <= 64 * 1024 ** 2, 'Light storage exceeded: ' + JSON.stringify(storage));
+      }
+      results.push({ layer: name, contours: expected, text, storage,
+        atmosphere: storage ? globe.getAtmosphereStats() : undefined });
     }
     const picker = document.querySelector('#ui-layer-stack');
     if (projection && picker.hasAttribute('data-height-constrained')) {

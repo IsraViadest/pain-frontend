@@ -95,13 +95,14 @@ function positionLegendUnderTitle(): void {
     if (constrained) picker.style.setProperty("--picker-available-height", `${available}px`);
     else picker.style.removeProperty("--picker-available-height");
   }
-  // Retain the CSS slide transform, whose desktop Y offset is half the legend height.
-  // Other legends and compact layouts keep their original CSS anchors.
-  host.style.top = innerWidth > MOBILE_MAX_WIDTH_PX && innerHeight > 500 &&
-    currentContent?.hasAttribute("data-stacked") && title
-    ? `${title.getBoundingClientRect().bottom + 12 + host.getBoundingClientRect().height / 2}px`
-    : "";
+  // The stacked pair's inter-scale gap is at its center, aligned by the normal CSS anchor.
+  host.style.top = "";
   host.style.bottom = "";
+  if (innerWidth > MOBILE_MAX_WIDTH_PX && innerHeight > 500 &&
+      currentContent?.hasAttribute("data-stacked") && title) {
+    host.style.setProperty("--environment-stack-space",
+      `${Math.max(0, innerHeight - 2 * (title.getBoundingClientRect().bottom + 12))}px`);
+  } else host.style.removeProperty("--environment-stack-space");
   if (compact) {
     host.style.left = "";
     return;
