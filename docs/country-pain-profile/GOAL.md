@@ -989,3 +989,29 @@ current refinement phase complete. Its original progress follows.
   GPU checks verify all three deeper colors darken and the new dot size endpoints; the
   no-anger network fixture completes all 1,752 segments and reverses fully after interaction.
 - No default promotion or gallery capture. Temporary inspection images are task-owned.
+
+
+## 2026-09-08: live emotion subsets and linked catalogue
+
+The operator canceled the gallery/export request. This slice delivers the linked catalogue
+instead; no new gallery or image export is required by this request.
+
+- Every cp Emotional Pain legend now has faint exclusion toggles. A pressed, bright × excludes
+  that category; pressing again restores it. Country names still select category networks.
+- Filtering reranks the complete original score row, preserves country selection/camera and other
+  pain signals, replaces only emotional render layers, and rebuilds the selected network.
+  cpExclude stores the subset in the URL; an explicit empty value restores every category.
+  v44-b defaults to excluded anger but retains its toggle so it can be restored.
+- All-off means filtered out, not missing. Genuine source missingness remains separate. The
+  selection controller and country-cycle roster retain the same country profile objects.
+- The first filter lazily loads fonts for all selectable native terms: 151,924 bytes across
+  19 script subsets plus a 2,536-byte native-script map. Earlier subset assets are unchanged.
+- Verification: independent source/font tests pass 6,192 country comparisons and all single-
+  category selections. Browser UI checks pass original and combined sources, desktop and mobile,
+  rapid changes, all-off/re-enable, subset selection, retained India profile, and URL state.
+  Twenty-two filter toggles produce 22 distinct filter metrics and no extra country-click metrics.
+- Review caught recreated label/selection layers losing chrome occlusion and peer strength.
+  Shared emotional settings now apply after every mount. Full npm run check and final UI pass.
+- VARIANTS.md and /country-profile-variants.html document all 152 presets across 47 rounds,
+  named baselines, actual configured differences, viewing instructions and three subset links.
+  All preset links resolve against the live registry. The default remains v38-d.
