@@ -15,6 +15,7 @@ import { fetchLayers, fetchPoints } from "./api/client";
 import { getCountryCentroid } from "./api/countryCentroids";
 import {
   METRICS_KIND_LAYER,
+  METRICS_KIND_CATEGORY,
   trackToggle,
 } from "./api/metricsApi";
 import { getMapLayerById, isChoroplethMapLayer, resolveLayerLexiconBucket } from "./api/layers";
@@ -56,7 +57,7 @@ import { playPainSound } from "./sound/soundEngine";
 import { hideLegend, showLegend } from "./ui/legend";
 import { installTextSelectionGuard } from "./ui/textSelectionGuard";
 import "./emo/emo.css";
-import { loadEmoData } from "./emo/emoData";
+import { loadEmoData, type EmoData } from "./emo/emoData";
 import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
 import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
 import { createEmoSelectionLayer, type EmoSelectionLayer } from "./emo/selection";
@@ -501,8 +502,56 @@ function countryPreset() {
   return countryPresetReady ??= import("./countryProfile/presets").then((module) =>
     module.resolveCountryProfilePreset());
 }
-async function loadViewEmotions() {
-  return loadEmoData(countryProfileEnabled ? (await countryPreset()).emotionDataset : undefined);
+let emotionExclusions: Set<string> | null = null;
+let filterRevision = 0;
+let filterWork = Promise.resolve();
+async function loadViewEmotions(): Promise<EmoData> {
+  if (!countryProfileEnabled) return loadEmoData();
+  const preset = await countryPreset();
+  const dataset = preset.emotionDataset === "combined-v2-no-anger" ? "combined-v2" : preset.emotionDataset;
+  const base = await loadEmoData(dataset);
+  if (emotionExclusions === null) {
+    const value = new URL(location.href).searchParams.get("cpExclude");
+    emotionExclusions = new Set(value === null
+      ? preset.emotionDataset === "combined-v2-no-anger" ? ["06_anger"] : []
+      : value.split(",").filter(Boolean));
+  }
+  const { filterEmotions } = await import("./emo/categoryFilter");
+  return filterEmotions(base, emotionExclusions);
+}
+function toggleEmotionCategory(cat: string): void {
+  if (!emotionExclusions) return;
+  if (emotionExclusions.has(cat)) emotionExclusions.delete(cat);
+  else emotionExclusions.add(cat);
+  emoLegend?.setExcluded(emotionExclusions);
+  trackToggle(METRICS_KIND_CATEGORY, `emotion-filter:${cat}`, !emotionExclusions.has(cat));
+  const url = new URL(location.href);
+  url.searchParams.set("cpExclude", [...emotionExclusions].sort().join(","));
+  history.replaceState(null, "", url);
+  const revision = ++filterRevision;
+  filterWork = filterWork.then(async () => {
+    if (revision !== filterRevision) return;
+    const data = await loadViewEmotions();
+    if (revision !== filterRevision) return;
+    countryPresentation?.allowManualMotion();
+    const selected = countryProfileRuntime?.selectedIso3;
+    emoLegend?.destroy(); emoLegend = null;
+    emoLabelLayer?.destroy(); emoLabelLayer = null;
+    emoArcLayer?.destroy(); emoArcLayer = null;
+    emoLeaderLineLayer?.destroy(); emoLeaderLineLayer = null;
+    emoSelectionLayer?.destroy(); emoSelectionLayer = null;
+    emoMotion = null;
+    const labels = await mountEmotionLayers(data);
+    countryProfileRuntime?.refreshEmotions(data);
+    syncEmoLayer(lastLayerId);
+    if (selected && data.countries[selected] && (lastLayerId === "emopain" || lastLayerId === "all-layers")) {
+      preserveCountryProfileOnEmoClear = true;
+      try { labels?.selectCountry(selected); }
+      finally { preserveCountryProfileOnEmoClear = false; }
+    }
+    document.querySelector<HTMLButtonElement>(`.emo-legend__exclude[data-cat="${cat}"]`)?.focus();
+    if (emoLegendHost) emoLegendHost.dataset.filterRevision = String(revision);
+  }).catch((error) => { setStatus(`Emotion filter failed: ${String(error)}`); console.error(error); });
 }
 async function fetchViewPoints(layer: string, signal?: AbortSignal): Promise<PainPoint[]> {
   if (countryProfileEnabled && layer === "socioecopain" &&
@@ -529,14 +578,20 @@ function countryChromeRects(): readonly DOMRectReadOnly[] {
   });
 }
 
-function applyCountryProfileGlobePreset(layerId: string): void {
+function applyCountryProfileEmotionSettings(): void {
   const preset = countryProfileRuntime?.preset;
-  const quality = countryProfileRuntime?.quality?.settings;
   emoLabelLayer?.setOcclusionRects(preset?.chromeOcclusion ? countryChromeRects : null);
   document.getElementById("emo-legend")?.toggleAttribute(
     "data-soft-halo",
     preset?.emotionalLegendHalo === true,
   );
+  emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
+}
+
+function applyCountryProfileGlobePreset(layerId: string): void {
+  const preset = countryProfileRuntime?.preset;
+  const quality = countryProfileRuntime?.quality?.settings;
+  applyCountryProfileEmotionSettings();
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setScarDepthStyle(preset?.scarDepthStyle ?? "none");
   globe.setScarReliefPalette(preset?.scarReliefPalette ?? "coral");
@@ -553,7 +608,6 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   globe.setScarContourLevels(preset?.scarContourLevels ?? 24);
   globe.setScarContourStyle(preset?.scarContourStyle ?? null);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
-  emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
   const physical = layerId === "physpain" || layerId === "all-layers";
   const enhancedStipple = physical || preset?.stippleAllLayers === true;
   globe.setStippleContextOpacity(layerId === "envpain" ? preset?.environmentalContextOpacity ?? 1 :
@@ -698,6 +752,7 @@ async function ensureCountryProfileRuntime(): Promise<void> {
       pointCache,
       appRootEl,
       lastLayerId,
+      await loadViewEmotions(),
     );
     const runtime = countryProfileRuntime;
     applyCountryProfileGlobePreset(lastLayerId);
@@ -1030,74 +1085,83 @@ function loop(now: number): void {
   requestAnimationFrame(loop);
 }
 
+async function mountEmotionLayers(data: EmoData): Promise<EmoLabelLayer | null> {
+  if (!emoLabelHost) return null;
+  emoMotion = createEmoSelectionMotion({ data: data, params: emoParams });
+  emoLabelLayer = await createEmoLabelLayer({
+    host: emoLabelHost,
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+    // The label layer owns the selection because it owns the click; the arcs and the
+    // country fill are told from here.
+    onSelect: (selection) => {
+      countryPresentation?.allowManualMotion();
+      // Order matters here. setSelection clears any wave in flight, and the arc layer starts
+      // the new one, so the arcs go second or the wave they just planned is thrown away.
+      emoMotion?.setSelection(selection?.cat ?? null);
+      emoArcLayer?.setSelectedCategory(selection?.cat ?? null, selection?.iso3 ?? null);
+      emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
+      emoLegend?.setSelectedCategory(selection?.cat ?? null);
+      if (!preserveCountryProfileOnEmoClear) {
+        if (selection) countryProfileRuntime?.select(selection.iso3, true);
+        else countryProfileRuntime?.clear(true);
+      }
+      // The leader lines are not told directly: they follow the motion, which is the one
+      // signal all three layers share, so they cannot disagree about what is selected.
+    },
+    onCanvasMiss: countryProfileEnabled ? handleCountrySurfaceClick : undefined,
+    // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
+    onReshuffle: () => {
+      emoPanel?.setParam("randomSeed", (Math.round(emoParams.randomSeed) % 200) + 1);
+    },
+  });
+  emoArcLayer = await createEmoArcLayer({
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+  });
+  emoLeaderLineLayer = await createEmoLeaderLineLayer({
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+  });
+  emoSelectionLayer = await createEmoSelectionLayer({
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+  });
+  if (emoLegendHost) {
+    emoLegend = await createEmoLegend({
+      host: emoLegendHost,
+      data: data,
+      params: emoParams,
+      // A legend click is a click on a country, taking the same path as one on the globe.
+      // There is no second selection route, so nothing can drift out of step with it.
+      excluded: emotionExclusions ?? undefined,
+      onToggleCategory: countryProfileEnabled ? toggleEmotionCategory : undefined,
+      onPick: (iso3) => emoLabelLayer?.selectCountry(iso3),
+      // Under `legendRepeatClick: "clear"`, a second click on the word already selected puts
+      // the selection away by the same route a click on empty globe takes.
+      onClear: () => emoLabelLayer?.clearSelection(),
+      // Clicking the word whose network is still arriving does nothing. The legend asks
+      // before it rolls, so a blocked click does not walk the seeded sequence.
+      isBusy: (cat) => emoMotion?.isBuilding(cat) === true,
+    });
+  }
+  applyCountryProfileEmotionSettings();
+  return emoLabelLayer;
+}
+
 (async () => {
   initBackgroundMusic();
   if (emoViewsEnabled && emoLabelHost) {
     try {
-      emoMotion = createEmoSelectionMotion({ data: await loadViewEmotions(), params: emoView.params });
-      emoLabelLayer = await createEmoLabelLayer({
-        host: emoLabelHost,
-        globe,
-        data: await loadViewEmotions(),
-        params: emoView.params,
-        motion: emoMotion,
-        // The label layer owns the selection because it owns the click; the arcs and the
-        // country fill are told from here.
-        onSelect: (selection) => {
-          countryPresentation?.allowManualMotion();
-          // Order matters here. setSelection clears any wave in flight, and the arc layer starts
-          // the new one, so the arcs go second or the wave they just planned is thrown away.
-          emoMotion?.setSelection(selection?.cat ?? null);
-          emoArcLayer?.setSelectedCategory(selection?.cat ?? null, selection?.iso3 ?? null);
-          emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
-          emoLegend?.setSelectedCategory(selection?.cat ?? null);
-          if (!preserveCountryProfileOnEmoClear) {
-            if (selection) countryProfileRuntime?.select(selection.iso3, true);
-            else countryProfileRuntime?.clear(true);
-          }
-          // The leader lines are not told directly: they follow the motion, which is the one
-          // signal all three layers share, so they cannot disagree about what is selected.
-        },
-        onCanvasMiss: countryProfileEnabled ? handleCountrySurfaceClick : undefined,
-        // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
-        onReshuffle: () => {
-          emoPanel?.setParam("randomSeed", (Math.round(emoParams.randomSeed) % 200) + 1);
-        },
-      });
-      emoArcLayer = await createEmoArcLayer({
-        globe,
-        data: await loadViewEmotions(),
-        params: emoView.params,
-        motion: emoMotion,
-      });
-      emoLeaderLineLayer = await createEmoLeaderLineLayer({
-        globe,
-        data: await loadViewEmotions(),
-        params: emoView.params,
-        motion: emoMotion,
-      });
-      emoSelectionLayer = await createEmoSelectionLayer({
-        globe,
-        data: await loadViewEmotions(),
-        params: emoView.params,
-        motion: emoMotion,
-      });
-      if (emoLegendHost) {
-        emoLegend = await createEmoLegend({
-          host: emoLegendHost,
-          data: await loadViewEmotions(),
-          params: emoView.params,
-          // A legend click is a click on a country, taking the same path as one on the globe.
-          // There is no second selection route, so nothing can drift out of step with it.
-          onPick: (iso3) => emoLabelLayer?.selectCountry(iso3),
-          // Under `legendRepeatClick: "clear"`, a second click on the word already selected puts
-          // the selection away by the same route a click on empty globe takes.
-          onClear: () => emoLabelLayer?.clearSelection(),
-          // Clicking the word whose network is still arriving does nothing. The legend asks
-          // before it rolls, so a blocked click does not walk the seeded sequence.
-          isBusy: (cat) => emoMotion?.isBuilding(cat) === true,
-        });
-      }
+      await mountEmotionLayers(await loadViewEmotions());
       syncEmoLayer(lastLayerId);
       applyEmoCaptureOverrides(globe);
       if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {

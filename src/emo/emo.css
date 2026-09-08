@@ -392,6 +392,40 @@
   outline-offset: 2px;
 }
 
+.emo-legend__choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  width: max-content;
+}
+
+.emo-legend__exclude {
+  border: 0;
+  background: none;
+  color: #fff;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.18;
+  transition: opacity 180ms ease;
+}
+
+.emo-legend__exclude[aria-pressed="true"],
+.emo-legend__exclude:hover,
+.emo-legend__exclude:focus-visible { opacity: 1; }
+
+.emo-legend__exclude:focus-visible {
+  outline: 1px solid #88c8ff;
+  outline-offset: 1px;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .emo-legend__exclude { width: 24px; height: 24px; }
+}
+
 /* View panel. The box, rows and sliders reuse the globe debug panel's classes from style.css,
    which is left untouched; only the side differs, so the entry and panel mirror the debug ones
    in the opposite corner. Both sit at z-index 3, above the production chrome at 2. */

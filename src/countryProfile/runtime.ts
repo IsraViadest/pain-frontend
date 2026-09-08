@@ -1,12 +1,12 @@
 import { METRICS_KIND_CATEGORY, trackToggle } from "../api/metricsApi";
-import { loadEmoData } from "../emo/emoData";
+import { loadEmoData, type EmoData } from "../emo/emoData";
 import {
   ensureCountryGeometriesLoaded,
   findCountryInGeometries,
   getCountryGeometries,
 } from "../globe/countryGeometry";
 import type { PainPoint } from "../types/api";
-import { buildCountryPainProfiles, type CountryPainProfile } from "./data";
+import { buildCountryPainProfiles, emotionalSignal, type CountryPainProfile } from "./data";
 import { createCountryProfileView, type CountryProfileView } from "./profile";
 import {
   resolveCountryProfilePreset,
@@ -78,11 +78,12 @@ export class CountryProfileRuntime {
     pointsByLayer: ReadonlyMap<string, readonly PainPoint[]>,
     appRoot: HTMLElement,
     layerId: string,
+    emotionalData?: EmoData,
   ): Promise<CountryProfileRuntime> {
     await ensureCountryGeometriesLoaded();
     const preset = resolveCountryProfilePreset();
     const profiles = buildCountryPainProfiles(
-      await loadEmoData(preset.emotionDataset),
+      emotionalData ?? await loadEmoData(preset.emotionDataset),
       {
         environmental: requireLayer(pointsByLayer, ENVIRONMENTAL_LAYER),
         physical: requireLayer(pointsByLayer, PHYSICAL_LAYER),
@@ -116,6 +117,12 @@ export class CountryProfileRuntime {
 
   clear(human: boolean): void {
     this.selection.clear(human);
+  }
+
+  refreshEmotions(data: EmoData): void {
+    for (const [iso3, profile] of this.profiles) profile.emotional = emotionalSignal(data, iso3);
+    const selected = this.selectedIso3;
+    if (selected) this.view.setProfile(this.profiles.get(selected)!);
   }
 
   setLayer(layerId: string): void {

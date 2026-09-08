@@ -26,6 +26,7 @@ export interface CountryPainProfile {
     language: string;
     script: string;
     value: number | null;
+    filteredOut?: boolean;
   };
   temperature: CountrySignal;
   co2: CountrySignal;
@@ -101,41 +102,14 @@ export function buildCountryPainProfiles(
   );
   const physical = aggregateGeospatialSignal(layers.physical, countries, null);
   const socioeconomic = aggregateSocioeconomicSignal(layers.socioeconomic);
-  const categoryByKey = new Map(
-    emotionalData.categories.map((category) => [category.key, category]),
-  );
   const profiles = new Map<string, CountryPainProfile>();
-
-  for (const [rawIso3, country] of Object.entries(emotionalData.countries)) {
+  for (const [rawIso3, country] of Object.entries({
+    ...emotionalData.countries, ...emotionalData.missingCountries,
+  })) {
     const iso3 = rawIso3.trim().toUpperCase();
-    const category = categoryByKey.get(country.cat);
-    if (!category) throw new Error(`Unknown emotional category: ${country.cat}`);
     profiles.set(iso3, {
-      iso3,
-      countryName: country.name,
-      emotional: {
-        categoryKey: country.cat,
-        category: category.label,
-        nativeTerm: country.term.trim() || category.label,
-        englishTerm: category.label,
-        language: country.lang,
-        script: country.script,
-        value: country.score,
-      },
-      temperature: temperature.get(iso3) ?? missingSignal(),
-      co2: co2.get(iso3) ?? missingSignal(),
-      physical: physical.get(iso3) ?? missingSignal(),
-      socioeconomic: socioeconomic.get(iso3) ?? missingSignal(),
-    });
-  }
-  for (const [iso3, country] of Object.entries(emotionalData.missingCountries ?? {})) {
-    profiles.set(iso3, {
-      iso3,
-      countryName: country.name,
-      emotional: {
-        categoryKey: "", category: "", nativeTerm: "", englishTerm: "",
-        language: country.lang, script: country.script, value: null,
-      },
+      iso3, countryName: country.name,
+      emotional: emotionalSignal(emotionalData, rawIso3),
       temperature: temperature.get(iso3) ?? missingSignal(),
       co2: co2.get(iso3) ?? missingSignal(),
       physical: physical.get(iso3) ?? missingSignal(),
@@ -143,6 +117,23 @@ export function buildCountryPainProfiles(
     });
   }
   return profiles;
+}
+
+/** Shared by initial aggregation and live category filtering; other signals stay intact. */
+export function emotionalSignal(data: EmoData, iso3: string): CountryPainProfile["emotional"] {
+  const country = data.countries[iso3];
+  if (!country) {
+    const missing = data.missingCountries?.[iso3];
+    if (!missing) throw new Error(`Unknown emotional country: ${iso3}`);
+    return { categoryKey: "", category: "", nativeTerm: "", englishTerm: "",
+      language: missing.lang, script: missing.script, value: null,
+      filteredOut: missing.filteredOut };
+  }
+  const category = data.categories.find((c) => c.key === country.cat);
+  if (!category) throw new Error(`Unknown emotional category: ${country.cat}`);
+  return { categoryKey: country.cat, category: category.label,
+    nativeTerm: country.term.trim() || category.label, englishTerm: category.label,
+    language: country.lang, script: country.script, value: country.score };
 }
 
 /** Linear SVG scale whose visible area is proportional to a normalized value. */

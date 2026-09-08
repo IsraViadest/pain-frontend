@@ -157,6 +157,7 @@ function legendOrder(categories: readonly EmoCategoryRecord[]): EmoCategoryRecor
 
 export interface EmoLegendLayer {
   setParams(next: EmoViewParams): void;
+  setExcluded(next: ReadonlySet<string>): void;
   /** Whether the emotional views own the globe right now, independent of the `legend` flag. */
   setVisible(visible: boolean): void;
   /** Mirror the selection: the chosen word stays white, the rest step back like the labels. */
@@ -176,6 +177,8 @@ export async function createEmoLegend(options: {
    * of anything, so there is no country to name.
    */
   onClear: () => void;
+  excluded?: ReadonlySet<string>;
+  onToggleCategory?: (cat: string) => void;
   /**
    * Whether this category's network is still being built, in which case the click does nothing.
    *
@@ -203,6 +206,8 @@ export async function createEmoLegend(options: {
 
   const random = mulberry32(LEGEND_SEED);
   const items = new Map<string, HTMLButtonElement>();
+  const toggles = new Map<string, HTMLButtonElement>();
+  let excluded = new Set(options.excluded);
 
   // The two halves of the L. `display: contents` in the wide layout, so they cost that layout
   // nothing at all. The full-width one comes first because the column is read top to bottom.
@@ -213,7 +218,7 @@ export async function createEmoLegend(options: {
   host.append(wideRow, cornerRow);
 
   /** Every word, in the operator's long-medium-short-medium-long order. */
-  const ordered: HTMLButtonElement[] = [];
+  const ordered: HTMLElement[] = [];
   for (const category of legendOrder(data.categories)) {
     const el = document.createElement("button");
     el.type = "button";
@@ -225,8 +230,24 @@ export async function createEmoLegend(options: {
       el.disabled = true;
       el.title = "No countries in this dataset have this category as their highest score";
     }
-    wideRow.appendChild(el);
-    ordered.push(el);
+    if (options.onToggleCategory) {
+      const choice = document.createElement("span");
+      choice.className = "emo-legend__choice";
+      choice.dataset.cat = category.key;
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "emo-legend__exclude emo-sc-Latn";
+      toggle.textContent = "×";
+      toggle.dataset.cat = category.key;
+      toggle.setAttribute("aria-label", `Exclude ${category.label}`);
+      toggles.set(category.key, toggle);
+      choice.append(el, toggle);
+      wideRow.append(choice);
+      ordered.push(choice);
+    } else {
+      wideRow.appendChild(el);
+      ordered.push(el);
+    }
     items.set(category.key, el);
   }
 
@@ -238,9 +259,14 @@ export async function createEmoLegend(options: {
    */
   function paint(): void {
     for (const [key, el] of items) {
-      const chosen = key === selectedCat;
+      const off = excluded.has(key);
+      el.disabled = off || (members.get(key)?.length ?? 0) === 0;
+      const toggle = toggles.get(key);
+      toggle?.setAttribute("aria-pressed", String(off));
+      if (toggle) toggle.title = `${off ? "Include" : "Exclude"} ${el.textContent}`;
+      const chosen = key === selectedCat && !off;
       el.classList.toggle("emo-legend__item--chosen", chosen);
-      const opacity = chosen
+      const opacity = off ? 0.2 : chosen
         ? 1
         : params.legendOpacity * (selectedCat === null ? 1 : params.selectionDim);
       // The property rather than `opacity` itself, so the stylesheet's :hover rule still wins.
@@ -257,6 +283,12 @@ export async function createEmoLegend(options: {
   }
 
   const onClick = (ev: MouseEvent): void => {
+    const toggle = (ev.target as HTMLElement).closest<HTMLButtonElement>(".emo-legend__exclude");
+    if (toggle?.dataset.cat) {
+      ev.stopPropagation();
+      options.onToggleCategory?.(toggle.dataset.cat);
+      return;
+    }
     const el = (ev.target as HTMLElement).closest<HTMLElement>(".emo-legend__item");
     const cat = el?.dataset.cat;
     if (cat === undefined) return;
@@ -299,7 +331,7 @@ export async function createEmoLegend(options: {
   // Null rather than "", so the first call always runs: an empty corner produces the key "" and
   // would otherwise be indistinguishable from "nothing has happened yet".
   let splitKey: string | null = null;
-  function setSplit(corner: readonly HTMLButtonElement[]): void {
+  function setSplit(corner: readonly HTMLElement[]): void {
     const key = corner.map((el) => el.dataset.cat).join(",");
     if (key === splitKey) return;
     splitKey = key;
@@ -321,12 +353,12 @@ export async function createEmoLegend(options: {
    * and what makes the greedy fill correct: once a word will not go on a fresh line, every word
    * after it is wider and will not either.
    */
-  function packCorner(width: number, lines: number, gapX: number, padX: number): HTMLButtonElement[] {
+  function packCorner(width: number, lines: number, gapX: number, padX: number): HTMLElement[] {
     const inner = width - padX;
     const byWidth = [...ordered].sort(
       (a, b) => a.getBoundingClientRect().width - b.getBoundingClientRect().width,
     );
-    const out: HTMLButtonElement[] = [];
+    const out: HTMLElement[] = [];
     let line = 1;
     let used = 0;
     for (const el of byWidth) {
@@ -485,6 +517,10 @@ export async function createEmoLegend(options: {
   syncBounds();
 
   return {
+    setExcluded(next: ReadonlySet<string>): void {
+      excluded = new Set(next);
+      paint();
+    },
     setParams(next: EmoViewParams): void {
       params = next;
       applyParams();

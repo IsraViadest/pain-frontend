@@ -436,7 +436,8 @@ export class CountryProfileView {
     this.countryName.textContent = profile.countryName;
     const emotionMissing = profile.emotional.value === null;
     this.emotional.dataset.missing = String(emotionMissing);
-    this.nativeTerm.textContent = emotionMissing ? "no data" : profile.emotional.nativeTerm;
+    this.nativeTerm.textContent = emotionMissing
+      ? profile.emotional.filteredOut ? "filtered out" : "no data" : profile.emotional.nativeTerm;
     this.nativeTerm.lang = profile.emotional.language;
     this.nativeTerm.className =
       `country-profile__native emo-sc-${profile.emotional.script}`;
@@ -447,7 +448,8 @@ export class CountryProfileView {
     this.englishTerm.hidden = duplicate || emotionMissing;
     this.emotional.setAttribute(
       "aria-label",
-      emotionMissing ? "Emotional pain: data unavailable" :
+      emotionMissing ? profile.emotional.filteredOut
+        ? "Emotional pain: all categories excluded" : "Emotional pain: data unavailable" :
       `Emotional pain: ${profile.emotional.nativeTerm}; ` +
         `English: ${profile.emotional.englishTerm}; normalized signal ` +
         `${Math.round(profile.emotional.value! * 100)} of 100`,
