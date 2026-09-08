@@ -1,23 +1,34 @@
 # Country profile and globe variants
 
-Last updated: 2026-09-08. Version: 1.1.
+Last updated: 2026-09-09. Version: 1.2.
 
-This catalogue covers all **152 retained country-profile presets**, plus live emotion-filter examples.
+This catalogue covers all **153 retained country-profile presets**, plus live emotion-filter examples.
 It replaces the requested gallery export; no screenshots or new gallery files accompany it.
 The original emotional-view gallery and historical presets remain separate.
 
 Open the [clickable browser catalogue](http://127.0.0.1:3000/country-profile-variants.html).
 The local server must be running. Links open live views; they do not select a winner.
-The default remains [v38-d_very-strong-linear](http://127.0.0.1:3000/?cp=1&cpPreset=v38-d_very-strong-linear).
+The default is [v48-a_web](http://127.0.0.1:3000/?cp=1).
+
+| Version | Link | Current differences |
+|---|---|---|
+| Web | [open](http://127.0.0.1:3000/?cp=1) | Combined emotions with all categories enabled, red water-depth contours, inverse-log 2024 GDP per capita, lowercase labels and complete font coverage. Share and festival links visible. |
+| Projection | [open](http://127.0.0.1:3000/?cp=1&cpProjection=1) | Same data and appearance. Share is invisible and inert but keeps its layout space. Festival links are absent. Defaults to HQ. |
+| Web HQ | [open](http://127.0.0.1:3000/?cp=1&hq=1) | Higher drawing-buffer resolution and Rich detail, bounded to a 4K output pixel count. Also available on mobile; it costs more GPU time. |
+| Projection normal resolution | [open](http://127.0.0.1:3000/?cp=1&cpProjection=1&hq=0) | Projection layout with the normal web resolution and automatic detail selection. |
+
+`cpQuality=light|standard|rich` overrides effect detail independently of output resolution.
+The older explicit presets retain their datasets, including total-GDP comparisons.
+For GDP per capita, the bright upper endpoint is **min** and the darker lower endpoint is **max**.
 
 ## How to compare
 
-[Projection view](http://127.0.0.1:3000/?cp=1&cpPreset=v47-e_red-contours&cpProjection=1)
-hides the share/locate button. Remove `cpProjection=1` to restore the normal invitation;
+[Projection view](http://127.0.0.1:3000/?cp=1&cpProjection=1)
+hides the share/locate button while preserving its footprint. Remove `cpProjection=1` to restore the normal invitation;
 survey functionality is retained. This option can be combined with any country-profile preset.
 
 Video and country-cycle functionality is now hidden across all URLs. Their rows below describe
-retained historical comparisons, not currently available controls. The Ars invitation stays visible.
+retained historical comparisons, not currently available controls. The Ars invitation is web-only.
 Updated legend names, min/max endpoints and contour layer isolation apply to old URLs too.
 
 - Use each row's named baseline and the same layer, country, zoom, and window size.

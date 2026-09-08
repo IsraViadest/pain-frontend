@@ -10,11 +10,19 @@
 <main>
 <header>
 <h1>Country profile and globe variants</h1>
+<h2>Current web and projection versions</h2>
+<table><thead><tr><th>Version</th><th>Changes</th></tr></thead><tbody>
+<tr><td><a href="/?cp=1">Web</a></td><td>v48-a_web: combined emotions, red water-depth contours, inverse-log 2024 GDP per capita, lowercase labels, complete font subsets, updated credits and source links.</td></tr>
+<tr><td><a href="/?cp=1&amp;cpProjection=1">Projection</a></td><td>Same data. Share is hidden but retains its layout space. Festival invitation absent. HQ by default.</td></tr>
+<tr><td><a href="/?cp=1&amp;hq=1">Web HQ</a></td><td>Higher output resolution and Rich detail. Bounded to a 4K pixel count. Works on mobile too, with greater GPU cost.</td></tr>
+<tr><td><a href="/?cp=1&amp;cpProjection=1&amp;hq=0">Projection, normal resolution</a></td><td>Projection layout with ordinary web resolution. Explicit cpQuality overrides effect detail.</td></tr>
+</tbody></table>
+<p>These are the current defaults. Historical preset links below retain their original data choices. GDP/person: minimum income is the brightest endpoint; maximum income is the darkest. The timed workshop invitation is web-only and expires 11 September 2026 at 16:00 Vienna time.</p>
 <p><a href="http://127.0.0.1:3000/?cp=1&amp;cpPreset=v47-e_red-contours&amp;cpProjection=1">Projection view</a> hides the share/locate invitation. Remove <code>cpProjection=1</code> to restore it; the survey functionality remains available.</p>
-<p>Video and country cycle are currently hidden on every URL. Their entries below are historical comparisons. The Ars invitation remains available. Updated legends and contour layer isolation apply across presets.</p>
-<p>152 live presets and emotion-filter examples. Updated 8 September 2026. No gallery images.</p>
+<p>Video and country cycle are currently hidden on every URL. Their entries below are historical comparisons. The Ars invitation is available in web mode only. Updated legends and contour layer isolation apply across presets.</p>
+<p>153 live presets and emotion-filter examples. Updated 9 September 2026. No gallery images.</p>
 <p>Use the same layer, country, zoom and viewport for each comparison. Changes are compared against resolved preset values, including inherited settings. Runtime default means no preset override. Timing must be judged live.</p>
-<p>Default: <a href="http://127.0.0.1:3000/?cp=1&cpPreset=v38-d_very-strong-linear">v38-d very strong linear air</a>. These local links require the running server. The catalogue does not change the application default.</p>
+<p>Default: <a href="http://127.0.0.1:3000/?cp=1">v48-a_web</a>. These local links require the running server. The catalogue does not change the application default.</p>
 </header>
 <section>
 <h2>Recent choices</h2>

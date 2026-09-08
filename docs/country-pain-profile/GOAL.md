@@ -1240,3 +1240,33 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
   its process was stopped, but automatic review blocked rm of its temporary profile:
   /var/folders/sc/3sxw5lhd5hs05l8sr8tc1lqc0000gn/T/emoeval-hQ3E09.
   No gallery export.
+
+### 2026-09-09: web and projection refinement
+
+Implemented v48-a_web as the new default: combined emotions, red water-depth contours,
+and inverse-log World Bank 2024 GDP per capita. Historical datasets remain addressable.
+Projection preserves the invisible, inert survey footprint and omits festival assets.
+Projection defaults to HQ; hq=0 restores ordinary output, and hq=1 opts in on web/mobile.
+HQ output is capped at a 4K pixel count. Explicit cpQuality still controls effect detail.
+
+Lowercase native/country text and body pain use shared display helpers. Actual cmaps/GSUB
+cover all 195 x 14 original and lowercase terms across four font sets; no font binaries grew.
+About credits match the supplied paragraph. Data Sources retain 12 upstream links plus the
+actual GDP/person source. The workshop link expires at 2026-09-11T14:00:00Z. Its visible
+text does not mistake that expiry for an event start time. No upstream About video was found;
+the requested source URL remains outstanding, and the previous video remains hidden.
+
+Selection uses vector borders and the borrowed displaced depth surface. Isolated GPU checks
+pass for origin/peer roles, markers, folded-surface occlusion and live border deformation.
+Country picking preserves 384 exact triangle/hit comparisons; measured Rich median fell from
+42.30 ms to 0.45 ms in the agent's paired CPU check. Light reserves 7,997,440 bytes for the
+bounded selection/picker allocation; Standard/Rich depth caps remain unchanged.
+
+npm run check passes. Complete font and festival/deadline checks pass. Desktop inspection
+showed the new default and caught workshop/button overlap, subsequently corrected.
+Fresh integrated browser probes have not passed: host load peaked above 270, development
+module requests took several seconds, and browser control timed out. Bundled startup also
+failed to reach profile initialization within the bounded probe. Do not call this acceptance.
+Remaining: final mobile/projection selection geometry, hover/rotation behavior, the smaller
+Light depth target, paired live performance, and integrated port-3000 verification.
+Physical-device acceptance remains explicitly deferred. No gallery exports were created.
