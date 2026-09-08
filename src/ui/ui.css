@@ -359,6 +359,7 @@
 }
 
 #ui-legend {
+  --legend-unit-height: min(272px, calc((100vh - 300px) * 136 / 192));
   position: fixed;
   left: 20px;
   top: 50%;
@@ -390,17 +391,17 @@
 
 /* Enlarge generated scales, while retaining room for mobile chrome. */
 #ui-legend svg.ui-legend__img {
-  height: 272px;
+  height: var(--legend-unit-height);
   max-height: 64vh;
 }
 
-#ui-legend svg.ui-legend__img[viewBox="0 0 84 170"] {
-  height: 340px;
+#ui-legend svg.ui-legend__img[viewBox="0 0 92 170"] {
+  height: calc(var(--legend-unit-height) * 170 / 136);
 }
 
 #ui-legend svg.ui-legend__img[data-stacked] {
-  height: 340px;
-  max-height: 55vh;
+  height: calc(var(--legend-unit-height) * 192 / 136);
+  max-height: calc(64vh * 192 / 136);
 }
 
 /* Mobile chrome slot — hidden on desktop; shown under max-width 768px. */
@@ -506,6 +507,7 @@
   }
 
   #ui-legend {
+    --legend-unit-height: min(272px, 30vh);
     position: fixed;
     bottom: 20px;
     left: 20px;
@@ -529,6 +531,10 @@
   #ui-legend svg.ui-legend__img[data-stacked] {
     max-height: 30vh;
     max-width: calc(100vw - 180px);
+  }
+
+  #ui-legend svg.ui-legend__img[data-stacked] {
+    max-height: calc(30vh * 192 / 136);
   }
 
   #ui-layer-stack {

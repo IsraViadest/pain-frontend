@@ -1186,3 +1186,26 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
   probes pass visibility, retained survey DOM, scale alignment/caption bounds, dot-count/size
   checks and positive compact-picker space. Physical V and stacked scales inspected live.
 - No gallery export or physical-phone acceptance.
+
+## 2026-09-08: dark legend palette, shared scale heights and subpixel air
+
+- The physical legend adopts the approved v46 coral-to-dark palette, independently of the
+  globe's experimental dot palettes. Its title is centered on the V's 32-to-148 height span,
+  with additional horizontal clearance. Size mapping and dotted upper ends are retained.
+- Environmental and socioeconomic titles sit left of their scales. Environmental titles
+  wrap into two lines to fit without shortening the bars. Every color bar spans the same
+  80 SVG units and uses a shared responsive scale: 160 CSS pixels at the desktop reference.
+  The stacked environmental pair takes additional height and starts below the title controls.
+  Short screens reduce the common scale rather than squeezing only the environmental bars.
+- CO2 is brighter mint green (#b4ffd2), synchronized in the globe, profile and legend.
+- Four premultiplied rays anti-alias the one-output-pixel spherical silhouette band. The
+  native single-ray edge correction remains outside it; scarred surfaces retain actual depth.
+  No additional target or history buffer. Per-ray march steps and buffer caps remain unchanged.
+- All 12 atmospheric GPU families pass. Coverage differs by 0.3424/255 mean alpha from an
+  independent 2x spatial reference across 952 partially covered pixels. Live paired crops
+  show smoother coverage; this is not a guarantee of perfection at every camera.
+- Reversed whole-scene timing: GPU median 0.5925ms without AA, 0.7315ms with AA; frame pacing
+  remains 8.3ms median / 9.7ms p95. The first order was noisy and is not a speedup claim.
+- Compliance and live legend probes pass at 1080x684, 393x852, and 1080x600, including equal
+  bar heights, left-side titles, V centering/clearance, and the requested reference URL.
+  Physical-phone acceptance remains deferred; no gallery export.

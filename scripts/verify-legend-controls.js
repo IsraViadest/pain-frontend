@@ -25,6 +25,7 @@
     let globe;
     prototype.setScarContourStyle = function (style) { globe = this; return original.call(this, style); };
     const results = [];
+    let socioeconomicBarHeight;
     for (const [name, expected, heading] of [
       ['Physical Pain', true, 'Global health conditions'],
       ['Socio-economic Pain', false, 'Country basedwealth (GDP)'],
@@ -49,13 +50,20 @@
         check(text.includes('min') && text.includes('max'), `No endpoints for ${name}`);
         const svg = document.querySelector('#ui-legend svg');
         const height = svg.getBoundingClientRect().height;
-        const expectedHeight = Math.min(name === 'Physical Pain' || name === 'Environmental Pain' ? 340 : 272,
-          innerHeight * (innerWidth <= 768 || innerHeight <= 500 ? .30 : name === 'Environmental Pain' ? .55 : .64));
+        const mobile = innerWidth <= 768 || innerHeight <= 500;
+        const unit = Math.min(272, mobile ? innerHeight * .3 : (innerHeight - 300) * 136 / 192);
+        const ratio = name === 'Environmental Pain' ? 192 / 136 : name === 'Physical Pain' ? 170 / 136 : 1;
+        const expectedHeight = Math.min(unit * ratio,
+          innerHeight * (mobile ? .3 : .64) * (name === 'Environmental Pain' ? ratio : 1));
         check(Math.abs(height - expectedHeight) < 2, `Legend height ${height}, expected ${expectedHeight}`);
         if (name === 'Physical Pain') {
           const endpoint = svg.querySelector('circle[data-depth="1"]').getAttribute('fill');
-          const dotColor = '#' + globe.pointsMaterial.uniforms.uScarReliefLow.value.getHexString();
-          check(endpoint === dotColor, 'Physical legend does not match darkest dot palette');
+          check(endpoint === '#320611', 'Physical legend does not use the approved dark v46 palette');
+          const title = svg.querySelector('text').getBoundingClientRect();
+          const diagram = svg.querySelector('g[transform]').getBoundingClientRect();
+          check(diagram.left - title.right > 3 &&
+            Math.abs((title.top + title.bottom - diagram.top - diagram.bottom) / 2) < 4,
+            'Physical title lacks spacing or vertical centering');
           const first = Number(svg.querySelector('circle[data-depth="0"]').getAttribute('r'));
           const last = Number(svg.querySelector('circle[data-depth="1"]').getAttribute('r'));
           const mode = globe.pointsMaterial.uniforms.uScarDepthSize.value;
@@ -66,11 +74,22 @@
           check(svg.querySelectorAll('circle[cy="32"]').length === 6 &&
             svg.querySelectorAll('circle').length >= 34, 'Dense dotted V missing');
         }
+        if (name === 'Socio-economic Pain') {
+          const bar = svg.querySelector(':scope > rect').getBoundingClientRect();
+          socioeconomicBarHeight = bar.height;
+          check(svg.querySelector('text').getBoundingClientRect().right < bar.left,
+            'Socioeconomic title is not left of scale');
+        }
         if (name === 'Environmental Pain') {
           check(text.includes('Temperature Change') && text.includes('Emissions (CO2)'), 'Wrong environmental names');
           const bars = [...svg.querySelectorAll('rect')].map(e => e.getBoundingClientRect());
           check(Math.abs(bars[0].left - bars[1].left) < 1 && bars[0].bottom < bars[1].top,
             'Environmental scales not stacked');
+          check(bars.every(r => Math.abs(r.height - socioeconomicBarHeight) < 1),
+            'Environmental scales differ in height from socioeconomic');
+          for (const [i, title] of [...svg.querySelectorAll('text')].slice(0, 2).entries()) {
+            check(title.getBoundingClientRect().right < bars[i].left, 'Environmental title not left of scale');
+          }
           const bounds = svg.getBoundingClientRect();
           for (const label of svg.querySelectorAll('text')) {
             if (getComputedStyle(label).display === 'none') continue;

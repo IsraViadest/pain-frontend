@@ -8,7 +8,7 @@ export type AtmosphereMode = "control" | "flat" | "mantle" | "cloudlets" | "volu
   "volume-log-near-opaque-separated";
 
 const MAX_DEPTH_PIXELS = 1_048_576;
-const COLORS = { temperature: "#d74846", co2: "#90dcb5" };
+const COLORS = { temperature: "#d74846", co2: "#b4ffd2" };
 
 /** A private depth pass clips air against the actual surface without hiding ground stipple. */
 export function createEnvironmentalAtmosphere(options: {

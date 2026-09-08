@@ -28,7 +28,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
 
   for (const [index, [label, color, key]] of ([
     ["Temperature Change", "#d74846", "temperature"],
-    ["Emissions (CO2)", "#90dcb5", "co2"],
+    ["Emissions (CO2)", "#b4ffd2", "co2"],
   ] as const).entries()) {
     const id = `country-profile-legend-${key}`;
     const gradient = document.createElementNS(SVG_NS, "linearGradient");
@@ -83,7 +83,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
     if (svg.dataset.layout === layout) return;
     svg.dataset.layout = layout;
     const width = portrait ? 72 : 184;
-    const height = portrait ? 272 : compact ? 98 : 136;
+    const height = portrait ? 192 : compact ? 98 : 136;
     svg.toggleAttribute("data-stacked", portrait);
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("width", String(width));
@@ -95,24 +95,38 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
       text.setAttribute("x", "0");
       text.setAttribute("y", portrait ? "0" : String((compact ? 12 : 16) + index * (compact ? 35 : 49)));
       text.setAttribute("text-anchor", portrait ? "middle" : "start");
-      if (portrait) text.setAttribute("transform", `translate(33, ${72 + index * 136}) rotate(-90)`);
-      else text.removeAttribute("transform");
-      bar.setAttribute("x", String(portrait ? 6 : 0));
-      bar.setAttribute("y", String(portrait ? 22 + index * 136 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
+      text.replaceChildren();
+      if (portrait) {
+        text.setAttribute("transform", `translate(12, ${48 + index * 96}) rotate(-90)`);
+        for (const [line, label] of (index === 0 ? ["Temperature", "Change"] : ["Emissions", "(CO2)"]).entries()) {
+          const span = document.createElementNS(SVG_NS, "tspan");
+          span.setAttribute("x", "0");
+          span.setAttribute("y", String(line * 12));
+          span.textContent = label + (line === 0 ? " " : "");
+          text.append(span);
+        }
+      } else {
+        text.removeAttribute("transform");
+        text.textContent = index === 0 ? "Temperature Change" : "Emissions (CO2)";
+      }
+      bar.setAttribute("x", String(portrait ? 42 : 0));
+      bar.setAttribute("y", String(portrait ? 8 + index * 96 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
       bar.setAttribute("width", String(portrait ? 12 : 184));
-      bar.setAttribute("height", String(portrait ? 98 : compact ? 10 : 14));
+      bar.setAttribute("height", String(portrait ? 80 : compact ? 10 : 14));
       bar.setAttribute("rx", portrait ? "6" : compact ? "5" : "7");
     }
     for (const [index, text] of annotations.entries()) {
-      text.setAttribute("x", String(portrait ? 12 : index === 1 ? 184 : 0));
-      text.setAttribute("y", String(portrait ? index === 1 ? 18 : 134 :
+      text.setAttribute("font-size", portrait ? "6" : "11");
+      text.setAttribute("x", String(portrait ? 48 : index === 1 ? 184 : 0));
+      text.setAttribute("y", String(portrait ? index === 1 ? 6 : 94 :
         index === 2 ? 132 : compact ? 94 : 110));
       text.setAttribute("text-anchor", portrait ? "middle" : index === 1 ? "end" : "start");
       text.style.display = index === 2 && (portrait || compact) ? "none" : "";
     }
     for (const [index, text] of co2Endpoints.entries()) {
-      text.setAttribute("x", "12");
-      text.setAttribute("y", index === 1 ? "154" : "270");
+      text.setAttribute("font-size", "6");
+      text.setAttribute("x", "48");
+      text.setAttribute("y", index === 1 ? "102" : "190");
       text.setAttribute("text-anchor", "middle");
       text.style.display = portrait ? "" : "none";
     }
@@ -130,8 +144,8 @@ export function createPhysicalLegend(
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.classList.add("ui-legend__img");
   svg.dataset.orientation = "vertical";
-  svg.setAttribute("viewBox", "0 0 84 170");
-  svg.setAttribute("width", "84");
+  svg.setAttribute("viewBox", "0 0 92 170");
+  svg.setAttribute("width", "92");
   svg.setAttribute("height", "170");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "Global health conditions. Minimum at the top, maximum at the " +
@@ -142,7 +156,7 @@ export function createPhysicalLegend(
   svg.style.fontFamily = "inherit";
   const [low, high] = SCAR_RELIEF_COLORS[palette];
   const title = document.createElementNS(SVG_NS, "text");
-  title.setAttribute("transform", "translate(12, 85) rotate(-90)");
+  title.setAttribute("transform", "translate(12, 90) rotate(-90)");
   title.setAttribute("text-anchor", "middle");
   title.setAttribute("font-size", "11");
   title.textContent = "Global health conditions";
@@ -177,18 +191,21 @@ export function createPhysicalLegend(
     caps.append(dot);
   }
   const higher = document.createElementNS(SVG_NS, "text");
-  higher.setAttribute("x", "48");
+  higher.setAttribute("x", "56");
   higher.setAttribute("y", "22");
   higher.setAttribute("text-anchor", "middle");
   higher.setAttribute("font-size", "11");
   higher.textContent = "min";
   const lower = document.createElementNS(SVG_NS, "text");
-  lower.setAttribute("x", "48");
+  lower.setAttribute("x", "56");
   lower.setAttribute("y", "166");
   lower.setAttribute("text-anchor", "middle");
   lower.setAttribute("font-size", "11");
   lower.textContent = "max";
-  svg.append(title, dots, caps, higher, lower);
+  const diagram = document.createElementNS(SVG_NS, "g");
+  diagram.setAttribute("transform", "translate(8, 0)");
+  diagram.append(dots, caps);
+  svg.append(title, diagram, higher, lower);
   return svg;
 }
 
@@ -302,19 +319,19 @@ export function createSocioeconomicLegend(
     svg.setAttribute("height", String(height));
     gradient.setAttribute("x2", portrait ? "0%" : "100%");
     gradient.setAttribute("y1", portrait ? "100%" : "0%");
-    continuous.setAttribute("x", String(portrait ? style === "color" ? 10 : 3 : 0));
+    continuous.setAttribute("x", String(portrait ? style === "color" ? 42 : 35 : 0));
     continuous.setAttribute("y", String(portrait ? 23 :
       style === "color" ? compact ? 20 : 26 : compact ? 16 : 20));
     continuous.setAttribute("width", String(portrait ? style === "color" ? 18 : 4 : 184));
     continuous.setAttribute("height", String(portrait ? 80 :
       style === "color" ? compact ? 14 : 18 : compact ? 3 : 4));
     for (const [index, swatch] of swatches.entries()) {
-      swatch.setAttribute("x", String(portrait ? 10 : index * 184 / 5));
+      swatch.setAttribute("x", String(portrait ? 42 : index * 184 / 5));
       swatch.setAttribute("y", String(portrait ? 23 + (4 - index) * 16 : compact ? 20 : 26));
       swatch.setAttribute("width", String(portrait ? 18 : 184 / 5));
       swatch.setAttribute("height", String(portrait ? 16 : compact ? 14 : 18));
     }
-    const positions = portrait ? [[0, 0], [19, 116], [19, 17], [0, 0], [26, 134]] :
+    const positions = portrait ? [[0, 0], [51, 116], [51, 17], [0, 0], [26, 134]] :
       [[0, compact ? 12 : 16], [0, compact ? 54 : 64], [184, compact ? 54 : 64],
         [0, 88], [24, compact ? 94 : 128]];
     for (const [index, text] of labels.entries()) {
@@ -323,7 +340,7 @@ export function createSocioeconomicLegend(
       text.setAttribute("font-size", String(index === 0 ? portrait ? 11 : compact ? 12 : 14 : 11));
       text.setAttribute("text-anchor", portrait && index <= 2 ? "middle" : index === 2 ? "end" : "start");
       text.style.display = index === 3 && (portrait || compact) ? "none" : "";
-      if (index === 0 && portrait) text.setAttribute("transform", "translate(46, 63) rotate(-90)");
+      if (index === 0 && portrait) text.setAttribute("transform", "translate(12, 63) rotate(-90)");
       else text.removeAttribute("transform");
       if (index === 0 && !gdpPerCapita) {
         text.setAttribute("font-size", "11");
