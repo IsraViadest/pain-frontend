@@ -1,6 +1,6 @@
 # Country profile and globe variants
 
-Last updated: 2026-09-08. Version: 1.0.
+Last updated: 2026-09-08. Version: 1.1.
 
 This catalogue covers all **152 retained country-profile presets**, plus live emotion-filter examples.
 It replaces the requested gallery export; no screenshots or new gallery files accompany it.
@@ -45,6 +45,9 @@ Filtering recomputes each country's highest-scoring enabled category from the fu
 It changes native terms and network membership without changing stored source scores.
 The selected country and camera are retained while its labels/profile/network update.
 A category with no current winning countries cannot select a network, but its × remains usable.
+The small heading reads “Strongest captured emotion by country”. Each name shows its current
+country count, including countries outside the visible hemisphere. Counts recalculate after every
+filter change. Zero-count names are dimmed and disabled; excluded names are also struck through.
 
 The URL stores excluded keys in `cpExclude`, separated by commas.
 An explicit empty `cpExclude=` restores every category, including in v44-b.

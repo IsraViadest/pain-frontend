@@ -21,6 +21,22 @@
     const cross=(cat)=>legend.querySelector(`.emo-legend__exclude[data-cat="${cat}"]`);
     const countryCount=document.querySelectorAll('.emo-label').length;
     check(legend.querySelectorAll('.emo-legend__exclude').length===14,'Missing category toggles');
+    const checkCounts=()=> {
+      const labels=[...document.querySelectorAll('.emo-label')];
+      const items=[...legend.querySelectorAll('.emo-legend__item')];
+      check(legend.querySelectorAll('.emo-legend__heading').length===1,'Missing or duplicated legend title');
+      let total=0;
+      for(const item of items) {
+        const count=Number(item.querySelector('.emo-legend__count').textContent);
+        check(count===labels.filter(e=>e.dataset.cat===item.dataset.cat).length,'Country count disagrees with labels');
+        check(item.disabled===(count===0),'Empty category remains clickable');
+        if(item.dataset.excluded==='true') check(getComputedStyle(item.querySelector('.emo-legend__name'))
+          .textDecorationLine.includes('line-through'),'Excluded category lacks strikethrough');
+        total+=count;
+      }
+      check(total===labels.length,'Legend total disagrees with country count');
+    };
+    checkCounts();
     const pill=document.querySelector('#ui-share-pain').getBoundingClientRect();
     for (const button of legend.querySelectorAll('.emo-legend__exclude')) {
       const r=button.getBoundingClientRect();
@@ -45,6 +61,7 @@
       await until(()=>Number(legend.dataset.filterRevision??0)>rev,'filter rebuild');
     };
     await toggle('06_anger');
+    checkCounts();
     check(performance.timeOrigin===born,'Filter reloaded the page');
     check(cross('06_anger').getAttribute('aria-pressed')==='true','Exclude state not pressed');
     check(!document.querySelector('.emo-label[data-cat="06_anger"]'),'Anger survived exclusion');
@@ -58,12 +75,15 @@
     remaining.forEach((key)=>cross(key).click());
     await until(()=>Number(legend.dataset.filterRevision)===rev+remaining.length,'all excluded burst');
     check(document.querySelectorAll('.emo-label').length===0,'All excluded still has labels');
+    checkCounts();
     check(profile.textContent.includes('filtered out'),'Filtered-out data mislabeled as missing');
     await toggle('02_hurt');
+    checkCounts();
     check(document.querySelectorAll('.emo-label').length===countryCount,'Single category lost countries');
     check([...document.querySelectorAll('.emo-label')].every((e)=>e.dataset.cat==='02_hurt'),
       'Single category did not rerank every country');
     await toggle('14_shame');
+    checkCounts();
     check([...document.querySelectorAll('.emo-label')].every((e)=>['02_hurt','14_shame'].includes(e.dataset.cat)),
       'Subset contains an excluded category');
     for(let i=0;i<6;i++) await toggle('06_anger');

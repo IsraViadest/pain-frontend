@@ -207,7 +207,14 @@ export async function createEmoLegend(options: {
   const random = mulberry32(LEGEND_SEED);
   const items = new Map<string, HTMLButtonElement>();
   const toggles = new Map<string, HTMLButtonElement>();
+  const counts = new Map<string, HTMLElement>();
   let excluded = new Set(options.excluded);
+  const heading = options.onToggleCategory ? document.createElement("h2") : null;
+  if (heading) {
+    heading.className = "emo-legend__heading emo-sc-Latn";
+    heading.textContent = "Strongest captured emotion by country";
+    host.append(heading);
+  }
 
   // The two halves of the L. `display: contents` in the wide layout, so they cost that layout
   // nothing at all. The full-width one comes first because the column is read top to bottom.
@@ -225,12 +232,22 @@ export async function createEmoLegend(options: {
     // The same font as a Latin label, by sharing its class rather than by copying the stack.
     el.className = "emo-legend__item emo-sc-Latn";
     el.dataset.cat = category.key;
+    el.dataset.label = category.label;
     el.textContent = category.label;
     if ((members.get(category.key)?.length ?? 0) === 0) {
       el.disabled = true;
       el.title = "No countries in this dataset have this category as their highest score";
     }
     if (options.onToggleCategory) {
+      const name = document.createElement("span");
+      name.className = "emo-legend__name";
+      name.textContent = category.label;
+      const count = document.createElement("span");
+      count.className = "emo-legend__count";
+      count.setAttribute("aria-hidden", "true");
+      counts.set(category.key, count);
+      el.replaceChildren(name, count);
+      el.setAttribute("aria-label", category.label);
       const choice = document.createElement("span");
       choice.className = "emo-legend__choice";
       choice.dataset.cat = category.key;
@@ -260,13 +277,23 @@ export async function createEmoLegend(options: {
   function paint(): void {
     for (const [key, el] of items) {
       const off = excluded.has(key);
-      el.disabled = off || (members.get(key)?.length ?? 0) === 0;
+      const count = off ? 0 : members.get(key)?.length ?? 0;
+      el.disabled = off || count === 0;
+      el.dataset.excluded = String(off);
+      el.dataset.empty = String(count === 0);
+      const description = off ? "Excluded from comparison" : count === 0
+        ? "No countries currently have this as their strongest enabled emotion"
+        : `${count} ${count === 1 ? "country" : "countries"}`;
+      el.title = description;
+      el.setAttribute("aria-description", description);
+      const counter = counts.get(key);
+      if (counter) counter.textContent = String(count);
       const toggle = toggles.get(key);
       toggle?.setAttribute("aria-pressed", String(off));
-      if (toggle) toggle.title = `${off ? "Include" : "Exclude"} ${el.textContent}`;
+      if (toggle) toggle.title = `${off ? "Include" : "Exclude"} ${el.dataset.label}`;
       const chosen = key === selectedCat && !off;
       el.classList.toggle("emo-legend__item--chosen", chosen);
-      const opacity = off ? 0.2 : chosen
+      const opacity = off || count === 0 ? 0.25 : chosen
         ? 1
         : params.legendOpacity * (selectedCat === null ? 1 : params.selectionDim);
       // The property rather than `opacity` itself, so the stylesheet's :hover rule still wins.
@@ -291,7 +318,7 @@ export async function createEmoLegend(options: {
     }
     const el = (ev.target as HTMLElement).closest<HTMLElement>(".emo-legend__item");
     const cat = el?.dataset.cat;
-    if (cat === undefined) return;
+    if (cat === undefined || excluded.has(cat)) return;
     const list = members.get(cat);
     if (!list || list.length === 0) return;
     // Clicking the category that is still arriving does nothing at all, whichever way the repeat
@@ -490,8 +517,9 @@ export async function createEmoLegend(options: {
     const wordHeight = first.getBoundingClientRect().height;
     if (wordHeight <= 0) return;
     const available = bottom - top - 2 * CHROME_GAP_PX;
-    const slack = available - ordered.length * wordHeight;
-    const raw = slack / (ordered.length - 1 + 2 * END_PAD_IN_GAPS);
+    const headingHeight = heading?.getBoundingClientRect().height ?? 0;
+    const slack = available - ordered.length * wordHeight - headingHeight;
+    const raw = slack / (ordered.length - 1 + 2 * END_PAD_IN_GAPS + (heading ? 1 : 0));
     const gap = Math.min(
       MAX_GAP_EM * params.legendFontPx,
       Math.max(MIN_GAP_EM * params.legendFontPx, raw),
@@ -539,6 +567,7 @@ export async function createEmoLegend(options: {
       bounds.disconnect();
       window.removeEventListener("resize", syncBounds);
       host.removeEventListener("click", onClick);
+      heading?.remove();
       for (const el of items.values()) el.remove();
       items.clear();
       wideRow.remove();

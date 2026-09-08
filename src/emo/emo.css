@@ -383,7 +383,7 @@
   }
 }
 
-.emo-legend__item:hover {
+.emo-legend__item:hover:not(:disabled) {
   opacity: 1;
 }
 
@@ -399,6 +399,29 @@
   flex: 0 0 auto;
   width: max-content;
 }
+
+.emo-legend__heading {
+  margin: 0;
+  max-width: 180px;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 4px #000;
+  flex-shrink: 0;
+}
+
+.emo-legend__count {
+  margin-left: 0.45em;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+}
+
+.emo-legend__item[data-excluded="true"] .emo-legend__name {
+  text-decoration: line-through;
+}
+
+.emo-legend__item:disabled { cursor: default; }
 
 .emo-legend__exclude {
   border: 0;

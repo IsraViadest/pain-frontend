@@ -1015,3 +1015,16 @@ instead; no new gallery or image export is required by this request.
 - VARIANTS.md and /country-profile-variants.html document all 152 presets across 47 rounds,
   named baselines, actual configured differences, viewing instructions and three subset links.
   All preset links resolve against the live registry. The default remains v38-d.
+
+
+## 2026-09-08: counted emotional legend
+
+- Added a small “Strongest captured emotion by country” title and per-category country counts.
+  Counts use the same members as network selection, across the whole globe, and update on rebuild.
+- Zero-country names are dimmed and disabled. Excluded names show a strike-through and zero;
+  their exclusion toggles remain enabled. Empty disabled names no longer brighten on hover.
+- Desktop spacing now includes the title height. Real-browser tests at 1080x684 and 393x852
+  compare every count against current label assignments before/after exclusion, all-off and
+  subset restoration. They also verify disabled states, painted strike-through, retained profile,
+  unchanged country-click metrics and viewport/share-button clearance. npm run check passes.
+- Updated the linked catalogue; no new presets or image exports.
