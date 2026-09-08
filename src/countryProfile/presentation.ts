@@ -423,6 +423,10 @@ export class CountryPresentation {
 
   private resumeAfterIdle = (): void => {
     if (this.state !== "paused-interaction") return;
+    if (document.querySelector("dialog[open]")) {
+      this.armIdleTimers();
+      return;
+    }
     this.cancelCompletion();
     if (
       this.button.contains(document.activeElement) ||

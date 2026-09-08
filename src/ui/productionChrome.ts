@@ -332,6 +332,13 @@ export async function mountProductionChrome(
     hamburgerBtn,
   ];
 
+  if (new URLSearchParams(location.search).get("cp") === "1") {
+    sharePainBtn.classList.add("blob-button--lower-label");
+    dataSourcesBtn.classList.add("blob-button--lower-label");
+    const { mountFestivalMedia } = await import("./festival-media");
+    chromeActionButtons.push(mountFestivalMedia(titleHost));
+  }
+
   return {
     countryCycleHost: titleToggles,
     setSharePainLabel(label: string, looseLines = false): void {

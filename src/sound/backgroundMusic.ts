@@ -3,6 +3,7 @@ const BACKGROUND_MUSIC_SRC = "/sounds/BackgroundPPP.mp3";
 
 let audio: HTMLAudioElement | null = null;
 let unlockListenersAttached = false;
+let suppressed = false;
 
 function readPreference(): boolean {
   const value = localStorage.getItem(SOUND_ENABLED_KEY);
@@ -22,7 +23,7 @@ function removeUnlockListeners(): void {
 }
 
 function onUserGestureUnlock(): void {
-  if (!audio || !readPreference() || !audio.muted) return;
+  if (!audio || suppressed || !readPreference() || !audio.muted) return;
   audio.muted = false;
   void audio.play().then(() => {
     removeUnlockListeners();
@@ -47,7 +48,7 @@ export function initBackgroundMusic(): void {
   audio.loop = true;
   audio.preload = "auto";
   const wantEnabled = readPreference();
-  audio.muted = !wantEnabled;
+  audio.muted = suppressed || !wantEnabled;
   attachUnlockListeners();
   void audio.play().catch(() => {
     if (!audio) return;
@@ -68,10 +69,17 @@ export function setSoundEnabled(enabled: boolean): void {
   }
   if (!audio) return;
 
-  audio.muted = !enabled;
+  audio.muted = suppressed || !enabled;
   writePreference(enabled);
 
   if (enabled) {
     void audio.play().catch(() => {});
   }
+}
+
+/** Video temporarily owns audio without changing the visitor's saved music preference. */
+export function setBackgroundMusicSuppressed(value: boolean): void {
+  suppressed = value;
+  if (audio) audio.muted = suppressed || !readPreference();
+  document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
 }

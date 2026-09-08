@@ -1,0 +1,33 @@
+// Run: node --import tsx scripts/verify-video-music.mjs
+import assert from 'node:assert/strict';
+const values = new Map();
+globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key,value) => values.set(key,value) };
+const listeners = new Map();
+globalThis.document = { addEventListener: (key,fn) => listeners.set(key,fn),
+  removeEventListener: key => listeners.delete(key), dispatchEvent: event => listeners.get(event.type)?.() };
+globalThis.Audio = class { muted = false; calls = 0;
+  play() { return ++this.calls === 1 ? Promise.reject(new Error('Autoplay blocked')) : Promise.resolve(); } };
+const music = await import('../src/sound/backgroundMusic.ts');
+music.initBackgroundMusic();
+await new Promise(resolve => setTimeout(resolve,0));
+let reported = music.isSoundEnabled();
+document.addEventListener('backgroundMusicStateChanged',()=>{reported=music.isSoundEnabled()});
+assert.equal(reported,false);
+music.setBackgroundMusicSuppressed(true);
+music.setBackgroundMusicSuppressed(false);
+assert.equal(reported,true);
+assert.equal(values.get('pain-sound-enabled'),undefined);
+music.setSoundEnabled(true);
+const before = values.get('pain-sound-enabled');
+music.setBackgroundMusicSuppressed(true);
+assert.equal(music.isSoundEnabled(),false);
+music.setSoundEnabled(true);
+assert.equal(music.isSoundEnabled(),false);
+music.setBackgroundMusicSuppressed(false);
+assert.equal(music.isSoundEnabled(),true);
+assert.equal(values.get('pain-sound-enabled'),before);
+music.setSoundEnabled(false);
+music.setBackgroundMusicSuppressed(true);
+music.setBackgroundMusicSuppressed(false);
+assert.equal(music.isSoundEnabled(),false);
+console.log('Video suppression preserves music preference and owns audio until close: PASS');

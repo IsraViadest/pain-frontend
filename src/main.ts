@@ -568,7 +568,7 @@ let presentationBaseParams: EmoViewParams | null = null;
 /** Whole globe words fade behind visible chrome, using the label layer's existing box sweep. */
 function countryChromeRects(): readonly DOMRectReadOnly[] {
   return [...document.querySelectorAll<HTMLElement>(
-    "#ui-title, #ui-layer-stack, #ui-share-pain, #ui-bottom-left, #ui-legend, #emo-legend, #country-profile",
+    "#ui-title, #festival-media, #video-invitation, #ui-layer-stack, #ui-share-pain, #ui-bottom-left, #ui-legend, #emo-legend, #country-profile",
   )].flatMap((element) => {
     const style = getComputedStyle(element);
     if (style.visibility === "hidden" || Number(style.opacity) <= 0.01) return [];

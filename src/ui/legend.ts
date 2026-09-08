@@ -57,8 +57,8 @@ function positionLegendUnderTitle(): void {
       profileChanges.observe(profile, { attributes: true, attributeFilter: ["style", "hidden"] });
     }
   }
-  const fitControls = document.getElementById("app")?.hasAttribute("data-cp-fit-controls") &&
-    innerHeight < 650;
+  const fitControls = (document.getElementById("app")?.hasAttribute("data-cp-fit-controls") &&
+    innerHeight < 650) || share?.classList.contains("ui-share-pain--with-video");
   const compact = innerWidth <= MOBILE_MAX_WIDTH_PX || innerHeight <= 500 || fitControls;
   const about = document.getElementById("ui-bottom-left");
   if (about && share) about.style.maxWidth = compact
