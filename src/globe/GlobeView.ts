@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { SCAR_RELIEF_COLORS } from "./scarReliefColors";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { MapLayer, PainPoint } from "../types/api";
 import { getMapLayerById, isChoroplethMapLayer } from "../api/layers";
@@ -1406,6 +1407,8 @@ export class GlobeView {
   }
 
   private disposeChoroplethMap(): void {
+    // A pending import/polygon load must not repaint a layer that has just been removed.
+    this.choroplethBuildGeneration++;
     if (this.pointsMaterial) {
       this.pointsMaterial.uniforms.uSocioMissingActive.value = 0;
       this.pointsMaterial.uniforms.uSocioMissingMap.value = null;
@@ -1446,8 +1449,8 @@ export class GlobeView {
 
   /** Rebuild country choropleth texture when choropleth layer is active or show-all is on. */
   private scheduleChoroplethRebuild(): void {
-    const generation = ++this.choroplethBuildGeneration;
     this.disposeChoroplethMap();
+    const generation = this.choroplethBuildGeneration;
     if (!this.shouldPaintChoropleth()) {
       this.applyGlobeShellColor();
       return;
@@ -1465,16 +1468,16 @@ export class GlobeView {
       if (generation !== this.choroplethBuildGeneration) return;
       if (!this.shouldPaintChoropleth()) return;
       const values = aggregateChoroplethValues(points);
-      if (!this.showAllLayersMode) this.socioeconomicMissingMap = createChoroplethMissingMask(
+      this.socioeconomicMissingMap = createChoroplethMissingMask(
         values, this.getDisplayCountryGeometries());
       this.choroplethMap = createChoroplethTexture(
         values, colorHex, this.getDisplayCountryGeometries(), this.socioeconomicMinimum,
-        this.showAllLayersMode ? undefined : this.socioeconomicMissingStyle,
+        this.socioeconomicMissingStyle,
       );
       this.applyChoroplethMaterial();
       applySocioeconomicPattern(this.choroplethShell.material, this.socioeconomicStyle,
         this.socioeconomicMinimum, this.socioeconomicContrast,
-        this.showAllLayersMode ? undefined : this.socioeconomicMissingStyle,
+        this.socioeconomicMissingStyle,
         this.socioeconomicMissingMap);
       this.syncGlobeSurfaceVisibility();
     })();
@@ -2272,6 +2275,11 @@ export class GlobeView {
       lexiconBucket: string;
     },
   ): void {
+    if (enabled !== this.showAllLayersMode) {
+      // Layer metadata and new data arrive after the UI debounce. Remove the outgoing fill now.
+      this.disposeChoroplethMap();
+      this.scarBuildGeneration++;
+    }
     this.showAllLayersMode = enabled;
     if (enabled && opts) {
       this.allLayersPhyspainLayerId = opts.physpainLayerId;
@@ -2684,7 +2692,7 @@ export class GlobeView {
     void import("./socioeconomicPattern").then(({ applySocioeconomicPattern }) => {
       if (generation !== this.socioeconomicStyleGeneration) return;
       applySocioeconomicPattern(this.choroplethShell.material, style, minimumAlpha, contrast,
-        this.showAllLayersMode ? undefined : missingStyle, this.socioeconomicMissingMap);
+        missingStyle, this.socioeconomicMissingMap);
       this.scheduleChoroplethRebuild();
     }).catch((error) => { console.error("[GlobeView] socioeconomic style failed:", error); });
   }
@@ -2805,12 +2813,7 @@ export class GlobeView {
 
   private applyScarReliefPalette(): void {
     if (!this.pointsMaterial) return;
-    const colors = {
-      coral: [0x320611, 0xff6f78],
-      crimson: [0x250008, 0xff334f],
-      rose: [0x480c18, 0xffa0aa],
-      vibrant: [0xb71938, 0xff6f78],
-    }[this.scarReliefPalette];
+    const colors = SCAR_RELIEF_COLORS[this.scarReliefPalette];
     this.pointsMaterial.uniforms.uScarReliefLow.value.setHex(colors[0]);
     this.pointsMaterial.uniforms.uScarReliefHigh.value.setHex(colors[1]);
   }

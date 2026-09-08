@@ -26,6 +26,45 @@
     for (const iso of ['COM','FSM','GNB']) check(profiles.get(iso).emotional.value === null &&
       !profiles.get(iso).emotional.categoryKey, 'Missing emotion acquired category');
 
+    // Exercise actual async choropleth lifecycle without constructing a second whole globe.
+    const { GlobeView } = await import('/src/globe/GlobeView.ts');
+    const lifecycle = Object.create(GlobeView.prototype);
+    const shellMaterial = new THREE.MeshBasicMaterial(); owned.push(shellMaterial);
+    Object.assign(lifecycle, {
+      showAllLayersMode: true, currentLayerMeta: {geospatial:true,text:false},
+      lastPainPoints: gdp, allLayersChoroplethLayerId:'socioecopain',
+      allLayersChoroplethColorHex:'#ffff00', choroplethBuildGeneration:0, scarBuildGeneration:0,
+      socioeconomicMinimum:.25, socioeconomicContrast:.1, socioeconomicStyle:'hatch',
+      socioeconomicMissingStyle:'diagonal', socioeconomicMissingMap:null, choroplethMap:null,
+      choroplethShell:{material:shellMaterial,visible:false}, pointsMaterial:null,
+      getDisplayCountryGeometries:()=>getCountryGeometries(),
+      syncGlobeSurfaceVisibility:()=>{}, applyGlobeShellColor:()=>{},
+      syncBaseGlobeVisibility:()=>{}, applyPointsTint:()=>{},
+    });
+    lifecycle.scheduleChoroplethRebuild();
+    for(let i=0;i<100 && !lifecycle.choroplethMap;i++) await new Promise(r=>setTimeout(r,20));
+    check(lifecycle.choroplethShell.visible && lifecycle.socioeconomicMissingMap,
+      'All-pain missing coverage did not load');
+    const built = {};
+    shellMaterial.onBeforeCompile(Object.assign(built,{
+      uniforms:{},fragmentShader:'#include <map_fragment>',
+    }),null);
+    check(built.uniforms.uSocioMissingActive.value===1,'All-pain missing hatch disabled');
+    let retired=0;
+    lifecycle.choroplethMap.addEventListener('dispose',()=>retired++);
+    lifecycle.socioeconomicMissingMap.addEventListener('dispose',()=>retired++);
+    lifecycle.setShowAllLayersMode(false);
+    check(!lifecycle.choroplethShell.visible && !lifecycle.choroplethMap && retired===2,
+      'Outgoing yellow fill survived immediate all-pain exit');
+    lifecycle.setShowAllLayersMode(true);
+    lifecycle.scheduleChoroplethRebuild();
+    lifecycle.setShowAllLayersMode(false);
+    lifecycle.setShowAllLayersMode(true);
+    await new Promise(r=>setTimeout(r,100));
+    check(!lifecycle.choroplethMap && !lifecycle.choroplethShell.visible,
+      'Canceled async choropleth build repainted after rapid mode replacement');
+    lifecycle.disposeChoroplethMap();
+
     renderer = new THREE.WebGLRenderer({alpha:true,antialias:false});
     renderer.setSize(256,256,false); renderer.setClearColor(0,0);
     const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(45,1,.01,10);
@@ -108,6 +147,7 @@
     u.uSocioMissingActive.value=0;
     check(read()>0,'Leaving socioeconomic view fails to restore dots');
     return {passed:true,gdpCountries:gdp.length,emotionalCountries:192,profiles:profiles.size,
+      allPainMissingHatch:true,outgoingChoroplethDisposed:true,staleChoroplethCanceled:true,
       waterContourAlpha:front,backContourAlpha:back,dotWidths:[baseWidth,deepWidth],depthColors,
       reversedDotWidths:[reversedSurfaceWidth,reversedDeepWidth]};
   } catch(error){ return {passed:false,error:String(error.stack??error)}; }
