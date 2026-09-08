@@ -50,18 +50,25 @@ export interface EmoData {
   };
   categories: EmoCategory[];
   countries: Record<string, EmoCountry>;
+  /** Country identity remains available when the selected source has no emotional observations. */
+  missingCountries?: Record<string, { name: string; lang: string; script: string }>;
 }
 
-let cached: EmoData | null = null;
+type EmoDataset = "original" | "combined-v2";
+const cached = new Map<EmoDataset, EmoData>();
 
 /** Fetch and cache the generated dataset. Safe to call repeatedly. */
-export async function loadEmoData(): Promise<EmoData> {
-  if (cached) return cached;
-  const url = `${import.meta.env.BASE_URL}emo/emo-data.json`;
+export async function loadEmoData(dataset: EmoDataset = "original"): Promise<EmoData> {
+  if (dataset === "combined-v2") await import("./fonts.combined-v2.generated.css");
+  document.documentElement.dataset.emoDataset = dataset;
+  const existing = cached.get(dataset);
+  if (existing) return existing;
+  const url = `${import.meta.env.BASE_URL}emo/${dataset === "combined-v2" ? "combined-v2/" : ""}emo-data.json`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`[emoData] ${url} responded ${res.status}`);
   }
-  cached = (await res.json()) as EmoData;
-  return cached;
+  const data = (await res.json()) as EmoData;
+  cached.set(dataset, data);
+  return data;
 }

@@ -929,3 +929,39 @@ current refinement phase complete. Its original progress follows.
   accessibility, and physical-scope fixes through code tip `d3b107a`. Canonical port 3000 built
   that tip and passed the race probe. The primary frontend and setup worktrees are clean at their
   recorded branches after the final documentation commit.
+
+
+## 2026-09-08: rounds v39-v43
+
+- v39 compares water-only blue, coral and physical-red contours, each with incumbent or vibrant
+  relief colors and baseline or depth-scaled dots. Far-hemisphere rejection is a common contour
+  correctness fix. It does not introduce terrain self-occlusion.
+- v40 isolates size, vibrant color, both, original-color valley shadow, shadow plus size, and
+  the no-contour original-dot control. Depth scales land-dot diameter from 1x to 2x against the
+  deepest current scar field; it changes neither sample count nor source values.
+- v41 retains v38-d opacity with interpolated surface depth and premultiplied target colors.
+  Its native-detail comparison uses 48 samples/full drawing-buffer resolution, capped at
+  2,097,152 pixels per target. Explicit cpQuality overrides remain effective. Review caught
+  and corrected the first implementation ignoring those quality overrides.
+- v42 uses World Bank NY.GDP.PCAP.CD for 2024, current US dollars per person. The operator chose
+  lower GDP per person = stronger yellow: one inverted logarithmic normalization, followed by
+  the existing visible-minimum display treatment. Coverage: 187 observed, eight missing.
+  Missing data stays hatched. The old normalized total-GDP endpoint is not divided by population.
+  Rebuild: node scripts/build-gdp-per-capita.mjs. Raw values and source URL ship in its JSON.
+- v43 uses the supplied 20260905T063105Z combined-ccnews75-expression25-mean-all-labels.csv,
+  retained as data-src/country-emotion-combined-v2.csv with its original CRLF bytes. There are
+  192 valid winners; COM, FSM and GNB retain country profiles but have no emotional observation.
+  The existing strongest-pain rule still excludes no_pain and out_of_scope. Anger wins for 152
+  countries. Empty categories cannot start a legend wave. Eighteen separate font subsets total
+  34,284 bytes, retaining shaping tables and leaving older assets untouched.
+  Rebuild: node scripts/build-emo-data.mjs --combined-v2, then
+  PYTHON=/opt/homebrew/bin/python3.11 node scripts/build-emo-fonts.mjs --combined-v2.
+- Validation: npm run check; independent Python winner/font check; real-WebGL water/land/back
+  masking and dot diameter check; all atmosphere checks including forced Light and inside-shell
+  occlusion; new-data network completion, reversal, interaction and hidden-tab checks passed.
+  The arc fixture drew all 2,955 planned segments. Dot raster widths were 24 and 50 pixels.
+- Local 1080x684 pacing: new-data build 8.3 ms median, 9.3 ms p95; native-detail smooth air
+  8.3 ms median, 9.3 ms p95. These are frame intervals, not GPU execution durations.
+  The accelerated new-data cycle visited all 195 countries, wrapped twice, then a manual input
+  paused it at 97 seconds. This is an interrupted run, not a full soak pass.
+- Default remains v38-d. Physical-phone acceptance stays deferred. No gallery images were made.

@@ -77,10 +77,12 @@
     const noFlightPreview = profilePreset.cycle?.previewDuringFlight === false;
     const revealWithNetwork = profilePreset.cycle?.revealWithNetwork === true;
     check(!useMockApi && getPainServerUserId().length > 0, "Country metrics must be enabled to verify their absence");
-    const data = await loadEmoData();
+    const data = await loadEmoData(profilePreset.emotionDataset);
     const categoryLabels = new Map(data.categories.map((category) => [category.key, category.label]));
     const expected = Object.entries(data.countries).map(([iso3, country]) => ({ iso3, name: country.name,
       native: country.term.trim() || categoryLabels.get(country.cat) }))
+      .concat(Object.entries(data.missingCountries ?? {}).map(([iso3, country]) =>
+        ({ iso3, name: country.name, native: "no data" })))
       .sort((a, b) => a.name.localeCompare(b.name, "en"));
     check(expected.length === 195 && new Set(expected.map((country) => country.name)).size === 195,
       "Expected 195 uniquely named countries");

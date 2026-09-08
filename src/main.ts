@@ -496,6 +496,22 @@ let emoParams = emoView.params;
 let emoPanel: { setParam: (key: "randomSeed", value: number) => void } | null = null;
 let countryProfileRuntime: CountryProfileRuntime | null = null;
 let countryProfileRuntimeReady: Promise<void> | null = null;
+let countryPresetReady: Promise<import("./countryProfile/presets").CountryProfilePreset> | null = null;
+function countryPreset() {
+  return countryPresetReady ??= import("./countryProfile/presets").then((module) =>
+    module.resolveCountryProfilePreset());
+}
+async function loadViewEmotions() {
+  return loadEmoData(countryProfileEnabled ? (await countryPreset()).emotionDataset : undefined);
+}
+async function fetchViewPoints(layer: string, signal?: AbortSignal): Promise<PainPoint[]> {
+  if (countryProfileEnabled && layer === "socioecopain" &&
+      (await countryPreset()).socioeconomicDataset === "gdp-per-capita-2024") {
+    const { loadGdpPerCapita } = await import("./countryProfile/gdpPerCapita");
+    return loadGdpPerCapita();
+  }
+  return fetchPoints(layer, signal);
+}
 let countryPresentation: CountryPresentation | null = null;
 let preserveCountryProfileOnEmoClear = false;
 let presentationBaseParams: EmoViewParams | null = null;
@@ -524,10 +540,12 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
   globe.setScarDepthStyle(preset?.scarDepthStyle ?? "none");
   globe.setScarReliefPalette(preset?.scarReliefPalette ?? "coral");
+  globe.setScarDepthSize(preset?.scarDepthSize === true &&
+    (layerId === "physpain" || layerId === "all-layers"));
   globe.setPhysicalOceanBlue(preset?.physicalOceanBlue === true);
   globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
     quality?.samples ?? preset?.atmosphereSamples ?? 32,
-    quality?.fraction ?? preset?.atmosphereFraction ?? 0.5);
+    quality?.fraction ?? preset?.atmosphereFraction ?? 0.5, preset?.atmosphereSmooth);
   globe.setSocioeconomicStyle(preset?.socioeconomicStyle ?? null,
     countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25,
     preset?.socioeconomicMissingStyle);
@@ -658,6 +676,13 @@ function handleCountrySurfaceClick(clientX: number, clientY: number): void {
     runtime.toggle(iso3, true);
     return;
   }
+  if (!runtime.profiles.get(iso3)?.emotional.categoryKey) {
+    preserveCountryProfileOnEmoClear = true;
+    try { emoLabelLayer?.clearSelection(); }
+    finally { preserveCountryProfileOnEmoClear = false; }
+    runtime.toggle(iso3, true);
+    return;
+  }
   if (runtime.selectedIso3 === iso3) emoLabelLayer?.clearSelection();
   else emoLabelLayer?.selectCountry(iso3);
 }
@@ -715,7 +740,7 @@ async function ensureCountryProfileRuntime(): Promise<void> {
     },
     selectCountry: (iso3) => {
       runtime.select(iso3, false);
-      emoLabelLayer?.selectCountry(iso3);
+      if (runtime.profiles.get(iso3)?.emotional.categoryKey) emoLabelLayer?.selectCountry(iso3);
     },
     clearCountry: () => {
       runtime.clear(false);
@@ -889,7 +914,7 @@ async function handleAllLayers(): Promise<void> {
     }
   }
   const fetchedLists = await Promise.all(
-    layersToFetch.map((layer) => fetchPoints(layer.id)),
+    layersToFetch.map((layer) => fetchViewPoints(layer.id)),
   );
   for (let i = 0; i < layersToFetch.length; i++) {
     const points = fetchedLists[i] ?? [];
@@ -949,7 +974,7 @@ async function loadPoints(): Promise<void> {
   const controller = new AbortController();
   loadPointsAbortController = controller;
   try {
-    const points = await fetchPoints(layer, controller.signal);
+    const points = await fetchViewPoints(layer, controller.signal);
     if (controller.signal.aborted) return;
     pointCache.set(layer, points);
     globe.setMarkers(points);
@@ -1009,11 +1034,11 @@ function loop(now: number): void {
   initBackgroundMusic();
   if (emoViewsEnabled && emoLabelHost) {
     try {
-      emoMotion = createEmoSelectionMotion({ data: await loadEmoData(), params: emoView.params });
+      emoMotion = createEmoSelectionMotion({ data: await loadViewEmotions(), params: emoView.params });
       emoLabelLayer = await createEmoLabelLayer({
         host: emoLabelHost,
         globe,
-        data: await loadEmoData(),
+        data: await loadViewEmotions(),
         params: emoView.params,
         motion: emoMotion,
         // The label layer owns the selection because it owns the click; the arcs and the
@@ -1041,26 +1066,26 @@ function loop(now: number): void {
       });
       emoArcLayer = await createEmoArcLayer({
         globe,
-        data: await loadEmoData(),
+        data: await loadViewEmotions(),
         params: emoView.params,
         motion: emoMotion,
       });
       emoLeaderLineLayer = await createEmoLeaderLineLayer({
         globe,
-        data: await loadEmoData(),
+        data: await loadViewEmotions(),
         params: emoView.params,
         motion: emoMotion,
       });
       emoSelectionLayer = await createEmoSelectionLayer({
         globe,
-        data: await loadEmoData(),
+        data: await loadViewEmotions(),
         params: emoView.params,
         motion: emoMotion,
       });
       if (emoLegendHost) {
         emoLegend = await createEmoLegend({
           host: emoLegendHost,
-          data: await loadEmoData(),
+          data: await loadViewEmotions(),
           params: emoView.params,
           // A legend click is a click on a country, taking the same path as one on the globe.
           // There is no second selection route, so nothing can drift out of step with it.

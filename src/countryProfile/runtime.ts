@@ -52,7 +52,8 @@ export class CountryProfileRuntime {
     const requestedQuality = new URLSearchParams(window.location.search).get("cpQuality");
     this.quality = preset.quality || requestedQuality !== null
       ? new CountryRenderQuality(requestedQuality ?? "auto") : null;
-    const reference = preset.socioeconomicStyle ? profiles.get("JPN")?.socioeconomic.value : 0;
+    const reference = preset.socioeconomicDataset ? 0.25 :
+      preset.socioeconomicStyle ? profiles.get("JPN")?.socioeconomic.value : 0;
     if (reference === null || reference === undefined || !Number.isFinite(reference) ||
         reference < 0 || reference >= 1) {
       throw new Error("The selected socioeconomic treatment requires Japan's normalized reference");
@@ -79,8 +80,9 @@ export class CountryProfileRuntime {
     layerId: string,
   ): Promise<CountryProfileRuntime> {
     await ensureCountryGeometriesLoaded();
+    const preset = resolveCountryProfilePreset();
     const profiles = buildCountryPainProfiles(
-      await loadEmoData(),
+      await loadEmoData(preset.emotionDataset),
       {
         environmental: requireLayer(pointsByLayer, ENVIRONMENTAL_LAYER),
         physical: requireLayer(pointsByLayer, PHYSICAL_LAYER),
@@ -88,7 +90,6 @@ export class CountryProfileRuntime {
       },
       getCountryGeometries(),
     );
-    const preset = resolveCountryProfilePreset();
     return new CountryProfileRuntime(
       profiles,
       createCountryProfileView(appRoot, layerId, preset),
@@ -131,6 +132,7 @@ export class CountryProfileRuntime {
         this.preset.socioeconomicPatternContrast ?? 0.25,
         this.preset.generatedLegendOrientation === "vertical",
         this.preset.socioeconomicMissingStyle,
+        this.preset.socioeconomicDataset !== undefined,
       );
     }
     if (layerId !== ENVIRONMENTAL_LAYER || !this.preset.atmosphereMode ||

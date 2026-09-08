@@ -318,7 +318,9 @@ export class CountryProfileView {
     this.environmental = createEnvironmentalMetric(compact, inset, missingPattern);
     this.physical = createSignalMetric({ key: "physical", caption: "physical", color: "#e4184b",
       shape: SHAPES.physical, compact, inset, missingPattern });
-    this.socioeconomic = createSignalMetric({ key: "socioeconomic", caption: "socioeconomic",
+    this.socioeconomic = createSignalMetric({ key: "socioeconomic", caption: preset.socioeconomicDataset
+      ? "GDP per capita 2024, inverted logarithmic display (lower GDP gives higher signal)"
+      : "socioeconomic",
       color: "#d9d438", shape: SHAPES.socioeconomic, compact, inset, missingPattern });
     this.host.id = "country-profile";
     this.host.className = "country-profile";
@@ -431,7 +433,9 @@ export class CountryProfileView {
     this.host.hidden = !this.preview && (profile === null || this.suppressed);
     if (!profile) return;
     this.countryName.textContent = profile.countryName;
-    this.nativeTerm.textContent = profile.emotional.nativeTerm;
+    const emotionMissing = profile.emotional.value === null;
+    this.emotional.dataset.missing = String(emotionMissing);
+    this.nativeTerm.textContent = emotionMissing ? "no data" : profile.emotional.nativeTerm;
     this.nativeTerm.lang = profile.emotional.language;
     this.nativeTerm.className =
       `country-profile__native emo-sc-${profile.emotional.script}`;
@@ -439,12 +443,13 @@ export class CountryProfileView {
       profile.emotional.nativeTerm.trim().toLowerCase() ===
       profile.emotional.englishTerm.trim().toLowerCase();
     this.englishTerm.textContent = profile.emotional.englishTerm;
-    this.englishTerm.hidden = duplicate;
+    this.englishTerm.hidden = duplicate || emotionMissing;
     this.emotional.setAttribute(
       "aria-label",
+      emotionMissing ? "Emotional pain: data unavailable" :
       `Emotional pain: ${profile.emotional.nativeTerm}; ` +
         `English: ${profile.emotional.englishTerm}; normalized signal ` +
-        `${Math.round(profile.emotional.value * 100)} of 100`,
+        `${Math.round(profile.emotional.value! * 100)} of 100`,
     );
     this.environmental.update(profile);
     this.physical.update(profile);

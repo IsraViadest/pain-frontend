@@ -22,7 +22,7 @@
     const { loadEmoData } = await import("/src/emo/emoData.ts");
     const { CountryPresentation } = await import("/src/countryProfile/presentation.ts");
     const { resolveCountryProfilePreset } = await import("/src/countryProfile/presets.ts");
-    const data = await loadEmoData();
+    const data = await loadEmoData(resolveCountryProfilePreset().emotionDataset);
     const params = {
       ...DEFAULT_EMO_PARAMS, networkMode: "selected", categoryGraph: "delaunay",
       selectionLeaderMs: 40, selectionSpreadMs: 80, selectionRetractSpeed: 2,

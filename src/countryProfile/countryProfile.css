@@ -699,3 +699,9 @@
     margin: 4px 0 6px;
   }
 }
+.country-profile__emotional[data-missing="true"] .country-profile__native {
+  color: #dcdcdc;
+  background: repeating-linear-gradient(135deg, rgba(112, 112, 112, .52) 0 5px,
+    rgba(220, 220, 220, .35) 5px 6px, rgba(112, 112, 112, .52) 6px 11px);
+  border-radius: 3px;
+}

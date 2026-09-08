@@ -221,6 +221,10 @@ export async function createEmoLegend(options: {
     el.className = "emo-legend__item emo-sc-Latn";
     el.dataset.cat = category.key;
     el.textContent = category.label;
+    if ((members.get(category.key)?.length ?? 0) === 0) {
+      el.disabled = true;
+      el.title = "No countries in this dataset have this category as their highest score";
+    }
     wideRow.appendChild(el);
     ordered.push(el);
     items.set(category.key, el);

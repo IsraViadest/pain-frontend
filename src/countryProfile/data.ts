@@ -25,7 +25,7 @@ export interface CountryPainProfile {
     englishTerm: string;
     language: string;
     script: string;
-    value: number;
+    value: number | null;
   };
   temperature: CountrySignal;
   co2: CountrySignal;
@@ -121,6 +121,20 @@ export function buildCountryPainProfiles(
         language: country.lang,
         script: country.script,
         value: country.score,
+      },
+      temperature: temperature.get(iso3) ?? missingSignal(),
+      co2: co2.get(iso3) ?? missingSignal(),
+      physical: physical.get(iso3) ?? missingSignal(),
+      socioeconomic: socioeconomic.get(iso3) ?? missingSignal(),
+    });
+  }
+  for (const [iso3, country] of Object.entries(emotionalData.missingCountries ?? {})) {
+    profiles.set(iso3, {
+      iso3,
+      countryName: country.name,
+      emotional: {
+        categoryKey: "", category: "", nativeTerm: "", englishTerm: "",
+        language: country.lang, script: country.script, value: null,
       },
       temperature: temperature.get(iso3) ?? missingSignal(),
       co2: co2.get(iso3) ?? missingSignal(),

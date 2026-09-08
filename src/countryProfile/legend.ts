@@ -164,6 +164,7 @@ export function createSocioeconomicLegend(
   contrast = 0.25,
   vertical = false,
   missingStyle?: "diagonal" | "cross",
+  gdpPerCapita = false,
 ): SVGSVGElement {
   const q = Math.round(255 * minimumAlpha) / 255;
   if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || q >= 1) {
@@ -190,6 +191,10 @@ export function createSocioeconomicLegend(
     "Zero uses the visible minimum. " + (missingStyle
       ? "A neutral gray hatch means data unavailable, not zero."
       : "The empty outline means data unavailable, not zero."));
+  if (gdpPerCapita) svg.setAttribute("aria-label",
+    "GDP per capita, World Bank 2024, current US dollars per person. Inverted logarithmic scale: " +
+    "lower GDP per person gives stronger yellow. Gray hatching means unavailable, not zero. " +
+    "This is an artistic socioeconomic proxy, not a measured pain score.");
   const defs = element("defs");
   svg.append(defs);
   const gradient = element("linearGradient", { id: "country-profile-socioeconomic-scale" });
@@ -238,7 +243,8 @@ export function createSocioeconomicLegend(
     svg.append(swatch);
     return swatch;
   });
-  const labels = ["Socioeconomic", "lower", "higher",
+  const labels = [gdpPerCapita ? "GDP/person 2024" : "Socioeconomic",
+    gdpPerCapita ? "richer" : "lower", gdpPerCapita ? "poorer" : "higher",
     style === "color" ? "continuous relative signal" : "same continuous value; examples", "no data"].map((label) => {
     const text = element("text");
     text.textContent = label;

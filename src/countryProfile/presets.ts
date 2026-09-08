@@ -117,10 +117,12 @@ export interface CountryProfilePreset {
   nativeOpacity?: number;
   roundedScarShoulder?: boolean;
   scarDepthStyle?: "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
-    "relief";
-  scarContourStyle?: "land-blue" | "all-blue" | "land-red" | "all-red";
+    "relief" | "shadow";
+  scarContourStyle?: "land-blue" | "all-blue" | "land-red" | "all-red" |
+    "water-blue" | "water-coral" | "water-dots";
   scarContourLevels?: 16 | 24;
-  scarReliefPalette?: "coral" | "crimson" | "rose";
+  scarReliefPalette?: "coral" | "crimson" | "rose" | "vibrant";
+  scarDepthSize?: boolean;
   physicalOceanBlue?: boolean;
   surfaceDetail?: 1 | 2;
   countryContourDegrees?: number;
@@ -138,6 +140,9 @@ export interface CountryProfilePreset {
     "volume-log-near-opaque-separated";
   atmosphereSamples?: 16 | 32 | 48;
   atmosphereFraction?: number;
+  atmosphereSmooth?: boolean;
+  socioeconomicDataset?: "gdp-per-capita-2024";
+  emotionDataset?: "combined-v2";
   environmentalContextOpacity?: number;
   socioeconomicStyle?: "color" | "hatch" | "woven";
   socioeconomicContextOpacity?: number;
@@ -1061,6 +1066,46 @@ const COUNTRY_PROFILE_PRESETS: readonly CountryProfilePreset[] = [
     ...V38_BASE, id: "v38-d_very-strong-linear", label: "v38: very strong linear air",
     description: "A linear midpoint between the strong and near-opaque separated volumes.",
     atmosphereMode: "volume-very-strong-separated",
+  },
+  // v39 retains the incumbent dot sizing at rest. Size and palette are independent axes.
+  ...(["blue", "coral", "dots"] as const).flatMap((color) =>
+    [false, true].flatMap((vibrant) => [false, true].map((size): CountryProfilePreset => ({
+      ...V38_BASE,
+      id: `v39-${color}_${vibrant ? "vibrant" : "original"}-${size ? "depth-size" : "fixed-size"}`,
+      label: `v39: water ${color}, ${vibrant ? "vibrant" : "original"} dots, ${size ? "2x depth size" : "fixed size"}`,
+      description: "Water-only contours; independent comparison of dot palette and scar-depth size.",
+      atmosphereMode: "volume-very-strong-separated",
+      scarContourStyle: `water-${color}`,
+      scarReliefPalette: vibrant ? "vibrant" : "coral",
+      scarDepthSize: size,
+    })))),
+  ...([
+    ["a_size-only", "Depth size only", "none", "coral", true],
+    ["b_color-only", "Vibrant color only", "relief", "vibrant", false],
+    ["c_color-and-size", "Vibrant color and depth size", "relief", "vibrant", true],
+    ["d_valley-shadow", "Original colors with valley shadow", "shadow", "coral", false],
+    ["e_shadow-and-size", "Valley shadow and depth size", "shadow", "coral", true],
+    ["control_original-dots", "Original colors, no contours", "none", "coral", false],
+  ] as const).map(([id, label, depth, palette, size]): CountryProfilePreset => ({
+    ...V38_BASE, id: `v40-${id}`, label: `v40: ${label}`, description: label,
+    atmosphereMode: "volume-very-strong-separated", scarContourStyle: undefined,
+    scarDepthStyle: depth, scarReliefPalette: palette, scarDepthSize: size,
+  })),
+  {
+    ...V38_BASE, id: "v41-a_smooth-air", label: "v41: smooth atmospheric outline",
+    description: "Filtered depth, denser integration and premultiplied volume interpolation.",
+    atmosphereMode: "volume-very-strong-separated", atmosphereSmooth: true,
+    quality: false, atmosphereSamples: 48, atmosphereFraction: 1,
+  },
+  {
+    ...V38_BASE, id: "v42-a_gdp-per-capita", label: "v42: GDP per capita 2024",
+    description: "World Bank 2024 GDP per capita; lower values give stronger yellow on an inverted log scale.",
+    atmosphereMode: "volume-very-strong-separated", socioeconomicDataset: "gdp-per-capita-2024",
+  },
+  {
+    ...V38_BASE, id: "v43-a_combined-emotions", label: "v43: CCNews 75 / expressions 25",
+    description: "2026-09-05 combined emotion data with dedicated native-word font subsets.",
+    atmosphereMode: "volume-very-strong-separated", emotionDataset: "combined-v2",
   },
 ];
 
