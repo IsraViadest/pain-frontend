@@ -64,6 +64,8 @@ import type { StippleDetailMode } from "./stippleDetailController";
 import type { AtmosphereMode, createEnvironmentalAtmosphere } from "./environmentalAtmosphere";
 import type { SocioeconomicStyle } from "./socioeconomicPattern";
 import type { createScarContourLayer, ScarContourStyle } from "./scarContourLayer";
+import { createSurfacePicker } from "./surfacePicker";
+import { COUNTRY_SELECTION_STORAGE_RESERVE_BYTES } from "../emo/selectionBorders";
 
 export type { Co2HazeTune };
 type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
@@ -137,6 +139,8 @@ type MaterialWithClipping = THREE.Material & {
 };
 
 const RADIUS = 1;
+/** HQ supersampling stops at a 4K output buffer; effect targets retain their own quality caps. */
+const HIGH_QUALITY_MAX_PIXELS = 3840 * 2160;
 /** Max angular distance (°) between a surface click and nearest pain point before pick returns null. */
 const MAX_CLICK_SOUND_RADIUS_DEG = 15;
 
@@ -620,6 +624,9 @@ export class GlobeView {
   private environmentalFieldPattern: FieldTexturePattern = "smooth";
   /** Uniform scale for coast/border line shell (`bordersOutlines.group`). */
   private borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
+  private highQuality = false;
+  private selectionBorderStorageBytes = 0;
+  private readonly surfacePicker: ReturnType<typeof createSurfacePicker>;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -628,7 +635,6 @@ export class GlobeView {
       alpha: true,
     });
     this.renderer.localClippingEnabled = true;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -671,6 +677,7 @@ export class GlobeView {
       opacity: 1,
     });
     this.globe = new THREE.Mesh(geo, mat);
+    this.surfacePicker = createSurfacePicker(this.globe);
     this.globe.renderOrder = 0;
     this.globeBasePositions = new Float32Array(
       geo.attributes.position!.array,
@@ -779,6 +786,13 @@ export class GlobeView {
   }
 
   // --- Public mode API (called from main.ts HUD) ---
+
+  /** Opt-in output supersampling, independent of the country effect-detail tier. */
+  setHighQuality(enabled: boolean): void {
+    if (enabled === this.highQuality) return;
+    this.highQuality = enabled;
+    this.onResize();
+  }
 
   /** Swap between procedural canvas texture and stippled point globe (test). */
   setGlobeDisplayMode(mode: GlobeDisplayMode): void {
@@ -2138,6 +2152,7 @@ export class GlobeView {
   }
 
   dispose(): void {
+    this.surfacePicker.dispose();
     this.socioeconomicStyleGeneration++;
     this.atmosphereGeneration++;
     this.atmosphere?.dispose();
@@ -2702,6 +2717,38 @@ export class GlobeView {
     return this.choroplethShell.geometry;
   }
 
+  /** Interpolate the same UV triangles used by the country fill, including live scar dents. */
+  projectCountryOutlinePositions(base: Float32Array, out: Float32Array): void {
+    const surface = this.choroplethShell.geometry;
+    const { widthSegments: width, heightSegments: height } = surface.parameters;
+    const positions = surface.getAttribute("position");
+    const direction = new THREE.Vector3();
+    for (let i = 0; i < base.length; i += 3) {
+      direction.fromArray(base, i);
+      const { u, v } = unitDirectionToGlobeEquirectUV(direction);
+      const x = u * width, y = v * height;
+      const ix = Math.min(width - 1, Math.floor(x)), iy = Math.min(height - 1, Math.floor(y));
+      const tx = x - ix, ty = y - iy;
+      const b = iy * (width + 1) + ix, d = b + width + 2;
+      const middle = ty <= tx ? b + 1 : b + width + 1;
+      const wb = 1 - Math.max(tx, ty), wd = Math.min(tx, ty), wm = Math.abs(tx - ty);
+      out[i] = positions.getX(b) * wb + positions.getX(d) * wd + positions.getX(middle) * wm;
+      out[i + 1] = positions.getY(b) * wb + positions.getY(d) * wd + positions.getY(middle) * wm;
+      out[i + 2] = positions.getZ(b) * wb + positions.getZ(d) * wd + positions.getZ(middle) * wm;
+    }
+  }
+
+  setSelectionBorderStorageBytes(bytes: number): void {
+    this.selectionBorderStorageBytes = bytes;
+  }
+
+  /** Perspective-aware front-side test for the selected country's geographic origin. */
+  isCountryOriginVisible(lat: number, lng: number): boolean {
+    const origin = latLngToVector3(lat, lng, RADIUS);
+    origin.applyAxisAngle(THREE.Object3D.DEFAULT_UP, this.globeSpinY);
+    return origin.dot(this.camera.position) > RADIUS * RADIUS;
+  }
+
   getDisplayCountryGeometries(): readonly IndexedCountryGeometry[] {
     return this.displayGeography?.countries ?? getCountryGeometries();
   }
@@ -2884,10 +2931,13 @@ export class GlobeView {
     const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
     // Origin/peer painting can read two weight groups; legacy painting reads only one.
     const highlightScratch = HIGHLIGHT_GROUP_BYTES;
+    const selectionBorders = this.selectionBorderStorageBytes;
+    const surfacePicking = this.surfacePicker.storageBytes();
     return { surface, borders, stipple, atmosphere, contours, geography, fieldScratch,
       socioeconomicMissing, socioeconomicMissingScratch,
-      highlightScratch, total: surface + borders + stipple + atmosphere + contours + geography +
-        fieldScratch + highlightScratch + socioeconomicMissing + socioeconomicMissingScratch };
+      highlightScratch, selectionBorders, surfacePicking,
+      total: surface + borders + stipple + atmosphere + contours + geography +
+        fieldScratch + highlightScratch + selectionBorders + surfacePicking + socioeconomicMissing + socioeconomicMissingScratch };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */
@@ -3058,7 +3108,8 @@ export class GlobeView {
       }
     }
     if (this.renderer.domElement.clientWidth > 0 && this.renderer.domElement.clientHeight > 0) {
-      this.atmosphere?.prepare(this.atmosphereSamples, this.atmosphereFraction);
+      this.atmosphere?.prepare(this.atmosphereSamples, this.atmosphereFraction,
+        COUNTRY_SELECTION_STORAGE_RESERVE_BYTES + 128 * 1024);
     }
     this.renderer.render(this.scene, this.camera);
   }
@@ -3454,7 +3505,7 @@ export class GlobeView {
       -(((clientY - rect.top) / rect.height) * 2 - 1),
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    const hit = this.raycaster.intersectObject(this.globe, false)[0];
+    const hit = this.surfacePicker.pick(this.raycaster);
     if (!hit) return null;
     return vector3ToLatLng(this.globe.worldToLocal(hit.point.clone()));
   }
@@ -3477,8 +3528,7 @@ export class GlobeView {
       -(((clientY - rect.top) / rect.height) * 2 - 1),
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    const hits = this.raycaster.intersectObject(this.globe, false);
-    const hit = hits[0];
+    const hit = this.surfacePicker.pick(this.raycaster);
     if (!hit) return null;
 
     const click = vector3ToLatLng(hit.point);
@@ -3521,8 +3571,7 @@ export class GlobeView {
       -(((clientY - rect.top) / rect.height) * 2 - 1),
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    const hits = this.raycaster.intersectObject(this.globe, false);
-    const hit = hits[0];
+    const hit = this.surfacePicker.pick(this.raycaster);
     if (!hit) return null;
 
     const dir = hit.point.clone().normalize();
@@ -3922,7 +3971,14 @@ export class GlobeView {
     const h = window.innerHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h, false);
+    const normalRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const context = this.renderer.getContext();
+    const maxDimension = context.getParameter(context.MAX_RENDERBUFFER_SIZE) as number;
+    const ratio = this.highQuality ? Math.min(
+      Math.max(2, normalRatio * 1.5), 3,
+      Math.sqrt(HIGH_QUALITY_MAX_PIXELS / (w * h)), maxDimension / Math.max(w, h),
+    ) : normalRatio;
+    this.renderer.setDrawingBufferSize(w, h, ratio);
     this.bordersOutlines?.setResolution(w, h);
   };
 }

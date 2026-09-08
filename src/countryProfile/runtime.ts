@@ -42,16 +42,19 @@ export class CountryProfileRuntime {
   private socioeconomicLegend: SVGSVGElement | undefined;
   readonly socioeconomicMinimum: number;
   readonly quality: CountryRenderQuality | null;
+  private profileSuppressed = false;
+  private originVisible = true;
 
   private constructor(
     profiles: ReadonlyMap<string, CountryPainProfile>,
     private readonly view: CountryProfileView,
     readonly preset: CountryProfilePreset,
+    highQuality: boolean,
   ) {
     this.profiles = profiles;
     const requestedQuality = new URLSearchParams(window.location.search).get("cpQuality");
-    this.quality = preset.quality || requestedQuality !== null
-      ? new CountryRenderQuality(requestedQuality ?? "auto") : null;
+    this.quality = preset.quality || requestedQuality !== null || highQuality
+      ? new CountryRenderQuality(requestedQuality ?? (highQuality ? "rich" : "auto")) : null;
     const reference = preset.socioeconomicDataset ? 0.25 :
       preset.socioeconomicStyle ? profiles.get("JPN")?.socioeconomic.value : 0;
     if (reference === null || reference === undefined || !Number.isFinite(reference) ||
@@ -79,6 +82,7 @@ export class CountryProfileRuntime {
     appRoot: HTMLElement,
     layerId: string,
     emotionalData?: EmoData,
+    highQuality = false,
   ): Promise<CountryProfileRuntime> {
     await ensureCountryGeometriesLoaded();
     const preset = resolveCountryProfilePreset();
@@ -95,6 +99,7 @@ export class CountryProfileRuntime {
       profiles,
       createCountryProfileView(appRoot, layerId, preset),
       preset,
+      highQuality,
     );
   }
 
@@ -152,7 +157,15 @@ export class CountryProfileRuntime {
   }
 
   setProfileSuppressed(suppressed: boolean): void {
-    this.view.setSuppressed(suppressed);
+    this.profileSuppressed = suppressed;
+    this.view.setSuppressed(suppressed || !this.originVisible);
+  }
+
+  /** Visibility follows the globe while selection and presentation timing remain intact. */
+  setOriginVisible(visible: boolean): void {
+    if (visible === this.originVisible) return;
+    this.originVisible = visible;
+    this.view.setSuppressed(this.profileSuppressed || !visible);
   }
 
   previewCountry(iso3: string | null): void {

@@ -168,6 +168,11 @@ installTextSelectionGuard();
 
 // --- Globe + optional debug panel (see index.html) ---
 const globe = new GlobeView(canvas);
+const displayQuery = new URLSearchParams(location.search);
+const highQuality = displayQuery.get("hq") === "1" ||
+  (displayQuery.get("cp") === "1" && displayQuery.get("cpProjection") === "1" &&
+    displayQuery.get("hq") !== "0");
+globe.setHighQuality(highQuality);
 const scarMapPreview = document.querySelector<HTMLCanvasElement>(
   "#scar-map-preview",
 );
@@ -379,7 +384,12 @@ const CLICK_MAX_MOVE_PX = 5;
  */
 const SOUND_ENABLED = false;
 
+let countryPointer: { x: number; y: number; dragging: boolean } | null = null;
+let countryPointerCheckedAt = 0;
 canvas.addEventListener("pointermove", (ev) => {
+  if (ev.pointerType !== "touch") countryPointer = {
+    x: ev.clientX, y: ev.clientY, dragging: ev.buttons !== 0,
+  };
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
     const w = globe.pickWordCloudHover(ev.clientX, ev.clientY);
     if (w) {
@@ -420,6 +430,11 @@ canvas.addEventListener("pointermove", (ev) => {
 
 canvas.addEventListener("pointerleave", () => {
   hoverModal.hidden = true;
+  countryPointer = null;
+  canvas.style.cursor = "";
+});
+canvas.addEventListener("pointerup", () => {
+  if (countryPointer) countryPointer.dragging = false;
 });
 
 /** Pointer down position for click-vs-drag detection on the globe canvas. */
@@ -753,6 +768,7 @@ async function ensureCountryProfileRuntime(): Promise<void> {
       appRootEl,
       lastLayerId,
       await loadViewEmotions(),
+      highQuality,
     );
     const runtime = countryProfileRuntime;
     applyCountryProfileGlobePreset(lastLayerId);
@@ -1053,6 +1069,20 @@ async function loadPoints(): Promise<void> {
 // --- render loop + initial API bootstrap ---
 function loop(now: number): void {
   globe.tick();
+  const selectedOrigin = countryProfileRuntime?.selectedIso3;
+  const centroid = selectedOrigin ? getCountryCentroid(selectedOrigin) : null;
+  countryProfileRuntime?.setOriginVisible(!centroid || globe.isCountryOriginVisible(centroid.lat, centroid.lng));
+  if (canvas && countryPointer && countryProfileRuntime && now - countryPointerCheckedAt >= 50) {
+    countryPointerCheckedAt = now;
+    const { x, y, dragging } = countryPointer;
+    if (dragging) canvas.style.cursor = "grabbing";
+    else if (emoLabelLayer?.countryAtPoint(x, y)) canvas.style.cursor = "pointer";
+    else {
+      const surface = globe.pickSurfaceLatLng(x, y);
+      canvas.style.cursor = surface && countryProfileRuntime.countryAt(surface.lat, surface.lng)
+        ? "pointer" : "default";
+    }
+  }
   // Before the three layers, so none of them sees a different instant of the same animation.
   emoMotion?.tick();
   emoLabelLayer?.update();

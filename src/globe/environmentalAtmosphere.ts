@@ -70,8 +70,8 @@ export function createEnvironmentalAtmosphere(options: {
       surface?.setFields(temperature, co2);
     },
     /** Called before the main render, with the same camera/earth matrices for all passes. */
-    prepare(samples: 16 | 32 | 48, fraction: number): void {
-      if (disposed || (!temperature && !co2)) return;
+    prepare(samples: 16 | 32 | 48, fraction: number, reservedBytes = 0): void {
+      if (disposed) return;
       renderer.getDrawingBufferSize(drawingSize);
       if (drawingSize.x <= 0 || drawingSize.y <= 0) return;
       const positions = surfaceGeometry.getAttribute("position");
@@ -96,12 +96,16 @@ export function createEnvironmentalAtmosphere(options: {
         ? sphericalRadius : 0;
       const sampledSurface = volumeMode && surfaceRadius.value === 0;
       const scarDepthCap = fraction <= 0.25 ? 3_000_000 : MAX_SCAR_DEPTH_PIXELS;
+      const baseDepthCap = sampledSurface ? scarDepthCap : options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS;
+      // Light shares its 64 MiB ceiling with selection buffers. Reserve once, not per wave.
+      const depthCap = fraction <= 0.25
+        ? Math.min(baseDepthCap, Math.max(1, scarDepthCap - Math.ceil(reservedBytes / 5))) : baseDepthCap;
       const ratio = Math.min(sampledSurface ? 2 : options.smooth ? fraction : 0.5, sampledSurface ? 2 : 1,
-        Math.sqrt((sampledSurface ? scarDepthCap : options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS) /
-          (drawingSize.x * drawingSize.y)),
+        Math.sqrt(depthCap / (drawingSize.x * drawingSize.y)),
         renderer.capabilities.maxTextureSize / Math.max(drawingSize.x, drawingSize.y));
       depthTarget.setSize(Math.max(1, Math.floor(drawingSize.x * ratio)),
         Math.max(1, Math.floor(drawingSize.y * ratio)));
+      if (!temperature && !co2) return;
       earthContent.updateWorldMatrix(true, false);
       camera.updateMatrixWorld();
       inverseEarth.copy(earthContent.matrixWorld).invert();
