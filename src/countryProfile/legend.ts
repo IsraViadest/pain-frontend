@@ -158,11 +158,19 @@ export function createPhysicalLegend(
       dot.dataset.depth = String(depth);
       dot.setAttribute("cx", String(48 + side * 22 * (1 - depth)));
       dot.setAttribute("cy", String(32 + depth * 116));
-      dot.setAttribute("r", String(3 * size));
+      dot.setAttribute("r", String(2 * size));
       dot.setAttribute("fill", `#${color.getHexString()}`);
       dots.append(dot);
     }
   }
+  const caps = document.createElementNS(SVG_NS, "path");
+  const topRadius = sizeMode === "recessed-small" ? 3 : 2;
+  caps.dataset.physicalCaps = "true";
+  caps.setAttribute("d", `M16 32H${26 - topRadius}M${70 + topRadius} 32H80`);
+  caps.setAttribute("fill", "none");
+  caps.setAttribute("stroke", `#${high.toString(16).padStart(6, "0")}`);
+  caps.setAttribute("stroke-width", "1");
+  caps.setAttribute("stroke-linecap", "round");
   const higher = document.createElementNS(SVG_NS, "text");
   higher.setAttribute("x", "48");
   higher.setAttribute("y", "22");
@@ -175,7 +183,7 @@ export function createPhysicalLegend(
   lower.setAttribute("text-anchor", "middle");
   lower.setAttribute("font-size", "11");
   lower.textContent = "max";
-  svg.append(title, dots, higher, lower);
+  svg.append(title, dots, caps, higher, lower);
   return svg;
 }
 

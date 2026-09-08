@@ -57,6 +57,8 @@
           const mode = globe.pointsMaterial.uniforms.uScarDepthSize.value;
           check(Math.abs(first / last - (mode < 0 ? 2 : mode > 0 ? .5 : 1)) < .001,
             'Legend dot diameter ratio does not match the map');
+          check(first <= 3 && svg.querySelector('[data-physical-caps]'),
+            'Smaller legend dots or top strokes missing');
         }
       }
       results.push({ layer: name, contours: expected, text });
