@@ -8,6 +8,7 @@ export type AtmosphereMode = "control" | "flat" | "mantle" | "cloudlets" | "volu
   "volume-log-near-opaque-separated";
 
 const MAX_DEPTH_PIXELS = 1_048_576;
+const MAX_SCAR_DEPTH_PIXELS = 4_194_304;
 const COLORS = { temperature: "#d74846", co2: "#b4ffd2" };
 
 /** A private depth pass clips air against the actual surface without hiding ground stipple. */
@@ -29,6 +30,8 @@ export function createEnvironmentalAtmosphere(options: {
   const depth = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
   depth.minFilter = depth.magFilter = THREE.NearestFilter;
   const depthTarget = new THREE.WebGLRenderTarget(1, 1, {
+    // The color attachment is never sampled or written. R8 avoids reserving unused RGBA channels.
+    format: THREE.RedFormat,
     depthTexture: depth, depthBuffer: true, stencilBuffer: false, samples: 0,
     minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
     generateMipmaps: false, colorSpace: THREE.NoColorSpace,
@@ -91,8 +94,11 @@ export function createEnvironmentalAtmosphere(options: {
       const range = surfaceGeometry.drawRange;
       surfaceRadius.value = range.start === 0 && range.count >= (surfaceGeometry.index?.count ?? positions.count)
         ? sphericalRadius : 0;
-      const ratio = Math.min(options.smooth ? fraction : 0.5, 1,
-        Math.sqrt((options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS) / (drawingSize.x * drawingSize.y)),
+      const sampledSurface = volumeMode && surfaceRadius.value === 0;
+      const scarDepthCap = fraction <= 0.25 ? 3_000_000 : MAX_SCAR_DEPTH_PIXELS;
+      const ratio = Math.min(sampledSurface ? 2 : options.smooth ? fraction : 0.5, sampledSurface ? 2 : 1,
+        Math.sqrt((sampledSurface ? scarDepthCap : options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS) /
+          (drawingSize.x * drawingSize.y)),
         renderer.capabilities.maxTextureSize / Math.max(drawingSize.x, drawingSize.y));
       depthTarget.setSize(Math.max(1, Math.floor(drawingSize.x * ratio)),
         Math.max(1, Math.floor(drawingSize.y * ratio)));
@@ -128,7 +134,7 @@ export function createEnvironmentalAtmosphere(options: {
     stats() {
       const detail = (volume ?? surface)!.stats();
       return { mode, ...detail, additionalBytes: detail.additionalBytes +
-        depthTarget.width * depthTarget.height * 8 + 4096,
+        depthTarget.width * depthTarget.height * 5 + 4096,
       depthWidth: depthTarget.width, depthHeight: depthTarget.height };
     },
     dispose(): void {

@@ -11,6 +11,20 @@
     renderer.setSize(320, 320, false);
     renderer.setPixelRatio(1);
     renderer.setClearColor(0, 0);
+    const setTarget = renderer.setRenderTarget;
+    let verifiedDepthTargets = 0;
+    const checkedTargets = new WeakSet();
+    renderer.setRenderTarget = function (target, ...args) {
+      setTarget.call(this, target, ...args);
+      if (target?.depthTexture && !checkedTargets.has(target)) {
+        const gl = renderer.getContext();
+        check(target.texture.format === THREE.RedFormat && target.texture.type === THREE.UnsignedByteType,
+          "Unused depth-pass color attachment is not R8");
+        check(gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE,
+          "R8 plus depth framebuffer is incomplete");
+        checkedTargets.add(target); verifiedDepthTargets++;
+      }
+    };
     const scene = new THREE.Scene(), earth = new THREE.Group();
     scene.add(earth);
     const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 10);
@@ -257,6 +271,47 @@
     check(coveragePixels > 100 && coverageMeanAlphaError < 1,
       "Output-pixel silhouette coverage differs from 2x spatial reference: " + coverageMeanAlphaError);
     atmosphere.dispose(); atmosphere = null;
+    // An ellipsoid has no analytic-sphere shortcut. Compare its actual depth-guided edge with
+    // independently rendered 2x rays, borrowing the identical 2x depth guide for both results.
+    renderer.setSize(640, 640, false);
+    edgeSurface.scale(0.92, 0.8, 1);
+    atmosphere = createEnvironmentalAtmosphere({ mode: "volume-very-strong-separated",
+      renderer, camera, earthContent: earth, surfaceGeometry: edgeSurface });
+    atmosphere.setFields(null, edgeField); atmosphere.prepare(16, 0.25); renderer.render(scene, camera);
+    const scarPixels = new Uint8Array(640 * 640 * 4);
+    gl.readPixels(0, 0, 640, 640, gl.RGBA, gl.UNSIGNED_BYTE, scarPixels);
+    const scarComposite = earth.children.find((child) => child.material?.uniforms?.uVolume);
+    check(scarComposite.material.uniforms.uSurfaceRadius.value === 0, "Non-spherical fixture used a fake sphere");
+    const referenceMaterial = new THREE.ShaderMaterial({
+      vertexShader: scarComposite.material.vertexShader,
+      fragmentShader: scarComposite.material.fragmentShader.split("void main()")[0] + `
+        void main() {
+          gl_FragColor = integrateVolume(vUv);
+          if (gl_FragColor.a > 0.0) gl_FragColor.rgb /= gl_FragColor.a;
+          #include <colorspace_fragment>
+        }`,
+      uniforms: scarComposite.material.uniforms,
+      transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
+    });
+    owned.push(referenceMaterial);
+    const referenceScene = new THREE.Scene();
+    const referenceMesh = new THREE.Mesh(scarComposite.geometry, referenceMaterial);
+    referenceMesh.frustumCulled = false; referenceScene.add(referenceMesh);
+    renderer.setSize(1280, 1280, false); renderer.render(referenceScene, new THREE.Camera());
+    gl.readPixels(0, 0, 1280, 1280, gl.RGBA, gl.UNSIGNED_BYTE, referencePixels);
+    let scarError = 0, scarCount = 0;
+    for (let y = 30; y < 610; y++) for (let x = 30; x < 610; x++) {
+      if (Math.abs(Math.hypot((x + .5 - 320) / .92, (y + .5 - 320) / .8) - projectedRadius) > 6) continue;
+      let alpha = 0;
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+        alpha += referencePixels[((2 * y + dy) * 1280 + 2 * x + dx) * 4 + 3] / 4;
+      }
+      scarError += Math.abs(alpha - scarPixels[(y * 640 + x) * 4 + 3]); scarCount++;
+    }
+    const scarMeanAlphaError = scarError / scarCount;
+    check(scarCount > 100 && scarMeanAlphaError < 1,
+      "Actual non-spherical edge disagrees with independent spatial reference: " + scarMeanAlphaError);
+    referenceScene.remove(referenceMesh); atmosphere.dispose(); atmosphere = null;
     const byMode = new Map(results.map((result) => [result.mode, result]));
     check(byMode.get("volume-strong").north.alpha > byMode.get("volume").north.alpha * 1.2,
       "strong volume does not materially strengthen the midpoint field");
@@ -274,7 +329,7 @@
     check(logarithmic.north.alpha > separated.north.alpha * 1.15,
       "log response did not lift the middle of the normalized range");
     return { passed: true, results, visibleSolidMesh: false, edgeMeanAlphaError,
-      coverageMeanAlphaError, coveragePixels };
+      coverageMeanAlphaError, coveragePixels, scarMeanAlphaError, verifiedDepthTargets };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error), results };
   } finally {

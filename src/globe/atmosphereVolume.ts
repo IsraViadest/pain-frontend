@@ -24,7 +24,6 @@ uniform int uSamples;
 uniform float uOpacityTier;
 uniform float uSeparated;
 uniform float uLogResponse;
-uniform vec2 uDepthSize;
 uniform float uSurfaceRadius;
 
 vec3 localPosition(vec2 uv, float depth) {
@@ -32,7 +31,7 @@ vec3 localPosition(vec2 uv, float depth) {
   return (uInverseEarth * uCameraWorld * vec4(view.xyz / view.w, 1.0)).xyz;
 }
 
-// Interpolate view-space distances, never nonlinear depth-buffer values.
+// A scarred ray ends at its actual depth sample, never an invented average across two surfaces.
 float surfaceDistance(vec2 uv, vec3 origin, vec3 direction, float farDistance) {
   if (uSurfaceRadius > 0.0) {
     float b = dot(origin, direction);
@@ -40,19 +39,8 @@ float surfaceDistance(vec2 uv, vec3 origin, vec3 direction, float farDistance) {
     if (discriminant <= 0.0) return farDistance;
     return max(0.0, -b - sqrt(discriminant));
   }
-  vec2 grid = uv * uDepthSize - 0.5;
-  vec2 f = fract(grid);
-  vec2 base = (floor(grid) + 0.5) / uDepthSize;
-  vec2 stepUv = 1.0 / uDepthSize;
-  vec4 depths = vec4(texture2D(uDepth, base).r,
-    texture2D(uDepth, base + vec2(stepUv.x, 0.0)).r,
-    texture2D(uDepth, base + vec2(0.0, stepUv.y)).r,
-    texture2D(uDepth, base + stepUv).r);
-  vec4 distances;
-  for (int j = 0; j < 4; j++) {
-    distances[j] = depths[j] < 1.0 ? dot(localPosition(uv, depths[j]) - origin, direction) : farDistance;
-  }
-  return mix(mix(distances.x, distances.y, f.x), mix(distances.z, distances.w, f.x), f.y);
+  float depth = texture2D(uDepth, uv).r;
+  return depth < 1.0 ? dot(localPosition(uv, depth) - origin, direction) : farDistance;
 }
 
 // SphereGeometry's north is v=1; both borrowed RGBA field maps have flipY=true.
@@ -137,6 +125,33 @@ const COMPOSITE_FRAGMENT = VOLUME_INTEGRATION + /* glsl */ `
 uniform sampler2D uVolume;
 uniform vec2 uVolumeSize;
 uniform vec2 uOutputSize;
+vec4 depthQuad(vec2 center, vec2 offset) {
+  return vec4(texture2D(uDepth, center + offset).r, texture2D(uDepth, center - offset).r,
+    texture2D(uDepth, center + vec2(offset.x, -offset.y)).r,
+    texture2D(uDepth, center + vec2(-offset.x, offset.y)).r);
+}
+float viewDepth(float depth) {
+  vec4 view = uInverseProjection * vec4(0.0, 0.0, depth * 2.0 - 1.0, 1.0);
+  return -view.z / view.w;
+}
+bool depthEdge(vec4 depths, float center, vec2 pixelSize) {
+  bvec4 hits = lessThan(depths, vec4(1.0));
+  if (any(notEqual(hits, bvec4(center < 1.0)))) return true;
+  if (center >= 1.0) return false;
+  vec4 z = vec4(viewDepth(depths.x), viewDepth(depths.y), viewDepth(depths.z), viewDepth(depths.w));
+  float centerZ = viewDepth(center);
+  float nearest = min(centerZ, min(min(z.x, z.y), min(z.z, z.w)));
+  float farthest = max(centerZ, max(max(z.x, z.y), max(z.z, z.w)));
+  // Re-evaluate depth jumps larger than this footprint's projected world-space width.
+  float footprint = 2.0 * centerZ * max(abs(uInverseProjection[0][0]) * pixelSize.x,
+    abs(uInverseProjection[1][1]) * pixelSize.y);
+  return farthest - nearest > footprint;
+}
+vec4 subpixelVolume(vec2 uv) {
+  vec2 offset = 0.25 / uOutputSize;
+  return 0.25 * (integrateVolume(uv + offset) + integrateVolume(uv - offset) +
+    integrateVolume(uv + vec2(offset.x, -offset.y)) + integrateVolume(uv + vec2(-offset.x, offset.y)));
+}
 void main() {
   gl_FragColor = texture2D(uVolume, vUv);
   if (uSurfaceRadius > 0.0) {
@@ -150,11 +165,19 @@ void main() {
     float pixelWidth = fwidth(edge);
     if (abs(edge) <= 0.5 * pixelWidth) {
       // Four spatial samples only where this output pixel intersects the globe silhouette.
-      vec2 offset = 0.25 / uOutputSize;
-      gl_FragColor = 0.25 * (integrateVolume(vUv + offset) + integrateVolume(vUv - offset) +
-        integrateVolume(vUv + vec2(offset.x, -offset.y)) +
-        integrateVolume(vUv + vec2(-offset.x, offset.y)));
+      gl_FragColor = subpixelVolume(vUv);
     } else if (abs(edge) <= band + pixelWidth) gl_FragColor = integrateVolume(vUv);
+  } else {
+    float center = texture2D(uDepth, vUv).r;
+    vec2 pixelSize = 1.0 / uOutputSize;
+    if (depthEdge(depthQuad(vUv, 0.25 * pixelSize), center, pixelSize)) {
+      gl_FragColor = subpixelVolume(vUv);
+    } else {
+      vec2 sourceCenter = (floor(vUv * uVolumeSize - 0.5) + 1.0) / uVolumeSize;
+      if (depthEdge(depthQuad(sourceCenter, 0.5 / uVolumeSize), center, 1.0 / uVolumeSize)) {
+        gl_FragColor = integrateVolume(vUv);
+      }
+    }
   }
   if (gl_FragColor.a > 0.0) gl_FragColor.rgb /= gl_FragColor.a;
   #include <colorspace_fragment>
@@ -211,7 +234,6 @@ export function createAtmosphereVolume(options: {
       uTemperatureColor: { value: new THREE.Color(options.colors.temperature) },
       uCo2Color: { value: new THREE.Color(options.colors.co2) },
       uSamples: { value: 16 },
-      uDepthSize: { value: new THREE.Vector2(1, 1) },
       uSurfaceRadius: options.surfaceRadius,
       uOpacityTier: { value: options.treatment.includes("near-opaque") ? 2 :
         options.treatment.includes("very-strong") ? 1.5 :
@@ -272,7 +294,6 @@ export function createAtmosphereVolume(options: {
       material.uniforms.uInverseProjection.value.copy(camera.projectionMatrixInverse);
       material.uniforms.uCameraWorld.value.copy(camera.matrixWorld);
       material.uniforms.uSamples.value = samples;
-      material.uniforms.uDepthSize.value.set(options.depth.image.width, options.depth.image.height);
       renderer.setRenderTarget(target);
       renderer.setScissorTest(false);
       renderer.setClearColor(0x000000, 0);

@@ -2,9 +2,9 @@ type CountryQualityLevel = "light" | "standard" | "rich";
 type CountryQualityRequest = CountryQualityLevel | "auto";
 
 const PROFILES = {
-  light: { capacity: 16_384, detail: "split1", samples: 16, fraction: 0.25, budgetBytes: 64 * 1024 ** 2 },
-  standard: { capacity: 32_768, detail: "split1", samples: 16, fraction: 0.5, budgetBytes: 128 * 1024 ** 2 },
-  rich: { capacity: 65_536, detail: "split2", samples: 32, fraction: 0.5, budgetBytes: 128 * 1024 ** 2 },
+  light: { capacity: 16_384, detail: "split1", surfaceDetail: 1, samples: 16, fraction: 0.25, budgetBytes: 64 * 1024 ** 2 },
+  standard: { capacity: 32_768, detail: "split1", surfaceDetail: 2, samples: 16, fraction: 0.5, budgetBytes: 128 * 1024 ** 2 },
+  rich: { capacity: 65_536, detail: "split2", surfaceDetail: 2, samples: 32, fraction: 0.5, budgetBytes: 128 * 1024 ** 2 },
 } as const;
 
 /** Frame pacing chooses bounded detail; it never advances or resets the country presentation. */
