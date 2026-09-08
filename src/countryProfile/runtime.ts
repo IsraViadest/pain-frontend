@@ -131,7 +131,9 @@ export class CountryProfileRuntime {
 
   legendForLayer(layerId: string): SVGSVGElement | undefined {
     if (layerId === PHYSICAL_LAYER && this.preset.generatedLegendOrientation === "vertical") {
-      return this.physicalLegend ??= createPhysicalLegend();
+      return this.physicalLegend ??= createPhysicalLegend(
+        this.preset.scarReliefPalette, this.preset.scarDepthSize,
+      );
     }
     if (layerId === SOCIOECONOMIC_LAYER && this.preset.socioeconomicStyle) {
       return this.socioeconomicLegend ??= createSocioeconomicLegend(

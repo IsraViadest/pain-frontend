@@ -388,8 +388,14 @@
   width: auto;
 }
 
-#ui-legend .ui-legend__img[data-layout] {
-  max-height: 136px;
+/* Enlarge generated scales, while retaining room for mobile chrome. */
+#ui-legend svg.ui-legend__img {
+  height: 272px;
+  max-height: 64vh;
+}
+
+#ui-legend svg.ui-legend__img[viewBox="0 0 84 170"] {
+  height: 340px;
 }
 
 /* Mobile chrome slot — hidden on desktop; shown under max-width 768px. */
@@ -512,6 +518,11 @@
   #ui-legend .ui-legend__img {
     max-height: 15vh;
     width: auto;
+  }
+
+  #ui-legend svg.ui-legend__img {
+    max-height: 30vh;
+    max-width: calc(100vw - 180px);
   }
 
   #ui-layer-stack {

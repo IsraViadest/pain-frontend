@@ -43,6 +43,21 @@
       check(text.includes(heading), `Wrong legend in ${name}: ${text}`);
       if (/Physical|Environmental|Socio-economic/.test(name)) {
         check(text.includes('min') && text.includes('max'), `No endpoints for ${name}`);
+        const svg = document.querySelector('#ui-legend svg');
+        const height = svg.getBoundingClientRect().height;
+        const expectedHeight = Math.min(name === 'Physical Pain' ? 340 : 272,
+          innerHeight * (innerWidth <= 768 || innerHeight <= 500 ? .30 : .64));
+        check(Math.abs(height - expectedHeight) < 2, `Legend height ${height}, expected ${expectedHeight}`);
+        if (name === 'Physical Pain') {
+          const endpoint = svg.querySelector('circle[data-depth="1"]').getAttribute('fill');
+          const dotColor = '#' + globe.pointsMaterial.uniforms.uScarReliefLow.value.getHexString();
+          check(endpoint === dotColor, 'Physical legend does not match darkest dot palette');
+          const first = Number(svg.querySelector('circle[data-depth="0"]').getAttribute('r'));
+          const last = Number(svg.querySelector('circle[data-depth="1"]').getAttribute('r'));
+          const mode = globe.pointsMaterial.uniforms.uScarDepthSize.value;
+          check(Math.abs(first / last - (mode < 0 ? 2 : mode > 0 ? .5 : 1)) < .001,
+            'Legend dot diameter ratio does not match the map');
+        }
       }
       results.push({ layer: name, contours: expected, text });
     }

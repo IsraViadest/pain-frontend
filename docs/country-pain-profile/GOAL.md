@@ -1122,3 +1122,25 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
   /var/folders/sc/3sxw5lhd5hs05l8sr8tc1lqc0000gn/T/emoeval-kUojJu.
 - Lighter CO2 is pending clarification of the unfinished condition about the planet edge.
   No gallery export, data changes, publication or deployment.
+
+## 2026-09-08: dotted physical scale, lighter air and all-pain missingness
+
+- The supplied crop clarified the stepped inner atmospheric boundary. Every volume now uses
+  filtered surface distances and premultiplied color interpolation. Undeformed globe surfaces
+  use exact spherical clipping; scarred surfaces retain their actual sampled geometry.
+  Buffer sizes, sample counts and allocation ceilings are unchanged. Reduced-resolution volume
+  sampling remains, so this is not a claim of pixel-identical full-resolution output.
+- CO2 is lighter green (#90dcb5), also reflected in the profile and environmental legend.
+- All-pain includes gray hatching for missing GDP, while retaining its physical dots.
+  Leaving all-pain removes the outgoing yellow fill immediately and invalidates pending builds.
+- Generated legends are twice as tall, with viewport limits on small screens. Endpoint labels
+  align with their scales; Temperature and CO2 have separate min/max labels.
+- The latest request supersedes the solid physical V: nine depth levels now form a dotted V.
+  The v47 size mapping runs from 150% to 75%, a 2:1 diameter ratio. Older presets retain their
+  own size mapping. Colors share the renderer's relief palette and linear-light interpolation;
+  samples are enlarged for reading and do not claim identical on-screen lighting or pixel size.
+- Verification: compliance passes; all 12 atmospheric GPU modes pass, including deformation
+  and visibility changes; missingness and canceled-build tests pass. Live legend tests pass at
+  1080x684 and 393x852, including height and dot-size/color checks. Dotted V inspected in browser.
+  A retained 136px CSS cap was caught by the first height test and removed before the rerun.
+- No gallery files. Physical-phone testing remains deferred.

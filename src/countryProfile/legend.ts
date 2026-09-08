@@ -1,3 +1,6 @@
+import { SCAR_RELIEF_COLORS } from "../globe/scarReliefColors";
+import { Color } from "three";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** Relative field strength; cloud height is an artistic treatment, not a measured altitude. */
@@ -25,7 +28,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
 
   for (const [index, [label, color, key]] of ([
     ["Temperature", "#d74846", "temperature"],
-    ["CO₂", "#69c99c", "co2"],
+    ["CO₂", "#90dcb5", "co2"],
   ] as const).entries()) {
     const id = `country-profile-legend-${key}`;
     const gradient = document.createElementNS(SVG_NS, "linearGradient");
@@ -66,6 +69,11 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
     svg.append(text);
     annotations.push(text);
   }
+  const co2Endpoints = annotations.slice(0, 2).map(text => {
+    const copy = text.cloneNode(true) as SVGTextElement;
+    svg.append(copy);
+    return copy;
+  });
 
   const resize = (): void => {
     const portrait = vertical || window.innerWidth <= 768 && window.innerHeight >= window.innerWidth ||
@@ -86,20 +94,26 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
       text.setAttribute("x", "0");
       text.setAttribute("y", portrait ? "0" : String((compact ? 12 : 16) + index * (compact ? 35 : 49)));
       text.setAttribute("text-anchor", portrait ? "middle" : "start");
-      if (portrait) text.setAttribute("transform", `translate(${27 + index * 36}, 72) rotate(-90)`);
+      if (portrait) text.setAttribute("transform", `translate(${33 + index * 36}, 72) rotate(-90)`);
       else text.removeAttribute("transform");
-      bar.setAttribute("x", String(portrait ? index * 36 : 0));
+      bar.setAttribute("x", String(portrait ? 6 + index * 36 : 0));
       bar.setAttribute("y", String(portrait ? 22 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
       bar.setAttribute("width", String(portrait ? 12 : 184));
       bar.setAttribute("height", String(portrait ? 98 : compact ? 10 : 14));
       bar.setAttribute("rx", portrait ? "6" : compact ? "5" : "7");
     }
     for (const [index, text] of annotations.entries()) {
-      text.setAttribute("x", String(portrait ? 36 : index === 1 ? 184 : 0));
-      text.setAttribute("y", String(portrait ? index === 1 ? 12 : 134 :
+      text.setAttribute("x", String(portrait ? 12 : index === 1 ? 184 : 0));
+      text.setAttribute("y", String(portrait ? index === 1 ? 18 : 134 :
         index === 2 ? 132 : compact ? 94 : 110));
       text.setAttribute("text-anchor", portrait ? "middle" : index === 1 ? "end" : "start");
       text.style.display = index === 2 && (portrait || compact) ? "none" : "";
+    }
+    for (const [index, text] of co2Endpoints.entries()) {
+      text.setAttribute("x", "48");
+      text.setAttribute("y", index === 1 ? "18" : "134");
+      text.setAttribute("text-anchor", "middle");
+      text.style.display = portrait ? "" : "none";
     }
   };
   svg.addEventListener("resize", resize);
@@ -108,7 +122,10 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
 }
 
 /** Compact physical scale matching the generated environmental and socioeconomic legends. */
-export function createPhysicalLegend(): SVGSVGElement {
+export function createPhysicalLegend(
+  palette: keyof typeof SCAR_RELIEF_COLORS = "coral",
+  sizeMode: boolean | "recessed-small" = false,
+): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.classList.add("ui-legend__img");
   svg.dataset.orientation = "vertical";
@@ -117,39 +134,38 @@ export function createPhysicalLegend(): SVGSVGElement {
   svg.setAttribute("height", "170");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "Global health conditions. Minimum at the top, maximum at the " +
-    "bottom of the V. Deeper scars represent a stronger relative physical pain signal.");
+    "bottom of the dotted V. Dot diameter follows the active scar-size mapping; " +
+    "these enlarged samples show relative sizes, not map pixel sizes.");
   svg.setAttribute("fill", "currentColor");
   svg.style.color = "#ffffff";
   svg.style.fontFamily = "inherit";
-  const defs = document.createElementNS(SVG_NS, "defs");
-  const gradient = document.createElementNS(SVG_NS, "linearGradient");
-  gradient.id = "country-profile-physical-scale";
-  gradient.setAttribute("x2", "0%");
-  gradient.setAttribute("y2", "100%");
-  for (const [offset, color] of [[0, "#ff7888"], [1, "#94102f"]] as const) {
-    const stop = document.createElementNS(SVG_NS, "stop");
-    stop.setAttribute("offset", String(offset));
-    stop.setAttribute("stop-color", color);
-    gradient.append(stop);
-  }
-  defs.append(gradient);
+  const [low, high] = SCAR_RELIEF_COLORS[palette];
   const title = document.createElementNS(SVG_NS, "text");
   title.setAttribute("transform", "translate(12, 85) rotate(-90)");
   title.setAttribute("text-anchor", "middle");
   title.setAttribute("font-size", "11");
   title.textContent = "Global health conditions";
-  const bar = document.createElementNS(SVG_NS, "path");
-  // Original physical legend's V, fitted to the compact vertical rail.
-  bar.setAttribute("d", "M99 16H191L260 426.5L328 16L420 16.0001");
-  bar.setAttribute("transform", "translate(5, 22) scale(.17 .30)");
-  bar.setAttribute("fill", "none");
-  bar.setAttribute("stroke", "url(#country-profile-physical-scale)");
-  bar.setAttribute("stroke-width", "2");
-  bar.setAttribute("vector-effect", "non-scaling-stroke");
-  bar.setAttribute("stroke-linejoin", "round");
+  const dots = document.createElementNS(SVG_NS, "g");
+  for (let row = 0; row <= 8; row++) {
+    const depth = row / 8;
+    const size = sizeMode === "recessed-small" ? 1.5 - .75 * depth :
+      1 + (sizeMode ? depth : 0);
+    // Same smoothstep and linear-light palette mixing as the relief shader.
+    const t = Math.max(0, Math.min(1, (depth * (128 / 255) - .02) / .30));
+    const color = new Color(high).lerp(new Color(low), t * t * (3 - 2 * t));
+    for (const side of row === 8 ? [0] : [-1, 1]) {
+      const dot = document.createElementNS(SVG_NS, "circle");
+      dot.dataset.depth = String(depth);
+      dot.setAttribute("cx", String(48 + side * 22 * (1 - depth)));
+      dot.setAttribute("cy", String(32 + depth * 116));
+      dot.setAttribute("r", String(3 * size));
+      dot.setAttribute("fill", `#${color.getHexString()}`);
+      dots.append(dot);
+    }
+  }
   const higher = document.createElementNS(SVG_NS, "text");
   higher.setAttribute("x", "48");
-  higher.setAttribute("y", "16");
+  higher.setAttribute("y", "22");
   higher.setAttribute("text-anchor", "middle");
   higher.setAttribute("font-size", "11");
   higher.textContent = "min";
@@ -159,7 +175,7 @@ export function createPhysicalLegend(): SVGSVGElement {
   lower.setAttribute("text-anchor", "middle");
   lower.setAttribute("font-size", "11");
   lower.textContent = "max";
-  svg.append(defs, title, bar, higher, lower);
+  svg.append(title, dots, higher, lower);
   return svg;
 }
 
@@ -285,7 +301,7 @@ export function createSocioeconomicLegend(
       swatch.setAttribute("width", String(portrait ? 18 : 184 / 5));
       swatch.setAttribute("height", String(portrait ? 16 : compact ? 14 : 18));
     }
-    const positions = portrait ? [[0, 0], [36, 116], [36, 12], [0, 0], [26, 134]] :
+    const positions = portrait ? [[0, 0], [19, 116], [19, 17], [0, 0], [26, 134]] :
       [[0, compact ? 12 : 16], [0, compact ? 54 : 64], [184, compact ? 54 : 64],
         [0, 88], [24, compact ? 94 : 128]];
     for (const [index, text] of labels.entries()) {
