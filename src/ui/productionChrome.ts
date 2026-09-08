@@ -128,6 +128,10 @@ export async function mountProductionChrome(
   const layerStackHost = requireChild(appRoot, "ui-layer-stack");
   const sharePainHost = requireChild(appRoot, "ui-share-pain");
   const bottomLeftHost = requireChild(appRoot, "ui-bottom-left");
+  const query = new URLSearchParams(location.search);
+  // Hide before any asynchronous button loading, retaining the survey and its handler.
+  sharePainHost.style.display = query.get("cp") === "1" && query.get("cpProjection") === "1"
+    ? "none" : "";
 
   const heading = document.createElement("h1");
   heading.className = "ui-title__heading";
@@ -332,7 +336,7 @@ export async function mountProductionChrome(
     hamburgerBtn,
   ];
 
-  if (new URLSearchParams(location.search).get("cp") === "1") {
+  if (query.get("cp") === "1") {
     sharePainBtn.classList.add("blob-button--lower-label");
     dataSourcesBtn.classList.add("blob-button--lower-label");
     const { mountFestivalMedia } = await import("./festival-media");

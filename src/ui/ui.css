@@ -398,6 +398,11 @@
   height: 340px;
 }
 
+#ui-legend svg.ui-legend__img[data-stacked] {
+  height: 340px;
+  max-height: 55vh;
+}
+
 /* Mobile chrome slot — hidden on desktop; shown under max-width 768px. */
 #ui-title-controls {
   display: none;
@@ -520,7 +525,8 @@
     width: auto;
   }
 
-  #ui-legend svg.ui-legend__img {
+  #ui-legend svg.ui-legend__img,
+  #ui-legend svg.ui-legend__img[data-stacked] {
     max-height: 30vh;
     max-width: calc(100vw - 180px);
   }

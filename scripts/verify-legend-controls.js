@@ -12,6 +12,10 @@
       'Hidden video downloaded assets');
     const festival = document.querySelector('.festival-media__link');
     check(festival?.target === '_blank', 'Festival invitation missing');
+    const projection = new URL(location.href).searchParams.get('cpProjection') === '1';
+    const share = document.querySelector('#ui-share-pain');
+    check(share?.querySelector('button'), 'Survey button implementation removed');
+    check((share.getBoundingClientRect().width === 0) === projection, 'Wrong projection visibility');
     const moduleUrl = performance.getEntriesByType('resource').map(r => r.name)
       .find(name => /\/src\/globe\/GlobeView(?:\.ts)?(?:\?|$)/.test(name));
     check(moduleUrl, 'No loaded globe module');
@@ -45,8 +49,8 @@
         check(text.includes('min') && text.includes('max'), `No endpoints for ${name}`);
         const svg = document.querySelector('#ui-legend svg');
         const height = svg.getBoundingClientRect().height;
-        const expectedHeight = Math.min(name === 'Physical Pain' ? 340 : 272,
-          innerHeight * (innerWidth <= 768 || innerHeight <= 500 ? .30 : .64));
+        const expectedHeight = Math.min(name === 'Physical Pain' || name === 'Environmental Pain' ? 340 : 272,
+          innerHeight * (innerWidth <= 768 || innerHeight <= 500 ? .30 : name === 'Environmental Pain' ? .55 : .64));
         check(Math.abs(height - expectedHeight) < 2, `Legend height ${height}, expected ${expectedHeight}`);
         if (name === 'Physical Pain') {
           const endpoint = svg.querySelector('circle[data-depth="1"]').getAttribute('fill');
@@ -57,13 +61,33 @@
           const mode = globe.pointsMaterial.uniforms.uScarDepthSize.value;
           check(Math.abs(first / last - (mode < 0 ? 2 : mode > 0 ? .5 : 1)) < .001,
             'Legend dot diameter ratio does not match the map');
-          check(first <= 3 && svg.querySelector('[data-physical-caps]'),
-            'Smaller legend dots or top strokes missing');
+          check(first <= 2.25 && svg.querySelectorAll('[data-physical-caps] circle').length === 4,
+            'Smaller legend dots or dotted upper ends missing');
+          check(svg.querySelectorAll('circle[cy="32"]').length === 6 &&
+            svg.querySelectorAll('circle').length >= 34, 'Dense dotted V missing');
+        }
+        if (name === 'Environmental Pain') {
+          check(text.includes('Temperature Change') && text.includes('Emissions (CO2)'), 'Wrong environmental names');
+          const bars = [...svg.querySelectorAll('rect')].map(e => e.getBoundingClientRect());
+          check(Math.abs(bars[0].left - bars[1].left) < 1 && bars[0].bottom < bars[1].top,
+            'Environmental scales not stacked');
+          const bounds = svg.getBoundingClientRect();
+          for (const label of svg.querySelectorAll('text')) {
+            if (getComputedStyle(label).display === 'none') continue;
+            const r = label.getBoundingClientRect();
+            check(r.left >= bounds.left - 1 && r.right <= bounds.right + 1 &&
+              r.top >= bounds.top - 1 && r.bottom <= bounds.bottom + 1, 'Clipped environmental caption');
+          }
         }
       }
       results.push({ layer: name, contours: expected, text });
     }
-    return { passed: true, viewport: [innerWidth, innerHeight], results };
+    const picker = document.querySelector('#ui-layer-stack');
+    if (projection && picker.hasAttribute('data-height-constrained')) {
+      check(parseFloat(picker.style.maxHeight) > 0, 'Hidden share button collapsed the picker');
+      check(!document.querySelector('#ui-bottom-left').style.maxWidth, 'Hidden share button narrowed About');
+    }
+    return { passed: true, projection, viewport: [innerWidth, innerHeight], results };
   } catch (error) { return { passed: false, error: String(error.stack ?? error) }; }
   finally { if (prototype && original) prototype.setScarContourStyle = original; }
 })()

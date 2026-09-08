@@ -12,6 +12,10 @@ The default remains [v38-d_very-strong-linear](http://127.0.0.1:3000/?cp=1&cpPre
 
 ## How to compare
 
+[Projection view](http://127.0.0.1:3000/?cp=1&cpPreset=v47-e_red-contours&cpProjection=1)
+hides the share/locate button. Remove `cpProjection=1` to restore the normal invitation;
+survey functionality is retained. This option can be combined with any country-profile preset.
+
 Video and country-cycle functionality is now hidden across all URLs. Their rows below describe
 retained historical comparisons, not currently available controls. The Ars invitation stays visible.
 Updated legend names, min/max endpoints and contour layer isolation apply to old URLs too.

@@ -46,6 +46,9 @@ function positionLegendUnderTitle(): void {
   const picker = document.getElementById("ui-layer-stack");
   const title = document.getElementById("ui-title");
   const share = document.getElementById("ui-share-pain");
+  const shareBounds = share?.getBoundingClientRect();
+  const shareRect = shareBounds && shareBounds.width > 0 && shareBounds.height > 0
+    ? shareBounds : null;
   const profile = document.getElementById("country-profile");
   if (profile !== observedProfile) {
     if (observedProfile) chromeBounds?.unobserve(observedProfile);
@@ -61,8 +64,8 @@ function positionLegendUnderTitle(): void {
     innerHeight < 650) || share?.classList.contains("ui-share-pain--with-video");
   const compact = innerWidth <= MOBILE_MAX_WIDTH_PX || innerHeight <= 500 || fitControls;
   const about = document.getElementById("ui-bottom-left");
-  if (about && share) about.style.maxWidth = compact
-    ? `${Math.max(48, share.getBoundingClientRect().left - 28)}px` : "";
+  if (about) about.style.maxWidth = compact && shareRect
+    ? `${Math.max(48, shareRect.left - 28)}px` : "";
   if (picker && title && share) {
     const hamburger = title.querySelector<HTMLElement>(".ui-hamburger");
     // Landscape controls occupy the right rail, clear of the subtitle on the left.
@@ -70,7 +73,7 @@ function positionLegendUnderTitle(): void {
       ? hamburger && getComputedStyle(hamburger).display !== "none"
         ? hamburger.getBoundingClientRect().bottom + 12 : 20
       : title.getBoundingClientRect().bottom + 12;
-    let bottom = share.getBoundingClientRect().top - 12;
+    let bottom = shareRect ? shareRect.top - 12 : innerHeight - 20;
     const card = profile?.getBoundingClientRect();
     const pickerLeft = innerWidth - 20 - picker.getBoundingClientRect().width;
     if (card && card.width > 0 && pickerLeft < card.right + 8 && innerWidth - 20 > card.left - 8) {

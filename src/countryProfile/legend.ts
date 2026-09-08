@@ -11,7 +11,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
   svg.setAttribute("width", "184");
   svg.setAttribute("height", "136");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "Temperature in coral and CO₂ in green. " +
+  svg.setAttribute("aria-label", "Temperature Change in coral above Emissions (CO2) in green. " +
     "Each field runs from lower to higher relative strength. Cloud height is artistic.");
   svg.setAttribute("fill", "currentColor");
   svg.style.color = "#ffffff";
@@ -27,8 +27,8 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
   }[] = [];
 
   for (const [index, [label, color, key]] of ([
-    ["Temperature", "#d74846", "temperature"],
-    ["CO₂", "#90dcb5", "co2"],
+    ["Temperature Change", "#d74846", "temperature"],
+    ["Emissions (CO2)", "#90dcb5", "co2"],
   ] as const).entries()) {
     const id = `country-profile-legend-${key}`;
     const gradient = document.createElementNS(SVG_NS, "linearGradient");
@@ -83,7 +83,8 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
     if (svg.dataset.layout === layout) return;
     svg.dataset.layout = layout;
     const width = portrait ? 72 : 184;
-    const height = compact ? 98 : 136;
+    const height = portrait ? 272 : compact ? 98 : 136;
+    svg.toggleAttribute("data-stacked", portrait);
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("width", String(width));
     svg.setAttribute("height", String(height));
@@ -94,10 +95,10 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
       text.setAttribute("x", "0");
       text.setAttribute("y", portrait ? "0" : String((compact ? 12 : 16) + index * (compact ? 35 : 49)));
       text.setAttribute("text-anchor", portrait ? "middle" : "start");
-      if (portrait) text.setAttribute("transform", `translate(${33 + index * 36}, 72) rotate(-90)`);
+      if (portrait) text.setAttribute("transform", `translate(33, ${72 + index * 136}) rotate(-90)`);
       else text.removeAttribute("transform");
-      bar.setAttribute("x", String(portrait ? 6 + index * 36 : 0));
-      bar.setAttribute("y", String(portrait ? 22 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
+      bar.setAttribute("x", String(portrait ? 6 : 0));
+      bar.setAttribute("y", String(portrait ? 22 + index * 136 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
       bar.setAttribute("width", String(portrait ? 12 : 184));
       bar.setAttribute("height", String(portrait ? 98 : compact ? 10 : 14));
       bar.setAttribute("rx", portrait ? "6" : compact ? "5" : "7");
@@ -110,8 +111,8 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
       text.style.display = index === 2 && (portrait || compact) ? "none" : "";
     }
     for (const [index, text] of co2Endpoints.entries()) {
-      text.setAttribute("x", "48");
-      text.setAttribute("y", index === 1 ? "18" : "134");
+      text.setAttribute("x", "12");
+      text.setAttribute("y", index === 1 ? "154" : "270");
       text.setAttribute("text-anchor", "middle");
       text.style.display = portrait ? "" : "none";
     }
@@ -146,31 +147,35 @@ export function createPhysicalLegend(
   title.setAttribute("font-size", "11");
   title.textContent = "Global health conditions";
   const dots = document.createElementNS(SVG_NS, "g");
-  for (let row = 0; row <= 8; row++) {
-    const depth = row / 8;
+  for (let row = 0; row <= 16; row++) {
+    const depth = row / 16;
     const size = sizeMode === "recessed-small" ? 1.5 - .75 * depth :
       1 + (sizeMode ? depth : 0);
     // Same smoothstep and linear-light palette mixing as the relief shader.
     const t = Math.max(0, Math.min(1, (depth * (128 / 255) - .02) / .30));
     const color = new Color(high).lerp(new Color(low), t * t * (3 - 2 * t));
-    for (const side of row === 8 ? [0] : [-1, 1]) {
+    const radius = 1.5 * size;
+    for (const side of 22 * (1 - depth) < radius + .1 ? [0] : [-1, 1]) {
       const dot = document.createElementNS(SVG_NS, "circle");
       dot.dataset.depth = String(depth);
       dot.setAttribute("cx", String(48 + side * 22 * (1 - depth)));
       dot.setAttribute("cy", String(32 + depth * 116));
-      dot.setAttribute("r", String(2 * size));
+      dot.setAttribute("r", String(radius));
       dot.setAttribute("fill", `#${color.getHexString()}`);
       dots.append(dot);
     }
   }
-  const caps = document.createElementNS(SVG_NS, "path");
-  const topRadius = sizeMode === "recessed-small" ? 3 : 2;
+  const caps = document.createElementNS(SVG_NS, "g");
+  const topRadius = sizeMode === "recessed-small" ? 2.25 : 1.5;
   caps.dataset.physicalCaps = "true";
-  caps.setAttribute("d", `M16 32H${26 - topRadius}M${70 + topRadius} 32H80`);
-  caps.setAttribute("fill", "none");
-  caps.setAttribute("stroke", `#${high.toString(16).padStart(6, "0")}`);
-  caps.setAttribute("stroke-width", "1");
-  caps.setAttribute("stroke-linecap", "round");
+  for (const x of [16, 21, 75, 80]) {
+    const dot = document.createElementNS(SVG_NS, "circle");
+    dot.setAttribute("cx", String(x));
+    dot.setAttribute("cy", "32");
+    dot.setAttribute("r", String(topRadius));
+    dot.setAttribute("fill", `#${high.toString(16).padStart(6, "0")}`);
+    caps.append(dot);
+  }
   const higher = document.createElementNS(SVG_NS, "text");
   higher.setAttribute("x", "48");
   higher.setAttribute("y", "22");

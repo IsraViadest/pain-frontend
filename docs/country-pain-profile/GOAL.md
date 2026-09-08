@@ -1170,3 +1170,19 @@ Sources: [project listing](https://ars.electronica.art/negotiatinghumanity/en/vi
 - A reversed-order paired run measured GPU median 0.6446ms control versus 0.7967ms corrected.
   Frame pacing remained 8.3ms median and 9.2ms p95. The other ordering was noisy and is not
   evidence of a speedup. No physical-phone claim or gallery export.
+
+## 2026-09-08: projection option and stacked environmental scales
+
+- Add cpProjection=1 to a cp=1 URL to hide the share/locate invitation before asynchronous
+  buttons mount. The survey button, callback and normal URL remain available; no persistent
+  preference or new switcher is added. Hidden chrome no longer collapses the compact picker
+  or narrows About: layout uses the viewport bottom when the share pill has no visible box.
+- v47's physical V now has 37 smaller dots, including three across each upper end. Relative
+  diameter and color mappings remain. Earlier growth/fixed presets merge near-tip pairs when
+  necessary to avoid overlapping dots.
+- Environmental labels are Temperature Change and Emissions (CO2). The two vertical scales
+  are stacked in one left column, each with min/max, within the existing responsive space.
+- Compliance passes; normal desktop, projection desktop and 852x393 projection-landscape
+  probes pass visibility, retained survey DOM, scale alignment/caption bounds, dot-count/size
+  checks and positive compact-picker space. Physical V and stacked scales inspected live.
+- No gallery export or physical-phone acceptance.
