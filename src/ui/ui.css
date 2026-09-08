@@ -657,3 +657,6 @@
     gap: 8px;
   }
 }
+.blob-button--lower-label .blob-button__label {
+  top: 56%;
+}

@@ -129,9 +129,11 @@ export async function mountProductionChrome(
   const sharePainHost = requireChild(appRoot, "ui-share-pain");
   const bottomLeftHost = requireChild(appRoot, "ui-bottom-left");
   const query = new URLSearchParams(location.search);
-  // Hide before any asynchronous button loading, retaining the survey and its handler.
-  sharePainHost.style.display = query.get("cp") === "1" && query.get("cpProjection") === "1"
-    ? "none" : "";
+  const projection = query.get("cp") === "1" && query.get("cpProjection") === "1";
+  // Retain the measured footprint so selection never pulls the other controls downward.
+  sharePainHost.style.opacity = projection ? "0" : "";
+  sharePainHost.inert = projection;
+  if (projection) sharePainHost.setAttribute("aria-hidden", "true");
 
   const heading = document.createElement("h1");
   heading.className = "ui-title__heading";
@@ -263,7 +265,7 @@ export async function mountProductionChrome(
   for (const layer of layers) {
     const btn = await createBlobButton({
       svgName: resolveChromeLayerBlobSvg(layer.id),
-      label: layer.label,
+      label: layer.label.toLocaleLowerCase("en"),
       variant: "layer",
       skipActiveGradient: layer.id === "envpain",
       activeFill: layer.id === "envpain" ? "#CBB0B9" : undefined,
@@ -339,9 +341,11 @@ export async function mountProductionChrome(
   if (query.get("cp") === "1") {
     sharePainBtn.classList.add("blob-button--lower-label");
     dataSourcesBtn.classList.add("blob-button--lower-label");
-    const { mountFestivalMedia } = await import("./festival-media");
-    const videoButton = mountFestivalMedia(titleHost);
-    if (videoButton) chromeActionButtons.push(videoButton);
+    if (!projection) {
+      const { mountFestivalMedia } = await import("./festival-media");
+      const videoButton = mountFestivalMedia(titleHost);
+      if (videoButton) chromeActionButtons.push(videoButton);
+    }
   }
 
   return {
