@@ -64,31 +64,13 @@ void main() {
 `;
 
 const MANTLE_VERTEX = /* glsl */ `
-${FIELD_GLSL}
-uniform float uBaseRadius;
-uniform float uHeight;
 varying vec3 vEarthPosition;
 varying vec3 vSurfaceNormal;
 varying vec2 vFieldUv;
-vec3 relief(vec3 direction) {
-  vec3 n = normalize(direction);
-  // Artistic height only; source density is neither stretched nor ranked.
-  return n * (uBaseRadius + uHeight * densityAt(n));
-}
 void main() {
   vFieldUv = uv;
-  vec3 n = normalize(position);
-  if (abs(n.y) > 0.999999) n = vec3(0.0, sign(n.y), 0.0);
-  vec3 reference = abs(n.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-  vec3 east = normalize(cross(reference, n));
-  vec3 north = cross(n, east);
-  // Direction-based derivatives agree across the duplicated seam and pole vertices.
-  vec3 dx = relief(n + 0.0015 * east) - relief(n - 0.0015 * east);
-  vec3 dy = relief(n + 0.0015 * north) - relief(n - 0.0015 * north);
-  vec3 gradientNormal = cross(dx, dy);
-  vSurfaceNormal = normalize(gradientNormal + n * 1e-12);
-  if (dot(vSurfaceNormal, n) < 0.0) vSurfaceNormal = -vSurfaceNormal;
-  vEarthPosition = relief(n);
+  vSurfaceNormal = normal;
+  vEarthPosition = position;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(vEarthPosition, 1.0);
 }
 `;
@@ -220,6 +202,8 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
   const maximumRadius = options.mode === "cloudlets" ? MAX_RADIUS : 1.15;
   const sphere = options.mode !== "cloudlets" ? new THREE.SphereGeometry(1, 192, 128) : null;
   if (sphere) sphere.boundingSphere = new THREE.Sphere(new THREE.Vector3(), maximumRadius);
+  const basePositions = options.mode === "mantle"
+    ? (sphere!.getAttribute("position").array as Float32Array).slice() : null;
   const anchors = options.mode === "cloudlets" ? new Float32Array(CLOUDLET_LIMIT * 3) : null;
   if (anchors) {
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -238,8 +222,8 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
     { name: "co2", appearance: options.mode === "mantle" ? 2.2 : 0.4,
       baseRadius: options.mode === "flat" ? 1.15 : options.mode === "mantle" ? 1.085 : 1.02,
       height: 0.055 },
-  ] as const).map((field) => {
-    const geometry = sphere ?? cloudletGeometry();
+  ] as const).map((field, index) => {
+    const geometry = sphere ? basePositions && index > 0 ? sphere.clone() : sphere : cloudletGeometry();
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uField: { value: null as THREE.DataTexture | null },
@@ -249,7 +233,6 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
         uColor: { value: new THREE.Color(options.colors[field.name]) },
         uAppearance: { value: field.appearance },
         uBaseRadius: { value: field.baseRadius },
-        uHeight: { value: field.height },
       },
       vertexShader: options.mode === "flat" ? FLAT_VERTEX : options.mode === "mantle" ? MANTLE_VERTEX : CLOUDLET_VERTEX,
       fragmentShader: options.mode === "flat" ? FLAT_FRAGMENT : options.mode === "mantle" ? MANTLE_FRAGMENT : CLOUDLET_FRAGMENT,
@@ -276,15 +259,47 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
     field.material.uniforms.uField.value = map;
     field.mesh.visible = Boolean(map);
     field.count = 0;
-    if (!anchors) return;
+    if (!anchors && !basePositions) return;
     const geometry = field.geometry as THREE.InstancedBufferGeometry;
     if (map) {
       const image = map.image as AlphaImage;
       if (map.format !== THREE.RGBAFormat || map.type !== THREE.UnsignedByteType ||
           !image.data || image.width < 1 || image.height < 1 ||
           image.data.length < image.width * image.height * 4) {
-        throw new Error("Atmosphere cloudlets require the existing byte RGBA field texture");
+        throw new Error("Atmosphere geometry requires the existing byte RGBA field texture");
       }
+      if (basePositions) {
+        // The field is static during rotation. Bake its shape once per texture revision,
+        // instead of sampling it five times per vertex on every frame.
+        const positions = field.geometry.getAttribute("position") as THREE.BufferAttribute;
+        for (let i = 0; i < positions.count; i++) {
+          let x = basePositions[i * 3], y = basePositions[i * 3 + 1], z = basePositions[i * 3 + 2];
+          if (Math.abs(y) > 0.999999) { x = 0; y = Math.sign(y); z = 0; }
+          const radius = field.baseRadius + field.height * sampleAlpha(image, x, y, z);
+          positions.setXYZ(i, x * radius, y * radius, z * radius);
+        }
+        positions.needsUpdate = true;
+        field.geometry.computeVertexNormals();
+        const normals = field.geometry.getAttribute("normal") as THREE.BufferAttribute;
+        const stride = sphere!.parameters.widthSegments + 1;
+        const rows = sphere!.parameters.heightSegments;
+        const average = new THREE.Vector3();
+        // The sphere duplicates seam and pole vertices. Share their lighting normals too.
+        for (let row = 1; row < rows; row++) {
+          const a = row * stride, b = a + stride - 1;
+          average.set(normals.getX(a) + normals.getX(b), normals.getY(a) + normals.getY(b),
+            normals.getZ(a) + normals.getZ(b)).normalize();
+          normals.setXYZ(a, average.x, average.y, average.z);
+          normals.setXYZ(b, average.x, average.y, average.z);
+        }
+        for (let i = 0; i < stride; i++) {
+          normals.setXYZ(i, 0, 1, 0);
+          normals.setXYZ(rows * stride + i, 0, -1, 0);
+        }
+        normals.needsUpdate = true;
+        return;
+      }
+      if (!anchors) return;
       const centers = geometry.getAttribute("aCenter") as THREE.InstancedBufferAttribute;
       const sizes = geometry.getAttribute("aSize") as THREE.InstancedBufferAttribute;
       for (let i = 0; i < CLOUDLET_LIMIT; i++) {
@@ -304,8 +319,10 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
       centers.needsUpdate = true;
       sizes.needsUpdate = true;
     }
-    geometry.instanceCount = field.count;
-    field.mesh.visible = field.count > 0;
+    if (anchors) {
+      geometry.instanceCount = field.count;
+      field.mesh.visible = field.count > 0;
+    }
   }
 
   return {
@@ -319,9 +336,8 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
     dispose(): void {
       if (disposed) return;
       disposed = true;
-      sphere?.dispose();
+      for (const geometry of new Set(fields.map((field) => field.geometry))) geometry.dispose();
       for (const field of fields) {
-        if (!sphere) field.geometry.dispose();
         field.material.dispose();
         field.material.uniforms.uField.value = null;
         field.map = null;
@@ -337,7 +353,8 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
         for (const attribute of Object.values(geometry.attributes)) geometryBytes += attribute.array.byteLength;
       }
       return {
-        additionalBytes: disposed ? 0 : geometryBytes * 2 + (anchors?.byteLength ?? 0) + 16_384,
+        additionalBytes: disposed ? 0 : geometryBytes * 2 + (anchors?.byteLength ?? 0) +
+          (basePositions?.byteLength ?? 0) + 16_384,
         mode: options.mode,
         drawCalls: disposed ? 0 : fields.filter((field) => field.mesh.visible).length,
         temperatureCloudlets: disposed ? 0 : fields[0].count,
