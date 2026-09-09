@@ -1216,30 +1216,32 @@ async function mountEmotionLayers(data: EmoData): Promise<EmoLabelLayer | null> 
 
 (async () => {
   initBackgroundMusic();
-  if (emoViewsEnabled && emoLabelHost) {
-    try {
-      await mountEmotionLayers(await loadViewEmotions());
-      syncEmoLayer(lastLayerId);
-      applyEmoCaptureOverrides(globe);
-      if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {
-        emoPanel = mountEmoViewPanel(emoPanelHost, {
-          initialPresetId: emoView.presetId,
-          initialParams: emoView.params,
-          onChange: (preset, params) => {
-            emoPreset = preset;
-            applyEmoParams(params);
-            syncEmoLayer(lastLayerId);
-          },
-          onMinimise: () => setEmoPanelOpen(false),
-        });
-        setEmoPanelOpen(shouldOpenEmoPanel());
+  const emotionsReady = (async () => {
+    if (emoViewsEnabled && emoLabelHost) {
+      try {
+        await mountEmotionLayers(await loadViewEmotions());
+        syncEmoLayer(lastLayerId);
+        applyEmoCaptureOverrides(globe);
+        if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {
+          emoPanel = mountEmoViewPanel(emoPanelHost, {
+            initialPresetId: emoView.presetId,
+            initialParams: emoView.params,
+            onChange: (preset, params) => {
+              emoPreset = preset;
+              applyEmoParams(params);
+              syncEmoLayer(lastLayerId);
+            },
+            onMinimise: () => setEmoPanelOpen(false),
+          });
+          setEmoPanelOpen(shouldOpenEmoPanel());
+        }
+      } catch (e) {
+        console.error("[main] emo label views failed to start", e);
       }
-    } catch (e) {
-      console.error("[main] emo label views failed to start", e);
     }
-  }
+  })();
   try {
-    const layers = await fetchLayers();
+    const [layers] = await Promise.all([fetchLayers(), emotionsReady]);
     await loadLayersIntoChrome(layers);
     // Default to all-layers on load instead of activating the first API layer.
     await handleAllLayers();
