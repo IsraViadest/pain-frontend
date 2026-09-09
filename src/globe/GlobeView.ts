@@ -633,6 +633,8 @@ export class GlobeView {
       canvas,
       antialias: true,
       alpha: true,
+      // Selected border caps share one coverage bit, preventing doubled translucent joints.
+      stencil: true,
     });
     this.renderer.localClippingEnabled = true;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;

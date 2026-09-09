@@ -1,13 +1,14 @@
 /* Actual canvas textures and the shared highlight layer. Run with existing eval.mjs. */
 (async () => {
   const textures = [];
-  let layer, surface, renderer;
+  let layer, surface, renderer, capBorders;
   try {
     const check = (value, message) => { if (!value) throw Error(message); };
     const THREE = await import("/node_modules/.vite/deps/three.js");
     const geo = await import("/src/globe/countryGeometry.ts");
     const { createCountryHighlightTexture } = await import("/src/globe/choroplethField.ts");
     const { createEmoSelectionLayer } = await import("/src/emo/selection.ts");
+    const { createCountrySelectionBorders } = await import("/src/emo/selectionBorders.ts");
     const { GlobeView } = await import("/src/globe/GlobeView.ts");
     const { findEmoPreset, resolveEmoPresetParams, DEFAULT_EMO_PRESET_ID } = await import("/src/emo/viewPresets.ts");
     const rectangle = (key, left, right) => ({ properties: { ISO_A3: key },
@@ -45,7 +46,7 @@
     await geo.ensureCountryGeometriesLoaded();
     surface = new THREE.SphereGeometry(1, 8, 8);
     const content = new THREE.Group();
-    renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer = new THREE.WebGLRenderer({ antialias: false, stencil: true });
     renderer.setSize(32, 32, false);
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 10);
     camera.position.z = 3;
@@ -156,14 +157,49 @@
     check(mesh.geometry === surface, "highlight detached from shared scar surface");
     check(allocatedTextures === 1 && deletedTextures === 1,
       "highlight texture storage churn: " + allocatedTextures + " allocations / " + deletedTextures + " deletions");
+    // Two adjacent thick segments must blend once at their overlapping round caps.
+    // This isolates the visible bead from geography, atmospheric color and scar occlusion.
+    content.children.forEach(child => { child.visible = false; });
+    renderer.setSize(128, 128, false);
+    renderer.setClearColor(0, 1);
+    capBorders = createCountrySelectionBorders({ earthContent: content, renderer, camera,
+      getCountrySurfaceGeometry: () => surface,
+      projectCountryOutlinePositions: (base, out) => out.set(base),
+      setSelectionBorderStorageBytes: () => {} });
+    capBorders.paint([], new Map(), [{lat:0,lng:0,strength:0.5}], 1, "#ffffff", 2, true);
+    const capLine = content.children.at(-1);
+    const stroke = capLine.children.find(child => child.visible);
+    stroke.geometry.setPositions([-0.6,0,0, 0,0,0, 0,0,0, 0.6,0,0]);
+    stroke.material.linewidth = 0.12;
+    const readRed = x => {
+      const pixel = new Uint8Array(4);
+      gl.readPixels(x, 64, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      return pixel[0];
+    };
+    render();
+    const capOverlap = { body: readRed(76), joint: readRed(64) };
+    check(capOverlap.body > 30 && capOverlap.body < 200, "peer stroke strength was lost");
+    check(Math.abs(capOverlap.joint - capOverlap.body) <= 1,
+      "round caps brightened into beads: " + JSON.stringify(capOverlap));
+    render();
+    check(readRed(64) === capOverlap.joint, "border coverage was not cleared on the next frame");
+    capBorders.paint([], new Map(), [{lat:0,lng:0,strength:0.5}, {lat:10,lng:10,strength:1}],
+      1, "#404040", 2, true);
+    for (const child of capLine.children) {
+      child.geometry.setPositions([-0.6,0,0, 0,0,0, 0,0,0, 0.6,0,0]);
+      child.material.linewidth = 0.12;
+    }
+    render();
+    check(capLine.children[0].material.opacity === 1 && Math.abs(readRed(64) - 64) <= 1,
+      "an overlapping peer changed the stronger origin stroke");
     return { passed: true, results, roleSwap: true, exactCountry: true, centroidMarker: true,
       borrowedSurface: true, foldedSurfaceOcclusion: true, vectorCountryBorder: true,
       liveBorderBuffer: true, surfaceDeformation: true,
-      allocatedTextures, deletedTextures };
+      capOverlap, allocatedTextures, deletedTextures };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };
   } finally {
-    layer?.destroy(); surface?.dispose();
+    capBorders?.destroy(); layer?.destroy(); surface?.dispose();
     for (const texture of textures) texture?.dispose();
     renderer?.dispose(); renderer?.forceContextLoss();
   }

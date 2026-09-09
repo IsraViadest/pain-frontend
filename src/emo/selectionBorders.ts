@@ -18,13 +18,18 @@ export function createCountrySelectionBorders(globe: GlobeView) {
   globe.earthContent.add(group);
   const front = new THREE.Plane();
   const resolution = new THREE.Vector2();
-  const batches = [0, 1].map(() => {
+  const batches = [0, 1].map((index) => {
     const material = new LineMaterial({ worldUnits: true, transparent: true,
       depthWrite: false, depthTest: true, toneMapped: false, clipping: true,
       clippingPlanes: [front], polygonOffset: true, polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1 });
+      polygonOffsetUnits: -1,
+      // Round caps overlap. Blend each covered sample once, strongest batch first.
+      // The renderer clears this stencil bit with the frame; surface depth remains intact.
+      stencilWrite: true, stencilWriteMask: 1, stencilFuncMask: 1,
+      stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc,
+      stencilZPass: THREE.ReplaceStencilOp });
     const mesh = new LineSegments2(new LineSegmentsGeometry(), material);
-    mesh.renderOrder = 2.1;
+    mesh.renderOrder = 2.1 + index * 0.001;
     mesh.visible = false;
     group.add(mesh);
     return { mesh, material, base: new Float32Array(), warped: new Float32Array() };
@@ -97,7 +102,7 @@ export function createCountrySelectionBorders(globe: GlobeView) {
         if (segmentCount > MAX_SEGMENTS) throw new Error("Selected country border exceeds segment cap");
       }
       if (byStrength.size > batches.length) throw new Error("Selection requires more than two border weights");
-      const groups = [...byStrength.entries()];
+      const groups = [...byStrength.entries()].sort(([a], [b]) => b - a);
       let storageBytes = 0;
       batches.forEach((batch, i) => {
         const [strength, points] = groups[i] ?? [0, []];
