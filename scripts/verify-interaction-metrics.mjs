@@ -180,10 +180,10 @@ function dispatch(host, type, properties = {}) {
 const sourcesButton = new ElementNode('button'); sourcesButton.dataset.metricTarget = 'sources';
 dispatch(documentStub, 'click', { target: sourcesButton });
 const soundButton = new ElementNode('button'); soundButton.dataset.metricTarget = 'sound';
-soundButton.attributes['aria-checked'] = 'true';
+soundButton.attributes['aria-pressed'] = 'true';
 dispatch(documentStub, 'click', { target: soundButton });
 assert.equal(activity.at(-1).enabled, true, 'Checkbox buttons report their resulting checked state');
-soundButton.attributes['aria-checked'] = 'false';
+soundButton.attributes['aria-pressed'] = 'false';
 dispatch(documentStub, 'click', { target: soundButton });
 assert.equal(activity.at(-1).enabled, false);
 const info = new ElementNode('div', ['info-modal', 'info-modal--visible']);
