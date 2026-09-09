@@ -95,6 +95,7 @@ now = 5000;
 succeeds = true;
 await queue.flush();
 assert.deepEqual(batches[1], batches[0], 'Retry preserves tab id, sequence and body');
+assert(Number.isSafeInteger(batches[0].events[0].atMs), 'Click occurrence time is recorded before batching');
 assert.equal(queue.size, 0);
 assert.ok(!JSON.stringify(batches).includes(canary));
 

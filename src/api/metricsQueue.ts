@@ -1,4 +1,5 @@
-/** Only these semantic codes and aggregate numbers may cross the analytics boundary. */
+/** created by: Christian Stelmach (chrisp.stel@gmail.com)
+ * Only these semantic codes and aggregate numbers may cross the analytics boundary. */
 const METRIC_TYPES = ["control", "country", "emotion", "survey", "window", "gesture", "page"] as const;
 const METRIC_TARGETS = ["layer", "all-layers", "theme", "sound", "about", "sources", "share", "consent", "survey", "survey-options", "survey-text", "survey-body", "country", "emotion", "emotion-filter", "globe", "page", "festival", "workshop", "result", "cycle", "quality", "menu", "source-link", "about-link", "globe-rotate", "globe-zoom"] as const;
 const METRIC_ACTIONS = ["click", "open", "close", "change", "enable", "disable", "next", "back", "submit", "start", "end", "visible", "hidden", "input"] as const;
@@ -11,7 +12,7 @@ export type MetricEvent = {
   enabled?: boolean; layer?: typeof LAYERS[number]; step?: number; count?: number;
   selectedCount?: number; hasText?: boolean; characters?: number; durationMs?: number;
 };
-type SequencedMetricEvent = MetricEvent & { seq: number };
+type SequencedMetricEvent = MetricEvent & { seq: number; atMs: number };
 type MetricBatch = { userId: string; tabId: string; consent: boolean; events: SequencedMetricEvent[] };
 const MAX_METRIC_QUEUE = 256;
 const MAX_METRIC_BATCH = 32;
@@ -64,7 +65,7 @@ export class MetricsQueue {
     if (!clean) return;
     // Retain the oldest unacknowledged events so a retry never changes its identifiers.
     if (this.events.length >= MAX_METRIC_QUEUE) { this.dropped++; return; }
-    this.events.push({ ...clean, seq: ++this.seq });
+    this.events.push({ ...clean, seq: ++this.seq, atMs: Date.now() });
   }
 
   private batch(): MetricBatch | null {
