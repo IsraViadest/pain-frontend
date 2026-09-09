@@ -1,7 +1,4 @@
-import {
-  buildSurveySubmissionPayload,
-  type SurveySessionState,
-} from "./surveyData";
+import type { SurveySessionState } from "./surveyData";
 import {
   playButtonSound,
   SOUND_BUTTON_SUBMIT,
@@ -80,8 +77,6 @@ export function mountSurveyScreen5(
   addListener(submitBtn, "click", () => {
     playButtonSound(SOUND_BUTTON_SUBMIT);
     state.painText = painText.value;
-    const payload = buildSurveySubmissionPayload(state);
-    console.log("Survey submission:", JSON.stringify(payload, null, 2));
     onSubmit();
   });
 
