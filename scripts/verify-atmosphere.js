@@ -11,6 +11,12 @@
     renderer.setSize(320, 320, false);
     renderer.setPixelRatio(1);
     renderer.setClearColor(0, 0);
+    const renderScene = renderer.render.bind(renderer);
+    let depthDraws = 0;
+    renderer.render = (scene, camera) => {
+      if (scene.children.length === 1 && scene.children[0].material?.colorWrite === false) depthDraws++;
+      return renderScene(scene, camera);
+    };
     const setTarget = renderer.setRenderTarget;
     let verifiedDepthTargets = 0;
     const checkedTargets = new WeakSet();
@@ -100,7 +106,10 @@
       result.zeroFields = read();
       check(result.zeroFields.alpha === 0, mode + ": zero-valued non-null fields manufactured density");
       atmosphere.setFields(temperature, null);
+      const depthBeforeNorth = depthDraws;
       const north = read();
+      check(depthDraws - depthBeforeNorth === (isVolume ? 0 : 1),
+        mode + ": incorrect depth pass for a complete sphere");
       check(north.alpha > 0 && north.upper > north.lower * 8, mode + ": north field misplaced");
       check(north.red > north.green * 2 && north.red > north.blue * 2, mode + ": temperature is not coral");
       const versions = result.textureVersions = { initial: { version: temperature.version, ...north } };
@@ -126,7 +135,9 @@
       check(back.alpha === 0, mode + ": far-side field visible through hidden globe");
       earth.rotation.y = 0;
       setSurface((y) => y > 0 ? 1.2 : 0.8);
+      const depthBeforeDeformation = depthDraws;
       const deformed = read();
+      check(depthDraws - depthBeforeDeformation === 1, mode + ": deformed surface lost its depth pass");
       check(deformed.upper === 0 && deformed.lower > 0, mode + ": surface depth is stale or inverted");
       setSurface(() => 1.2);
       const enclosed = read();

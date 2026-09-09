@@ -95,17 +95,20 @@ export function createEnvironmentalAtmosphere(options: {
       const range = surfaceGeometry.drawRange;
       surfaceRadius.value = range.start === 0 && range.count >= (surfaceGeometry.index?.count ?? positions.count)
         ? sphericalRadius : 0;
-      const sampledSurface = volumeMode && surfaceRadius.value === 0;
-      const scarDepthCap = fraction <= 0.25 ? 3_000_000 : MAX_SCAR_DEPTH_PIXELS;
-      const baseDepthCap = sampledSurface ? scarDepthCap : options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS;
-      // Light shares its 64 MiB ceiling with selection buffers. Reserve once, not per wave.
-      const depthCap = fraction <= 0.25
-        ? Math.min(baseDepthCap, Math.max(1, scarDepthCap - Math.ceil(reservedBytes / 5))) : baseDepthCap;
-      const ratio = Math.min(sampledSurface ? 2 : options.smooth ? fraction : 0.5, sampledSurface ? 2 : 1,
-        Math.sqrt(depthCap / (drawingSize.x * drawingSize.y)),
-        renderer.capabilities.maxTextureSize / Math.max(drawingSize.x, drawingSize.y));
-      depthTarget.setSize(Math.max(1, Math.floor(drawingSize.x * ratio)),
-        Math.max(1, Math.floor(drawingSize.y * ratio)));
+      const needsDepth = !volumeMode || surfaceRadius.value === 0;
+      if (needsDepth) {
+        const sampledSurface = volumeMode && surfaceRadius.value === 0;
+        const scarDepthCap = fraction <= 0.25 ? 3_000_000 : MAX_SCAR_DEPTH_PIXELS;
+        const baseDepthCap = sampledSurface ? scarDepthCap : options.smooth ? 2 * MAX_DEPTH_PIXELS : MAX_DEPTH_PIXELS;
+        // Keep depth allocation bounded alongside selection buffers. Reserve once, not per wave.
+        const depthCap = fraction <= 0.25
+          ? Math.min(baseDepthCap, Math.max(1, scarDepthCap - Math.ceil(reservedBytes / 5))) : baseDepthCap;
+        const ratio = Math.min(sampledSurface ? 2 : options.smooth ? fraction : 0.5, sampledSurface ? 2 : 1,
+          Math.sqrt(depthCap / (drawingSize.x * drawingSize.y)),
+          renderer.capabilities.maxTextureSize / Math.max(drawingSize.x, drawingSize.y));
+        depthTarget.setSize(Math.max(1, Math.floor(drawingSize.x * ratio)),
+          Math.max(1, Math.floor(drawingSize.y * ratio)));
+      } else depthTarget.setSize(1, 1);
       earthContent.updateWorldMatrix(true, false);
       camera.updateMatrixWorld();
       inverseEarth.copy(earthContent.matrixWorld).invert();
@@ -122,9 +125,13 @@ export function createEnvironmentalAtmosphere(options: {
         renderer.autoClear = false;
         renderer.setScissorTest(false);
         renderer.setClearColor(0x000000, 0);
-        renderer.setRenderTarget(depthTarget);
-        renderer.clear(true, true, false);
-        renderer.render(depthScene, camera);
+        // The volume intersects a complete sphere analytically. Its depth raster is unused.
+        // The unused target is kept at one pixel; steady-state setSize does not reallocate.
+        if (needsDepth) {
+          renderer.setRenderTarget(depthTarget);
+          renderer.clear(true, true, false);
+          renderer.render(depthScene, camera);
+        }
         volume?.render(camera, samples, fraction);
       } finally {
         renderer.setRenderTarget(previousTarget);

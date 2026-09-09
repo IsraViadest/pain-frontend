@@ -1,3 +1,4 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 import * as THREE from "three";
 
 const MAX_PIXELS = 1_048_576;
@@ -66,6 +67,7 @@ float co2Envelope(float radius, float alpha) {
 }
 
 float displayResponse(float value) {
+  if (uLogResponse == 0.0) return value;
   float expanded = log(1.0 + 9.0 * value) / log(10.0);
   return mix(value, expanded, uLogResponse);
 }
@@ -130,22 +132,11 @@ vec4 depthQuad(vec2 center, vec2 offset) {
     texture2D(uDepth, center + vec2(offset.x, -offset.y)).r,
     texture2D(uDepth, center + vec2(-offset.x, offset.y)).r);
 }
-float viewDepth(float depth) {
-  vec4 view = uInverseProjection * vec4(0.0, 0.0, depth * 2.0 - 1.0, 1.0);
-  return -view.z / view.w;
-}
-bool depthEdge(vec4 depths, float center, vec2 pixelSize) {
+bool depthEdge(vec4 depths, float center) {
+  // Reintegrate coverage changes at the silhouette, not every steep interior scar slope.
+  // Interior depth still clips each reduced-resolution ray against the actual surface.
   bvec4 hits = lessThan(depths, vec4(1.0));
-  if (any(notEqual(hits, bvec4(center < 1.0)))) return true;
-  if (center >= 1.0) return false;
-  vec4 z = vec4(viewDepth(depths.x), viewDepth(depths.y), viewDepth(depths.z), viewDepth(depths.w));
-  float centerZ = viewDepth(center);
-  float nearest = min(centerZ, min(min(z.x, z.y), min(z.z, z.w)));
-  float farthest = max(centerZ, max(max(z.x, z.y), max(z.z, z.w)));
-  // Re-evaluate depth jumps larger than this footprint's projected world-space width.
-  float footprint = 2.0 * centerZ * max(abs(uInverseProjection[0][0]) * pixelSize.x,
-    abs(uInverseProjection[1][1]) * pixelSize.y);
-  return farthest - nearest > footprint;
+  return any(notEqual(hits, bvec4(center < 1.0)));
 }
 vec4 subpixelVolume(vec2 uv) {
   vec2 offset = 0.25 / uOutputSize;
@@ -170,11 +161,11 @@ void main() {
   } else {
     float center = texture2D(uDepth, vUv).r;
     vec2 pixelSize = 1.0 / uOutputSize;
-    if (depthEdge(depthQuad(vUv, 0.25 * pixelSize), center, pixelSize)) {
+    if (depthEdge(depthQuad(vUv, 0.25 * pixelSize), center)) {
       gl_FragColor = subpixelVolume(vUv);
     } else {
       vec2 sourceCenter = (floor(vUv * uVolumeSize - 0.5) + 1.0) / uVolumeSize;
-      if (depthEdge(depthQuad(sourceCenter, 0.5 / uVolumeSize), center, 1.0 / uVolumeSize)) {
+      if (depthEdge(depthQuad(sourceCenter, 0.5 / uVolumeSize), center)) {
         gl_FragColor = integrateVolume(vUv);
       }
     }
