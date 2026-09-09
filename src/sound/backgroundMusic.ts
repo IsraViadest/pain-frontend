@@ -54,14 +54,16 @@ export function initBackgroundMusic(): void {
 
   audio = new Audio(BACKGROUND_MUSIC_SRC);
   audio.loop = true;
-  audio.preload = "auto";
+  audio.preload = "metadata";
   const wantEnabled = readPreference();
   audio.muted = suppressed || !wantEnabled;
   attachUnlockListeners();
-  void audio.play().catch(() => {
+  void audio.play().then(() => {
+    document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
+  }).catch(() => {
     if (!audio) return;
     audio.muted = true;
-    void audio.play().catch(() => {});
+    document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
   });
 }
 
@@ -81,7 +83,11 @@ export function setSoundEnabled(enabled: boolean): void {
   writePreference(enabled);
 
   if (enabled) {
-    void audio.play().catch(() => {});
+    void audio.play().catch(() => {
+      if (audio) audio.muted = true;
+      attachUnlockListeners();
+      document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
+    });
   }
 }
 
