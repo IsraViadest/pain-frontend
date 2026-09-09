@@ -77,13 +77,13 @@ export function createScarContourLayer(
   countries: readonly IndexedCountryGeometry[],
 ) {
   const mask = rasterLandMaskFromGeometries(countries);
-  const maskBytes = new Uint8Array(mask.data.length);
-  maskBytes.set(mask.data);
+  const maskBytes = new Uint8Array(mask.w * mask.h);
+  for (let i = 0; i < maskBytes.length; i++) maskBytes[i] = mask.data[i * 4]!;
   const landMap = new THREE.DataTexture(
     maskBytes,
     mask.w,
     mask.h,
-    THREE.RGBAFormat,
+    THREE.RedFormat,
   );
   landMap.flipY = false;
   landMap.wrapS = THREE.RepeatWrapping;
@@ -93,6 +93,8 @@ export function createScarContourLayer(
   const neutral = new THREE.DataTexture(new Uint8Array([128]), 1, 1, THREE.RedFormat);
   neutral.needsUpdate = true;
   const geometry = new THREE.SphereGeometry(1, 192 * detail, 128 * detail);
+  geometry.deleteAttribute("normal");
+  geometry.deleteAttribute("uv");
   const material = new THREE.ShaderMaterial({
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
@@ -147,7 +149,7 @@ export function createScarContourLayer(
       const arrays = [geometry.index, ...Object.values(geometry.attributes)]
         .filter((attribute): attribute is THREE.BufferAttribute => attribute instanceof THREE.BufferAttribute);
       const geometryBytes = arrays.reduce((sum, attribute) => sum + attribute.array.byteLength, 0);
-      return { additionalBytes: 2 * geometryBytes + mask.data.byteLength * 2 + 4096 };
+      return { additionalBytes: 2 * geometryBytes + maskBytes.byteLength * 2 + 4096 };
     },
     dispose(): void {
       object.removeFromParent();
