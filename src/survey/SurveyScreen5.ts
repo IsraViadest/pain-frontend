@@ -1,4 +1,5 @@
 import type { SurveySessionState } from "./surveyData";
+import { textMetrics, trackInteraction } from "../api/metricsApi";
 import {
   playButtonSound,
   SOUND_BUTTON_SUBMIT,
@@ -65,9 +66,25 @@ export function mountSurveyScreen5(
   root.append(title, painText, backBtn, submitBtn);
   host.appendChild(root);
 
+  let inputTimer: ReturnType<typeof setTimeout> | undefined;
+  let inputCount = 0;
+  const recordTextActivity = (): void => {
+    if (!inputCount) return;
+    trackInteraction({ type: "survey", target: "survey-text", action: "input", step: 5,
+      count: inputCount, ...textMetrics(state.painText) });
+    inputCount = 0;
+    clearTimeout(inputTimer);
+  };
   addListener(painText, "input", () => {
     state.painText = painText.value;
+    inputCount++;
+    clearTimeout(inputTimer);
+    inputTimer = setTimeout(recordTextActivity, 500);
   });
+  addListener(painText, "blur", recordTextActivity);
+  const onVisibility = (): void => { if (document.hidden) recordTextActivity(); };
+  document.addEventListener("visibilitychange", onVisibility);
+  cleanups.push(() => document.removeEventListener("visibilitychange", onVisibility));
 
   addListener(backBtn, "click", () => {
     playButtonSound(SOUND_BUTTON_SURVEY_ARROW);
@@ -77,11 +94,13 @@ export function mountSurveyScreen5(
   addListener(submitBtn, "click", () => {
     playButtonSound(SOUND_BUTTON_SUBMIT);
     state.painText = painText.value;
+    recordTextActivity();
     onSubmit();
   });
 
   return {
     unmount: () => {
+      recordTextActivity();
       for (const cleanup of cleanups) cleanup();
       root.remove();
     },

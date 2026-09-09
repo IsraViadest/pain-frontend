@@ -10,7 +10,8 @@ import {
   type SurveySessionState,
   type SurveySubmissionPayload,
 } from "./surveyData";
-import { trackSurveyStep } from "../api/metricsApi";
+import { textMetrics, trackInteraction, trackSurveyStep } from "../api/metricsApi";
+import { VisibleDuration } from "../api/metricsQueue";
 import { isConsentGiven } from "./consentStorage";
 
 type ActiveScreen = {
@@ -42,6 +43,9 @@ export class SurveyModal {
   private activeScreen: ActiveScreen | null = null;
   private currentScreen = 0;
   private isOpen = false;
+  private navigationVersion = 0;
+  private pendingScreen: number | null = null;
+  private screenDuration = new VisibleDuration();
   private onCloseTransitionEnd = (): void => {
     this.finishClose();
   };
@@ -76,12 +80,18 @@ export class SurveyModal {
     this.host.appendChild(this.panel);
 
     document.addEventListener("keydown", this.onDocumentKeyDown);
+    document.addEventListener("visibilitychange", () => {
+      this.screenDuration.setVisible(this.isOpen && this.pendingScreen === null && !document.hidden);
+    });
   }
 
   /** Open the survey modal with a fade-in and mount screen 1. */
   open(): void {
     if (this.isOpen) return;
     this.isOpen = true;
+    this.navigationVersion++;
+    this.pendingScreen = null;
+    this.host.removeEventListener("transitionend", this.onCloseTransitionEnd);
     this.state = {
       selectedWords: new Set(),
       placements: [],
@@ -100,6 +110,8 @@ export class SurveyModal {
     this.unmountActiveScreen();
     this.mountScreen1();
     this.currentScreen = 1;
+    this.screenDuration = new VisibleDuration();
+    this.screenDuration.setVisible(!document.hidden);
     if (isConsentGiven()) {
       trackSurveyStep(0);
     }
@@ -108,7 +120,12 @@ export class SurveyModal {
   /** Close the survey modal with a fade-out. */
   close(): void {
     if (!this.isOpen) return;
+    trackInteraction({ type: "survey", target: "survey", action: "close", step: this.currentScreen,
+      ...this.metricDetails() });
+    this.screenDuration.setVisible(false);
     this.isOpen = false;
+    this.navigationVersion++;
+    this.pendingScreen = null;
     this.host.style.pointerEvents = "none";
     this.host.classList.remove("survey-modal--visible");
     this.host.classList.add("survey-modal--closing");
@@ -154,9 +171,6 @@ export class SurveyModal {
     this.activeScreen = mountSurveyScreen1(this.screenHost, {
       state: this.state,
       onAdvance: () => {
-        if (isConsentGiven()) {
-          trackSurveyStep(1);
-        }
         void this.goToScreen(2);
       },
     });
@@ -169,9 +183,6 @@ export class SurveyModal {
         void this.goToScreen(1);
       },
       onAdvance: () => {
-        if (isConsentGiven()) {
-          trackSurveyStep(2);
-        }
         void this.goToScreen(3);
       },
     });
@@ -184,9 +195,6 @@ export class SurveyModal {
         void this.goToScreen(2);
       },
       onAdvance: () => {
-        if (isConsentGiven()) {
-          trackSurveyStep(3);
-        }
         void this.goToScreen(4);
       },
     });
@@ -199,9 +207,6 @@ export class SurveyModal {
         void this.goToScreen(3);
       },
       onAdvance: () => {
-        if (isConsentGiven()) {
-          trackSurveyStep(4);
-        }
         void this.goToScreen(5);
       },
     });
@@ -215,7 +220,7 @@ export class SurveyModal {
       },
       onSubmit: () => {
         if (isConsentGiven()) {
-          trackSurveyStep(5);
+          trackSurveyStep(5, this.metricDetails());
         }
         this.handleSurveySubmit();
       },
@@ -232,13 +237,22 @@ export class SurveyModal {
   }
 
   private async goToScreen(screen: number): Promise<void> {
-    if (screen === this.currentScreen && this.activeScreen) return;
+    if (!this.isOpen || this.pendingScreen !== null || (screen === this.currentScreen && this.activeScreen)) return;
+    const version = this.navigationVersion;
+    this.pendingScreen = screen;
+    if (screen < this.currentScreen) trackInteraction({ type: "survey", target: "survey",
+      action: "back", step: this.currentScreen, ...this.metricDetails() });
+    else trackSurveyStep(this.currentScreen as 1 | 2 | 3 | 4, this.metricDetails());
+    this.screenDuration.setVisible(false);
 
     const hadScreen = this.activeScreen !== null;
     if (hadScreen) {
       this.screenHost.classList.add("survey-modal__screen--hidden");
       await this.wait(SURVEY_FADE_MS);
     }
+    // A close/reopen invalidates the old fade. Repeated clicks cannot mount or count it twice.
+    if (!this.isOpen || version !== this.navigationVersion) return;
+    this.pendingScreen = null;
     this.unmountActiveScreen();
 
     if (screen === 1) {
@@ -261,6 +275,8 @@ export class SurveyModal {
       this.currentScreen = screen;
     }
 
+    this.screenDuration = new VisibleDuration();
+    this.screenDuration.setVisible(!document.hidden);
     requestAnimationFrame(() => {
       this.screenHost.classList.remove("survey-modal__screen--hidden");
     });
@@ -270,5 +286,12 @@ export class SurveyModal {
     return new Promise((resolve) => {
       window.setTimeout(resolve, ms);
     });
+  }
+
+  private metricDetails() {
+    const selectedCount = [0, this.state.selectedWords.size, this.state.placements.length,
+      this.state.temporality.length, this.state.relations.length][this.currentScreen];
+    return { durationMs: this.screenDuration.read(),
+      ...(this.currentScreen === 5 ? textMetrics(this.state.painText) : { selectedCount }) };
   }
 }
