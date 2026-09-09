@@ -57,18 +57,19 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
   observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "hidden", "data-country"] });
 
   document.addEventListener("click", (event) => {
-    const element = event.target instanceof Element ? event.target : null;
-    if (!element) return;
-    const screen = element.closest(".survey-screen");
-    if (screen && element.closest("button,.survey-screen__advance-wrapper,.survey-map-pin")) {
+    // Target handlers may replace children or disable the button before this bubble listener runs.
+    // The original propagation path still identifies the control that received the activation.
+    const path = event.composedPath().filter((node): node is Element => node instanceof Element);
+    const screen = path.find(node => node.matches(".survey-screen"));
+    if (screen && path.some(node => node.matches("button,.survey-screen__advance-wrapper,.survey-map-pin"))) {
       const step = [1, 2, 3, 4, 5].find((value) => screen.classList.contains(`survey-screen--${value}`));
       // Count activations and blocked advance attempts without identifying an answer button.
       trackInteraction({ type: "survey", target: "survey", action: "click", step, count: 1,
         ...([1, 3, 4].includes(step ?? 0) ? { selectedCount: screen.querySelectorAll('[aria-pressed="true"]').length } : {}) });
       return;
     }
-    const button = element.closest<HTMLElement>("button,a,[role=button]");
-    if (!button || button.matches(":disabled,[aria-disabled=true]")) return;
+    const button = path.find((node): node is HTMLElement => node instanceof HTMLElement && node.matches("button,a,[role=button]"));
+    if (!button) return;
     const target = button.dataset.metricTarget as Target | undefined;
     if (target && CONTROL_TARGETS.includes(target)) {
       if (target === "about" || target === "sources") infoTarget = target;
@@ -84,7 +85,7 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
     } else if (button.matches(".consent-modal__btn")) {
       trackInteraction({ type: "control", target: "consent", action: "click",
         enabled: button.classList.contains("consent-modal__btn--agree") });
-    } else if (button.closest(".info-modal") && button.matches("a")) {
+    } else if (path.some(node => node.matches(".info-modal")) && button.matches("a")) {
       trackInteraction({ type: "control", target: infoTarget === "sources" ? "source-link" : "about-link", action: "click" });
     }
   }, { signal });

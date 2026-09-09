@@ -134,6 +134,9 @@ class ElementNode extends EventTarget {
   matches(selectors) {
     return selectors.split(',').some(selector => selector.startsWith('.') ? this.classes.has(selector.slice(1)) :
       selector.startsWith('#') ? this.id === selector.slice(1) :
+      selector === ':disabled' ? this.disabled === true :
+      selector === '[aria-disabled=true]' ? this.attributes['aria-disabled'] === 'true' :
+      selector === '[data-layer]' ? this.dataset.layer !== undefined :
       selector.startsWith('[') || selector.startsWith(':') ? false : selector === this.tag);
   }
   closest(selector) { return this.matches(selector) ? this : this.parent?.closest(selector) ?? null; }
@@ -159,7 +162,7 @@ const listenerCompiled = ts.transpileModule(listenerSource.replace(/^import .*;$
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const listenerScope = {
-  exports: {}, AbortController, Element: ElementNode, document: documentStub, window: windowStub,
+  exports: {}, AbortController, Element: ElementNode, HTMLElement: ElementNode, document: documentStub, window: windowStub,
   performance: { now: () => clock }, queueMicrotask: fn => fn(),
   VisibleDuration: class extends VisibleDuration { constructor() { super(() => clock); } },
   trackInteraction: event => activity.push(event),
@@ -175,6 +178,11 @@ const dispose = listenerScope.exports.installInteractionMetrics(canvas);
 function dispatch(host, type, properties = {}) {
   const event = new Event(type);
   for (const [key, value] of Object.entries(properties)) Object.defineProperty(event, key, { value });
+  if (!properties.composedPath) {
+    const path = [];
+    for (let node = properties.target ?? host; node; node = node.parent) path.push(node);
+    Object.defineProperty(event, 'composedPath', { value: () => [...path, documentStub, windowStub] });
+  }
   host.dispatchEvent(event);
 }
 const sourcesButton = new ElementNode('button'); sourcesButton.dataset.metricTarget = 'sources';
@@ -186,6 +194,26 @@ assert.equal(activity.at(-1).enabled, true, 'Checkbox buttons report their resul
 soundButton.attributes['aria-pressed'] = 'false';
 dispatch(documentStub, 'click', { target: soundButton });
 assert.equal(activity.at(-1).enabled, false);
+const detachedSoundWord = new ElementNode('span');
+detachedSoundWord.textContent = canary;
+soundButton.attributes['aria-pressed'] = 'true';
+const beforeDetachedClick = activity.length;
+dispatch(documentStub, 'click', { target: detachedSoundWord,
+  composedPath: () => [detachedSoundWord, soundButton, documentStub, windowStub] });
+assert.equal(activity.length, beforeDetachedClick + 1, 'Replacing the clicked span does not lose its parent button activation');
+assert.equal(activity.at(-1).target, 'sound');
+assert.equal(activity.at(-1).enabled, true, 'The event reports the post-handler state');
+soundButton.disabled = true;
+soundButton.attributes['aria-disabled'] = 'true';
+const beforeDisabledClick = activity.length;
+dispatch(documentStub, 'click', { target: soundButton });
+assert.equal(activity.length, beforeDisabledClick + 1, 'Disabling the button in its target handler does not erase the dispatched click');
+soundButton.disabled = false;
+delete soundButton.attributes['aria-disabled'];
+const layerButton = new ElementNode('button'); layerButton.dataset.layer = 'envpain'; layerButton.disabled = true;
+dispatch(documentStub, 'click', { target: layerButton });
+assert.equal(activity.at(-1).target, 'layer');
+assert.equal(activity.at(-1).layer, 'envpain', 'A layer handler disabling its control still records the layer activation');
 const info = new ElementNode('div', ['info-modal', 'info-modal--visible']);
 openModals.set('.info-modal--visible', info);
 observe([{ type: 'childList', addedNodes: [info], removedNodes: [] }]);
@@ -264,6 +292,14 @@ const screen = new ElementNode('div', ['survey-screen', 'survey-screen--1']);
 const answer = new ElementNode('button'); answer.parent = screen; answer.dataset.word = canary;
 answer.textContent = canary;
 dispatch(documentStub, 'click', { target: answer });
+assert.equal(activity.at(-1).step, 1);
+assert.equal(activity.at(-1).count, 1);
+assert.ok(!JSON.stringify(activity).includes(canary));
+const detachedAnswerWord = new ElementNode('span'); detachedAnswerWord.textContent = canary;
+const beforeDetachedAnswer = activity.length;
+dispatch(documentStub, 'click', { target: detachedAnswerWord,
+  composedPath: () => [detachedAnswerWord, answer, screen, documentStub, windowStub] });
+assert.equal(activity.length, beforeDetachedAnswer + 1, 'Detached survey descendants still produce one anonymous click count');
 assert.equal(activity.at(-1).step, 1);
 assert.equal(activity.at(-1).count, 1);
 assert.ok(!JSON.stringify(activity).includes(canary));
