@@ -50,7 +50,7 @@ import {
 import { type SurveySubmissionPayload } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
 import { showConsentModal } from "./survey/consentModal";
-import { initBackgroundMusic } from "./sound/backgroundMusic";
+import { initBackgroundMusic, isSoundEnabled } from "./sound/backgroundMusic";
 import {
   mountProductionChrome,
   type ProductionChrome,
@@ -208,8 +208,7 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
       globe.earthContent,
     );
     const removeSurfaceMarker = globe.addSurfaceMarker(resultLat, resultLng);
-    chrome?.setUiEnabled(false);
-    new Audio("/sounds/Results.mp3").play().catch(() => {});
+    if (isSoundEnabled()) new Audio("/sounds/Results.mp3").play().catch(() => {});
     showSurveyResultModal(overlayHost, {
       lat: resultLat,
       lng: resultLng,
@@ -218,7 +217,6 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
         removeSurfaceMarker();
         hideSurveyResultModal();
         globe.setAutoSpinEnabled(true);
-        chrome?.setUiEnabled(true);
       },
     });
   } finally {
