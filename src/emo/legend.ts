@@ -212,7 +212,7 @@ export async function createEmoLegend(options: {
   const heading = options.onToggleCategory ? document.createElement("h2") : null;
   if (heading) {
     heading.className = "emo-legend__heading emo-sc-Latn";
-    heading.textContent = "Strongest emotion by country";
+    heading.textContent = "strongest emotion by country";
     host.append(heading);
   }
 
