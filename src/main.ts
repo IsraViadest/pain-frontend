@@ -20,6 +20,7 @@ import {
   trackInteraction,
 } from "./api/metricsApi";
 import { installInteractionMetrics } from "./api/interactionMetrics";
+import { installThreeFingerLayerSwipe } from "./ui/three-finger-layer-swipe";
 import { getMapLayerById, isChoroplethMapLayer, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer, PainPoint } from "./types/api";
 import {
@@ -174,6 +175,15 @@ const highQuality = displayQuery.get("hq") === "1" ||
   (displayQuery.get("cpProjection") === "1" &&
     displayQuery.get("hq") !== "0");
 globe.setHighQuality(highQuality);
+if (displayQuery.get("cpProjection") === "1") {
+  installThreeFingerLayerSwipe(canvas, globe.controls, (direction) => {
+    if (document.querySelector(".info-modal--visible,.survey-modal--visible,.survey-result-modal--visible,.consent-modal--visible,#offline-operator-exit[open]")) return;
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>("#ui-layer-stack button[data-layer]")]
+      .filter((button) => !button.disabled);
+    const current = buttons.findIndex((button) => button.classList.contains("blob-button--active"));
+    if (current >= 0) buttons[(current + direction + buttons.length) % buttons.length]!.click();
+  });
+}
 const scarMapPreview = document.querySelector<HTMLCanvasElement>(
   "#scar-map-preview",
 );

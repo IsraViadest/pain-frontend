@@ -102,9 +102,11 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
   let gestureStart = 0;
   let moved = false;
   let pinched = false;
+  let contacts = 0;
   canvas.addEventListener("pointerdown", (event) => {
-    if (!pointers.size) { gestureStart = performance.now(); moved = false; pinched = false; }
+    if (!pointers.size) { gestureStart = performance.now(); moved = false; pinched = false; contacts = 0; }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    contacts = Math.max(contacts, pointers.size);
     if (pointers.size > 1) pinched = true;
   }, { signal, passive: true });
   window.addEventListener("pointermove", (event) => {
@@ -113,9 +115,9 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
   }, { signal, passive: true });
   const endPointer = (event: PointerEvent): void => {
     if (!pointers.delete(event.pointerId) || pointers.size) return;
-    trackInteraction({ type: "gesture", target: pinched ? "globe-zoom" : moved ? "globe-rotate" : "globe",
+    trackInteraction({ type: "gesture", target: contacts >= 3 ? "globe" : pinched ? "globe-zoom" : moved ? "globe-rotate" : "globe",
       action: moved || pinched || event.type === "pointercancel" ? "end" : "click",
-      count: 1, durationMs: performance.now() - gestureStart });
+      count: contacts >= 3 ? contacts : 1, durationMs: performance.now() - gestureStart });
   };
   window.addEventListener("pointerup", endPointer, { signal, passive: true });
   window.addEventListener("pointercancel", endPointer, { signal, passive: true });
