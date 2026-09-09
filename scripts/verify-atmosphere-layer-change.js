@@ -8,23 +8,23 @@
   for (const name of names) gl[name] = function (...args) {
     const program = gl.getParameter(gl.CURRENT_PROGRAM);
     if (!volumePrograms.has(program)) {
-      volumePrograms.set(program, gl.getUniformLocation(program, "uVolume") !== null);
+      volumePrograms.set(program, gl.getUniformLocation(program, "uVolume") !== null ||
+        (gl.getUniformLocation(program, "uField") !== null && gl.getUniformLocation(program, "uSceneDepth") !== null));
     }
     if (volumePrograms.get(program)) draws++;
     return originals.get(name).apply(this, args);
   };
   const rows = [];
   try {
-    for (const layer of ["Environmental Pain", "Socio-economic Pain", "Physical Pain",
-      "Emotional Pain", "all the pain", "Socio-economic Pain"]) {
-      [...document.querySelectorAll("button")].find((button) => button.textContent.trim() === layer).click();
+    for (const layer of ["envpain", "socioecopain", "physpain", "emopain", "all-pain", "socioecopain"]) {
+      document.querySelector(`button[data-layer="${layer}"]`).click();
       await new Promise((resolve) => setTimeout(resolve, 1800));
       draws = 0;
       for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame);
-      rows.push({ layer, volumeDraws: draws });
+      rows.push({ layer, atmosphereDraws: draws });
     }
-    return { passed: rows.every(({ layer, volumeDraws }) =>
-      ["Environmental Pain", "all the pain"].includes(layer) ? volumeDraws > 0 : volumeDraws === 0), rows };
+    return { passed: rows.every(({ layer, atmosphereDraws }) =>
+      ["envpain", "all-pain"].includes(layer) ? atmosphereDraws > 0 : atmosphereDraws === 0), rows };
   } finally {
     for (const [name, original] of originals) gl[name] = original;
   }

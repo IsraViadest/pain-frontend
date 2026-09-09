@@ -1,3 +1,4 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 import * as THREE from "three";
 
 interface AtmosphereSurfaceOptions {
@@ -42,7 +43,9 @@ void discardBehindSurface() {
 const FLAT_VERTEX = /* glsl */ `
 uniform float uBaseRadius;
 varying vec3 vEarthPosition;
+varying vec2 vFieldUv;
 void main() {
+  vFieldUv = uv;
   vEarthPosition = normalize(position) * uBaseRadius;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(vEarthPosition, 1.0);
 }
@@ -50,9 +53,10 @@ void main() {
 
 const FLAT_FRAGMENT = /* glsl */ `
 ${FRAGMENT_COMMON}
+varying vec2 vFieldUv;
 void main() {
   discardBehindSurface();
-  float density = densityAt(vEarthPosition);
+  float density = texture2D(uField, vFieldUv).a;
   if (density <= 0.0) discard;
   gl_FragColor = vec4(uColor, density * uAppearance);
   #include <colorspace_fragment>
@@ -62,14 +66,17 @@ void main() {
 const MANTLE_VERTEX = /* glsl */ `
 ${FIELD_GLSL}
 uniform float uBaseRadius;
+uniform float uHeight;
 varying vec3 vEarthPosition;
 varying vec3 vSurfaceNormal;
+varying vec2 vFieldUv;
 vec3 relief(vec3 direction) {
   vec3 n = normalize(direction);
   // Artistic height only; source density is neither stretched nor ranked.
-  return n * (uBaseRadius + 0.03 * densityAt(n));
+  return n * (uBaseRadius + uHeight * densityAt(n));
 }
 void main() {
+  vFieldUv = uv;
   vec3 n = normalize(position);
   if (abs(n.y) > 0.999999) n = vec3(0.0, sign(n.y), 0.0);
   vec3 reference = abs(n.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
@@ -89,13 +96,20 @@ void main() {
 const MANTLE_FRAGMENT = /* glsl */ `
 ${FRAGMENT_COMMON}
 varying vec3 vSurfaceNormal;
+varying vec2 vFieldUv;
 void main() {
   discardBehindSurface();
-  float density = densityAt(vEarthPosition);
+  float density = texture2D(uField, vFieldUv).a;
   if (density <= 0.0) discard;
   vec3 light = normalize(mat3(uInverseEarth) * vec3(4.0, 2.0, 3.0));
-  float shade = 0.55 + 0.45 * max(0.0, dot(normalize(vSurfaceNormal), light));
-  gl_FragColor = vec4(uColor * shade, density * uAppearance);
+  float shade = 0.82 + 0.18 * max(0.0, dot(normalize(vSurfaceNormal), light));
+  vec3 eye = (uInverseEarth * vec4(cameraPosition, 1.0)).xyz;
+  float facing = abs(dot(normalize(vEarthPosition), normalize(eye - vEarthPosition)));
+  // A shallow optical layer gets denser toward the limb, then softly ends at its silhouette.
+  // The original normalized horizontal field is unchanged.
+  float alpha = (1.0 - exp(-density * uAppearance / max(facing, 0.25))) *
+    smoothstep(0.0, 0.08, facing);
+  gl_FragColor = vec4(uColor * shade, alpha);
   #include <colorspace_fragment>
 }
 `;
@@ -203,7 +217,7 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
   object.name = `atmosphere-${options.mode}`;
   object.renderOrder = -1;
   object.visible = false;
-  const maximumRadius = options.mode === "flat" ? 1.15 : MAX_RADIUS;
+  const maximumRadius = options.mode === "cloudlets" ? MAX_RADIUS : 1.15;
   const sphere = options.mode !== "cloudlets" ? new THREE.SphereGeometry(1, 192, 128) : null;
   if (sphere) sphere.boundingSphere = new THREE.Sphere(new THREE.Vector3(), maximumRadius);
   const anchors = options.mode === "cloudlets" ? new Float32Array(CLOUDLET_LIMIT * 3) : null;
@@ -219,8 +233,11 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
     }
   }
   const fields = ([
-    { name: "temperature", appearance: 0.7, baseRadius: options.mode === "flat" ? 1.003 : 1.012 },
-    { name: "co2", appearance: 0.4, baseRadius: options.mode === "flat" ? 1.15 : 1.02 },
+    { name: "temperature", appearance: options.mode === "mantle" ? 3.2 : 0.7,
+      baseRadius: options.mode === "flat" ? 1.003 : 1.012, height: 0.05 },
+    { name: "co2", appearance: options.mode === "mantle" ? 2.2 : 0.4,
+      baseRadius: options.mode === "flat" ? 1.15 : options.mode === "mantle" ? 1.085 : 1.02,
+      height: 0.055 },
   ] as const).map((field) => {
     const geometry = sphere ?? cloudletGeometry();
     const material = new THREE.ShaderMaterial({
@@ -232,6 +249,7 @@ export function createAtmosphereSurface(options: AtmosphereSurfaceOptions) {
         uColor: { value: new THREE.Color(options.colors[field.name]) },
         uAppearance: { value: field.appearance },
         uBaseRadius: { value: field.baseRadius },
+        uHeight: { value: field.height },
       },
       vertexShader: options.mode === "flat" ? FLAT_VERTEX : options.mode === "mantle" ? MANTLE_VERTEX : CLOUDLET_VERTEX,
       fragmentShader: options.mode === "flat" ? FLAT_FRAGMENT : options.mode === "mantle" ? MANTLE_FRAGMENT : CLOUDLET_FRAGMENT,

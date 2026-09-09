@@ -1,3 +1,4 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 import * as THREE from "three";
 import { createAtmosphereSurface } from "./atmosphereSurface";
 import { createAtmosphereVolume } from "./atmosphereVolume";
@@ -71,7 +72,7 @@ export function createEnvironmentalAtmosphere(options: {
     },
     /** Called before the main render, with the same camera/earth matrices for all passes. */
     prepare(samples: 16 | 32 | 48, fraction: number, reservedBytes = 0): void {
-      if (disposed) return;
+      if (disposed || (!temperature && !co2)) return;
       renderer.getDrawingBufferSize(drawingSize);
       if (drawingSize.x <= 0 || drawingSize.y <= 0) return;
       const positions = surfaceGeometry.getAttribute("position");
@@ -105,7 +106,6 @@ export function createEnvironmentalAtmosphere(options: {
         renderer.capabilities.maxTextureSize / Math.max(drawingSize.x, drawingSize.y));
       depthTarget.setSize(Math.max(1, Math.floor(drawingSize.x * ratio)),
         Math.max(1, Math.floor(drawingSize.y * ratio)));
-      if (!temperature && !co2) return;
       earthContent.updateWorldMatrix(true, false);
       camera.updateMatrixWorld();
       inverseEarth.copy(earthContent.matrixWorld).invert();
