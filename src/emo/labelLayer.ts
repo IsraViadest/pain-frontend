@@ -331,6 +331,7 @@ export async function createEmoLabelLayer(options: {
    * label can no longer swallow a click meant for the one actually drawn over it.
    */
   function labelAt(x: number, y: number): LabelEntry | undefined {
+    if (host.hidden) return undefined;
     host.dataset.hit = "on";
     const hit = document.elementFromPoint(x, y)?.closest(".emo-label") ?? null;
     delete host.dataset.hit;
@@ -391,6 +392,7 @@ export async function createEmoLabelLayer(options: {
   let logNextSweep = true;
   let lastFrameMs = -1;
   let lastSweepMs = -1;
+  let presentationHidden = false;
   let occlusionRects: (() => readonly DOMRectReadOnly[]) | null = null;
 
   // A script subset that arrives after first paint changes every box in that script, and nothing
@@ -490,11 +492,27 @@ export async function createEmoLabelLayer(options: {
   }
 
   function update(): void {
+    // The shared motion clock runs in main.ts even when this DOM overlay is hidden.
+    if (host.hidden) {
+      presentationHidden = true;
+      return;
+    }
     const camera = globe.camera;
     const canvas = globe.renderer.domElement;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    if (w === 0 || h === 0) return;
+    if (w === 0 || h === 0) {
+      presentationHidden = true;
+      return;
+    }
+
+    const resuming = presentationHidden;
+    presentationHidden = false;
+    if (resuming) {
+      measureDirty = true;
+      lastSweepMs = -Infinity;
+      lastFrameMs = -1;
+    }
 
     const spin = globe.earthContent.rotation.y;
     const sinY = Math.sin(spin);
@@ -702,6 +720,12 @@ export async function createEmoLabelLayer(options: {
     if (declutterOn && now - lastSweepMs >= DECLUTTER_SWEEP_MS) {
       lastSweepMs = now;
       declutterSweep();
+    }
+    // Only on re-entry: apply the fresh sweep before the browser paints. A label hidden by
+    // the old layout may now fit, and the first pass has not written its transform or opacity.
+    if (resuming && declutterOn) {
+      lastFrameMs = -1;
+      update();
     }
   }
 
