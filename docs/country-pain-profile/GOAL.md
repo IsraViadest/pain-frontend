@@ -1441,3 +1441,21 @@ evening reference). Final Fujitsu/Christie acceptance and the full final manual 
 matrix remain open; physical-phone testing is deferred. No gallery or public deployment.
 Automatic approval blocked deletion of one stopped 172 MB test profile; its path is recorded
 in the comparison plan. The workspace CDP helper now closes its own Chrome on cancellation.
+
+
+## 2026-09-09: matching contour palette and three-line GDP legend
+
+Water contours now use the active physical-dot relief endpoints and the same sampled-height
+smoothstep curve. Palette changes update existing contours; line opacity, width, mask and
+geometry remain unchanged. GPU checks confirm matching endpoints in Physical and all-pain,
+and zero contour draws in the three other layers. Contour change: `f0cd61c`.
+
+The GDP legend reads "country-based wealth", "(GDP) per capita", "(log-scale)" on three lines.
+Desktop 1500x950 and mobile-width 393x852 captures pass title-bounds and scale-overlap checks
+and were visually inspected. Frontend compliance/build passes, including the new label.
+
+The original preview on 5174 serves JavaScript but its port-3000 /init backend times out.
+An isolated visual preview is running at <http://127.0.0.1:5176/?hq=0>, using the existing
+packaged local data API on 5178. No Docker repair or Windows repackaging was performed. This
+preview verifies visual changes, not the web survey backend. Temporary checks are under /tmp;
+no gallery was exported.

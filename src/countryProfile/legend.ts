@@ -318,23 +318,26 @@ export function createSocioeconomicLegend(
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("width", String(width));
     svg.setAttribute("height", String(height));
+    const titleExtraHeight = gdpPerCapita && !portrait ? 18 : 0;
     gradient.setAttribute("x2", portrait ? "0%" : "100%");
     gradient.setAttribute("y1", portrait ? "100%" : "0%");
     continuous.setAttribute("x", String(portrait ? style === "color" ? 42 : 35 : 0));
-    continuous.setAttribute("y", String(portrait ? 23 :
-      style === "color" ? compact ? 20 : 26 : compact ? 16 : 20));
+    continuous.setAttribute("y", String(portrait ? 23 : titleExtraHeight +
+      (style === "color" ? compact ? 20 : 26 : compact ? 16 : 20)));
     continuous.setAttribute("width", String(portrait ? style === "color" ? 18 : 4 : 184));
     continuous.setAttribute("height", String(portrait ? 80 :
       style === "color" ? compact ? 14 : 18 : compact ? 3 : 4));
     for (const [index, swatch] of swatches.entries()) {
       swatch.setAttribute("x", String(portrait ? 42 : index * 184 / 5));
-      swatch.setAttribute("y", String(portrait ? 23 + (4 - index) * 16 : compact ? 20 : 26));
+      swatch.setAttribute("y", String(portrait ? 23 + (4 - index) * 16 :
+        titleExtraHeight + (compact ? 20 : 26)));
       swatch.setAttribute("width", String(portrait ? 18 : 184 / 5));
       swatch.setAttribute("height", String(portrait ? 16 : compact ? 14 : 18));
     }
     const positions = portrait ? [[0, 0], [51, 116], [51, 17], [0, 0], [26, 134]] :
-      [[0, compact ? 12 : 16], [0, compact ? 54 : 64], [184, compact ? 54 : 64],
-        [0, 88], [24, compact ? 94 : 128]];
+      [[0, compact ? 12 : 16], [0, titleExtraHeight + (compact ? 54 : 64)],
+        [184, titleExtraHeight + (compact ? 54 : 64)], [0, titleExtraHeight + 88],
+        [24, compact ? 94 : 128]];
     for (const [index, text] of labels.entries()) {
       text.setAttribute("x", String(positions[index]![0]));
       text.setAttribute("y", String(positions[index]![1]));
@@ -346,15 +349,17 @@ export function createSocioeconomicLegend(
       if (index === 0) {
         text.setAttribute("font-size", "9");
         text.replaceChildren();
-        if (portrait) {
-          if (gdpPerCapita) text.setAttribute("transform", "translate(8, 63) rotate(-90)");
-          const lines = ["country-based", "wealth (GDP)", ...(gdpPerCapita ? ["per capita (logarithmic)"] : [])];
+        if (portrait || gdpPerCapita) {
+          if (portrait && gdpPerCapita) text.setAttribute("transform", "translate(8, 63) rotate(-90)");
+          const lines = gdpPerCapita ? ["country-based wealth", "(GDP) per capita", "(log-scale)"] :
+            ["country-based", "wealth (GDP)"];
           for (const [line, label] of lines.entries()) {
-            const span = element("tspan", { x: 0, y: line * (gdpPerCapita ? 9 : 12) });
+            const span = element("tspan", { x: 0,
+              y: (portrait ? 0 : positions[0]![1]!) + line * (gdpPerCapita ? 9 : 12) });
             span.textContent = label;
             text.append(span);
           }
-        } else text.textContent = gdpPerCapita ? "country-based wealth (GDP) per capita (logarithmic)" : "country-based wealth (GDP)";
+        } else text.textContent = "country-based wealth (GDP)";
       }
     }
     missing.setAttribute("transform", `translate(${portrait ? 7 : 0}, ${portrait ? 123 : compact ? 83 : 117})`);
