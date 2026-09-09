@@ -33,6 +33,7 @@ attribute vec4 aRoot;
 attribute float aSizeScale;
 attribute vec3 aFade;
 attribute float aUniformDetail;
+attribute float aSurfaceRadius;
 uniform float uDetailMode;
 uniform float uDetailTime;
 uniform float uDetailFadeSeconds;
@@ -72,7 +73,7 @@ void main() {
   float landW = step(0.5, aLand);
   float scarMask = mix(1.0, landW, step(0.5, uScarLandOnly));
   float radial = (h * uScarDispScale + uScarDispBias) * uScarActive * scarMask;
-  vec3 displacedPos = position + dir * radial;
+  vec3 displacedPos = dir * max(length(position) + radial, aSurfaceRadius * uScarActive);
   vec3 dispDir = normalize(displacedPos);
   float uHeat = atan(dispDir.z, -dispDir.x) * EQUIRECT_INV_TWO_PI;
   if (uHeat < 0.0) uHeat += 1.0;
@@ -423,6 +424,7 @@ export async function createEarthStippleGlobe(
   geom.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geom.setAttribute("aLand", new THREE.Float32BufferAttribute(lands, 1));
   geom.setAttribute("aUniformDetail", new THREE.Float32BufferAttribute(uniformDetail, 1));
+  geom.setAttribute("aSurfaceRadius", new THREE.Float32BufferAttribute(new Float32Array(pointCount), 1));
 
   const neutralScarTexture = createNeutralScarTexture();
   const neutralHeatTexture = createNeutralHeatTexture();

@@ -93,7 +93,7 @@ const CURRENT_COUNTRY_PROFILE: CountryProfilePreset = {
   "glyphInset": 0.88,
   "plateOpacity": 0.36,
   "transitionMs": 240,
-  "physicalPointScale": 1.18,
+  "physicalPointScale": 1.77,
   "environmentalFieldPattern": "smooth",
   "surfaceDetail": 2,
   "roundedScarShoulder": true,

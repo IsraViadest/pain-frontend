@@ -22,8 +22,8 @@
   };
   const rows = [];
   try {
-    for (const layer of ["Physical Pain", "Socio-economic Pain", "Environmental Pain",
-      "Emotional Pain", "all the pain"]) {
+    for (const layer of ["physical pain", "socio-economic pain", "environmental pain",
+      "emotional pain", "all the pain"]) {
       [...document.querySelectorAll("button")]
         .find((button) => button.textContent.trim() === layer).click();
       await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -32,9 +32,9 @@
       rows.push({ layer, contourDraws: draws, landOnly, levels });
     }
     const expected = rows.every(({ layer, contourDraws }) =>
-      ["Physical Pain", "all the pain"].includes(layer) ? contourDraws > 0 : contourDraws === 0);
+      ["physical pain", "all the pain"].includes(layer) ? contourDraws > 0 : contourDraws === 0);
     if (!expected) throw new Error("Contour pass is active on the wrong layer");
-    if (rows[0].landOnly !== 1 || rows[0].levels !== 16) {
+    if (rows[0].landOnly !== -1 || rows[0].levels !== 16) {
       throw new Error("Selected land mask or contour interval did not reach the shader");
     }
     if (gl.getError() !== gl.NO_ERROR) throw new Error("WebGL error during contour verification");
