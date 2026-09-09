@@ -1,8 +1,8 @@
 # Rendering comparison against the evening Windows version
 
 Last Updated: 2026-09-09
-Version: 1.0
-Status: proposed; awaiting user comments and approval before implementation
+Version: 1.1
+Status: approved on 2026-09-09; restored trial prepared, target-device acceptance open
 
 ## Purpose and boundary
 
@@ -13,11 +13,10 @@ appearance reference, rather than assuming the newest implementation is better.
 This plan covers the five visualization states, atmosphere, dots, scars, country fills,
 outlines, contours, emotional labels/networks, and rendering-quality settings. It does not
 reopen survey behavior, analytics, exports, kiosk controls, updates, credits or festival UI.
-No application code, running preview, release or operator settings changed during this review.
+No application code, running preview, release or operator settings changed during the plan review.
 
-Comments on this document refine the plan. They do not authorize implementation. Implementation
-starts only after the user approves it. The earlier autonomous design-round authorization does
-not override this requested pause.
+The user approved this plan with "Can we try that please?" on 2026-09-09. Implementation may
+proceed within its scope. Public deployment and stable-release promotion remain outside scope.
 
 ## 1. Exact reference and limits of this analysis
 
@@ -158,23 +157,26 @@ The spherical-depth saving applies only to a complete sphere in the volume rende
 always samples that depth; scarred all-pain volume also needs real surface depth. The normal
 production path does not have the debug-only duplicate color problem.
 
-## 4. Proposed implementation sequence, after approval
+## 4. Approved implementation sequence
+
+The checklists below retain the original scope. Section 7 records what the trial establishes
+and which broader acceptance checks remain open; an unchecked item is not a claim of failure.
 
 ### Phase A: establish a fair comparison
 
-- [ ] Serve the pristine evening website and current renderer using existing local tooling.
-- [ ] First inspect the archived version with its actual preset and quality policy.
+- [x] Serve the pristine evening website and current renderer using existing local tooling.
+- [x] First inspect the archived version with its actual preset and quality policy.
 - [ ] Then hold data, fonts, exclusions, camera, theme, viewport and output resolution constant.
-- [ ] Record actual active quality, drawing-buffer dimensions and renderer/runtime version.
-- [ ] Use disposable test settings and log directories. Preserve exhibition logs and caches.
-- [ ] Compare at 1080p normal resolution first. Test HQ separately, explicitly labeled.
+- [x] Record actual active quality, drawing-buffer dimensions and renderer/runtime version.
+- [x] Use disposable test settings and log directories. Preserve exhibition logs and caches.
+- [x] Compare at 1080p normal resolution first. Test HQ separately, explicitly labeled.
 
 Output: two live comparison views and a compact change table. No permanent switcher, new
 application framework, screenshot gallery or rebuilt release is needed for this phase.
 
 ### Phase B: measure actual rendering and wasted work
 
-- [ ] Count main-scene and offscreen draws by named object/effect across all five views.
+- [x] Count main-scene and offscreen draws by named object/effect across all five views.
 - [ ] Record invisible-object submissions, triangles, field samples and texture/buffer uploads.
 - [ ] Measure CPU time, GPU time where supported, frame pacing, startup and layer-switch stalls.
 - [ ] Profile idle rotation, close zoom, country selection, construction, reversal and rapid
@@ -191,12 +193,12 @@ evening volume and cannot establish that abandoning it was necessary.
 
 ### Phase C: remove confirmed waste without changing appearance
 
-- [ ] Eliminate the duplicate border projection while retaining surface-version invalidation.
-- [ ] Skip hidden label presentation after measuring it; restore measurements and transforms
+- [x] Eliminate the duplicate border projection while retaining surface-version invalidation.
+- [x] Skip hidden label presentation after measuring it; restore measurements and transforms
   before revealing labels on re-entry.
-- [ ] Synchronize atmospheric fields after debug rebuilds if those controls remain available.
-- [ ] Verify inactive layers submit no color work after switches and transitions settle.
-- [ ] Inspect point-detail updates and uploads if profiling identifies them as expensive.
+- [x] Synchronize atmospheric fields after debug rebuilds if those controls remain available.
+- [x] Verify inactive layers submit no color work after switches and transitions settle.
+- [x] Inspect point-detail updates and uploads if profiling identifies them as expensive.
   Do not assume a dormant split hierarchy is active under regrow.
 
 Exit: unchanged visible behavior at matching settings, fewer demonstrated operations, and no
@@ -204,14 +206,14 @@ new stale labels, stranded networks, lost data or layer leakage. Keep each corre
 
 ### Phase D: recover the preferred atmospheric appearance efficiently
 
-- [ ] Use the evening separated-volume implementation as the visual control, not the newer
+- [x] Use the evening separated-volume implementation as the visual control, not the newer
   dormant volume implementation with additional edge reintegration.
-- [ ] Retain current field inputs, geographic registration, missingness and requested colors.
-- [ ] First test the analytic-sphere depth-pass saving in Environmental Pain alone.
-- [ ] In all-pain mode, retain scar-aware occlusion and measure expensive edge/composite work.
-- [ ] If necessary, test one bounded reconstruction or sampling change at a time. Compare its
+- [x] Retain current field inputs, geographic registration, missingness and requested colors.
+- [x] First test the analytic-sphere depth-pass saving in Environmental Pain alone.
+- [x] In all-pain mode, retain scar-aware occlusion and measure expensive edge/composite work.
+- [x] If necessary, test one bounded reconstruction or sampling change at a time. Compare its
   edge quality and near-field visibility directly with the reference.
-- [ ] Retain the mantle as the current performance control during evaluation. Do not adopt it
+- [x] Retain the mantle as the current performance control during evaluation. Do not adopt it
   solely because it is cheaper if it loses the appearance the user prefers.
 
 Reject back-side leakage, detached or clipped air, pixelated rims, disappearing close-up fields,
@@ -220,15 +222,15 @@ appearance cannot fit the target budget, present the measured tradeoff for discu
 
 ### Phase E: reconcile geometry detail and quality defaults
 
-- [ ] Test reference detail 2 at normal resolution after removing the demonstrated waste.
-- [ ] Compare Light's coarser scar and border geometry at the limb and minimum camera distance.
-- [ ] Compare the baseline raster selection outline with the current vector outline at matching
+- [x] Test reference detail 2 at normal resolution after removing the demonstrated waste.
+- [x] Compare Light's coarser scar and border geometry at the limb and minimum camera distance.
+- [x] Compare the baseline raster selection outline with the current vector outline at matching
   apparent width. Choose by close-up clarity, occlusion correctness and measured cost.
-- [ ] Align web and Windows comparison settings so the same named mode means the same effective
+- [x] Align web and Windows comparison settings so the same named mode means the same effective
   resolution and quality policy. Start from the evening normal-resolution experience.
 - [ ] Keep HQ explicit and benchmark it independently. Do not change canvas size, camera scale,
   data coverage, dot count or typography merely to improve FPS.
-- [ ] Keep the requested larger near labels and brighter palette unless user feedback reopens
+- [x] Keep the requested larger near labels and brighter palette unless user feedback reopens
   them. Preserve crisp outlines and origin/peer strengths. If vector borders are retained,
   preserve their verified cap-overlap fix; retaining that particular renderer is not mandatory.
 
@@ -237,7 +239,7 @@ between the URL used for review and the executable delivered for exhibition.
 
 ### Phase F: verify and deliver the accepted result
 
-- [ ] Run the existing frontend checks and focused atmosphere/highlight/geometry tests.
+- [x] Run the existing frontend checks and focused atmosphere/highlight/geometry tests.
 - [ ] Re-run the full layer/selection/zoom matrix on the final code and chosen quality policy.
 - [ ] Inspect desktop and narrow/landscape layouts for rendering regressions. Physical phone
   acceptance remains deferred as requested.
@@ -284,7 +286,80 @@ Approve a selective restoration and optimization, not a whole-application rollba
 4. Retain correct occlusion and outlines without doubled joints, using the least costly valid path.
 5. Decide any remaining visual/performance tradeoff from live comparisons.
 
-This is the proposed direction for the user's comments and approval. No implementation has begun.
+This direction was approved before implementation. Final aesthetic and target-PC acceptance
+remain with the user after trying the restored package.
+
+## 7. Execution checkpoint, 2026-09-09
+
+Application source: web `60b5dca`, Windows `2c486d1`. Later documentation or measurement-only
+commits do not change the packaged application. The pristine evening package remains intact.
+
+| Area | Implemented trial and verification |
+| --- | --- |
+| Atmosphere | Restored separated volume; silhouette antialiasing and scar depth retained. Interior depth slopes no longer trigger costly extra full-size integrations. |
+| Surface | Detail 2 retained at every quality tier. No camera or CSS scale change. |
+| Dots | Same 82,000 root points, 1.18 scale, original radial placement; no active split pool. |
+| Labels | Hidden presentation does no projection, measurement or DOM mutation. Shared motion continues; re-entry matches fresh decluttering. |
+| Borders | One projection per changed batch; width-aware surface offset removes buried/scalloped strokes. Corrected vector borders beat the raster trial in close-up. |
+| Fields | Exact last-generation Temperature/CO2 texture reuse; changed data or tuning invalidates it. Ownership and disposal checks pass. |
+| Contours | Exact red-channel land mask plus removal of unused attributes saves about 9.2 MB of attributable CPU/GPU storage without changing geometry. |
+| Quality | Normal resolution and Auto agree across web and Windows; HQ changes resolution independently. Light uses a provisional 96 MiB allowance. |
+
+Runtime idle draw inventory (old -> trial): Emotional 4 -> 4, Physical 4 -> 4,
+Environmental 6 -> 5, Socioeconomic 4 -> 4, all-pain 10 -> 10. The removed pass is unused
+spherical atmosphere depth. Necessary scar depth and intentional thin/bold leaders remain.
+
+The trial preserves current data. Current anger contains 152 of 192 observed emotional
+countries; the evening dataset's largest category contained 24. Whole-package selection
+comparisons therefore include a data change. The isolated old/new volume GPU comparison held
+field data, geometry and colors equal; it is not a full application or projector benchmark.
+
+The previous 64 MiB Light target conflicts with the restored detail. The trial uses 96 MiB;
+approximately 75 MiB is accounted additional storage/reserved scratch versus roughly 79 MiB
+in the evening build. This is an explicitly stated trial assumption, not a user-approved final
+memory budget. Raising the allowance does not itself optimize memory.
+
+The frontend compliance/build, atmosphere/depth/coverage, selected-border, scar/contour,
+hidden-label, cache and forced-quality checks pass. One Auto harness printed passing
+assertions but timed out during cleanup, so it is not recorded as a clean harness exit.
+Independent review found no actionable defect in inspected source; automatic approval policy
+prevented complete atmosphere and selected-border source reads. Its scope is qualified.
+
+Windows 1.0.2 passes 63 offline tests, local API/package verification, x64 executable checks
+and ZIP integrity. The ZIP is 164,296,509 bytes and expands to 398,944,583 bytes. Source is
+`2c486d119c4e29d25aa20d727d0441bc0151c5e7`, prepared from a clean checkout.
+Open `P.A.I.N. Offline.exe` or `P.A.I.N. Standard.exe` for normal resolution; `P.A.I.N. HQ.cmd`
+explicitly requests HQ. Quit an older instance first. Event storage remains outside releases.
+
+Live trial: <http://127.0.0.1:5174/?hq=0>. Exact packaged projection:
+<http://127.0.0.1:5178/?cpProjection=1&hq=0&cpQuality=auto>. Pristine evening reference:
+<http://127.0.0.1:5177/?cp=1&cpPreset=v46-dots_water-depth&cpQuality=auto>.
+These comparison services remain running for the user's trial. No gallery was created.
+
+Outstanding acceptance: the Fujitsu/Christie at 1080p, a full manual input/layout matrix on the
+final package, a completed paired whole-application timing run, an independent HQ performance
+comparison, and the final memory-budget choice.
+Physical-phone acceptance remains deferred. Neither native Windows execution nor projector
+performance has been inferred from Mac tests.
+
+Repeated final timing batches were invalidated by hidden pages. One earlier batch also timed
+different layers; equal URL parameters alone had not established equal draw work. The probe
+now selects the requested layer only if inactive, records the actual layer, rejects changes
+during sampling, and reports minimum/maximum draw counts. Its verified old all-pain run had
+10 draws per callback, 8.3 ms median and 9.1 ms p95 frame intervals on this 120 Hz development
+display. The following trial run became hidden and was correctly rejected. No aggregate
+whole-application speedup or completed paired performance acceptance is claimed.
+
+Separate, narrower evidence: the isolated matched-volume experiment measured GPU medians
+0.81312 ms old and 0.68996 ms trial over 16 paired runs. Repeated Environmental entry took
+approximately 348 ms before caching and 255 ms afterward in the inspected local probe. These
+demonstrate specific savings; they do not establish performance on the exhibition computer.
+
+One stopped Chrome profile remains at
+`/var/folders/sc/3sxw5lhd5hs05l8sr8tc1lqc0000gn/T/emoeval-oTNT4b` (172 MB).
+Automatic approval review blocked its deletion; no alternate deletion path was used. The
+workspace-owned `artifacts/emo-views/eval.mjs` now closes its own browser through CDP on success
+or cancellation and brings the measured page forward. That helper is outside Git ownership.
 
 ## Source navigation
 

@@ -1406,3 +1406,38 @@ The temporary baseline server was stopped. Existing helpers remove their task-ow
 profiles. No gallery was created. Application logs remain outside release folders at
 `%LOCALAPPDATA%\PAIN Offline\events`; the latest complete Windows folder can export retained
 events from earlier releases on the same Windows account.
+
+## 2026-09-09: approved evening-rendering restoration trial
+
+The user approved the bounded rendering comparison with "Can we try that please?".
+Execution and remaining acceptance are recorded in
+[RENDERING-COMPARISON-PLAN.md, section 7](RENDERING-COMPARISON-PLAN.md#7-execution-checkpoint-2026-09-09).
+Web application source is `60b5dca`; Windows application source is `2c486d1`.
+The later timing-script commit `7119a59` rejects measurements if the active layer changes.
+
+Restored the evening separated volume and detail-2 surface, with current data and colors.
+Dots keep 82,000 samples, their existing scale and original height. Added exact environmental
+texture reuse, hidden-label presentation skipping, one selected-border projection per batch,
+continuous width-offset outlines, and smaller contour storage. The analytic spherical volume
+no longer renders unused surface depth; scarred all-pain depth remains necessary.
+
+The frontend checks and 63 offline tests pass. The verified Windows ZIP is under
+`../windows-offline-exhibition/offline-release/1.0.2-2c486d1/` relative to the web worktree.
+Its 164,296,509 bytes contain the complete application and dependencies. Normal resolution is
+the default; `P.A.I.N. HQ.cmd` explicitly requests HQ. Extract to a new directory and quit an
+older running instance before launching. Exhibition event storage is unchanged.
+
+The private `v1.0.2-preview` delivery is a trial, not stable/update promotion. The 96 MiB Light
+allowance is provisional and has not received final user approval. Current anger includes 152
+countries, versus a largest category of 24 in the old data, so selection comparisons differ.
+
+Whole-application timing batches were interrupted by hidden pages; one earlier batch measured
+different layers. Those runs cannot establish a complete paired performance pass. The probe
+now verifies the active layer and draw counts. Focused matched-volume and cached-switch
+measurements demonstrate specific savings, with details in the execution checkpoint.
+
+Trial services remain available on 5174 (web), 5178 (packaged projection), and 5177 (pristine
+evening reference). Final Fujitsu/Christie acceptance and the full final manual input/layout
+matrix remain open; physical-phone testing is deferred. No gallery or public deployment.
+Automatic approval blocked deletion of one stopped 172 MB test profile; its path is recorded
+in the comparison plan. The workspace CDP helper now closes its own Chrome on cancellation.

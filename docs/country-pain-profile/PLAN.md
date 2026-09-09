@@ -1,13 +1,14 @@
 # Country Profiles and Expressive Globe Rendering
 
 Last Updated: 2026-09-09
-Version: 2.2
-Status: historical approved plan; the current rendering review is awaiting user approval
+Version: 2.3
+Status: historical plan; approved rendering restoration is ready for a local trial
 
-The next work is governed by the proposed
+The current work is governed by the approved
 [rendering comparison plan](RENDERING-COMPARISON-PLAN.md), dated 2026-09-09. The user requested
-discussion and approval before implementation. Preserve the completed work below as history;
-do not use its earlier autonomous authorization to start the new rendering changes.
+discussion and approval before implementation, then approved it on 2026-09-09. Preserve the
+completed work below as history and follow the narrower rendering comparison for current work.
+Its execution checkpoint records the trial source, validation and remaining device acceptance.
 
 ## Current objective and working boundary
 
