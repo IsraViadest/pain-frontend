@@ -1,4 +1,4 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 import { BufferAttribute, Ray, SphereGeometry, Vector3 } from "three";
 
 /** Cache dot floors on the actual display triangles, not the continuous displacement texture.

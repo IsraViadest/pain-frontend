@@ -45,6 +45,7 @@
 }
 
 .festival-media__countdown { display: block; font-size: 0.7em; font-variant-numeric: tabular-nums; }
+.festival-media__workshop[hidden] { display: none; }
 
 @media (min-width: 769px) and (max-width: 850px) {
   .festival-media { position: static; width: min(100%,560px); margin-top: 8px; }

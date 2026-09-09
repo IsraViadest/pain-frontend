@@ -1,4 +1,4 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 // Run: node --import tsx scripts/verify-workshop-countdown.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,8 +24,11 @@ globalThis.fetch = async (_url, options) => {
   return { ok: true, headers: { get: () => new Date(start + ticks - 60000).toUTCString() } };
 };
 const label = { textContent: '' };
-mountWorkshopCountdown({ remove: () => { removed = true; } }, label);
+const link = { hidden: false, remove: () => { removed = true; } };
+mountWorkshopCountdown(link, label);
+assert(link.hidden, 'Do not briefly advertise an expired workshop before clock correction');
 await new Promise(resolve => setImmediate(resolve));
+assert(!link.hidden);
 assert.equal(label.textContent, 'Starting in 1 minute, 0 seconds');
 ticks = 1000; interval();
 assert.equal(label.textContent, 'Starting in 0 minutes, 59 seconds');

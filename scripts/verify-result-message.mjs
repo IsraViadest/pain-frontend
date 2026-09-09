@@ -1,4 +1,4 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 // node --import tsx scripts/verify-result-message.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

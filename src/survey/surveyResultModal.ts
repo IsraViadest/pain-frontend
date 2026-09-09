@@ -1,4 +1,4 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 type SurveyResultModalOptions = {
   lat: number;
   lng: number;

@@ -1,4 +1,4 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 const START = Date.parse("2026-09-11T12:00:00Z"); // Friday 14:00, Europe/Vienna.
 const END = Date.parse("2026-09-11T14:00:00Z");
 
@@ -16,6 +16,7 @@ function workshopStatus(now: number): string | null {
 
 /** One body-free request every 30 minutes while visible; no new server endpoint or database work. */
 export function mountWorkshopCountdown(link: HTMLElement, label: HTMLElement): void {
+  link.hidden = true;
   let referenceTime = Date.now();
   let referenceTick = performance.now();
   let lastSync = -Infinity;
@@ -30,7 +31,10 @@ export function mountWorkshopCountdown(link: HTMLElement, label: HTMLElement): v
       link.remove();
       clearInterval(timer);
       document.removeEventListener("visibilitychange", visible);
-    } else if (label.textContent !== text) label.textContent = text;
+    } else {
+      link.hidden = false;
+      if (label.textContent !== text) label.textContent = text;
+    }
   };
   const sync = async () => {
     if (syncing || finished || document.hidden || performance.now() - lastSync < 30 * 60_000) return;
