@@ -296,7 +296,7 @@ export function createSocioeconomicLegend(
     svg.append(swatch);
     return swatch;
   });
-  const labels = [gdpPerCapita ? "country-based wealth (GDP) per capita" : "country-based wealth (GDP)",
+  const labels = [gdpPerCapita ? "country-based wealth (GDP) per capita (logarithmic)" : "country-based wealth (GDP)",
     gdpPerCapita ? "max" : "min", gdpPerCapita ? "min" : "max",
     style === "color" ? "continuous relative signal" : "same continuous value; examples", "no data"].map((label) => {
     const text = element("text");
@@ -348,13 +348,13 @@ export function createSocioeconomicLegend(
         text.replaceChildren();
         if (portrait) {
           if (gdpPerCapita) text.setAttribute("transform", "translate(8, 63) rotate(-90)");
-          const lines = ["country-based", "wealth (GDP)", ...(gdpPerCapita ? ["per capita"] : [])];
+          const lines = ["country-based", "wealth (GDP)", ...(gdpPerCapita ? ["per capita (logarithmic)"] : [])];
           for (const [line, label] of lines.entries()) {
             const span = element("tspan", { x: 0, y: line * (gdpPerCapita ? 9 : 12) });
             span.textContent = label;
             text.append(span);
           }
-        } else text.textContent = gdpPerCapita ? "country-based wealth (GDP) per capita" : "country-based wealth (GDP)";
+        } else text.textContent = gdpPerCapita ? "country-based wealth (GDP) per capita (logarithmic)" : "country-based wealth (GDP)";
       }
     }
     missing.setAttribute("transform", `translate(${portrait ? 7 : 0}, ${portrait ? 123 : compact ? 83 : 117})`);

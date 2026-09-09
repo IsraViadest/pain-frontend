@@ -55,7 +55,7 @@ export class CountryProfileRuntime {
     const requestedQuality = new URLSearchParams(window.location.search).get("cpQuality");
     this.quality = preset.quality || requestedQuality !== null || highQuality
       ? new CountryRenderQuality(requestedQuality ?? (highQuality ? "rich" : "auto"), highQuality) : null;
-    const reference = preset.socioeconomicDataset ? 0.25 :
+    const reference = preset.socioeconomicDataset ? 0.10 :
       preset.socioeconomicStyle ? profiles.get("JPN")?.socioeconomic.value : 0;
     if (reference === null || reference === undefined || !Number.isFinite(reference) ||
         reference < 0 || reference >= 1) {
