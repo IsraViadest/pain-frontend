@@ -2,7 +2,7 @@
   position: fixed;
   top: 16px;
   right: 20px;
-  width: 300px;
+  width: min(600px,calc(100vw - 460px));
   text-align: right;
   pointer-events: none;
 }
@@ -11,9 +11,9 @@
   display: flex;
   flex-direction: row-reverse;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   color: var(--text-primary,#e8eaef);
-  font: 12px/1.4 "Apercu Pro",sans-serif;
+  font: 24px/1.25 "Apercu Pro",sans-serif;
   text-decoration: none;
   text-shadow: 0 1px 4px #000;
   pointer-events: auto;
@@ -37,11 +37,17 @@
 .festival-media__workshop {
   display: block;
   margin-top: 4px;
-  padding-right: 36px;
+  padding-right: 0;
   color: var(--text-primary,#e8eaef);
-  font: 11px/1.4 "Apercu Pro",sans-serif;
+  font: 22px/1.35 "Apercu Pro",sans-serif;
   text-shadow: 0 1px 4px #000;
   pointer-events: auto;
+}
+
+.festival-media__countdown { display: block; font-size: 0.7em; font-variant-numeric: tabular-nums; }
+
+@media (min-width: 769px) and (max-width: 850px) {
+  .festival-media { position: static; width: min(100%,560px); margin-top: 8px; }
 }
 
 .video-invitation {
@@ -245,21 +251,24 @@
 @media (max-width: 768px), (max-height: 500px) {
   .festival-media {
     position: static;
-    width: min(100%,260px);
+    width: 100%;
     margin-top: 6px;
-    text-align: left;
+    text-align: center;
   }
   .festival-media__link {
     flex-direction: row;
-    font-size: 11px;
+    justify-content: center;
+    font-size: 16px;
+    gap: 10px;
   }
   .festival-media__workshop {
-    padding: 0 0 0 32px;
+    padding: 0;
     margin-top: 4px;
+    font-size: 15px;
   }
   .festival-media__link img {
-    width: 24px;
-    height: 24px;
+    width: 36px;
+    height: 36px;
   }
   .video-invitation:not(.video-invitation--docked) {
     width: min(300px,calc(100vw - 48px));
@@ -294,11 +303,11 @@
 
 @media (max-height: 500px) and (min-width: 520px) {
   .festival-media__link {
-    font-size: 11px;
+    font-size: 14px;
   }
   .festival-media__link img {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
   }
   .video-invitation:not(.video-invitation--docked) {
     width: min(260px,50vw);

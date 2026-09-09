@@ -1,11 +1,12 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
 import "./festival-media.css";
+import { mountWorkshopCountdown } from "./workshop-countdown";
 import { VIDEO_POSTER_CLIP, VIDEO_POSTER_ASPECT } from "./video-outline.generated";
 import { setBackgroundMusicSuppressed } from "../sound/backgroundMusic";
 import { METRICS_KIND_CATEGORY, trackToggle } from "../api/metricsApi";
 
 const FESTIVAL_URL = "https://ars.electronica.art/negotiatinghumanity/en/view/p-a-i-n-personal-and-interconnected-with-nature-38e38ddb450c813fb61cf19ba69e41af/";
 const WORKSHOP_URL = "https://ars.electronica.art/negotiatinghumanity/en/view/pain-interconnected-with-nature-3a738ddb450c81698729c804e3fc5c05/";
-const WORKSHOP_END = Date.parse("2026-09-11T14:00:00Z"); // 16:00 in Europe/Vienna.
 const INTRO_KEY = "pain-video-intro-dismissed-v1";
 
 /** First-visit invitation, persistent replay button and a native, on-demand video stage. */
@@ -24,26 +25,24 @@ export function mountFestivalMedia(host: HTMLElement, videoEnabled = false): HTM
   const logo = document.createElement("img");
   logo.src = "/logos/ars-electronica.png";
   logo.alt = "";
-  logo.width = logo.height = 28;
+  logo.width = logo.height = 56;
   const invitation = document.createElement("span");
-  invitation.textContent = "visit us at the ars electronica festival ↗";
+  invitation.textContent = "Visit us at ARS Electronica Festival ↗";
   link.append(logo, invitation);
   link.addEventListener("click", () => trackToggle(METRICS_KIND_CATEGORY, "festival:visit", true));
   row.append(link);
-  if (Date.now() < WORKSHOP_END) {
+  {
     const workshop = document.createElement("a");
     workshop.className = "festival-media__workshop";
     workshop.href = WORKSHOP_URL;
     workshop.target = "_blank";
     workshop.rel = "noopener noreferrer";
-    workshop.textContent = "join our workshop · friday, 11 september ↗";
+    workshop.textContent = "Join the Workshop ↗";
+    const countdown = document.createElement("span");
+    countdown.className = "festival-media__countdown";
+    workshop.append(countdown);
     row.append(workshop);
-    const expireWorkshop = () => {
-      const remaining = WORKSHOP_END - Date.now();
-      if (remaining <= 0) workshop.remove();
-      else window.setTimeout(expireWorkshop, Math.min(remaining, 2_147_483_647));
-    };
-    expireWorkshop();
+    mountWorkshopCountdown(workshop, countdown);
   }
   host.append(row);
 
