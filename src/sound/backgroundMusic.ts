@@ -1,18 +1,26 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
 const SOUND_ENABLED_KEY = "pain-sound-enabled";
 const BACKGROUND_MUSIC_SRC = "/sounds/BackgroundPPP.mp3";
 
 let audio: HTMLAudioElement | null = null;
 let unlockListenersAttached = false;
 let suppressed = false;
+let pagePreference = true;
+let memoryOnly = false;
 
 function readPreference(): boolean {
-  const value = localStorage.getItem(SOUND_ENABLED_KEY);
-  if (value === null) return true;
-  return value === "true";
+  if (memoryOnly) return pagePreference;
+  try {
+    const value = localStorage.getItem(SOUND_ENABLED_KEY);
+    if (value !== null) pagePreference = value === "true";
+  } catch { /* The explicit page choice still works when browser storage is unavailable. */ }
+  return pagePreference;
 }
 
 function writePreference(enabled: boolean): void {
-  localStorage.setItem(SOUND_ENABLED_KEY, enabled ? "true" : "false");
+  pagePreference = enabled;
+  try { localStorage.setItem(SOUND_ENABLED_KEY, enabled ? "true" : "false"); memoryOnly = false; }
+  catch { memoryOnly = true; }
 }
 
 function removeUnlockListeners(): void {
