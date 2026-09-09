@@ -431,6 +431,7 @@ export class CountryProfileView {
 
   setProfile(profile: CountryPainProfile | null): void {
     this.profile = profile;
+    this.host.dataset.country = profile?.iso3 ?? "";
     this.host.hidden = !this.preview && (profile === null || this.suppressed);
     if (!profile) return;
     this.countryName.textContent = profile.countryName.toLocaleLowerCase("en");

@@ -133,6 +133,7 @@ class ElementNode extends EventTarget {
   }
   matches(selectors) {
     return selectors.split(',').some(selector => selector.startsWith('.') ? this.classes.has(selector.slice(1)) :
+      selector.startsWith('#') ? this.id === selector.slice(1) :
       selector.startsWith('[') || selector.startsWith(':') ? false : selector === this.tag);
   }
   closest(selector) { return this.matches(selector) ? this : this.parent?.closest(selector) ?? null; }
@@ -220,6 +221,45 @@ assert.equal(activity.at(-1).durationMs, 5000);
 assert.equal(activity.slice(episodeStart).filter(event => event.type === 'window')
   .reduce((sum, event) => sum + (event.durationMs ?? 0), 0), 40000,
   'Periodic checkpoints plus close sum to visible time without gaps or overlap');
+
+const profileNode = new ElementNode(); profileNode.id = 'country-profile';
+profileNode.dataset.country = 'GRL'; profileNode.hidden = false; profileNode.textContent = canary;
+openModals.set('#country-profile', profileNode);
+observe([{ type: 'childList', addedNodes: [profileNode], removedNodes: [] }]);
+assert.equal(activity.at(-1).country, 'GRL');
+clock = 125000; checkpoint.fn();
+assert.equal(activity.at(-1).durationMs, 15000);
+clock = 128000; profileNode.dataset.country = 'IND';
+observe([{ type: 'attributes', attributeName: 'data-country', target: profileNode }]);
+assert.equal(activity.at(-2).country, 'GRL');
+assert.equal(activity.at(-2).action, 'close');
+assert.equal(activity.at(-2).durationMs, 3000);
+assert.equal(activity.at(-1).country, 'IND');
+assert.equal(activity.at(-1).action, 'open', 'Replacement closes the previous country before opening the new interval');
+clock = 130000; profileNode.hidden = true;
+observe([{ type: 'attributes', attributeName: 'hidden', target: profileNode }]);
+assert.equal(activity.at(-1).action, 'close');
+assert.equal(activity.at(-1).durationMs, 2000);
+clock = 160000; profileNode.hidden = false;
+observe([{ type: 'attributes', attributeName: 'hidden', target: profileNode }]);
+assert.equal(activity.at(-1).action, 'open');
+assert.equal(activity.at(-1).country, 'IND');
+const beforeStyleMutation = activity.length;
+observe([{ type: 'attributes', attributeName: 'style', target: profileNode }]);
+assert.equal(activity.length, beforeStyleMutation, 'Per-frame profile style changes are ignored');
+clock = 165000; checkpoint.fn();
+assert.equal(activity.at(-1).durationMs, 5000);
+clock = 166000; profileNode.dataset.country = canary;
+observe([{ type: 'attributes', attributeName: 'data-country', target: profileNode }]);
+assert.equal(activity.at(-1).country, 'IND');
+assert.equal(activity.at(-1).action, 'close', 'Invalid country metadata is never emitted');
+assert.equal(activity.filter(event => event.type === 'window' && event.country === 'GRL')
+  .reduce((sum, event) => sum + (event.durationMs ?? 0), 0), 18000);
+assert.equal(activity.filter(event => event.type === 'window' && event.country === 'IND')
+  .reduce((sum, event) => sum + (event.durationMs ?? 0), 0), 8000,
+  'Hidden country profile time is excluded and resume starts a fresh interval');
+assert.ok(!JSON.stringify(activity).includes(canary), 'Neither profile text nor invalid metadata crosses the metrics boundary');
+openModals.clear();
 const screen = new ElementNode('div', ['survey-screen', 'survey-screen--1']);
 const answer = new ElementNode('button'); answer.parent = screen; answer.dataset.word = canary;
 answer.textContent = canary;
@@ -278,6 +318,13 @@ assert.equal(mounts, 1, 'An old transition cannot mount into a reopened survey')
 if (process.argv[2]) {
   const { parseInteractionBatch } = await import(pathToFileURL(resolve(process.argv[2])).href);
   for (const batch of [...batches, ...beacons]) assert.ok(parseInteractionBatch(batch), 'Frontend batch must pass the actual server validator');
+  const activityQueue = new MetricsQueue({
+    tabId: 'd202e9bb-df5e-4393-a614-7d267a03057e', userId: () => userId, consent: () => true,
+    send: async batch => { assert.ok(parseInteractionBatch(batch), 'Collector output must pass the actual server validator'); return true; },
+    beacon: () => false,
+  });
+  for (const event of activity) activityQueue.push(event);
+  while (activityQueue.size) await activityQueue.flush();
   console.log('Actual server interaction schema: PASS');
 }
 console.log('Interaction metrics: privacy, consent, retry/dedup, bounded batches, timers, gestures and survey transition races PASS');

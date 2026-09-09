@@ -2,47 +2,59 @@ import { flushInteractionMetrics, stopInteractionMetrics, trackInteraction, type
 import { VisibleDuration } from "./metricsQueue";
 
 type Target = MetricEvent["target"];
+type OpenWindow = { duration: VisibleDuration; country?: string };
 const CONTROL_TARGETS: readonly Target[] = ["sound", "theme", "about", "sources", "share", "menu", "cycle", "quality"];
 const MODALS = [".info-modal--visible", ".consent-modal--visible", ".survey-modal--visible", ".survey-result-modal--visible"];
+const WINDOW_ELEMENTS = ".info-modal,.consent-modal,.survey-modal,.survey-result-modal,#country-profile";
 
 /** One semantic observer for fixed chrome. It never collects text, hrefs, form values or coordinates. */
 export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void {
   const abort = new AbortController();
   const signal = abort.signal;
   let infoTarget: "about" | "sources" = "about";
-  const windows = new Map<Target, VisibleDuration>();
+  const windows = new Map<Target, OpenWindow>();
   const page = new VisibleDuration();
   page.setVisible(!document.hidden);
   trackInteraction({ type: "page", target: "page", action: "open" });
+  const recordWindow = (target: Target, entry: OpenWindow, action: "open" | "close" | "hidden" | "visible"): void => {
+    trackInteraction({ type: "window", target, action, country: entry.country,
+      ...(action === "open" ? {} : { durationMs: entry.duration.take() }) });
+  };
 
   const syncModals = (): void => {
-    const visible = new Set<Target>();
-    if (document.querySelector(MODALS[0])) visible.add(infoTarget);
-    if (document.querySelector(MODALS[1])) visible.add("consent");
-    if (document.querySelector(MODALS[2])) visible.add("survey");
-    if (document.querySelector(MODALS[3])) visible.add("result");
-    for (const target of visible) {
+    const visible = new Map<Target, string | undefined>();
+    if (document.querySelector(MODALS[0])) visible.set(infoTarget, undefined);
+    if (document.querySelector(MODALS[1])) visible.set("consent", undefined);
+    if (document.querySelector(MODALS[2])) visible.set("survey", undefined);
+    if (document.querySelector(MODALS[3])) visible.set("result", undefined);
+    const profile = document.querySelector<HTMLElement>("#country-profile");
+    if (profile && !profile.hidden && /^[A-Z]{3}$/.test(profile.dataset.country ?? "")) {
+      visible.set("country", profile.dataset.country);
+    }
+    for (const [target, entry] of windows) {
+      if (visible.has(target) && visible.get(target) === entry.country) continue;
+      recordWindow(target, entry, "close");
+      windows.delete(target);
+    }
+    for (const [target, country] of visible) {
       if (windows.has(target)) continue;
       const duration = new VisibleDuration();
       duration.setVisible(!document.hidden);
-      windows.set(target, duration);
-      trackInteraction({ type: "window", target, action: "open" });
-    }
-    for (const [target, duration] of windows) {
-      if (visible.has(target)) continue;
-      trackInteraction({ type: "window", target, action: "close", durationMs: duration.take() });
-      windows.delete(target);
+      const entry = { duration, country };
+      windows.set(target, entry);
+      recordWindow(target, entry, "open");
     }
   };
   const observer = new MutationObserver((records) => {
     // Ignore text replacement and all per-frame transform/opacity writes on globe labels.
     if (records.some((record) => record.type === "attributes"
-      ? record.target instanceof Element && record.target.matches(".info-modal,.consent-modal,.survey-modal,.survey-result-modal")
+      ? record.target instanceof Element && (record.target.matches("#country-profile")
+        ? record.attributeName === "hidden" || record.attributeName === "data-country"
+        : record.attributeName === "class" && record.target.matches(WINDOW_ELEMENTS))
       : [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element &&
-        (node.matches(".info-modal,.consent-modal,.survey-modal,.survey-result-modal") ||
-         node.querySelector(".info-modal,.consent-modal,.survey-modal,.survey-result-modal"))))) syncModals();
+        (node.matches(WINDOW_ELEMENTS) || node.querySelector(WINDOW_ELEMENTS))))) syncModals();
   });
-  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "hidden", "data-country"] });
 
   document.addEventListener("click", (event) => {
     const element = event.target instanceof Element ? event.target : null;
@@ -118,9 +130,9 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
     page.setVisible(!document.hidden);
     endWheel();
     trackInteraction({ type: "page", target: "page", action: document.hidden ? "hidden" : "visible", durationMs: page.take() });
-    for (const [target, duration] of windows) {
-      duration.setVisible(!document.hidden);
-      trackInteraction({ type: "window", target, action: document.hidden ? "hidden" : "visible", durationMs: duration.take() });
+    for (const [target, entry] of windows) {
+      entry.duration.setVisible(!document.hidden);
+      recordWindow(target, entry, document.hidden ? "hidden" : "visible");
     }
     // Let the active survey step record its final input aggregate before flushing this lifecycle event.
     queueMicrotask(() => flushInteractionMetrics(document.hidden));
@@ -129,9 +141,9 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
   window.addEventListener("pagehide", () => {
     endWheel();
     page.setVisible(false);
-    for (const [target, duration] of windows) {
-      duration.setVisible(false);
-      trackInteraction({ type: "window", target, action: "hidden", durationMs: duration.take() });
+    for (const [target, entry] of windows) {
+      entry.duration.setVisible(false);
+      recordWindow(target, entry, "hidden");
     }
     trackInteraction({ type: "page", target: "page", action: "close", durationMs: page.take() });
     flushInteractionMetrics(true);
@@ -142,8 +154,8 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
   const checkpoint = setInterval(() => {
     if (document.hidden) return;
     trackInteraction({ type: "page", target: "page", action: "visible", durationMs: page.take() });
-    for (const [target, duration] of windows) {
-      trackInteraction({ type: "window", target, action: "visible", durationMs: duration.take() });
+    for (const [target, entry] of windows) {
+      recordWindow(target, entry, "visible");
     }
   }, 15000);
   syncModals();
