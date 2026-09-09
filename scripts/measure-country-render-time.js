@@ -17,6 +17,8 @@
   const maxPending = 64;
   let gl, extension, pollTimer, activeCallback, activeQuery;
   let recording = false, disjoint = false, hidden = false;
+  let layerObserver, measuredLayer, layerChanged = false;
+  const activeLayer = () => document.querySelector("button[data-layer].blob-button--active")?.dataset.layer;
   let gpuError = null, callbackError = null;
   let observedDraws = 0, outsideDraws = 0, issuedQueries = 0, completedQueries = 0;
   let deletedQueries = 0, peakPending = 0, pollCalls = 0, pollCpuMs = 0;
@@ -119,10 +121,21 @@
       const button = [...document.querySelectorAll("button[data-layer]")]
         .find((candidate) => candidate.dataset.layer === key);
       if (!button || button.disabled) throw new Error("Layer unavailable: " + layer);
-      button.click();
+      if (!button.classList.contains("blob-button--active")) button.click();
     }
     await sleep(1800);
     if (document.visibilityState !== "visible") throw new Error("Probe requires a visible page");
+    measuredLayer = activeLayer();
+    if (!measuredLayer) throw new Error("Active layer unavailable");
+    if (layer && measuredLayer !== (layer === "all-layers" ? "all-pain" : layer)) {
+      throw new Error("Requested layer did not activate");
+    }
+    layerObserver = new MutationObserver(() => {
+      if (recording && activeLayer() !== measuredLayer) layerChanged = true;
+    });
+    for (const button of document.querySelectorAll("button[data-layer]")) {
+      layerObserver.observe(button, { attributes: true, attributeFilter: ["class"] });
+    }
     const canvas = document.querySelector("canvas");
     gl = canvas?.getContext("webgl2");
     if (!gl || gl.isContextLost()) throw new Error("Live WebGL2 context unavailable");
@@ -233,12 +246,13 @@
       !extension ? "GPU elapsed extension unavailable" : "GPU callback coverage incomplete"));
     if (callbackError) errors.push("Application callback failed: " + callbackError);
     if (hidden || document.visibilityState !== "visible") errors.push("Page was hidden during measurement");
+    if (layerChanged || activeLayer() !== measuredLayer) errors.push("Active layer changed during measurement");
     if (scenario !== "rest" && countryName() !== "India") errors.push("Final profile is not exactly India");
     const sumRender = (frame, key) => frame.callbacks.filter((entry) => entry.draws)
       .reduce((sum, entry) => sum + entry[key], 0);
     result = {
       passed: errors.length === 0, ...(errors.length ? { errors } : {}),
-      preset: controls.get("cpPreset"), scenario, layer: layer ?? "current", sampleMs,
+      preset: controls.get("cpPreset"), scenario, layer: measuredLayer, sampleMs,
       actualSampleMs: round(actualSampleMs), selectedCountry: countryName(),
       viewport: [innerWidth, innerHeight], drawingBuffer: [gl.drawingBufferWidth, gl.drawingBufferHeight],
       cpu: { scope: "Synchronous wall time of complete draw-containing rAF callbacks; includes draw-hook overhead, excludes asynchronous tasks and browser paint.",
@@ -254,6 +268,8 @@
         validTimestampCount: gpuValid ? gpuCompleteFrames.length : 0,
         pollCalls, pollCpuMs: round(pollCpuMs), finalPollMs: round(performance.now() - pollStarted) },
       coverage: { complete: callbackCoverage, drawMethods, observedDraws, wrappedDraws,
+        minDrawsPerCallback: entries.length ? Math.min(...entries.map((entry) => entry.draws)) : 0,
+        maxDrawsPerCallback: entries.length ? Math.max(...entries.map((entry) => entry.draws)) : 0,
         drawsOutsideWrappedRaf: outsideDraws, totalCallbacks: allEntries.length,
         renderCallbacks: entries.length, renderTimestamps: renderFrames.length,
         maxRenderCallbacksPerTimestamp: renderFrames.reduce((max, frame) => Math.max(max,
@@ -268,6 +284,7 @@
     recording = false;
     clearInterval(pollTimer);
     document.removeEventListener("visibilitychange", onVisibility);
+    layerObserver?.disconnect();
     const cleanupErrors = [];
     if (activeQuery && gl && extension) {
       try {
