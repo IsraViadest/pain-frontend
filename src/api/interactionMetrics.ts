@@ -30,7 +30,7 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
     }
     for (const [target, duration] of windows) {
       if (visible.has(target)) continue;
-      trackInteraction({ type: "window", target, action: "close", durationMs: duration.read() });
+      trackInteraction({ type: "window", target, action: "close", durationMs: duration.take() });
       windows.delete(target);
     }
   };
@@ -60,7 +60,7 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
     const target = button.dataset.metricTarget as Target | undefined;
     if (target && CONTROL_TARGETS.includes(target)) {
       if (target === "about" || target === "sources") infoTarget = target;
-      const pressed = button.getAttribute("aria-pressed") ?? button.getAttribute("aria-expanded");
+      const pressed = button.getAttribute("aria-pressed") ?? button.getAttribute("aria-checked") ?? button.getAttribute("aria-expanded");
       trackInteraction({ type: "control", target, action: "click", ...(pressed === null ? {} : { enabled: pressed === "true" }) });
     } else if (button.matches("[data-layer]")) {
       const layer = button.dataset.layer === "all-pain" ? "all-layers" : button.dataset.layer;
@@ -117,10 +117,10 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
   const visibility = (): void => {
     page.setVisible(!document.hidden);
     endWheel();
-    trackInteraction({ type: "page", target: "page", action: document.hidden ? "hidden" : "visible", durationMs: page.read() });
+    trackInteraction({ type: "page", target: "page", action: document.hidden ? "hidden" : "visible", durationMs: page.take() });
     for (const [target, duration] of windows) {
       duration.setVisible(!document.hidden);
-      trackInteraction({ type: "window", target, action: document.hidden ? "hidden" : "visible", durationMs: duration.read() });
+      trackInteraction({ type: "window", target, action: document.hidden ? "hidden" : "visible", durationMs: duration.take() });
     }
     // Let the active survey step record its final input aggregate before flushing this lifecycle event.
     queueMicrotask(() => flushInteractionMetrics(document.hidden));
@@ -131,13 +131,21 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
     page.setVisible(false);
     for (const [target, duration] of windows) {
       duration.setVisible(false);
-      trackInteraction({ type: "window", target, action: "hidden", durationMs: duration.read() });
+      trackInteraction({ type: "window", target, action: "hidden", durationMs: duration.take() });
     }
-    trackInteraction({ type: "page", target: "page", action: "close", durationMs: page.read() });
+    trackInteraction({ type: "page", target: "page", action: "close", durationMs: page.take() });
     flushInteractionMetrics(true);
   }, { signal });
-  window.addEventListener("pageshow", () => { page.setVisible(!document.hidden); flushInteractionMetrics(); }, { signal });
+  window.addEventListener("pageshow", visibility, { signal });
   window.addEventListener("online", () => flushInteractionMetrics(), { signal });
+  // Persist completed segments during long-running projections, not only when a tab closes.
+  const checkpoint = setInterval(() => {
+    if (document.hidden) return;
+    trackInteraction({ type: "page", target: "page", action: "visible", durationMs: page.take() });
+    for (const [target, duration] of windows) {
+      trackInteraction({ type: "window", target, action: "visible", durationMs: duration.take() });
+    }
+  }, 15000);
   syncModals();
-  return () => { abort.abort(); observer.disconnect(); endWheel(); stopInteractionMetrics(); };
+  return () => { abort.abort(); observer.disconnect(); clearInterval(checkpoint); endWheel(); stopInteractionMetrics(); };
 }

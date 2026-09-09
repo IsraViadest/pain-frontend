@@ -124,6 +124,15 @@ export class VisibleDuration {
   read(): number {
     return Math.round(this.total + (this.since === null ? 0 : this.now() - this.since));
   }
+  /** Drain a duration segment, retaining fractional milliseconds for the next checkpoint. */
+  take(): number {
+    const now = this.now();
+    const elapsed = this.total + (this.since === null ? 0 : now - this.since);
+    const whole = Math.floor(elapsed);
+    this.total = elapsed - whole;
+    if (this.since !== null) this.since = now;
+    return whole;
+  }
 }
 
 export function textMetrics(text: string): Pick<MetricEvent, "hasText" | "characters"> {

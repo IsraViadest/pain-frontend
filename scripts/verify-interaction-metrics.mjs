@@ -84,6 +84,19 @@ assert.equal(visible.read(), 250);
 visible.setVisible(false);
 visible.setVisible(false);
 assert.equal(visible.read(), 250, 'Repeated lifecycle events do not count time twice');
+assert.equal(visible.take(), 250);
+assert.equal(visible.take(), 0, 'A consumed segment cannot be counted again');
+let longClock = 0;
+const longVisible = new VisibleDuration(() => longClock);
+longVisible.setVisible(true);
+let totalDuration = 0;
+for (let i = 0; i < 6000; i++) {
+  longClock += 15000;
+  const segment = longVisible.take();
+  assert.equal(segment, 15000);
+  totalDuration += segment;
+}
+assert.equal(totalDuration, 90000000, 'A projection exceeding one day has no cumulative 24-hour cap');
 
 // Test the actual compatibility adapter without Vite's import.meta.env or a browser.
 const emitted = [];
@@ -139,6 +152,7 @@ let observe;
 clock = 0;
 let timerId = 0;
 const timers = new Map();
+const intervals = new Map();
 const listenerSource = readFileSync(new URL('../src/api/interactionMetrics.ts', import.meta.url), 'utf8');
 const listenerCompiled = ts.transpileModule(listenerSource.replace(/^import .*;$/gm, ''), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -152,6 +166,8 @@ const listenerScope = {
   MutationObserver: class { constructor(fn) { observe = fn; } observe() {} disconnect() {} },
   setTimeout: fn => { const id = ++timerId; timers.set(id, fn); return id; },
   clearTimeout: id => timers.delete(id),
+  setInterval: (fn, delay) => { const id = ++timerId; intervals.set(id, { fn, delay }); return id; },
+  clearInterval: id => intervals.delete(id),
 };
 vm.runInNewContext(listenerCompiled, listenerScope);
 const dispose = listenerScope.exports.installInteractionMetrics(canvas);
@@ -162,6 +178,13 @@ function dispatch(host, type, properties = {}) {
 }
 const sourcesButton = new ElementNode('button'); sourcesButton.dataset.metricTarget = 'sources';
 dispatch(documentStub, 'click', { target: sourcesButton });
+const soundButton = new ElementNode('button'); soundButton.dataset.metricTarget = 'sound';
+soundButton.attributes['aria-checked'] = 'true';
+dispatch(documentStub, 'click', { target: soundButton });
+assert.equal(activity.at(-1).enabled, true, 'Checkbox buttons report their resulting checked state');
+soundButton.attributes['aria-checked'] = 'false';
+dispatch(documentStub, 'click', { target: soundButton });
+assert.equal(activity.at(-1).enabled, false);
 const info = new ElementNode('div', ['info-modal', 'info-modal--visible']);
 openModals.set('.info-modal--visible', info);
 observe([{ type: 'childList', addedNodes: [info], removedNodes: [] }]);
@@ -170,8 +193,33 @@ clock = 10000; documentStub.hidden = false; dispatch(documentStub, 'visibilitych
 clock = 11000; openModals.clear();
 observe([{ type: 'childList', addedNodes: [], removedNodes: [info] }]);
 assert.ok(activity.some(event => event.type === 'window' && event.action === 'close'), JSON.stringify(activity));
-assert.equal(activity.find(event => event.type === 'window' && event.action === 'close').durationMs, 2000);
+assert.equal(activity.find(event => event.type === 'window' && event.action === 'close').durationMs, 1000);
+assert.equal(activity.filter(event => event.type === 'window').reduce((sum, event) => sum + (event.durationMs ?? 0), 0), 2000);
 assert.equal(activity.find(event => event.type === 'window' && event.action === 'open').target, 'sources');
+
+const checkpoint = [...intervals.values()][0];
+assert.equal(checkpoint.delay, 15000);
+const episodeStart = activity.length;
+openModals.set('.info-modal--visible', info);
+observe([{ type: 'childList', addedNodes: [info], removedNodes: [] }]);
+clock = 26000; checkpoint.fn();
+assert.equal(activity.at(-1).durationMs, 15000, 'An open window emits a periodic checkpoint');
+clock = 31000; documentStub.hidden = true; dispatch(documentStub, 'visibilitychange');
+assert.equal(activity.at(-1).durationMs, 5000);
+dispatch(windowStub, 'pagehide');
+assert.equal(activity.at(-1).durationMs, 0, 'Hidden followed by pagehide never duplicates duration');
+const beforeHiddenCheckpoint = activity.length;
+clock = 80000; checkpoint.fn();
+assert.equal(activity.length, beforeHiddenCheckpoint, 'Background checkpoints do not emit visible time');
+clock = 90000; documentStub.hidden = false; dispatch(windowStub, 'pageshow');
+clock = 105000; checkpoint.fn();
+assert.equal(activity.at(-1).durationMs, 15000, 'A bfcache return resumes open-window timing');
+clock = 110000; openModals.clear();
+observe([{ type: 'childList', addedNodes: [], removedNodes: [info] }]);
+assert.equal(activity.at(-1).durationMs, 5000);
+assert.equal(activity.slice(episodeStart).filter(event => event.type === 'window')
+  .reduce((sum, event) => sum + (event.durationMs ?? 0), 0), 40000,
+  'Periodic checkpoints plus close sum to visible time without gaps or overlap');
 const screen = new ElementNode('div', ['survey-screen', 'survey-screen--1']);
 const answer = new ElementNode('button'); answer.parent = screen; answer.dataset.word = canary;
 answer.textContent = canary;
@@ -192,6 +240,7 @@ dispatch(windowStub, 'pagehide');
 assert.equal(flushes.at(-1), true);
 assert.equal(activity.at(-1).action, 'close');
 dispose();
+assert.equal(intervals.size, 0, 'Disposal clears the periodic checkpoint');
 
 const modalSource = readFileSync(new URL('../src/survey/SurveyModal.ts', import.meta.url), 'utf8');
 const modalCompiled = ts.transpileModule(modalSource.replace(/^import[\s\S]*?;\n/gm, ''), {
