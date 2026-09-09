@@ -1,0 +1,472 @@
+#!/usr/bin/env python3
+"""Build the age-18 pair using ReportLab, Pillow, and pypdf.
+
+Run: python3 docs/explanation-guides/build_guides.py
+On the author's Mac the bundled interpreter is:
+/Users/cs/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
+The guide uses installed Arial/Georgia fonts; pass --font-dir on another machine.
+Only this directory's two PDF outputs are written. QA renders belong in /tmp.
+"""
+
+import argparse
+import html
+import math
+import re
+from pathlib import Path
+
+from PIL import Image as PILImage
+from pypdf import PdfReader
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import (
+    BaseDocTemplate, Flowable, Frame, KeepTogether, PageBreak, PageTemplate,
+    Paragraph, Spacer, Table, TableStyle,
+)
+from reportlab.platypus.tableofcontents import TableOfContents
+
+ROOT = Path(__file__).resolve().parent
+PAGE_W, PAGE_H = A4
+MARGIN = 46
+WIDTH = PAGE_W - 2 * MARGIN
+NAVY = colors.HexColor('#171b45')
+TEAL = colors.HexColor('#17666b')
+CORAL = colors.HexColor('#b0443a')
+INK = colors.HexColor('#27323b')
+MUTED = colors.HexColor('#566570')
+PALE = colors.HexColor('#eef4f3')
+
+
+def register_fonts(directory):
+    files = {'Body': 'Arial.ttf', 'Body-Bold': 'Arial Bold.ttf',
+             'Body-Italic': 'Arial Italic.ttf', 'Body-BoldItalic': 'Arial Bold Italic.ttf',
+             'Display': 'Georgia.ttf'}
+    for name, filename in files.items():
+        pdfmetrics.registerFont(TTFont(name, str(directory / filename)))
+    pdfmetrics.registerFontFamily('Body', normal='Body', bold='Body-Bold',
+                                 italic='Body-Italic', boldItalic='Body-BoldItalic')
+
+
+def styles():
+    s = getSampleStyleSheet()
+    s.add(ParagraphStyle('Text', fontName='Body', fontSize=10.2, leading=14.4,
+                         textColor=INK, spaceAfter=8, splitLongWords=True))
+    s.add(ParagraphStyle('TitleMain', fontName='Display', fontSize=28, leading=34,
+                         textColor=NAVY, spaceAfter=18))
+    s.add(ParagraphStyle('Major', parent=s['Text'], fontName='Display', fontSize=23,
+                         leading=29, spaceAfter=16, keepWithNext=True, textColor=NAVY))
+    s.add(ParagraphStyle('Minor', parent=s['Text'], fontName='Body-Bold', fontSize=12,
+                         leading=16, spaceBefore=14, spaceAfter=7, keepWithNext=True,
+                         textColor=TEAL))
+    s.add(ParagraphStyle('Note', parent=s['Text'], fontName='Body-Italic', fontSize=9,
+                         leading=12.5, textColor=MUTED, backColor=PALE,
+                         borderPadding=7, spaceBefore=5, spaceAfter=13))
+    s.add(ParagraphStyle('Cell', parent=s['Text'], fontSize=8.8, leading=11.8,
+                         spaceAfter=0))
+    s.add(ParagraphStyle('CellHead', parent=s['Cell'], fontName='Body-Bold',
+                         textColor=colors.white))
+    s.add(ParagraphStyle('BulletText', parent=s['Text'], leftIndent=10,
+                         firstLineIndent=-8, spaceAfter=5))
+    s.add(ParagraphStyle('Small', parent=s['Text'], fontSize=8.8, leading=12,
+                         textColor=MUTED))
+    s.add(ParagraphStyle('Timing', parent=s['Small'], textColor=TEAL,
+                         spaceAfter=15, keepWithNext=True))
+    s.add(ParagraphStyle('Sheet', parent=s['Text'], fontSize=9, leading=12,
+                         spaceAfter=5))
+    s.add(ParagraphStyle('SheetHead', parent=s['Minor'], fontSize=10.6, leading=13,
+                         spaceBefore=8, spaceAfter=5))
+    return s
+
+
+def markup(text, reference_links=True):
+    """Format the small Markdown subset used in these authored documents."""
+    text = html.escape(text)
+    text = re.sub(r'\[([^\]]+)\]\((https?://[^)]+)\)',
+                  r'<a href="\2" color="#17666b"><u>\1</u></a>', text)
+    text = re.sub(r'`([^`]+)`', r'<font face="Courier" size="8.2">\1</font>', text)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
+    if reference_links:
+        text = re.sub(r'\[([LSC]\d+)(?:-([LSC]\d+))?\]',
+                      lambda m: '<a href="#ref-%s" color="#17666b">%s</a>' %
+                      (m[1], m[0]), text)
+    return text
+
+
+class GuideDoc(BaseDocTemplate):
+    def __init__(self, filename, **kwargs):
+        super().__init__(str(filename), pagesize=A4, leftMargin=MARGIN,
+                         rightMargin=MARGIN, topMargin=55, bottomMargin=48,
+                         title='P.A.I.N. - Age 18 Presenter Guide',
+                         author='P.A.I.N. project documentation', **kwargs)
+        self.addPageTemplates(PageTemplate(id='guide', frames=[Frame(
+            MARGIN, 48, WIDTH, PAGE_H - 103, leftPadding=0, rightPadding=0,
+            topPadding=0, bottomPadding=0)], onPage=self.page_chrome))
+
+    def page_chrome(self, canvas, doc):
+        if doc.page == 1:
+            return
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor('#d6e0df'))
+        canvas.line(MARGIN, PAGE_H - 36, PAGE_W - MARGIN, PAGE_H - 36)
+        canvas.setFillColor(MUTED)
+        canvas.setFont('Body', 8)
+        canvas.drawString(MARGIN, PAGE_H - 27, 'P.A.I.N.  /  AGE 18  /  PRESENTER EDITION')
+        canvas.drawString(MARGIN, 28, 'Exhibition data checked 9 September 2026  |  v1.0')
+        canvas.drawRightString(PAGE_W - MARGIN, 28, str(doc.page))
+        canvas.restoreState()
+
+    def afterFlowable(self, flowable):
+        if not hasattr(flowable, 'bookmark'):
+            return
+        level, label, key = flowable.bookmark
+        self.canv.bookmarkPage(key)
+        self.canv.addOutlineEntry(label, key, level=level, closed=level == 0)
+        if level == 0:
+            self.notify('TOCEntry', (0, label, self.page, key))
+
+
+class ExhibitImage(Flowable):
+    def __init__(self, path, width=WIDTH, annotate=True):
+        super().__init__()
+        self.path, self.width, self.annotate = path, width, annotate
+        with PILImage.open(path) as im:
+            self.pixel_width, self.pixel_height = im.size
+        self.height = width * self.pixel_height / self.pixel_width
+
+    def draw(self):
+        c = self.canv
+        c.drawImage(str(self.path), 0, 0, width=self.width, height=self.height)
+        if not self.annotate:
+            return
+        if 'network' in self.path.name:
+            positions = [(90, 455), (432, 287), (730, 670)]
+        else:
+            positions = [(877, 204), (585, 489), (990, 518), (965, 330), (1112, 335)]
+        for n, (px, py) in enumerate(positions, 1):
+            x, y = px / self.pixel_width * self.width, (1 - py / self.pixel_height) * self.height
+            c.setFillColor(TEAL)
+            c.setStrokeColor(colors.white)
+            c.setLineWidth(1)
+            c.circle(x, y, 9, stroke=1, fill=1)
+            c.setFillColor(colors.white)
+            c.setFont('Body-Bold', 9)
+            c.drawCentredString(x, y - 3, str(n))
+
+
+class Diagram(Flowable):
+    def __init__(self, kind):
+        super().__init__()
+        self.kind, self.width = kind, WIDTH
+        self.height = {'pipeline': 126, 'graph': 230, 'scale': 165}[kind]
+
+    def label(self, x, y, text, size=9, color=INK, centered=True):
+        c = self.canv
+        c.setFillColor(color)
+        c.setFont('Body', size)
+        for i, line in enumerate(text.split('\n')):
+            (c.drawCentredString if centered else c.drawString)(x, y - i * 12, line)
+
+    def arrow(self, x1, y1, x2, y2):
+        c = self.canv
+        c.setStrokeColor(TEAL)
+        c.setLineWidth(1.4)
+        c.line(x1, y1, x2, y2)
+        c.line(x2, y2, x2 - 5, y2 + 3)
+        c.line(x2, y2, x2 - 5, y2 - 3)
+
+    def draw(self):
+        c = self.canv
+        if self.kind == 'pipeline':
+            labels = ['6 source\ncollections', 'PCAI\ncountry coding', 'Classifier\ngroup scores', 'Country means\n75/25 blend', 'Winning word\nand category']
+            w = (WIDTH - 4 * 13) / 5
+            for i, txt in enumerate(labels):
+                x = i * (w + 13)
+                c.setFillColor(PALE)
+                c.setStrokeColor(TEAL)
+                c.roundRect(x, 43, w, 55, 5, fill=1, stroke=1)
+                self.label(x + w / 2, 76, txt, 8.4)
+                if i < 4:
+                    self.arrow(x + w + 2, 70, x + w + 11, 70)
+            self.label(WIDTH / 2, 21, 'Training examples are separate from the real texts analysed here.', 8.7)
+        elif self.kind == 'graph':
+            for i, inside in enumerate([False, True]):
+                x0 = i * (WIDTH / 2 + 2)
+                cx, cy, radius = x0 + 124, 110, 52
+                c.setFillColor(PALE)
+                c.setStrokeColor(colors.HexColor('#b6ceca'))
+                c.circle(cx, cy, radius, stroke=1, fill=1)
+                c.setStrokeColor(CORAL if inside else TEAL)
+                c.setLineWidth(2)
+                c.setDash(4, 2) if inside else c.setDash()
+                c.line(cx - radius, cy, cx + radius, cy)
+                c.setDash()
+                for name, x, y in [('A', cx-radius, cy), ('B', cx+radius, cy),
+                                   ('C', cx+10, cy+25 if inside else cy+72),
+                                   ('D', cx-80, cy+59)]:
+                    c.setFillColor(NAVY)
+                    c.circle(x, y, 3, fill=1, stroke=0)
+                    self.label(x, y+8, name, 8)
+                self.label(cx, 31, 'REJECT: C is inside' if inside else 'KEEP: no point inside', 9,
+                           CORAL if inside else TEAL)
+            self.label(WIDTH / 2, 214, 'Gabriel candidate-edge test', 12, TEAL)
+            self.label(WIDTH / 2, 9, '2D schematic; the actual implementation tests a 3D diameter ball.', 8.2)
+        else:
+            x0, x1, y = 40, WIDTH - 40, 90
+            for i in range(100):
+                c.setFillColor(colors.Color(0.95, 0.87, 0.25, alpha=0.15 + i / 120))
+                c.rect(x0+(x1-x0)*i/100, y-5, (x1-x0)/100+0.5, 10, fill=1, stroke=0)
+            for j,(name,value) in enumerate([('Monaco',288001.574856495),('Luxembourg',137781.68),('India',2591.9916607122),('Burundi',216.231928531758)]):
+                signal=1-(math.log(value)-math.log(216.231928531758))/(math.log(288001.574856495)-math.log(216.231928531758))
+                x=x0+signal*(x1-x0)
+                c.setStrokeColor(NAVY)
+                c.line(x,y-9,x,y+9)
+                above=j!=1
+                self.label(x,126 if above else 59,name,8.8)
+                self.label(x,113 if above else 46,f'${value:,.0f}',8)
+            self.label(WIDTH/2,17,'GDP per person decreases as the artistic yellow signal increases.',8.7)
+            self.label(x0,73,'0',8)
+            self.label(x1,73,'1',8)
+
+
+def make_table(lines, s, width=WIDTH):
+    rows = [[cell.strip() for cell in line.strip().strip('|').split('|')] for line in lines]
+    rows = [r for r in rows if not all(re.fullmatch(r'[:\- ]+', cell) for cell in r)]
+    n = len(rows[0])
+    ratios = {2:[.28,.72], 3:[.24,.53,.23], 4:[.27,.19,.23,.31],
+              5:[.31,.16,.13,.15,.25]}[n]
+    if n == 3 and 'What it does not measure' in rows[0]:
+        ratios = [.18,.41,.41]
+    data = [[Paragraph(markup(cell), s['CellHead' if i==0 else 'Cell'])
+             for cell in row] for i,row in enumerate(rows)]
+    table = Table(data, colWidths=[width*x for x in ratios], repeatRows=1, hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('BACKGROUND',(0,0),(-1,0),NAVY), ('VALIGN',(0,0),(-1,-1),'TOP'),
+        ('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white, PALE]),
+        ('LEFTPADDING',(0,0),(-1,-1),7), ('RIGHTPADDING',(0,0),(-1,-1),7),
+        ('TOPPADDING',(0,0),(-1,-1),7), ('BOTTOMPADDING',(0,0),(-1,-1),7),
+        ('LINEBELOW',(0,0),(-1,0),.6,NAVY),
+    ]))
+    return table
+
+
+def word_counts(text):
+    counts = {}
+    for match in re.finditer(r'^# ([MSA][123]) /[^\n]+\n([\s\S]*?)(?=^# |\Z)',text,re.M):
+        spoken='\n'.join(line for line in match[2].splitlines() if not line.startswith('>'))
+        counts[match[1]]=len(re.findall(r"\b\w+(?:['’-]\w+)*\b",spoken))
+    return counts
+
+
+PAUSES = {'M1':0,'M2':20,'M3':210,'S1':0,'S2':30,'S3':210,'A1':0,'A2':60,'A3':240}
+
+
+def parse_markdown(text, s, counts, sheet=False):
+    lines=text.splitlines()
+    out=[]
+    i=0
+    bookmark=0
+    while i<len(lines):
+        line=lines[i].strip()
+        if not line:
+            i+=1
+            continue
+        if line.startswith('# '):
+            if not sheet:
+                out.append(PageBreak())
+                title=line[2:]
+                p=Paragraph(markup(title),s['Major'])
+                p.bookmark=(0,title,f'section-{bookmark}')
+                bookmark+=1
+                out.append(p)
+                code=title.split(' / ')[0]
+                if code in counts:
+                    words=counts[code]
+                    low=words/140+PAUSES[code]/60
+                    high=words/120+PAUSES[code]/60
+                    out.append(Paragraph(f'{words:,} spoken words | estimated {low:.1f}-{high:.1f} minutes'
+                                         f' | planned pauses: {PAUSES[code]} seconds',s['Timing']))
+            i+=1
+        elif line.startswith('## '):
+            p=Paragraph(markup(line[3:]),s['SheetHead' if sheet else 'Minor'])
+            if not sheet:
+                p.bookmark=(1,line[3:],f'section-{bookmark}')
+                bookmark+=1
+            out.append(p)
+            i+=1
+        elif line.startswith('|'):
+            block=[]
+            while i<len(lines) and lines[i].lstrip().startswith('|'):
+                block.append(lines[i]);i+=1
+            out.extend([make_table(block,s),Spacer(1,10)])
+        elif line.startswith('!['):
+            path=re.search(r'\]\(([^)]+)\)',line)[1]
+            i+=1
+            while i<len(lines) and not lines[i].strip():
+                i+=1
+            caption=[]
+            while i<len(lines) and lines[i].strip() and not lines[i].startswith(('#','![','>')):
+                caption.append(lines[i].strip());i+=1
+            figure=ExhibitImage(ROOT/path,width=WIDTH-15)
+            figure.hAlign='CENTER'
+            out.append(KeepTogether([Spacer(1,8),figure,Spacer(1,8),
+                Paragraph(markup(' '.join(caption)),s['Small']),Spacer(1,8)]))
+        elif line.startswith('[[DIAGRAM:'):
+            out.extend([Diagram(re.search(r':(\w+)',line)[1]),Spacer(1,12)])
+            i+=1
+        else:
+            note=line.startswith('>')
+            bullet=line.startswith('- ')
+            paragraph=[line[1:].strip() if note else line[2:] if bullet else line]
+            i+=1
+            while i<len(lines) and lines[i].strip() and not re.match(r'^(#|>|- |\||!\[|\[\[DIAGRAM:)',lines[i]):
+                paragraph.append(lines[i].strip());i+=1
+            raw=' '.join(paragraph)
+            formatted=markup(raw,reference_links=not sheet)
+            ref=re.match(r'\*\*\[([LSC]\d+)\]',raw)
+            if ref:
+                formatted=f'<a name="ref-{ref[1]}"/>'+formatted
+            style='Sheet' if sheet else 'Note' if note else 'BulletText' if bullet else 'Text'
+            out.append(Paragraph(('&#8226; ' if bullet else '')+formatted,s[style]))
+    # Country stories are reference cards; keep their spoken text and evidence together.
+    grouped=[]
+    i=0
+    while i<len(out):
+        item=out[i]
+        if getattr(item,'bookmark',(0,'',''))[1].startswith('Story '):
+            card=[item];i+=1
+            while i<len(out) and not hasattr(out[i],'bookmark') and not isinstance(out[i],PageBreak):
+                card.append(out[i]);i+=1
+            grouped.append(KeepTogether(card))
+        else:
+            grouped.append(item);i+=1
+    return grouped
+
+
+class Cover(Flowable):
+    def __init__(self):
+        super().__init__()
+        self.width=WIDTH
+        self.height=PAGE_H-110
+
+    def draw(self):
+        c=self.canv
+        c.setFillColor(TEAL)
+        c.setFont('Body-Bold',10)
+        c.drawString(0,self.height-15,'EXHIBITION FIELD GUIDE  /  01')
+        c.setFillColor(NAVY)
+        c.setFont('Display',49)
+        c.drawString(0,self.height-89,'P.A.I.N.')
+        c.setFont('Display',29)
+        c.drawString(0,self.height-135,'A guide to looking closely')
+        c.setFont('Body',14)
+        c.setFillColor(MUTED)
+        c.drawString(0,self.height-167,'For presenters speaking to age 18 and high-school graduates')
+        picture=ExhibitImage(ROOT/'assets/exhibition-overview.png',annotate=False)
+        picture.canv=c
+        picture.drawOn(c,0,180)
+        for x,number,label in [(0,'09','spoken scripts'),(180,'25','country stories'),(357,'03','presentation voices')]:
+            c.setFillColor(TEAL)
+            c.setFont('Display',27)
+            c.drawString(x,132,number)
+            c.setFont('Body',10)
+            c.setFillColor(MUTED)
+            c.drawString(x,112,label)
+        c.setFillColor(INK)
+        c.setFont('Body',11)
+        c.drawString(0,69,'The artwork. The data. The choices between them.')
+        c.setFont('Body',9)
+        c.setFillColor(MUTED)
+        c.drawString(0,29,'English presenter edition  |  9 September 2026  |  Version 1.0')
+        c.drawString(0,13,'Companion: age-18-keyword-sheet.pdf')
+
+
+def build_guide(s):
+    text=(ROOT/'age-18-presenter-guide.md').read_text()
+    counts=word_counts(text)
+    assert set(counts)==set(PAUSES),'Nine complete scripts are required'
+    assert len(re.findall(r'^## Story \d\d /',text,re.M))==25
+    assert '\u2014' not in text,'No em dashes'
+    for code,words in counts.items():
+        low=words/140+PAUSES[code]/60
+        high=words/120+PAUSES[code]/60
+        target={'1':(2,3),'2':(5,10),'3':(15,20)}[code[-1]]
+        assert target[0]<=low and high<=target[1],(code,words,low,high)
+        print(f'{code}: {words} words, {low:.1f}-{high:.1f} minutes')
+    toc=TableOfContents()
+    toc.levelStyles=[ParagraphStyle('ContentsEntry',fontName='Body',fontSize=10.2,
+                                   leading=14,leftIndent=0,firstLineIndent=0,
+                                   spaceBefore=6,textColor=INK)]
+    heading=Paragraph('Contents / Choose your route',s['Major'])
+    heading.bookmark=(0,'Contents','contents')
+    content=text.split('\n',1)[1]
+    parsed=parse_markdown('# Using this guide\n'+content,s,counts)
+    story=[Cover(),PageBreak(),heading,
+           Paragraph('Each script is complete. Background and stories follow the nine scripts.',s['Text']),toc]
+    story.extend(parsed)
+    doc=GuideDoc(ROOT/'age-18-presenter-guide.pdf')
+    doc.multiBuild(story)
+    return counts
+
+
+def build_sheet(s):
+    text=(ROOT/'age-18-keyword-sheet.md').read_text()
+    assert '\u2014' not in text
+    parts=re.split(r'^## ',text,flags=re.M)
+    sections={p.split('\n',1)[0]:p.split('\n',1)[1] for p in parts[1:]}
+    left=['The invitation','Read the image','Source numbers']
+    right=['Say it accurately','Story prompts','Three useful questions','Before presenting']
+    columns=[]
+    for titles in [left,right]:
+        fragment='\n\n'.join('## '+title+'\n'+sections[title] for title in titles)
+        columns.append(parse_markdown(fragment,s,{},sheet=True))
+    table=Table([[columns[0],columns[1]]],colWidths=[WIDTH/2,WIDTH/2],hAlign='LEFT')
+    table.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),
+                              ('LEFTPADDING',(0,0),(0,0),0),
+                              ('RIGHTPADDING',(0,0),(0,0),12),
+                              ('LEFTPADDING',(1,0),(1,0),12),
+                              ('RIGHTPADDING',(1,0),(1,0),0),
+                              ('LINEBEFORE',(1,0),(1,0),.5,colors.HexColor('#cbdad7'))]))
+    doc=BaseDocTemplate(str(ROOT/'age-18-keyword-sheet.pdf'),pagesize=A4,
+                       title='P.A.I.N. - Age 18 Keyword Sheet',author='P.A.I.N. project documentation')
+    frame=Frame(MARGIN,33,WIDTH,PAGE_H-65,leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)
+    doc.addPageTemplates(PageTemplate(id='sheet',frames=[frame]))
+    route_lines=[line for line in sections['Choose a route'].splitlines() if line.startswith('|')]
+    story=[Paragraph('P.A.I.N. / Presenter pocket map',s['TitleMain']),
+           Paragraph('AGE 18  |  ENGLISH  |  9 SEPTEMBER 2026  |  COMPANION TO THE PRESENTER GUIDE',s['Small']),
+           make_table(route_lines,s),Spacer(1,8),table,
+           Spacer(1,5),Paragraph('Use with age-18-presenter-guide.pdf. Story numbers refer to the guide; source details and limits are there.',s['Small'])]
+    doc.build(story)
+
+
+def verify_outputs():
+    guide=PdfReader(ROOT/'age-18-presenter-guide.pdf')
+    sheet=PdfReader(ROOT/'age-18-keyword-sheet.pdf')
+    assert len(sheet.pages)==1,'Keyword sheet must remain one page'
+    assert len(guide.outline)>=15,'Guide needs working navigation'
+    text='\n'.join(page.extract_text() or '' for page in guide.pages)
+    for code in PAUSES:
+        assert re.search(r'\b'+code+r' /',text),code
+    for n in range(1,26):
+        assert f'Story {n:02d}' in text,n
+    assert '[[DIAGRAM:' not in text
+    uris=[]
+    for page in guide.pages:
+        for ref in page.get('/Annots',[]):
+            obj=ref.get_object()
+            if obj.get('/A',{}).get('/URI'):
+                uris.append(str(obj['/A']['/URI']))
+    assert len(uris)>=20,'Public references should be clickable'
+    print(f'PDF checks passed: guide {len(guide.pages)} pages; sheet 1 page; {len(uris)} public links.')
+
+
+if __name__=='__main__':
+    args=argparse.ArgumentParser(description=__doc__)
+    args.add_argument('--font-dir',type=Path,default=Path('/System/Library/Fonts/Supplemental'))
+    config=args.parse_args()
+    register_fonts(config.font_dir)
+    STYLE=styles()
+    build_guide(STYLE)
+    build_sheet(STYLE)
+    verify_outputs()
