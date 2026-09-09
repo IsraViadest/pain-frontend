@@ -9,6 +9,7 @@ export type CountryGeometry =
 
 export interface IndexedCountryGeometry {
   key: string;
+  name: string;
   geometry: CountryGeometry;
   polygons: IndexedCountryPolygon[];
 }
@@ -25,6 +26,8 @@ interface IndexedCountryPolygon {
 interface CountryProperties {
   ISO_A3?: string;
   ADM0_A3?: string;
+  NAME_EN?: string;
+  ADMIN?: string;
 }
 
 interface CountryFeature {
@@ -101,7 +104,9 @@ export function buildCountryGeometries(
     const polygons = sourcePolygons
       .map(indexPolygon)
       .filter((polygon): polygon is IndexedCountryPolygon => polygon !== null);
-    if (polygons.length > 0) indexed.push({ key, geometry, polygons });
+    if (polygons.length > 0) indexed.push({
+      key, name: props.NAME_EN?.trim() || props.ADMIN?.trim() || key, geometry, polygons,
+    });
   }
   return indexed;
 }

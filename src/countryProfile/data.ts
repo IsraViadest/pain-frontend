@@ -81,7 +81,7 @@ function aggregateSocioeconomicSignal(
 
 const missingSignal = (): CountrySignal => ({ value: null, pointCount: 0 });
 
-/** Build the 195 country profiles from cached layer arrays and indexed polygons. */
+/** Geography owns selection coverage; emotional observations can be absent for a territory. */
 export function buildCountryPainProfiles(
   emotionalData: EmoData,
   layers: CountryProfileLayerData,
@@ -103,12 +103,14 @@ export function buildCountryPainProfiles(
   const physical = aggregateGeospatialSignal(layers.physical, countries, null);
   const socioeconomic = aggregateSocioeconomicSignal(layers.socioeconomic);
   const profiles = new Map<string, CountryPainProfile>();
-  for (const [rawIso3, country] of Object.entries({
+  const roster = new Map(countries.map((country) => [country.key, country.name]));
+  for (const [iso3, country] of Object.entries({
     ...emotionalData.countries, ...emotionalData.missingCountries,
-  })) {
+  })) roster.set(iso3, country.name);
+  for (const [rawIso3, countryName] of roster) {
     const iso3 = rawIso3.trim().toUpperCase();
     profiles.set(iso3, {
-      iso3, countryName: country.name,
+      iso3, countryName,
       emotional: emotionalSignal(emotionalData, rawIso3),
       temperature: temperature.get(iso3) ?? missingSignal(),
       co2: co2.get(iso3) ?? missingSignal(),
@@ -124,10 +126,10 @@ export function emotionalSignal(data: EmoData, iso3: string): CountryPainProfile
   const country = data.countries[iso3];
   if (!country) {
     const missing = data.missingCountries?.[iso3];
-    if (!missing) throw new Error(`Unknown emotional country: ${iso3}`);
+    // Geographic profiles survive emotion filtering even when the source never covered them.
     return { categoryKey: "", category: "", nativeTerm: "", englishTerm: "",
-      language: missing.lang, script: missing.script, value: null,
-      filteredOut: missing.filteredOut };
+      language: missing?.lang ?? "und", script: missing?.script ?? "Latn", value: null,
+      filteredOut: missing?.filteredOut };
   }
   const category = data.categories.find((c) => c.key === country.cat);
   if (!category) throw new Error(`Unknown emotional category: ${country.cat}`);
