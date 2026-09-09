@@ -43,6 +43,8 @@ EDITIONS = {
                'Shared background, source facts, meanings, and possibilities', '1.3'),
     'age-5': ('EXPLAIN IT LIKE I AM FIVE', 'People, places, and care',
               'Simple ideas, little stories, and background for the artists', '1.0'),
+    'age-8': ('AGE 8 EDITION', 'Reading the pain globe',
+              'The stories, science, and data behind the artwork', '1.0'),
     'professor': ('ADVANCED / PROFESSOR EDITION', 'Interpreting the evidence',
                   'Measures, sources, models, and the meaning of the artwork', '1.0'),
 }
@@ -87,9 +89,9 @@ def styles(audience='age-18'):
                          spaceAfter=5))
     s.add(ParagraphStyle('SheetHead', parent=s['Minor'], fontSize=10.6, leading=13,
                          spaceBefore=8, spaceAfter=5))
-    if audience == 'age-5':
+    if audience in ('age-5', 'age-8'):
         for name in ('Text', 'BulletText'):
-            s[name].fontSize, s[name].leading = 12.4, 18
+            s[name].fontSize, s[name].leading = (12.4, 18) if audience == 'age-5' else (12, 17)
         s['Minor'].fontSize, s['Minor'].leading = 14, 19
         s['Note'].fontSize, s['Note'].leading = 10.2, 14
         s['Cell'].fontSize, s['Cell'].leading = 9.6, 13
@@ -181,7 +183,7 @@ class Diagram(Flowable):
         super().__init__()
         self.kind, self.width = kind, WIDTH
         self.height = {'pipeline': 126, 'graph': 230, 'scale': 165,
-                       'layers': 242, 'aggregation': 192}[kind]
+                       'layers': 242, 'aggregation': 192, 'warming': 190}[kind]
 
     def label(self, x, y, text, size=9, color=INK, centered=True):
         c = self.canv
@@ -200,7 +202,23 @@ class Diagram(Flowable):
 
     def draw(self):
         c = self.canv
-        if self.kind == 'layers':
+        if self.kind == 'warming':
+            self.label(WIDTH / 2, 174, 'Which place is warmer? Which warmed more?', 12, TEAL)
+            for row, (name, before, after) in enumerate([('Place A', 10, 14),
+                                                        ('Place B', 25, 26)]):
+                y = 113 - row * 62
+                self.label(8, y + 7, name, 10.5, centered=False)
+                for j, (value, color) in enumerate([(before, TEAL), (after, CORAL)]):
+                    c.setFillColor(color)
+                    c.rect(80, y + 15 - j * 20, value * 10, 13, fill=1, stroke=0)
+                    self.label(86 + value * 10, y + 18 - j * 20,
+                               f'{value}°C', 9, centered=False)
+                self.label(WIDTH - 39, y + 4, f'+{after - before}°C', 14, CORAL)
+            self.label(WIDTH / 2, 24,
+                       'Teal: earlier climate average. Coral: later climate average.', 9)
+            self.label(WIDTH / 2, 7,
+                       'Made-up numbers for learning; these are not exhibition measurements.', 8.7)
+        elif self.kind == 'layers':
             cards = [('BODY', 'When moving hurts', 'The marked surface', CORAL),
                      ('FEELINGS', 'Words about hurt and worry', 'Words and lines', TEAL),
                      ('OUR WORLD', 'Places changing around us', 'The atmosphere', TEAL),
@@ -324,7 +342,7 @@ def make_table(lines, s, width=WIDTH):
     return table
 
 
-def parse_markdown(text, s, sheet=False):
+def parse_markdown(text, s, sheet=False, image_width=WIDTH-15):
     lines=text.splitlines()
     out=[]
     i=0
@@ -363,7 +381,7 @@ def parse_markdown(text, s, sheet=False):
             caption=[]
             while i<len(lines) and lines[i].strip() and not lines[i].startswith(('#','![','>')):
                 caption.append(lines[i].strip());i+=1
-            figure=ExhibitImage(ROOT/path,width=WIDTH-15)
+            figure=ExhibitImage(ROOT/path,width=image_width)
             figure.hAlign='CENTER'
             out.append(KeepTogether([Spacer(1,8),figure,Spacer(1,8),
                 Paragraph(markup(' '.join(caption)),s['Small']),Spacer(1,8)]))
@@ -461,7 +479,8 @@ def build_guide(s, audience='age-18'):
     heading=Paragraph('Contents / A shared reference',s['Major'])
     heading.bookmark=(0,'Contents','contents')
     content=text.split('\n',1)[1]
-    parsed=parse_markdown('# About this guide\n'+content,s)
+    parsed=parse_markdown('# About this guide\n'+content,s,
+                          image_width=WIDTH*.8 if audience=='age-8' else WIDTH-15)
     story=[Cover(audience),PageBreak(),heading,
            Paragraph('Facts, meanings, sources, country stories, and optional ways to frame the ideas.',s['Text']),toc]
     story.extend(parsed)

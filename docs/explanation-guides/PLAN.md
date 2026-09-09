@@ -1,6 +1,6 @@
 # Exhibition project guides
 
-Last updated: 2026-09-09. Version: 1.5.
+Last updated: 2026-09-09. Version: 1.6.
 
 ## Agreed delivery
 
@@ -9,6 +9,8 @@ undergraduate/graduate, and expert explanation levels. Produce and review one pa
 starting with the adult/age-18 reference. Each receives a separate one-page keyword PDF.
 The adult reference is approved. On 9 September the user requested the ELI5 and professor
 pairs together as the next delivery. The age-12 and undergraduate/graduate pairs remain pending.
+The user subsequently found the ELI5 level too simple and requested an age-8 edition as the
+preferred younger-audience version. Keep the earlier age-5 pair available as a distinct edition.
 
 Current format, clarified 2026-09-09: structured facts and explanations, sources, representations,
 country stories, glossary, and optional framing examples. No verbatim scripts, timed talks,
@@ -31,6 +33,7 @@ Editable Markdown, a small ReportLab builder, screenshots, and each audience's P
 The source Markdown holds the factual foundation for subsequent audience adaptations.
 Rebuild with the Python runtime described at the top of `build_guides.py`.
 Use `--audience age-5 professor` for the two new pairs; the default is the approved adult pair.
+Use `--audience age-8` to build the revised younger-audience pair.
 
 Before delivery, verify source numbers and the reference format, render and inspect every PDF page,
 check bookmarks and links, confirm a one-page cheat sheet, and commit only this directory.
@@ -94,3 +97,15 @@ check bookmarks and links, confirm a one-page cheat sheet, and commit only this 
   rendered and visually checked; table widths and a background-section placement were
   corrected. Final checks cover page bounds, navigation, key counts, reference agreement,
   and absence of internal implementation filenames or prescribed scripts.
+- 2026-09-09: Age-8 adaptation requested. Increase explanatory depth and introduce useful
+  terminology through concrete mechanisms and clearly hypothetical worked examples. Expand
+  country stories beyond short openings while retaining all25 examples, exact artist-background
+  source facts, the complete100-language roster, and optional rather than prescribed wording.
+- Age-8 delivery:25-page A4 guide and one-page keyword sheet. All25 fuller country
+  stories, three explicitly hypothetical worked examples, the complete100-language roster,
+  source facts and22 distinct public reference URLs are retained. Editorial comparison
+  confirmed increased depth in main explanations and identified two corrected points:
+  equal affected fractions do not establish each individual risk, and out-of-scope needs
+  a plain-language definition. Every page was rendered and inspected; final page bounds,
+  navigation, counts, roster, examples and absence of internal filenames pass. Earlier
+  age-5, adult and professor PDFs remain unchanged.
