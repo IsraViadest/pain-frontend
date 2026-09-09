@@ -52,7 +52,6 @@ import {
   sampleScarHeight01,
   SCAR_OVERLAY_SURFACE_BIAS,
 } from "./scarDisplacement";
-import { stippleSurfaceRadii } from "./stipple-surface-contact";
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
 import {
   stipplePointScaleAtCameraDistance,
@@ -549,10 +548,6 @@ export class GlobeView {
   private physicalOceanBlue = false;
   private scarDepthSize = 0;
   private scarSizeMap: THREE.DataTexture | null = null;
-  private stippleContact: {
-    map: THREE.DataTexture; points: ArrayLike<number>; surface: Float32Array;
-    scale: number; bias: number;
-  } | null = null;
   private scarMaxDepth = 128 / 255;
   private scarReliefPalette: ScarReliefPalette = "coral";
   private surfaceDetail: 1 | 2 = 1;
@@ -1581,7 +1576,6 @@ export class GlobeView {
     this.stippleLandMaskUrl = null;
     this.stippleBasePositions = null;
     this.stippleBuiltPointCount = 0;
-    this.stippleContact = null;
   }
 
   private captureStippleBasePositions(): void {
@@ -1654,18 +1648,6 @@ export class GlobeView {
     posAttr.needsUpdate = true;
     this.choroplethShell.geometry.computeVertexNormals();
     this.choroplethShell.geometry.computeBoundingSphere();
-    const geometry = this.pointsStipple?.geometry;
-    const points = geometry?.getAttribute("position") as THREE.BufferAttribute | undefined;
-    if (!geometry || !points) return;
-    const previous = this.stippleContact;
-    if (previous?.map === map && previous.points === points.array &&
-        previous.surface === this.choroplethBasePositions &&
-        previous.scale === this.debugTune.scarDispScale && previous.bias === this.debugTune.scarDispBias) return;
-    const floor = geometry.getAttribute("aSurfaceRadius") as THREE.BufferAttribute;
-    floor.copyArray(stippleSurfaceRadii(points, this.choroplethShell.geometry, SCAR_OVERLAY_SURFACE_BIAS));
-    floor.needsUpdate = true;
-    this.stippleContact = { map, points: points.array, surface: this.choroplethBasePositions,
-      scale: this.debugTune.scarDispScale, bias: this.debugTune.scarDispBias };
   }
 
   /**
@@ -2940,8 +2922,7 @@ export class GlobeView {
   getRenderDetailStorage() {
     const surface = Math.max(0, this.surfaceStorageBytes() - this.originalSurfaceStorageBytes);
     const borders = this.bordersOutlines?.additionalStorageBytes() ?? 0;
-    const stipple = (this.getStippleDetailStats()?.additionalBytes ?? 0) +
-      (this.pointsStipple?.geometry.getAttribute("aSurfaceRadius")?.array.byteLength ?? 0) * 2;
+    const stipple = this.getStippleDetailStats()?.additionalBytes ?? 0;
     const atmosphere = this.getAtmosphereStats()?.additionalBytes ?? 0;
     const contours = this.scarContourLayer?.stats().additionalBytes ?? 0;
     const geography = this.displayGeographyStorageBytes;
