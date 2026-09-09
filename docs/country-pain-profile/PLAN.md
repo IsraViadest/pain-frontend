@@ -1,8 +1,13 @@
 # Country Profiles and Expressive Globe Rendering
 
-Last Updated: 2026-09-06
-Version: 2.1
-Status: approved implementation plan; current phase status and evidence are in GOAL.md
+Last Updated: 2026-09-09
+Version: 2.2
+Status: historical approved plan; the current rendering review is awaiting user approval
+
+The next work is governed by the proposed
+[rendering comparison plan](RENDERING-COMPARISON-PLAN.md), dated 2026-09-09. The user requested
+discussion and approval before implementation. Preserve the completed work below as history;
+do not use its earlier autonomous authorization to start the new rendering changes.
 
 ## Current objective and working boundary
 
