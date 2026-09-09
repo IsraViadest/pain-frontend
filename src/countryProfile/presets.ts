@@ -99,7 +99,7 @@ const CURRENT_COUNTRY_PROFILE: CountryProfilePreset = {
   "roundedScarShoulder": true,
   "selectionPeerStrength": 0.5,
   "physicalDetail": "regrow",
-  "atmosphereMode": "mantle",
+  "atmosphereMode": "volume-very-strong-separated",
   "atmosphereSamples": 16,
   "environmentalContextOpacity": 0.25,
   "socioeconomicStyle": "hatch",

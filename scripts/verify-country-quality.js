@@ -28,9 +28,11 @@
   const onRejection = (event) => noteError(event.reason);
   try {
     const query = new URL(location.href).searchParams;
+    const highQuality = query.get("hq") === "1" ||
+      (query.get("cpProjection") === "1" && query.get("hq") !== "0");
     const request = query.get("cpQuality") ?? "auto";
     const profiles = {
-      light: { capacity: 16384, samples: 16, fraction: 0.25, budget: 64 * 1024 ** 2 },
+      light: { capacity: 16384, samples: 16, fraction: 0.25, budget: 96 * 1024 ** 2 },
       standard: { capacity: 32768, samples: 16, fraction: 0.5, budget: 128 * 1024 ** 2 },
       rich: { capacity: 65536, samples: 32, fraction: 0.5, budget: 128 * 1024 ** 2 },
     };
@@ -101,7 +103,8 @@
       }, label + " quality report");
       check(report.bytes > 0 && report.bytes <= report.budget && report.exceeded === "false",
         label + ": active quality budget exceeded");
-      check(report.budget === profiles[report.current].budget, label + ": wrong active budget");
+      check(report.budget === Math.max(profiles[report.current].budget, highQuality ? 128 * 1024 ** 2 : 0),
+        label + ": wrong active budget");
       return report;
     }
     resources = new PerformanceObserver((list) => {
@@ -125,10 +128,17 @@
             let info = programs.get(program);
             if (program && !info) {
               info = { samples: gl.getUniformLocation(program, "uSamples"),
+                composite: gl.getUniformLocation(program, "uVolume"),
                 detail: gl.getUniformLocation(program, "uDetailMode"), size: gl.getAttribLocation(program, "aSizeScale") };
               programs.set(program, info);
             }
-            if (info?.samples !== null && info?.samples !== undefined) {
+            // The full-size edge composite also has uSamples. Only integration is downsampled.
+            if (info?.composite !== null && info?.composite !== undefined) {
+              const viewport = gl.getParameter(gl.VIEWPORT);
+              check(viewport[2] === gl.drawingBufferWidth && viewport[3] === gl.drawingBufferHeight,
+                "Volume composite is not at output resolution");
+            }
+            if (info?.samples !== null && info?.samples !== undefined && info.composite === null) {
               const samples = Number(gl.getUniform(program, info.samples));
               const viewport = gl.getParameter(gl.VIEWPORT);
               capture.samples.add(samples);
@@ -146,7 +156,10 @@
                 " samples at " + viewport[2] + "x" + viewport[3]);
             }
             if (name === "drawArrays" && args[0] === gl.POINTS && info?.detail !== null && info?.detail !== undefined) {
-              if (args[2] === 82000) capture.baseDraws++;
+              if (args[2] === 82000) {
+                capture.baseDraws++;
+                capture.rootDetailModes.add(Number(gl.getUniform(program, info.detail)));
+              }
               else if (args[2] > 0) {
                 check(info.size >= 0, "Refined point draw lacks size attribute");
                 const buffer = gl.getVertexAttrib(info.size, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
@@ -182,14 +195,20 @@
       "layer " + layer);
     const beginCapture = (name) => {
       capture = { name, samples: new Set(), volumeTargets: new Set(), capacities: new Set(),
-        volumeDraws: 0, baseDraws: 0, peakDescendants: 0 };
+        rootDetailModes: new Set(), volumeDraws: 0, baseDraws: 0, peakDescendants: 0 };
     };
-    const endCapture = (requireVolume, requireChildren = false) => {
+    const endCapture = (requireVolume, requireDetail = false) => {
       checkErrors();
       if (requireVolume) check(capture.volumeDraws > 0, "No actual volume draw observed: " + capture.name);
       check(capture.baseDraws > 0, "Original 82000-point draw missing: " + capture.name);
-      if (requireChildren) check(capture.peakDescendants > 0 && capture.capacities.size > 0, "No refined points observed at close zoom");
-      stages.push({ ...capture, samples: [...capture.samples], volumeTargets: [...capture.volumeTargets], capacities: [...capture.capacities] });
+      if (requireDetail) {
+        if (capture.rootDetailModes.has(1)) check(capture.peakDescendants === 0,
+          "Regrowth unexpectedly submitted split descendants");
+        else check(capture.rootDetailModes.has(2) && capture.peakDescendants > 0 && capture.capacities.size > 0,
+          "Expected regrowth or active refinement at close zoom");
+      }
+      stages.push({ ...capture, samples: [...capture.samples], volumeTargets: [...capture.volumeTargets],
+        capacities: [...capture.capacities], rootDetailModes: [...capture.rootDetailModes] });
       capture = null;
     };
     await settledReport("initial", false);

@@ -633,7 +633,7 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   globe.setSocioeconomicStyle(preset?.socioeconomicStyle ?? null,
     countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25,
     preset?.socioeconomicMissingStyle);
-  globe.setSurfaceDetail(quality?.surfaceDetail === 1 ? 1 : preset?.surfaceDetail ?? 1);
+  globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
   globe.setScarContourLevels(preset?.scarContourLevels ?? 24);
   globe.setScarContourStyle(layerId === "physpain" || layerId === "all-layers"
     ? preset?.scarContourStyle ?? null : null);
