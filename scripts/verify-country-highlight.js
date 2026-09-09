@@ -124,7 +124,12 @@
     render();
     check(line.geometry.getAttribute("instanceStart").data === instanceBuffer,
       "surface deformation replaced the border buffer");
-    check(previous.every((value, i) => Math.abs(instanceBuffer.array[i] - value * 0.8) < 1e-6),
+    const strokeLift = 0.0008 + line.material.linewidth * 0.55;
+    check(previous.every((value, i) => {
+      const start = Math.floor(i / 3) * 3;
+      const radius = Math.hypot(previous[start], previous[start + 1], previous[start + 2]);
+      return Math.abs(instanceBuffer.array[i] - (value * 0.8 + value / radius * strokeLift * 0.2)) < 1e-6;
+    }),
       "country border did not follow live surface deformation");
     check(instanceBuffer.version === previousVersion + 1, "deformed border buffer was not marked for upload once");
     updateWithProjectionCount(0, "settledAfterDeformation");

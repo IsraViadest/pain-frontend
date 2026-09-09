@@ -35,7 +35,7 @@ const INNER_BORDER_LINEWIDTH = 0.00085;
  * when CPU-warping border strokes onto the scar field. ~0.5–0.6 keeps coast/inner lines
  * on the deformed shell and reduces z-fighting with stipple; shared by coast and inner.
  */
-const LINE_BIAS_FRACTION = 0.55;
+export const LINE_BIAS_FRACTION = 0.55;
 
 export function appendOpenLineString(
   coords: number[][],

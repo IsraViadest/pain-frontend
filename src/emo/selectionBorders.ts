@@ -3,7 +3,8 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import type { GlobeView } from "../globe/GlobeView";
-import { appendOpenLineString } from "../globe/countryBorders";
+import { appendOpenLineString, LINE_BIAS_FRACTION } from "../globe/countryBorders";
+import { SCAR_OVERLAY_SURFACE_BIAS } from "../globe/scarDisplacement";
 import type { IndexedCountryGeometry } from "../globe/countryGeometry";
 
 const MAX_SEGMENTS = 65_536;
@@ -50,6 +51,13 @@ export function createCountrySelectionBorders(globe: GlobeView) {
     for (const batch of batches) {
       if (!batch.mesh.visible) continue;
       globe.projectCountryOutlinePositions(batch.base, batch.warped);
+      // Like ordinary coastlines, lift the stroke center by its half-width so the surface
+      // cannot clip the stroke into alternating exposed caps at close zoom.
+      const lift = SCAR_OVERLAY_SURFACE_BIAS + batch.material.linewidth * LINE_BIAS_FRACTION;
+      for (let i = 0; i < batch.warped.length; i += 3) {
+        const scale = 1 + lift / Math.hypot(batch.warped[i], batch.warped[i + 1], batch.warped[i + 2]);
+        batch.warped[i] *= scale; batch.warped[i + 1] *= scale; batch.warped[i + 2] *= scale;
+      }
       (batch.mesh.geometry.getAttribute("instanceStart") as THREE.InterleavedBufferAttribute)
         .data.needsUpdate = true;
       batch.mesh.geometry.computeBoundingBox();
