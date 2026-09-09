@@ -1,64 +1,66 @@
-# P.A.I.N. / Presenter pocket map
+# P.A.I.N. / Quick reference
 
-Age 18 and high-school graduates | English | Exhibition edition | 9 September 2026
+Artist team | Adult / age-18 level | English | 9 September 2026
 
-## Choose a route
+## The project
 
-| Voice | 2-3 min | 5-10 min | 15-20 min |
-| Museum: notice and explore | M1 | M2 | M3 |
-| Science: follow the evidence | S1 | S2 | S3 |
-| Artist: connect and reflect | A1 | A2 | A3 |
+Personal And Interconnected with Nature. The Personal-Planetary-Pain Map brings bodily pain,
+emotional language, environmental pressure, and economic circumstances into a shared artwork.
 
-## The invitation
+Its layers offer different kinds of evidence and different ways to think about care. They do
+not form one universal score of suffering.
 
-Personal And Interconnected with Nature. Four layers invite a conversation about harm,
-dependence, and care. They do not form one validated score of suffering.
+## The four layers
 
-## Read the image
+PHYSICAL: estimated burden of six painful conditions, given a scarred and dotted surface.
+Sources: IHME Global Burden of Disease and WorldPop population information. 15,282 mapped
+observations. Concentrated populations can contribute to concentrated burden.
 
-- WORDS: model-selected distress category; chosen country language.
-- SURFACE / DOTS: physical condition estimates; dots are rendering samples, not patients.
-- ATMOSPHERE: temperature change and emissions; not measured smoke or exposure.
-- YELLOW / HATCH: lower GDP per person gives stronger signal through an inverted logarithm.
-- LINES: current Delaunay category network; geographic construction, not causal transmission.
+EMOTIONAL: forms of distress recognized in selected texts and displayed as words across
+languages. A prominent category is not a national identity or a diagnosis.
 
-## Source numbers
+ENVIRONMENTAL: warming and emission-related pressure represented as an atmosphere.
+Sources: Berkeley Earth and Climate TRACE. 8,100 temperature and 2,339 emissions observations.
+A cold place can warm strongly; atmospheric appearance is not measured smoke or exposure.
 
-Emotional: 249,438 analysed records; 192 countries; 84 language hints.
+SOCIOECONOMIC: stronger yellow where GDP per person is lower. Source: World Bank, 2024.
+190 available values. Economic output is not a typical salary or a complete picture of well-being.
 
-- CCNews 5,000; country-context tweets 166,837.
-- DEMOTEC 67,193; Yachay 8,564; CFPB 1,030; CMU 814.
-- Country score: 75% news mean + 25% expression mean where both exist.
-- 93.84% of the news probe has recorded years 2015-2016.
+## Current exhibition
 
-Physical: 15,282 map records; six conditions, 2,547 each.
-Temperature: 8,100 points. Emissions: 2,339 points.
-GDP: 2024 current US dollars per person; 190 values, 16 missing roster entries.
+The projection still uses an earlier emotional selection of 249,438 texts. Its words and the
+latest research results are different views, explained separately in the project guide.
 
-## Say it accurately
+Delaunay connections organize countries sharing a category. Gabriel is a sparser alternative.
+The lines express geographic structure and shared themes, not pain spreading between populations.
 
-PEAK is not AVERAGE. MODEL SCORE is not POPULATION RATE.
-GDP is OUTPUT, not typical income. MISSING is not ZERO.
+## Latest PCAI research
 
-News country usually means PUBLISHER ORIGIN. The display chooses among 14 distress categories,
-excluding no-pain and out-of-scope. Filters can change the winner without changing scores.
-Gabriel uses an empty-diameter-ball test; the current exhibition uses Delaunay.
+- Completed combined analysis: 26,176,468 texts across 192 countries.
+- 25,932,030 news articles plus 244,438 posts and complaints.
+- Adopted classifier fitted on 333,236 synthetic examples.
+- Prepared teaching collection: 573,143 examples across 100 languages.
+- Latest news: 104 language/variety hints; mostly recorded as 2017-2024.
+- News provides about 99.07% of records in the latest equal-record combination.
+- Anger/moral injury leads in 178 of 192 combined results; this describes model readings of texts.
 
-## Story prompts
+The detailed chapter explains the model, source mixture, evaluation, and limits. These counts
+are not counts of people interviewed or measures of national emotional prevalence.
 
-- INDIA (01, 18): physical peak 0.943; population placement; GDP versus per-person measure.
-- JAPAN (03): back-pain peak; ask about age and the source measure before explaining why.
-- RUSSIA / CANADA (08, 09): warming versus heat; local peak versus national mean.
-- BURUNDI / LUXEMBOURG (15, 16): economic structure; output versus household experience.
-- PALAU (21): one news row; uncertainty winner; low anger is not national calm.
-- COMOROS (25): emotional data missing, GDP available; coverage differs by layer.
+## Country examples
 
-## Three useful questions
+- INDIA: population concentration and the burden of recurring pain.
+- JAPAN: back pain, mobility, ageing, and independence.
+- RUSSIA / CANADA: cold places and strong warming signals.
+- BURUNDI / LUXEMBOURG: economic resources and the limits of national averages.
+- PALAU: one visible word cannot speak for a whole population.
+- COMOROS: visibility differs between source collections.
 
-What do we see? What produced it? What else would we need to know?
+## Optional framing
 
-## Before presenting
+- Everyday: "What changes in a person's day when movement becomes difficult?"
+- Artistic: "The globe makes what the world carries visible."
+- Scientific: "Each layer is a different kind of evidence about a place."
+- For a young child: "This globe helps us think about looking after people and places."
 
-Start with all categories enabled. Do not interpret animation as history. Keep source-method
-gaps visible. Invite observation, not personal disclosure. Use the guide's source atlas,
-story evidence, glossary, and references for follow-up questions.
+These are starting points to adapt, combine, or ignore. There is no required wording or sequence.

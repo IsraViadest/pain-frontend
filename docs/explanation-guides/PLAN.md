@@ -1,21 +1,27 @@
-# Exhibition presenter guides
+# Exhibition project guides
 
-Last updated: 2026-09-09. Version: 1.1.
+Last updated: 2026-09-09. Version: 1.3.
 
 ## Agreed delivery
 
-English presenter guides for ages 18, 5, 12, undergraduate/graduate, and expert, produced
-one audience at a time in that order. Each receives a separate one-page keyword PDF.
-Start with age 18 and present the pair for review before adapting the other audiences.
+English project-reference guides for the artist team, at adult/age-18, age-5, age-12,
+undergraduate/graduate, and expert explanation levels. Produce and review one pair at a time,
+starting with the adult/age-18 reference. Each receives a separate one-page keyword PDF.
 
-Each guide contains nine complete scripts: museum guide, science educator, and artist talk,
-each at 2-3, 5-10, and 15-20 minutes. Shared presenter notes explain the project, four layers,
-source counts and coverage, processing, classifier, geography, graph construction, visual
-encodings, interaction, uncertainty, and approximately 25 country stories.
+Current format, clarified 2026-09-09: structured facts and explanations, sources, representations,
+country stories, glossary, and optional framing examples. No verbatim scripts, timed talks,
+performance directions, or required wording. The artists use the background in their own words.
+Younger-audience versions remain resources for the artists, with more concrete examples and
+multiple ways to make concepts accessible rather than a prescribed speech.
 
-Use the selected exhibition datasets. Treat current live screenshots as dated illustrations;
-the worktree also contains concurrent visual changes owned by other work. Source scores are
-distinct from rendering controls. Missing original source methods are identified, not inferred.
+The audience documents explain what the artwork represents, not software implementation.
+Omit internal filenames, paths, functions, and developer verification notes. Retain source
+institutions, useful counts, and essential interpretation limits. Reserve deeper model,
+dataset, and evaluation detail for PCAI, including its latest completed classifier run.
+Distinguish newer research results from the earlier selection still displayed.
+
+Use the selected exhibition data for display observations. Treat screenshots as dated
+illustrations. Missing original source methods are identified, not inferred.
 
 ## Files and verification
 
@@ -23,7 +29,7 @@ Editable Markdown, a small ReportLab builder, screenshots, and the two PDFs live
 The source Markdown holds the factual foundation for subsequent audience adaptations.
 Rebuild with the Python runtime described at the top of `build_guides.py`.
 
-Before delivery, verify source numbers and script timing, render and inspect every PDF page,
+Before delivery, verify source numbers and the reference format, render and inspect every PDF page,
 check bookmarks and links, confirm a one-page cheat sheet, and commit only this directory.
 
 ## Progress
@@ -44,3 +50,19 @@ check bookmarks and links, confirm a one-page cheat sheet, and commit only this 
 - Exact original health/environmental source methods remain explicitly unresolved in the
   documents. No website data, classifier, or concurrent visual implementation was changed.
   The next step is user review of this pair, then one subsequent audience adaptation at a time.
+- 2026-09-09: Revised the guide after user feedback. Removed implementation references and
+  rewrote the non-AI background and country stories around representation and lived meaning.
+  The expanded PCAI chapter now describes the adopted classifier, 333,236 fitted examples,
+  synthetic evaluation, and the completed 26,176,468-record analysis. Earlier displayed
+  selection and latest results remain separate. Nine scripts and 25 stories are retained.
+  Updated the companion sheet and checked the rendered PDFs for internal filenames and paths.
+
+- 2026-09-09: User clarified that these are shared references for artist members, not speaker
+  guides. Replaced the nine scripted talks and timings with a structured project guide.
+  Country stories now distinguish observations, interpretation, and context. Optional framing
+  examples include several approaches and child-oriented wording; none is prescribed.
+  Main document renamed to age-18-project-guide. The detailed latest PCAI research remains.
+- Reference-edition verification: 27-page guide plus one-page keyword sheet; 25 country
+  entries; no timed scripts, prescribed performance directions, or internal file references.
+  Latest classifier/data claims passed the bounded content review. PDF page bounds,
+  navigation, source links, and optional-example layout were checked before delivery.
