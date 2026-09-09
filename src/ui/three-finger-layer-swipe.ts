@@ -9,6 +9,7 @@ export function installThreeFingerLayerSwipe(
   const abort = new AbortController();
   const options = { capture: true, passive: false, signal: abort.signal };
   const points = new Map<number, { x: number; y: number }>();
+  const origins = new Map<number, { x: number; y: number }>();
   let active = false, canceled = false, fired = false, blockClick = false;
   let previousEnabled = true, startX = 0, startY = 0;
   const center = () => {
@@ -20,13 +21,17 @@ export function installThreeFingerLayerSwipe(
     if (!active || canceled || fired || points.size !== 3) return;
     const point = center(), dx = point.x - startX, dy = point.y - startY;
     if (Math.abs(dy) >= 48 && Math.abs(dy) >= Math.abs(dx) * 1.25) {
+      // A resting palm or two stationary fingertips must not turn a one-finger drag into a swipe.
+      for (const [id, current] of points) {
+        if ((current.y - origins.get(id)!.y) * Math.sign(dy) < 24) return;
+      }
       fired = true;
       onSwipe(dy > 0 ? 1 : -1);
     }
   };
   const reset = () => {
     if (active) controls.enabled = previousEnabled;
-    points.clear(); active = false; canceled = false; fired = false;
+    points.clear(); origins.clear(); active = false; canceled = false; fired = false;
   };
   // A real new pointer sequence releases the compatibility-click guard, including on buttons.
   window.addEventListener("pointerdown", () => { if (!points.size) blockClick = false; }, options);
@@ -35,6 +40,7 @@ export function installThreeFingerLayerSwipe(
     points.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (points.size === 3 && !active) {
       const point = center(); startX = point.x; startY = point.y;
+      for (const [id, current] of points) origins.set(id, current);
       previousEnabled = controls.enabled; controls.enabled = false;
       active = true; blockClick = true;
     } else if (points.size > 3) canceled = true;
