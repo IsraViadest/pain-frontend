@@ -1376,3 +1376,33 @@ A final combined HTTP/static-asset readiness and Git-status command was rejected
 approval policy. No equivalent workaround was attempted, so container startup is confirmed
 but this build's final HTTP readiness check remains unverified. Browser acceptance also remains
 open pending manual unlock. The Greenland source-year question remains open.
+
+## 2026-09-09: lightweight atmosphere refinement and border overlap fix
+
+Commits 62549fd and 6987a78 refine the live web preview at port 5174. The current Windows
+1.0.1 preview ZIP is unchanged; these refinements have not been packaged or published yet.
+
+The atmosphere keeps the two cached meshes. A local spherical-chord approximation replaces
+the clamped inverse-facing opacity rule. The outer edge fades more broadly and the lighting
+retains brighter coral and mint colors. No extra samples, textures, data transforms or draws.
+Temporary captures compared the current mesh, the earlier volume, and the refined mesh.
+
+Selected country borders previously blended overlapping round caps twice. An isolated GPU
+probe measured red-channel values 127 along the stroke and 254 at its joint. A stencil bit now
+allows each border sample to blend once; stronger origin strokes render before weaker peers.
+The same probe reads 127 at both positions after the fix. Frame clearing, dominant origin
+strength, role swaps, live scar deformation and folded-surface occlusion also pass.
+Unselected base-border beads were not reproduced in the inspected close-up. The optional
+question distinguishing outlines from emotional network lines remains unanswered.
+
+The full frontend check and real WebGL atmosphere/highlight checks pass. A fixed Light,
+1920 x 1080 comparison ran control/refined/refined/control in that order. All four runs had
+8.3 ms median and 9.2 ms p95 frame intervals. Control GPU medians were 1.51 and 1.35 ms;
+refined GPU medians were 1.13 and 1.35 ms. These are short development-host comparisons, not
+Fujitsu or physical-phone acceptance. An earlier automatic-quality run included a 208 ms
+outlier while other work ran; it is not the controlled comparison above.
+
+The temporary baseline server was stopped. Existing helpers remove their task-owned Chrome
+profiles. No gallery was created. Application logs remain outside release folders at
+`%LOCALAPPDATA%\PAIN Offline\events`; the latest complete Windows folder can export retained
+events from earlier releases on the same Windows account.
