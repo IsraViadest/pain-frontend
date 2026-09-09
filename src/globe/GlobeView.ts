@@ -2839,7 +2839,7 @@ export class GlobeView {
     void import("./scarContourLayer").then(({ createScarContourLayer }) => {
       if (generation !== this.scarContourGeneration || this.scarContourStyle !== style) return;
       const layer = createScarContourLayer(this.surfaceDetail, this.getDisplayCountryGeometries());
-      layer.setStyle(style);
+      layer.setStyle(style, SCAR_RELIEF_COLORS[this.scarReliefPalette]);
       layer.setLevels(this.scarContourLevels);
       this.scarContourLayer = layer;
       this.earthContent.add(layer.object);
@@ -2875,6 +2875,9 @@ export class GlobeView {
     if (palette === this.scarReliefPalette) return;
     this.scarReliefPalette = palette;
     this.applyScarReliefPalette();
+    if (this.scarContourStyle) {
+      this.scarContourLayer?.setStyle(this.scarContourStyle, SCAR_RELIEF_COLORS[palette]);
+    }
   }
 
   setStippleDetailMode(mode: StippleDetailMode): void {

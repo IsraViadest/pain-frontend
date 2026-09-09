@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { IndexedCountryGeometry } from "./countryGeometry";
 import { rasterLandMaskFromGeometries } from "./landMaskRaster";
+import { SCAR_RELIEF_COLORS } from "./scarReliefColors";
 
 const VERTEX = /* glsl */ `
 uniform sampler2D uScarMap;
@@ -62,7 +63,9 @@ void main() {
   float line = 1.0 - smoothstep(0.01, 0.01 + width * 0.8, distanceToLine);
   if (line < 0.01) discard;
   float levelDepth = clamp(floor(phase + 0.5) / (uLevels * (128.0 / 255.0)), 0.0, 1.0);
-  vec3 color = mix(uColor, uDeepColor, levelDepth * uDepthColor);
+  // Mode 2 uses the same sampled-height curve as the physical relief dots.
+  float colorMix = uDepthColor > 1.5 ? smoothstep(0.02, 0.32, depth) : levelDepth * uDepthColor;
+  vec3 color = mix(uColor, uDeepColor, colorMix);
   gl_FragColor = vec4(color, line * uOpacity);
   #include <colorspace_fragment>
 }
@@ -126,14 +129,15 @@ export function createScarContourLayer(
 
   return {
     object,
-    setStyle(style: ScarContourStyle): void {
+    setStyle(style: ScarContourStyle, reliefColors: readonly [number, number] = SCAR_RELIEF_COLORS.coral): void {
       const color = style.replace(/-depth$/, "");
+      const matchDots = style === "water-dots-depth";
       material.uniforms.uLandOnly.value = style.startsWith("water") ? -1 : style.startsWith("land") ? 1 : 0;
-      material.uniforms.uColor.value.set(color.endsWith("dots") ? 0xe4184b :
+      material.uniforms.uColor.value.set(matchDots ? reliefColors[1] : color.endsWith("dots") ? 0xe4184b :
         color.endsWith("red") || color.endsWith("coral") ? 0xff7888 : 0x88a9dc);
-      material.uniforms.uDeepColor.value.set(color.endsWith("dots") ? 0x94102f :
+      material.uniforms.uDeepColor.value.set(matchDots ? reliefColors[0] : color.endsWith("dots") ? 0x94102f :
         color.endsWith("coral") ? 0xad3e53 : 0x304f88);
-      material.uniforms.uDepthColor.value = style.endsWith("-depth") ? 1 : 0;
+      material.uniforms.uDepthColor.value = matchDots ? 2 : style.endsWith("-depth") ? 1 : 0;
     },
     setLevels(levels: 16 | 24): void {
       material.uniforms.uLevels.value = levels;

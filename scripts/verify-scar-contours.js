@@ -8,6 +8,7 @@
   let draws = 0;
   let landOnly = null;
   let levels = null;
+  let contourColors, dotColors, colorMode;
   for (const name of names) gl[name] = function (...args) {
     const program = gl.getParameter(gl.CURRENT_PROGRAM);
     if (!contourPrograms.has(program)) {
@@ -17,19 +18,31 @@
       draws++;
       landOnly = gl.getUniform(program, gl.getUniformLocation(program, "uLandOnly"));
       levels = gl.getUniform(program, gl.getUniformLocation(program, "uLevels"));
+      contourColors = ["uDeepColor", "uColor"].map(uniform =>
+        Array.from(gl.getUniform(program, gl.getUniformLocation(program, uniform))));
+      colorMode = gl.getUniform(program, gl.getUniformLocation(program, "uDepthColor"));
+    }
+    if (gl.getUniformLocation(program, "uScarReliefLow") !== null) {
+      dotColors = ["uScarReliefLow", "uScarReliefHigh"].map(uniform =>
+        Array.from(gl.getUniform(program, gl.getUniformLocation(program, uniform))));
     }
     return originals.get(name).apply(this, args);
   };
   const rows = [];
   try {
-    for (const layer of ["physical pain", "socio-economic pain", "environmental pain",
-      "emotional pain", "all the pain"]) {
-      [...document.querySelectorAll("button")]
-        .find((button) => button.textContent.trim() === layer).click();
+    for (const [layer, id] of [["physical pain", "physpain"], ["socio-economic pain", "socioecopain"],
+      ["environmental pain", "envpain"], ["emotional pain", "emopain"], ["all the pain", "all-pain"]]) {
+      const button = document.querySelector(`button[data-layer="${id}"]`);
+      if (!button) throw new Error(`Missing layer button ${id}`);
+      if (!button.classList.contains("blob-button--active")) button.click();
       await new Promise((resolve) => setTimeout(resolve, 1200));
       draws = 0;
       for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame);
-      rows.push({ layer, contourDraws: draws, landOnly, levels });
+      rows.push({ layer, contourDraws: draws, landOnly, levels, contourColors, dotColors, colorMode });
+      if (["physical pain", "all the pain"].includes(layer) &&
+          (colorMode !== 2 || !dotColors || JSON.stringify(contourColors) !== JSON.stringify(dotColors))) {
+        throw new Error("Contour height gradient does not match the physical dot palette");
+      }
     }
     const expected = rows.every(({ layer, contourDraws }) =>
       ["physical pain", "all the pain"].includes(layer) ? contourDraws > 0 : contourDraws === 0);
