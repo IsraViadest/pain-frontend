@@ -107,10 +107,11 @@ function fillGeometry(
 export function createChoroplethMissingMask(
   values: ChoroplethCountryValue[],
   countries: readonly IndexedCountryGeometry[],
+  width = CHOROPLETH_MAP_WIDTH,
 ): THREE.DataTexture {
   const canvas = document.createElement("canvas");
-  canvas.width = CHOROPLETH_MAP_WIDTH;
-  canvas.height = CHOROPLETH_MAP_HEIGHT;
+  canvas.width = width;
+  canvas.height = width / 2;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unsupported");
   const covered = new Set(values.filter((v) => Number.isFinite(v.intensity))
@@ -187,9 +188,10 @@ export function createChoroplethTexture(
   countries: readonly IndexedCountryGeometry[] = getCountryGeometries(),
   minimumAlpha = 0,
   missingStyle?: SocioeconomicMissingStyle,
+  width = CHOROPLETH_MAP_WIDTH,
 ): THREE.DataTexture {
-  const w = CHOROPLETH_MAP_WIDTH;
-  const h = CHOROPLETH_MAP_HEIGHT;
+  const w = width;
+  const h = width / 2;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -243,7 +245,7 @@ export function createChoroplethTexture(
   }
 
   const { data } = ctx.getImageData(0, 0, w, h);
-  const bytes = new Uint8Array(data.buffer.slice(0));
+  const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
   const tex = new THREE.DataTexture(
     bytes as unknown as ArrayBufferView<ArrayBuffer>,

@@ -797,6 +797,7 @@ export class GlobeView {
     if (enabled === this.highQuality) return;
     this.highQuality = enabled;
     this.onResize();
+    this.scheduleChoroplethRebuild();
   }
 
   /** Swap between procedural canvas texture and stippled point globe (test). */
@@ -1487,11 +1488,13 @@ export class GlobeView {
       if (generation !== this.choroplethBuildGeneration) return;
       if (!this.shouldPaintChoropleth()) return;
       const values = aggregateChoroplethValues(points);
+      // Tune only country-fill detail here; mobile/default keeps the original allocation.
+      const mapWidth = Math.min(this.highQuality ? 2560 : 2048, this.renderer.capabilities.maxTextureSize);
       this.socioeconomicMissingMap = createChoroplethMissingMask(
-        values, this.getDisplayCountryGeometries());
+        values, this.getDisplayCountryGeometries(), mapWidth);
       this.choroplethMap = createChoroplethTexture(
         values, colorHex, this.getDisplayCountryGeometries(), this.socioeconomicMinimum,
-        this.socioeconomicMissingStyle,
+        this.socioeconomicMissingStyle, mapWidth,
       );
       this.applyChoroplethMaterial();
       applySocioeconomicPattern(this.choroplethShell.material, this.socioeconomicStyle,
@@ -2946,6 +2949,8 @@ export class GlobeView {
     // CPU bytes plus GPU storage, and the temporary RGBA canvas/readback used during rebuild.
     const socioeconomicMissing = 2 * missingMaskBytes;
     const socioeconomicMissingScratch = 8 * missingMaskBytes;
+    const fillBytes = this.choroplethMap?.image.data.byteLength ?? 0;
+    const socioeconomicFillDetail = Math.max(0, fillBytes - 2048 * 1024 * 4) * 2;
     // Reserve the synchronous blur's additional scratch even between rebuilds.
     const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
     // Origin/peer painting can read two weight groups; legacy painting reads only one.
@@ -2953,10 +2958,11 @@ export class GlobeView {
     const selectionBorders = this.selectionBorderStorageBytes;
     const surfacePicking = this.surfacePicker.storageBytes();
     return { surface, borders, stipple, atmosphere, contours, geography, fieldScratch,
-      socioeconomicMissing, socioeconomicMissingScratch,
+      socioeconomicMissing, socioeconomicMissingScratch, socioeconomicFillDetail,
+      countryFillWidth: this.choroplethMap?.image.width ?? 0,
       highlightScratch, selectionBorders, surfacePicking,
       total: surface + borders + stipple + atmosphere + contours + geography +
-        fieldScratch + highlightScratch + selectionBorders + surfacePicking + socioeconomicMissing + socioeconomicMissingScratch };
+        fieldScratch + highlightScratch + selectionBorders + surfacePicking + socioeconomicMissing + socioeconomicMissingScratch + socioeconomicFillDetail };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */

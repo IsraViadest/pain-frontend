@@ -1115,6 +1115,7 @@ function loop(now: number): void {
       appRootEl.dataset.cpQuality = quality.level;
       appRootEl.dataset.cpQualityTarget = quality.target;
       appRootEl.dataset.cpDetailBytes = String(storage.total);
+      appRootEl.dataset.cpCountryFillWidth = String(storage.countryFillWidth);
       appRootEl.dataset.cpDetailBudget = String(quality.activeBudgetBytes);
       appRootEl.dataset.cpBudgetExceeded = String(storage.total > quality.activeBudgetBytes);
     }

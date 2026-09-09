@@ -22,7 +22,7 @@ export class CountryRenderQuality {
   private slowWindows = 0;
   private readonly samples: number[] = [];
 
-  constructor(request: string) {
+  constructor(request: string, private readonly highQuality = false) {
     if (!["auto", "light", "standard", "rich"].includes(request)) {
       throw new Error(`Unknown cpQuality: ${request}`);
     }
@@ -31,7 +31,10 @@ export class CountryRenderQuality {
   }
 
   get settings() { return PROFILES[this.target]; }
-  get activeBudgetBytes(): number { return PROFILES[this.level].budgetBytes; }
+  get activeBudgetBytes(): number {
+    // HQ adds map detail even if automatic frame pacing keeps geometry at Light.
+    return Math.max(PROFILES[this.level].budgetBytes, this.highQuality ? 128 * 1024 ** 2 : 0);
+  }
 
   /** Apply means request new render settings; report also covers a completed pool transition. */
   tick(now: number, busy: boolean, ready: boolean, hidden = false): "apply" | "report" | null {
