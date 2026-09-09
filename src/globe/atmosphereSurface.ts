@@ -79,18 +79,26 @@ const MANTLE_FRAGMENT = /* glsl */ `
 ${FRAGMENT_COMMON}
 varying vec3 vSurfaceNormal;
 varying vec2 vFieldUv;
+uniform float uBaseRadius;
 void main() {
   discardBehindSurface();
   float density = texture2D(uField, vFieldUv).a;
   if (density <= 0.0) discard;
   vec3 light = normalize(mat3(uInverseEarth) * vec3(4.0, 2.0, 3.0));
-  float shade = 0.82 + 0.18 * max(0.0, dot(normalize(vSurfaceNormal), light));
+  float shade = 0.94 + 0.06 * max(0.0, dot(normalize(vSurfaceNormal), light));
   vec3 eye = (uInverseEarth * vec4(cameraPosition, 1.0)).xyz;
-  float facing = abs(dot(normalize(vEarthPosition), normalize(eye - vEarthPosition)));
-  // A shallow optical layer gets denser toward the limb, then softly ends at its silhouette.
-  // The original normalized horizontal field is unchanged.
-  float alpha = (1.0 - exp(-density * uAppearance / max(facing, 0.25))) *
-    smoothstep(0.0, 0.08, facing);
+  vec3 towardEye = normalize(eye - vEarthPosition);
+  float radius = length(vEarthPosition);
+  float facing = abs(dot(vEarthPosition / radius, towardEye));
+  // Approximate a soft atmospheric column with its local spherical chord. Unlike 1/facing,
+  // this path naturally reaches zero at the outer edge, without a hard luminous shell.
+  // Normalize by face-on thickness so the original field strength stays the same at center.
+  float innerRadius = uBaseRadius - 0.012;
+  float impactSquared = radius * radius * (1.0 - facing * facing);
+  float path = radius * facing - sqrt(max(0.0, innerRadius * innerRadius - impactSquared));
+  float opticalPath = max(0.0, path) / (radius - innerRadius);
+  float edge = smoothstep(0.0, 0.45, abs(dot(normalize(vSurfaceNormal), towardEye)));
+  float alpha = (1.0 - exp(-density * uAppearance * opticalPath)) * edge;
   gl_FragColor = vec4(uColor * shade, alpha);
   #include <colorspace_fragment>
 }
