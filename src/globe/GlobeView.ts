@@ -993,6 +993,7 @@ export class GlobeView {
   /** Rebuild the CO2 haze DataTexture from {@link lastPainPoints} and current tune. */
   rebuildCo2Haze(): void {
     this.rebuildCo2HazeMap();
+    this.syncAtmosphereFields();
   }
 
   /** Current border shell uniform scale (debug panel Borders section). */
@@ -1059,6 +1060,7 @@ export class GlobeView {
     this.environmentalFieldPattern = pattern;
     this.rebuildTemperatureShellMap();
     this.rebuildCo2HazeMap();
+    this.syncAtmosphereFields();
   }
 
   private applyStipplePointScale(): void {
@@ -1073,6 +1075,7 @@ export class GlobeView {
   /** Rebuild Temperature haze shell from {@link lastPainPoints} and current temp tune. */
   rebuildTempHeat(): void {
     this.rebuildTemperatureShellMap();
+    this.syncAtmosphereFields();
   }
 
   private applyStippleTuneUniforms(): void {
