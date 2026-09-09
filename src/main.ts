@@ -549,6 +549,11 @@ function toggleEmotionCategory(cat: string): void {
     if (revision !== filterRevision) return;
     countryPresentation?.allowManualMotion();
     const selected = countryProfileRuntime?.selectedIso3;
+    // Record the outgoing network before its category data is replaced or filtered away.
+    const selectedEmotion = selected
+      ? countryProfileRuntime?.profiles.get(selected)?.emotional.categoryKey : null;
+    if (selected && selectedEmotion) trackInteraction({ type: "emotion", target: "emotion",
+      action: "close", country: selected, emotion: selectedEmotion, enabled: false });
     emoLegend?.destroy(); emoLegend = null;
     emoLabelLayer?.destroy(); emoLabelLayer = null;
     emoArcLayer?.destroy(); emoArcLayer = null;
