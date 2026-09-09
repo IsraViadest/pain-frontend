@@ -1294,3 +1294,17 @@ http://127.0.0.1:4174/?cp=1; port 3000 has not been rebuilt with this round. Fin
 integration, 320 px/landscape inspection, real rotate/hover inspection, Light silhouette and
 paired GPU/frame-pacing checks after the host recovers. Do not infer these passed from the
 isolated rendering tests. The About video still needs an upstream URL.
+
+Final integration update: Docker returned successfully and both builds completed. The earlier
+claim of a wedged API was too strong; delayed responses did not establish that diagnosis.
+Port 3000 now serves frontend 3796cde with the existing server 48b3be8. Both original branches
+were restored and are clean. Final npm run check passes. The 320 px integrated web probe now
+passes after checking computed visibility of the closed mobile menu rather than its rectangle
+alone. Opening that menu fits within the viewport. The 844 x 390 HQ landscape probe passes:
+festival banner is in the left title flow (x20, right280), logo left, no horizontal overflow,
+and the emotional heading is lowercase. Desktop projection's integrated probe also passes.
+
+Full real-gesture inspection, the final Light silhouette in pixels, and representative GPU/
+frame-pacing measurements remain open because CUA timed out and host load invalidated timing.
+Phone hardware testing remains deferred. The optional upstream About video still needs its URL.
+Temporary preview services are stopped after integration. No gallery files were exported.
