@@ -1459,3 +1459,25 @@ An isolated visual preview is running at <http://127.0.0.1:5176/?hq=0>, using th
 packaged local data API on 5178. No Docker repair or Windows repackaging was performed. This
 preview verifies visual changes, not the web survey backend. Temporary checks are under /tmp;
 no gallery was exported.
+
+
+## 2026-09-10: working preview analytics and shared ocean colors
+
+Preview 5176 now proxies to a dedicated collector on 5180 with its exact loopback origin
+explicitly allowed. Logs are in workspace `artifacts/interaction-logs/preview-5176`, outside
+web-served files. Old 5178 test logs remain separate. Consented numeric survey aggregates are
+accepted in preview mode; native defaults still exclude them. Collector/export source: ef47896.
+Browser-to-file verification matched all 38 captured test events exactly once, plus three
+closing events; a repeated batch returned accepted=0. Server tests, frontend privacy/queue
+checks, and independent source review pass. Wrong-origin and log-file HTTP requests return403.
+
+The [interaction-log analysis index](../interaction-logs/README.md) lists every actual event
+family, fields, paths, export commands and interpretation limits. It links the initial164-row
+CSV, explicitly development/test activity. The temporary preview still has no survey-response
+processor, so a submit record is an attempt. Web filter clicks are now explicitly recorded
+because legend propagation stopped the generic observer (77ebd98).
+
+Ocean dots use the actual Emotional override and theme mixture in every layer (093f84b).
+GPU checks matched all five layers in both themes; the land branch, opacity, geometry and
+scar contours are preserved. A physical-layer capture was inspected. No new Windows ZIP,
+public deployment, Docker repair or gallery was created during this task.
