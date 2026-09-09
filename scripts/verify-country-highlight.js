@@ -9,7 +9,7 @@
     const { createCountryHighlightTexture } = await import("/src/globe/choroplethField.ts");
     const { createEmoSelectionLayer } = await import("/src/emo/selection.ts");
     const { GlobeView } = await import("/src/globe/GlobeView.ts");
-    const { resolveEmoViewFromUrl } = await import("/src/emo/emoViewConfig.ts");
+    const { findEmoPreset, resolveEmoPresetParams, DEFAULT_EMO_PRESET_ID } = await import("/src/emo/viewPresets.ts");
     const rectangle = (key, left, right) => ({ properties: { ISO_A3: key },
       geometry: { type: "Polygon", coordinates: [[[left, 0], [right, 0],
         [right, 10], [left, 10], [left, 0]]] } });
@@ -62,7 +62,7 @@
     const projectedArrays = new WeakSet();
     const motion = { retreatingCategories: () => [], markArrivalOf: () => 1,
       markStrengthOf: (iso, weight) => iso === origin ? 1 : weight };
-    const params = { ...resolveEmoViewFromUrl().params, selectionOutline: 2 };
+    const params = { ...resolveEmoPresetParams(findEmoPreset(DEFAULT_EMO_PRESET_ID)), selectionOutline: 2 };
     layer = await createEmoSelectionLayer({ globe: { earthContent: content, renderer, camera,
       getCountrySurfaceGeometry: () => surface, getDisplayCountryGeometries: geo.getCountryGeometries,
       projectCountryOutlinePositions: (base, out) => {

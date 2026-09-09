@@ -17,7 +17,9 @@ import {
   METRICS_KIND_LAYER,
   METRICS_KIND_CATEGORY,
   trackToggle,
+  trackInteraction,
 } from "./api/metricsApi";
+import { installInteractionMetrics } from "./api/interactionMetrics";
 import { getMapLayerById, isChoroplethMapLayer, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer, PainPoint } from "./types/api";
 import {
@@ -66,12 +68,10 @@ import { createEmoSelectionMotion, type EmoSelectionMotion } from "./emo/selecti
 import type { EmoViewParams } from "./emo/viewParams";
 import { createEmoLegend, type EmoLegendLayer } from "./emo/legend";
 import {
-  shouldShowEmoViews,
   shouldOpenEmoPanel,
-  resolveEmoViewFromUrl,
   applyEmoCaptureOverrides,
 } from "./emo/emoViewConfig";
-import { findEmoPreset, type EmoPreset } from "./emo/viewPresets";
+import { DEFAULT_EMO_PRESET_ID, resolveEmoPresetParams, findEmoPreset, type EmoPreset } from "./emo/viewPresets";
 import { mountEmoViewPanel } from "./ui/emoViewPanel";
 import type { CountryProfileRuntime } from "./countryProfile/runtime";
 import type { CountryPresentation } from "./countryProfile/presentation";
@@ -87,6 +87,7 @@ if (!canvas || !statusEl || !wordCloudToggle) {
 }
 
 const hudStatus = statusEl;
+installInteractionMetrics(canvas);
 let lastLayerId = "";
 let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
 let chrome: ProductionChrome | null = null;
@@ -170,7 +171,7 @@ installTextSelectionGuard();
 const globe = new GlobeView(canvas);
 const displayQuery = new URLSearchParams(location.search);
 const highQuality = displayQuery.get("hq") === "1" ||
-  (displayQuery.get("cp") === "1" && displayQuery.get("cpProjection") === "1" &&
+  (displayQuery.get("cpProjection") === "1" &&
     displayQuery.get("hq") !== "0");
 globe.setHighQuality(highQuality);
 const scarMapPreview = document.querySelector<HTMLCanvasElement>(
@@ -489,13 +490,10 @@ const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
   socioecopain: "#FFFF00",
 };
 
-// The country profile is its own experiment, but it reuses the chosen emotional view without
-// exposing the old views panel. Its implementation stays behind a dynamic import below.
-const countryProfileEnabled = ["1", "true"].includes(
-  new URLSearchParams(window.location.search).get("cp") ?? "",
-);
-const emoViewControlsEnabled = shouldShowEmoViews();
-const emoViewsEnabled = emoViewControlsEnabled || countryProfileEnabled;
+// The selected design is now the normal site. Comparison builds remain on the archived branch.
+const countryProfileEnabled = true;
+const emoViewControlsEnabled = false;
+const emoViewsEnabled = true;
 const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
 const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
 const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
@@ -506,7 +504,8 @@ let emoArcLayer: EmoArcLayer | null = null;
 let emoLeaderLineLayer: EmoLeaderLineLayer | null = null;
 let emoSelectionLayer: EmoSelectionLayer | null = null;
 let emoMotion: EmoSelectionMotion | null = null;
-const emoView = resolveEmoViewFromUrl();
+const emoView = { presetId: DEFAULT_EMO_PRESET_ID,
+  params: resolveEmoPresetParams(findEmoPreset(DEFAULT_EMO_PRESET_ID)!) };
 let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
 let emoParams = emoView.params;
 let emoPanel: { setParam: (key: "randomSeed", value: number) => void } | null = null;
@@ -1090,7 +1089,8 @@ function loop(now: number): void {
   emoArcLayer?.update();
   emoLeaderLineLayer?.update();
   const exactCountry = countryProfileRuntime?.preset.selectionPeerStrength !== undefined &&
-    lastLayerId !== "emopain" && lastLayerId !== "all-layers"
+    ((lastLayerId !== "emopain" && lastLayerId !== "all-layers") ||
+      (selectedOrigin && !countryProfileRuntime.profiles.get(selectedOrigin)?.emotional.categoryKey))
     ? countryProfileRuntime.selectedIso3 : null;
   emoSelectionLayer?.setExactCountry(exactCountry,
     exactCountry ? getMapLayerById(lastLayerId)?.color ?? "#ffffff" : "#ffffff");
@@ -1132,6 +1132,15 @@ async function mountEmotionLayers(data: EmoData): Promise<EmoLabelLayer | null> 
     // country fill are told from here.
     onSelect: (selection) => {
       countryPresentation?.allowManualMotion();
+      const previousCountry = countryProfileRuntime?.selectedIso3;
+      const previousEmotion = previousCountry
+        ? countryProfileRuntime?.profiles.get(previousCountry)?.emotional.categoryKey : null;
+      if (selection) trackInteraction({ type: "emotion", target: "emotion",
+        action: previousCountry ? "change" : "open", emotion: selection.cat,
+        country: selection.iso3, enabled: true });
+      else if (previousCountry && previousEmotion) trackInteraction({ type: "emotion",
+        target: "emotion", action: "close", emotion: previousEmotion,
+        country: previousCountry, enabled: false });
       // Order matters here. setSelection clears any wave in flight, and the arc layer starts
       // the new one, so the arcs go second or the wave they just planned is thrown away.
       emoMotion?.setSelection(selection?.cat ?? null);

@@ -129,7 +129,7 @@ export async function mountProductionChrome(
   const sharePainHost = requireChild(appRoot, "ui-share-pain");
   const bottomLeftHost = requireChild(appRoot, "ui-bottom-left");
   const query = new URLSearchParams(location.search);
-  const projection = query.get("cp") === "1" && query.get("cpProjection") === "1";
+  const projection = query.get("cpProjection") === "1";
   // Retain the measured footprint so selection never pulls the other controls downward.
   sharePainHost.style.opacity = projection ? "0" : "";
   sharePainHost.inert = projection;
@@ -146,6 +146,7 @@ export async function mountProductionChrome(
   const soundToggleBtn = document.createElement("button");
   soundToggleBtn.type = "button";
   soundToggleBtn.className = "ui-title__sound-toggle";
+  soundToggleBtn.dataset.metricTarget = "sound";
 
   const syncSoundToggle = (): void => {
     const enabled = isSoundEnabled();
@@ -176,6 +177,7 @@ export async function mountProductionChrome(
   const themeToggleBtn = document.createElement("button");
   themeToggleBtn.type = "button";
   themeToggleBtn.id = "theme-toggle";
+  themeToggleBtn.dataset.metricTarget = "theme";
   themeToggleBtn.className = "ui-title__sound-toggle";
   {
     const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
@@ -193,6 +195,7 @@ export async function mountProductionChrome(
   titleToggles.append(soundToggleBtn, themeToggleBtn);
 
   const hamburgerBtn = await createHamburgerButton();
+  hamburgerBtn.dataset.metricTarget = "menu";
   let allLayersMode = false;
 
   const closeMobileMenu = (): void => {
@@ -302,6 +305,7 @@ export async function mountProductionChrome(
     },
   });
   sharePainHost.appendChild(sharePainBtn);
+  sharePainBtn.dataset.metricTarget = "share";
 
   const aboutBtn = await createBlobButton({
     svgName: "about.svg",
@@ -330,6 +334,8 @@ export async function mountProductionChrome(
   });
 
   bottomLeftHost.append(aboutBtn, dataSourcesBtn);
+  aboutBtn.dataset.metricTarget = "about";
+  dataSourcesBtn.dataset.metricTarget = "sources";
 
   const chromeActionButtons = [
     sharePainBtn,
@@ -338,14 +344,12 @@ export async function mountProductionChrome(
     hamburgerBtn,
   ];
 
-  if (query.get("cp") === "1") {
-    sharePainBtn.classList.add("blob-button--lower-label");
-    dataSourcesBtn.classList.add("blob-button--lower-label");
-    if (!projection) {
-      const { mountFestivalMedia } = await import("./festival-media");
-      const videoButton = mountFestivalMedia(titleHost);
-      if (videoButton) chromeActionButtons.push(videoButton);
-    }
+  sharePainBtn.classList.add("blob-button--lower-label");
+  dataSourcesBtn.classList.add("blob-button--lower-label");
+  if (!projection) {
+    const { mountFestivalMedia } = await import("./festival-media");
+    const videoButton = mountFestivalMedia(titleHost);
+    if (videoButton) chromeActionButtons.push(videoButton);
   }
 
   return {

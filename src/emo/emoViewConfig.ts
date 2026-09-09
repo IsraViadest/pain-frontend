@@ -1,27 +1,16 @@
-/**
- * Opt-in gate for the emotional-pain label views.
- *
- * Follows the convention already used by the globe debug panel (globeDebugPanel.ts): a
- * `pain-`-prefixed kebab-case localStorage key wins over a camelCase URL parameter, and every
- * storage or URL read is wrapped because private mode and sandboxed frames throw.
- */
+/** Camera verification helpers and the retained internal panel URL formatter. */
 import * as THREE from "three";
 import type { GlobeView } from "../globe/GlobeView";
 import { latLngToVector3 } from "../globe/latLng";
 import {
   DEFAULT_EMO_PARAMS,
-  EMO_ENUM_VALUES,
   diffEmoParams,
-  type EmoEnumKey,
   type EmoViewParams,
 } from "./viewParams";
 import {
-  DEFAULT_EMO_PRESET_ID,
   findEmoPreset,
   resolveEmoPresetParams,
 } from "./viewPresets";
-
-const EMO_VIEWS_LS_KEY = "pain-emo-views";
 
 /** The `ev` value, or null when the gate is off or unreadable. `emoViews` is the old spelling. */
 function emoGateValue(): string | null {
@@ -31,31 +20,6 @@ function emoGateValue(): string | null {
   } catch {
     return null;
   }
-}
-
-/**
- * Enable with `?ev=1` or `localStorage.setItem("pain-emo-views", "1")` then reload.
- * Off by default, so production is untouched until a preset is promoted deliberately.
- *
- * `?ev=2` IS THE SAME VIEWS WITH THE PANEL CLOSED, and it exists because the two things the
- * operator wants to look at are on top of each other: the panel sits on the left, and so does the
- * category legend. `?emoPanel=0` already did this and stays; the second gate value is the short
- * spelling, so looking at a view without the controls is one character rather than a second
- * parameter to remember. The entry button is still there, so the panel is one click away.
- *
- * `?emoViews=1` is still accepted. It was the original spelling and PROGRESS.md, which is
- * append-only and therefore cannot be rewritten, records many URLs that use it. Dropping it would
- * kill working links in the archive, so the long form stays readable and the short one is what
- * gets written and documented.
- */
-export function shouldShowEmoViews(): boolean {
-  try {
-    if (localStorage.getItem(EMO_VIEWS_LS_KEY) === "1") return true;
-  } catch {
-    /* private mode / quota */
-  }
-  const v = emoGateValue();
-  return v === "1" || v === "2" || v === "true";
 }
 
 /**
@@ -75,97 +39,6 @@ export function shouldOpenEmoPanel(): boolean {
     return true;
   }
   return emoGateValue() !== "2";
-}
-
-/** One enum parameter, validated against its allowed values because these are hand-typed. */
-function readEnumParam(
-  q: URLSearchParams,
-  name: string,
-  key: EmoEnumKey,
-  params: EmoViewParams,
-): void {
-  const raw = q.get(name);
-  if (raw === null) return;
-  const allowed: readonly string[] = EMO_ENUM_VALUES[key];
-  if (!allowed.includes(raw)) {
-    console.warn(`[emoViewConfig] ignoring ${name}="${raw}"; expected ${allowed.join(" | ")}`);
-    return;
-  }
-  Object.assign(params, { [key]: raw });
-}
-
-/**
- * Apply an exact override object, as written by the view panel's "reload with these".
- *
- * Unknown keys and values of the wrong type are dropped rather than thrown on, matching the
- * rest of this module: every one of these values can arrive hand-edited.
- */
-function applyParamsJson(raw: string, params: EmoViewParams): void {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    console.warn(`[emoViewConfig] ignoring emoParams; not valid JSON`);
-    return;
-  }
-  if (typeof parsed !== "object" || parsed === null) return;
-  for (const [key, value] of Object.entries(parsed)) {
-    if (!(key in DEFAULT_EMO_PARAMS)) continue;
-    const typed = key as keyof EmoViewParams;
-    if (typeof value !== typeof DEFAULT_EMO_PARAMS[typed]) continue;
-    if (typeof value === "string") {
-      const allowed: readonly string[] | undefined =
-        EMO_ENUM_VALUES[typed as EmoEnumKey];
-      if (allowed && !allowed.includes(value)) continue;
-    }
-    Object.assign(params, { [typed]: value });
-  }
-}
-
-interface EmoViewSelection {
-  presetId: string;
-  params: EmoViewParams;
-}
-
-/**
- * Resolve which view to open from the query string, so any view is reachable from a cold load
- * and a screenshot of it is reproducible.
- *
- * Four layers, each overriding the one before:
- *   1. DEFAULT_EMO_PARAMS
- *   2. `?emoPreset=<id>`   a named entry in the append-only registry
- *   3. `?emoMode=` and friends, single-field shorthands, kept because they are documented
- *   4. `?emoParams=<json>` an exact override object, what the panel's reload button writes
- */
-export function resolveEmoViewFromUrl(): EmoViewSelection {
-  let q: URLSearchParams;
-  try {
-    q = new URLSearchParams(window.location.search);
-  } catch {
-    return { presetId: DEFAULT_EMO_PRESET_ID, params: { ...DEFAULT_EMO_PARAMS } };
-  }
-
-  const requested = q.get("emoPreset");
-  const preset = findEmoPreset(requested ?? DEFAULT_EMO_PRESET_ID);
-  if (requested !== null && !preset) {
-    console.warn(`[emoViewConfig] unknown emoPreset="${requested}"; falling back to the default`);
-  }
-  const resolved = preset ?? findEmoPreset(DEFAULT_EMO_PRESET_ID);
-  const params = resolved
-    ? resolveEmoPresetParams(resolved)
-    : { ...DEFAULT_EMO_PARAMS };
-
-  readEnumParam(q, "emoMode", "labelMode", params);
-  readEnumParam(q, "emoClick", "clickMode", params);
-  readEnumParam(q, "emoColour", "colourMode", params);
-  readEnumParam(q, "emoEnglish", "englishText", params);
-  const density = Number(q.get("emoDensity"));
-  if (Number.isFinite(density) && density > 0) params.density = density;
-
-  const json = q.get("emoParams");
-  if (json !== null) applyParamsJson(json, params);
-
-  return { presetId: resolved?.id ?? DEFAULT_EMO_PRESET_ID, params };
 }
 
 /**
