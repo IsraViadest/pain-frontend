@@ -1362,3 +1362,17 @@ Remaining live browser/gesture/GPU checks are blocked because the Mac is locked;
 manual unlock. Physical phone testing remains deferred. No gallery was produced, and no push,
 PR or publication occurred. The stopped native test cluster /tmp/pain-analytics-pg-20260909
 remains81MiB because automatic approval explicitly blocked rm; no deletion workaround was used.
+
+Final source and integration update: frontend 5bcb349 and server ae6701f were built into the
+local Docker service. Compose reported the replacement container started, and both original
+checkout branches were restored. This supersedes the frontend commit recorded above.
+The final compliance/build and interaction-metrics checks pass. Entry JavaScript is now
+220.07 kB gzip. Consent storage failures no longer prevent startup; explicit choices survive
+in page memory when persistence is denied, with cross-tab revocation covered by tests.
+Country-profile durations, original click paths, canceled-contact handling and outgoing
+emotion-filter network events are included in this build.
+
+A final combined HTTP/static-asset readiness and Git-status command was rejected by automatic
+approval policy. No equivalent workaround was attempted, so container startup is confirmed
+but this build's final HTTP readiness check remains unverified. Browser acceptance also remains
+open pending manual unlock. The Greenland source-year question remains open.
