@@ -199,7 +199,8 @@ function createEnvironmentalMetric(compact: boolean, inset: number, missingPatte
       const unavailable = temperatureMissing && co2Missing;
       if (compact) {
         outline.style.display = co2Missing ? "none" : "";
-        unavailableOutline.style.display = unavailable && !missingPattern ? "" : "none";
+        // Keep a neutral reference for a known temperature (including zero) when CO₂ is absent.
+        unavailableOutline.style.display = co2Missing && !temperatureMissing ? "" : "none";
       }
       missing.hidden = !unavailable;
       element.dataset.missing = unavailable ? "true" : "false";
