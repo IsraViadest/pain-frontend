@@ -44,6 +44,7 @@ export function mountSurveyScreen5(
   title.textContent = "Describe your pain experience.";
 
   const painText = document.createElement("textarea");
+  painText.maxLength = 10000;
   painText.className = "survey-screen__pain-text";
   painText.placeholder = "I feel…";
   painText.value = state.painText;

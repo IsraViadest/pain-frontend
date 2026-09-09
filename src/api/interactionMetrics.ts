@@ -1,3 +1,4 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 import { flushInteractionMetrics, stopInteractionMetrics, trackInteraction, type MetricEvent } from "./metricsApi";
 import { VisibleDuration } from "./metricsQueue";
 
@@ -80,6 +81,8 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
       trackInteraction({ type: "control", target: "layer", action: "click", layer: layer as MetricEvent["layer"] });
     } else if (button.matches(".emo-legend__item")) {
       trackInteraction({ type: "emotion", target: "emotion", action: "click", emotion: button.dataset.cat });
+    } else if (button.matches(".emo-legend__exclude")) {
+      trackInteraction({ type: "emotion", target: "emotion-filter", action: "click", emotion: button.dataset.cat });
     } else if (button.matches(".festival-media__workshop")) {
       trackInteraction({ type: "control", target: "workshop", action: "click" });
     } else if (button.matches(".consent-modal__btn")) {
@@ -87,6 +90,10 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
         enabled: button.classList.contains("consent-modal__btn--agree") });
     } else if (path.some(node => node.matches(".info-modal")) && button.matches("a")) {
       trackInteraction({ type: "control", target: infoTarget === "sources" ? "source-link" : "about-link", action: "click" });
+    } else if (button.matches(".info-modal__close")) {
+      trackInteraction({ type: "control", target: infoTarget, action: "close" });
+    } else if (button.matches(".survey-result-modal__close")) {
+      trackInteraction({ type: "control", target: "result", action: "close" });
     }
   }, { signal });
 
