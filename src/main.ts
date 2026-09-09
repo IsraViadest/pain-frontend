@@ -544,6 +544,8 @@ async function loadViewEmotions(): Promise<EmoData> {
 }
 function toggleEmotionCategory(cat: string): void {
   if (!emotionExclusions) return;
+  // The legend stops propagation, so its activation cannot reach the document observer.
+  trackInteraction({ type: "emotion", target: "emotion-filter", action: "click", emotion: cat });
   if (emotionExclusions.has(cat)) emotionExclusions.delete(cat);
   else emotionExclusions.add(cat);
   emoLegend?.setExcluded(emotionExclusions);
