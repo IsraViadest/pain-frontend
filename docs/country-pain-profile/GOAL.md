@@ -1308,3 +1308,57 @@ Full real-gesture inspection, the final Light silhouette in pixels, and represen
 frame-pacing measurements remain open because CUA timed out and host load invalidated timing.
 Phone hardware testing remains deferred. The optional upstream About video still needs its URL.
 Temporary preview services are stopped after integration. No gallery files were exported.
+
+## 2026-09-09: selected release, geographic coverage and private analytics
+
+Active frontend branch: feat/exhibition-web. The full variation branch remains at22083b8.
+The selected configurations are unchanged by consolidation; one country profile and one
+emotion preset remain. Removed6,428 lines from registries, URL comparison code and catalogue.
+The release is now the normal / entry. Projection/HQ and emotion exclusions remain available.
+Frontend default-entry gzip is219.89kB versus235.07kB before this task.
+
+Coverage:206 profiles,177 geographic entries,192 observed emotional countries,190 GDP values.
+Greenland and10 other previously omitted geographic areas now have profiles. Added verified
+2024 GDP for Puerto Rico, New Caledonia and Kosovo (source aliasXKX only for the data join).
+All195 earlier GDP values and normalization extrema remain unchanged. Greenland2024 is null;
+its2023 value exists, but the source-year choice remains unanswered. Do not silently relabel it.
+The latest non-25-million emotional CSV is v2/20260905T063105Z and already matches the bundled
+CSV row-for-row. Newer v3 explicitly pools25,932,030 news observations and was excluded.
+
+Analytics: consent-aware, fixed-field /metrics/events batches,32 events/16KiB,256-entry RAM
+queue, stable tab/sequence retry identifiers, one SQL insert per batch. Records semantic clicks,
+country/emotion/layer states, coalesced navigation gestures, modal and country-profile windows,
+and survey counts/character counts without chosen-answer identities or written content.
+Page/window durations are additive visible-time segments with15-second checkpoints; survey
+step durations remain cumulative per visit. Existing survey consent/decline remains operative.
+Raw survey console/server logs were removed. Legacy free-text survey metrics are rejected.
+The actual deployed private composer was audited: normal requests retain neither inputs nor
+answers, and its corpus database is read-only. Consent copy describes the actual prepared-text
+artwork instead of claiming the installed no-op classifier analyzes the written response.
+
+Server branch feat/interaction-analytics; setup branch feat/projection-analytics-export.
+Added interactionevents plus indexes after a schema backup at workspace
+artifacts/backups/analytics-schema-20260909-hYlJq7/schema.sql. Existing users remained2802;
+new events table started empty. No pain rows, historical metrics or historical logs were changed.
+Fresh-install Bash/PowerShell initialization includes the additive migration.
+
+Portable export launchers live in the setup worktree: export-interactions.command(macOS),
+export-interactions.cmd(Windows). They use a read-only snapshot and write CSV, summaryJSON and
+data dictionary into a uniquely named ZIP, published only after archive creation succeeds.
+No raw logs, old answer metrics, coordinates, IPs, typed content or media are exported.
+Both scripts passed20,000-row fixtures and4,000-row disposable PostgreSQL exports. The actual
+local export also passed integrity/header/count checks with zero new events, as expected.
+
+Verification: frontend compliance, country coverage, all-term font checks, analytics privacy,
+consent/retry/timing tests and server validation pass. Native PostgreSQL tests with50/100 mixed
+clients stored4,000 events without duplicates, one SQLquery/batch. At100 clients, cold p95=83ms,
+next warm batch37ms, retries42ms. Real layer endpoints with50 concurrent gzip clients passed
+with0 errors/mismatches: warm p95 emotional10.56ms, environmental83.53ms, physical145.96ms,
+socioeconomic7.87ms. Cold runs used one query/layer; warm runs used zero. These are HTTP tests,
+not100 rendering browsers or physical-device performance evidence.
+
+Docker now serves frontend7b813d3 and serverae6701f. Both original checkouts were restored.
+Remaining live browser/gesture/GPU checks are blocked because the Mac is locked; CUA requested
+manual unlock. Physical phone testing remains deferred. No gallery was produced, and no push,
+PR or publication occurred. The stopped native test cluster /tmp/pain-analytics-pg-20260909
+remains81MiB because automatic approval explicitly blocked rm; no deletion workaround was used.
