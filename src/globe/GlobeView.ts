@@ -58,6 +58,7 @@ import {
   type StipplePointTune,
 } from "./stipplePointScale";
 import type { FieldTexturePattern } from "./fieldTexturePattern";
+import { HazeTextureCache } from "./hazeTextureCache";
 import { getCountryGeometries, type IndexedCountryGeometry } from "./countryGeometry";
 import type { buildCountryDisplayGeometry } from "./countryDisplayGeometry";
 import type { StippleDetailMode } from "./stippleDetailController";
@@ -483,6 +484,7 @@ export class GlobeView {
     THREE.MeshBasicMaterial
   >;
   private co2HazeMap: THREE.DataTexture | null = null;
+  private readonly co2HazeCache = new HazeTextureCache();
   /**
    * SHELL temperature haze — equirect red+alpha map at TEMPERATURE_SHELL_RADIUS;
    * visible when Temperature points exist.
@@ -492,6 +494,7 @@ export class GlobeView {
     THREE.MeshBasicMaterial
   >;
   private temperatureShellMap: THREE.DataTexture | null = null;
+  private readonly temperatureHazeCache = new HazeTextureCache();
   private atmosphere: ReturnType<typeof createEnvironmentalAtmosphere> | null = null;
   private atmosphereMode: AtmosphereMode = "control";
   private atmosphereSamples: 16 | 32 | 48 = 32;
@@ -2189,16 +2192,12 @@ export class GlobeView {
     this.choroplethShell.geometry.dispose();
     this.choroplethShell.material.dispose();
     this.choroplethBasePositions = null;
-    if (this.co2HazeMap) {
-      this.co2HazeMap.dispose();
-      this.co2HazeMap = null;
-    }
+    this.co2HazeCache.dispose();
+    this.co2HazeMap = null;
     this.co2Haze.geometry.dispose();
     this.co2Haze.material.dispose();
-    if (this.temperatureShellMap) {
-      this.temperatureShellMap.dispose();
-      this.temperatureShellMap = null;
-    }
+    this.temperatureHazeCache.dispose();
+    this.temperatureShellMap = null;
     this.temperatureShell.geometry.dispose();
     this.temperatureShell.material.dispose();
     this.glow.geometry.dispose();
@@ -2609,29 +2608,31 @@ export class GlobeView {
    * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
    */
   private rebuildTemperatureShellMap(): void {
-    if (this.temperatureShellMap) {
-      this.temperatureShellMap.dispose();
-      this.temperatureShellMap = null;
-    }
     const temperaturePoints = filterTemperatureHazePoints(this.lastPainPoints);
     const mat = this.temperatureShell.material;
-    if (temperaturePoints.length === 0) {
-      mat.map = null;
-      mat.needsUpdate = true;
-      this.temperatureShell.visible = false;
-      return;
-    }
-    this.temperatureShellMap = createTemperatureHazeTexture(temperaturePoints, {
+    const tune = {
       stampRadiusBase: this.tempHeatTune.stampRadiusBase,
       stampRadiusSpan: this.tempHeatTune.stampRadiusSpan,
       blurPass1Radius: this.tempHeatTune.blurPass1Radius,
       blurPass2Radius: this.tempHeatTune.blurPass2Radius,
       maxAlpha: TEMPERATURE_HAZE_TUNE_DEFAULTS.maxAlpha,
       alphaThreshold: TEMPERATURE_HAZE_TUNE_DEFAULTS.alphaThreshold,
-    }, this.environmentalFieldPattern);
+    };
+    this.temperatureShellMap = null;
+    try {
+      this.temperatureShellMap = this.temperatureHazeCache.getTexture(
+        temperaturePoints, tune, this.environmentalFieldPattern,
+        () => createTemperatureHazeTexture(temperaturePoints, tune, this.environmentalFieldPattern),
+      );
+    } catch (error) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      this.syncAtmosphereFields();
+      throw error;
+    }
     mat.map = this.temperatureShellMap;
     mat.needsUpdate = true;
-    this.temperatureShell.visible = true;
+    this.temperatureShell.visible = this.temperatureShellMap !== null;
   }
 
   /**
@@ -2639,26 +2640,23 @@ export class GlobeView {
    * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
    */
   private rebuildCo2HazeMap(): void {
-    if (this.co2HazeMap) {
-      this.co2HazeMap.dispose();
-      this.co2HazeMap = null;
-    }
     const co2Points = filterCo2HazePoints(this.lastPainPoints);
     const mat = this.co2Haze.material;
-    if (co2Points.length === 0) {
+    this.co2HazeMap = null;
+    try {
+      this.co2HazeMap = this.co2HazeCache.getTexture(
+        co2Points, this.co2HazeTune, this.environmentalFieldPattern,
+        () => createCo2HazeTexture(co2Points, this.co2HazeTune, this.environmentalFieldPattern),
+      );
+    } catch (error) {
       mat.map = null;
       mat.needsUpdate = true;
-      this.co2Haze.visible = false;
-      return;
+      this.syncAtmosphereFields();
+      throw error;
     }
-    this.co2HazeMap = createCo2HazeTexture(
-      co2Points,
-      this.co2HazeTune,
-      this.environmentalFieldPattern,
-    );
     mat.map = this.co2HazeMap;
     mat.needsUpdate = true;
-    this.co2Haze.visible = true;
+    this.co2Haze.visible = this.co2HazeMap !== null;
   }
 
   private syncAtmosphereFields(): void {
@@ -2939,16 +2937,20 @@ export class GlobeView {
     const socioeconomicFillDetail = Math.max(0, fillBytes - 2048 * 1024 * 4) * 2;
     // Reserve the synchronous blur's additional scratch even between rebuilds.
     const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
+    const environmentalFieldCache =
+      this.temperatureHazeCache.additionalStorageBytes(this.temperatureShellMap) +
+      this.co2HazeCache.additionalStorageBytes(this.co2HazeMap);
     // Origin/peer painting can read two weight groups; legacy painting reads only one.
     const highlightScratch = HIGHLIGHT_GROUP_BYTES;
     const selectionBorders = this.selectionBorderStorageBytes;
     const surfacePicking = this.surfacePicker.storageBytes();
     return { surface, borders, stipple, atmosphere, contours, geography, fieldScratch,
+      environmentalFieldCache,
       socioeconomicMissing, socioeconomicMissingScratch, socioeconomicFillDetail,
       countryFillWidth: this.choroplethMap?.image.width ?? 0,
       highlightScratch, selectionBorders, surfacePicking,
       total: surface + borders + stipple + atmosphere + contours + geography +
-        fieldScratch + highlightScratch + selectionBorders + surfacePicking + socioeconomicMissing + socioeconomicMissingScratch + socioeconomicFillDetail };
+        fieldScratch + environmentalFieldCache + highlightScratch + selectionBorders + surfacePicking + socioeconomicMissing + socioeconomicMissingScratch + socioeconomicFillDetail };
   }
 
   /** Change sampling without replacing the geometry object borrowed by the selection layer. */
