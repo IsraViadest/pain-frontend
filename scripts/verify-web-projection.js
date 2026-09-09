@@ -48,7 +48,9 @@
     const country = card.querySelector(".country-profile__country").textContent;
     check(country && country === country.toLocaleLowerCase("en"), "country casing wrong");
     const railAfter = document.getElementById("ui-layer-stack").getBoundingClientRect();
-    const railWasOnScreen = railBefore.left < innerWidth && railBefore.right > 0;
+    const railStyle = getComputedStyle(document.getElementById("ui-layer-stack"));
+    const railWasOnScreen = railStyle.visibility === "visible" && Number(railStyle.opacity) > 0 &&
+      railBefore.left < innerWidth && railBefore.right > 0;
     check(!railWasOnScreen || Math.abs(railBefore.bottom - railAfter.bottom) < 1,
       "selection moved visible button rail: " + JSON.stringify({ before: railBefore.toJSON(), after: railAfter.toJSON() }));
     let gdpCountries;
@@ -68,6 +70,13 @@
     const max = [...svg.querySelectorAll("text")].find((x) => x.textContent === "max");
     check(Number(min.getAttribute("y")) < Number(max.getAttribute("y")), "min is not above bright end");
     check(document.documentElement.scrollWidth <= innerWidth, "horizontal overflow");
+    if (!railWasOnScreen) {
+      document.querySelector(".ui-hamburger").click();
+      await sleep(600);
+      const rail = document.getElementById("ui-layer-stack").getBoundingClientRect();
+      check(rail.left >= 0 && rail.right <= innerWidth && rail.top >= 0 && rail.bottom <= innerHeight,
+        "opened mobile controls overflow");
+    }
     return { passed: true, projection, selected, country, gdpCountries,
       railDelta: railAfter.bottom - railBefore.bottom, shareFootprint: [shareBox.width, shareBox.height],
       drawingBuffer: [canvas.width, canvas.height], viewport: [innerWidth, innerHeight],
