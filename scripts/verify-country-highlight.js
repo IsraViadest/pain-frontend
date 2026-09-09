@@ -59,14 +59,24 @@
       renderer.render(content, camera);
       check(gl.getError() === gl.NO_ERROR, "highlight upload failed");
     };
-    let origin = "IND", borderStorage = 0, surfaceProjection = true;
+    let origin = "IND", borderStorage = 0, surfaceProjection = true, projectionCalls = 0;
     const projectedArrays = new WeakSet();
+    const projectionCounts = {};
+    const updateWithProjectionCount = (expected, phase) => {
+      const before = projectionCalls;
+      layer.update();
+      const actual = projectionCalls - before;
+      check(actual === expected, `${phase}: expected ${expected} border projections, got ${actual}`);
+      projectionCounts[phase] = actual;
+    };
     const motion = { retreatingCategories: () => [], markArrivalOf: () => 1,
       markStrengthOf: (iso, weight) => iso === origin ? 1 : weight };
     const params = { ...resolveEmoPresetParams(findEmoPreset(DEFAULT_EMO_PRESET_ID)), selectionOutline: 2 };
     layer = await createEmoSelectionLayer({ globe: { earthContent: content, renderer, camera,
       getCountrySurfaceGeometry: () => surface, getDisplayCountryGeometries: geo.getCountryGeometries,
       projectCountryOutlinePositions: (base, out) => {
+        projectionCalls++;
+        check(base.length > 0, "empty border batch was projected");
         projectedArrays.add(out);
         if (surfaceProjection) GlobeView.prototype.projectCountryOutlinePositions.call(
           { choroplethShell: { geometry: surface } }, base, out);
@@ -77,19 +87,21 @@
     const mesh = content.children[0];
     layer.setPeerStrength(0.5);
     layer.setSelectedCategory("test");
-    layer.update();
+    updateWithProjectionCount(2, "firstPaint");
     render();
+    updateWithProjectionCount(0, "settledTwoBatches");
     const first = mesh.material.map;
     const firstIndia = sample(first, 78, 20)[3], firstPakistan = sample(first, 69, 30)[3];
     origin = "PAK";
-    layer.update();
+    updateWithProjectionCount(2, "roleSwap");
     render();
     check(sample(mesh.material.map, 78, 20)[3] === firstPakistan &&
       sample(mesh.material.map, 69, 30)[3] === firstIndia, "origin role did not swap strengths");
     layer.setSelectedCategory(null);
     layer.setExactCountry("IND", "#ff0000");
-    layer.update();
+    updateWithProjectionCount(1, "exactCountry");
     render();
+    updateWithProjectionCount(0, "settledOneBatch");
     check(sample(mesh.material.map, 78, 20)[0] === 255 &&
       sample(mesh.material.map, 78, 20)[1] === 0, "exact-country fill color incorrect");
     check(sample(mesh.material.map, 69, 30)[3] === 0, "exact mode marked a peer");
@@ -101,18 +113,22 @@
     const line = vectorBorders.children.find((child) => child.visible);
     const instanceBuffer = line.geometry.getAttribute("instanceStart").data;
     check(projectedArrays.has(instanceBuffer.array), "line buffer copied away from live projected positions");
+    const previousVersion = instanceBuffer.version;
     const previous = instanceBuffer.array.slice();
     const surfacePositions = surface.getAttribute("position");
     for (let i = 0; i < surfacePositions.count; i++) surfacePositions.setXYZ(i,
       surfacePositions.getX(i) * 0.8, surfacePositions.getY(i) * 0.8, surfacePositions.getZ(i) * 0.8);
     surfacePositions.needsUpdate = true;
     surface.computeBoundingSphere();
-    layer.update();
+    updateWithProjectionCount(1, "surfaceDeformation");
     render();
     check(line.geometry.getAttribute("instanceStart").data === instanceBuffer,
       "surface deformation replaced the border buffer");
     check(previous.every((value, i) => Math.abs(instanceBuffer.array[i] - value * 0.8) < 1e-6),
       "country border did not follow live surface deformation");
+    check(instanceBuffer.version === previousVersion + 1, "deformed border buffer was not marked for upload once");
+    updateWithProjectionCount(0, "settledAfterDeformation");
+    check(instanceBuffer.version === previousVersion + 1, "settled border buffer was marked for upload again");
 
     const depthMesh = content.children.find((child) => child.material?.colorWrite === false);
     check(depthMesh?.geometry === surface && depthMesh.material.depthWrite &&
@@ -134,6 +150,7 @@
     surface.copy(folds);
     folds.dispose();
     surface.computeBoundingSphere();
+    updateWithProjectionCount(1, "surfaceReplacement");
     const pixel = new Uint8Array(4);
     const redAtCenter = () => {
       render();
@@ -146,11 +163,11 @@
     depthMesh.visible = true;
     check(redAtCenter() === 0, "rear country bled through the transparent foreground");
     layer.setExactCountry("SGP", "#00ff00");
-    layer.update();
+    updateWithProjectionCount(1, "centroidMarker");
     render();
     check(mesh.visible && mesh.material.map, "centroid-only country lost its exact highlight");
     layer.setExactCountry(null, "#ffffff");
-    layer.update();
+    updateWithProjectionCount(0, "clearSelection");
     render();
     check(!mesh.visible && !depthMesh.visible && mesh.material.map === null,
       "clear left a country highlighted or its depth mask active");
@@ -194,7 +211,7 @@
       "an overlapping peer changed the stronger origin stroke");
     return { passed: true, results, roleSwap: true, exactCountry: true, centroidMarker: true,
       borrowedSurface: true, foldedSurfaceOcclusion: true, vectorCountryBorder: true,
-      liveBorderBuffer: true, surfaceDeformation: true,
+      liveBorderBuffer: true, surfaceDeformation: true, projectionCounts,
       capOverlap, allocatedTextures, deletedTextures };
   } catch (error) {
     return { passed: false, error: error instanceof Error ? error.stack : String(error) };

@@ -109,7 +109,6 @@ export function createCountrySelectionBorders(globe: GlobeView) {
         batch.mesh.geometry.dispose();
         batch.base = new Float32Array(points);
         batch.warped = new Float32Array(batch.base.length);
-        globe.projectCountryOutlinePositions(batch.base, batch.warped);
         batch.mesh.geometry.setPositions(batch.warped);
         batch.material.color.set(color);
         batch.material.linewidth = width * TEXEL_RADIANS;
@@ -120,6 +119,7 @@ export function createCountrySelectionBorders(globe: GlobeView) {
         storageBytes += batch.base.byteLength * 5 + 1024;
       });
       globe.setSelectionBorderStorageBytes(storageBytes);
+      // Project the new shared instance buffers once through the surface-version path.
       lastPositions = null;
       update();
     },
