@@ -113,7 +113,7 @@ class GuideDoc(BaseDocTemplate):
         canvas.setFillColor(MUTED)
         canvas.setFont('Body', 8)
         canvas.drawString(MARGIN, PAGE_H - 27, 'P.A.I.N.  /  ARTIST TEAM  /  PROJECT REFERENCE')
-        canvas.drawString(MARGIN, 28, 'Exhibition and research checked 9 September 2026  |  v1.2')
+        canvas.drawString(MARGIN, 28, 'Exhibition and research checked 9 September 2026  |  v1.3')
         canvas.drawRightString(PAGE_W - MARGIN, 28, str(doc.page))
         canvas.restoreState()
 
@@ -246,6 +246,8 @@ def make_table(lines, s, width=WIDTH):
             'Records associated with the country': [.22,.28,.50],
             'Text records': [.29,.20,.51],
             'What it represents': [.25,.43,.32],
+            'Articles or records': [.33,.23,.44],
+            'Purpose': [.27,.43,.30],
         }.get(rows[0][1], ratios)
     data = [[Paragraph(markup(cell), s['CellHead' if i==0 else 'Cell'])
              for cell in row] for i,row in enumerate(rows)]
@@ -371,7 +373,7 @@ class Cover(Flowable):
         c.drawString(0,69,'What you see. What it means. Why it matters.')
         c.setFont('Body',9)
         c.setFillColor(MUTED)
-        c.drawString(0,29,'English project reference  |  9 September 2026  |  Version 1.2')
+        c.drawString(0,29,'English project reference  |  9 September 2026  |  Version 1.3')
         c.drawString(0,13,'With a separate one-page keyword sheet')
 
 

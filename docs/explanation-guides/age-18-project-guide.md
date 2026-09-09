@@ -1,7 +1,7 @@
 # P.A.I.N. / Understanding the project
 
 Artist-team reference | General adult / age-18 level | English Last updated: 2026-09-09.
-Version: 1.2.
+Version: 1.3.
 
 This guide brings together the project's ideas, data sources, visual meanings, AI research, and
 country stories. It is background material for artist members who want to understand the work
@@ -19,6 +19,7 @@ how a concept might be made accessible.
 | Four layers | Physical, emotional, environmental, and socioeconomic perspectives. |
 | Visual language | Surface, atmosphere, colour, words, connection, movement, and sound. |
 | Current exhibition | A selected view of the project data, including an earlier emotional analysis. |
+| Main CCNews resource | About 394 million country-linked articles; about 389 million have recorded years 2015-2026. |
 | Latest PCAI research | A completed analysis of 26,176,468 texts across 192 countries, explained separately. |
 
 ## The distinction that matters throughout
@@ -382,6 +383,100 @@ evaluations use synthetic material. They do not establish national emotional pre
 model's error rate across every real-world language and source. The completed real-text runs
 remain exploratory research results in that sense.
 
+## CCNews: the main news collection
+
+CCNews is a large international collection of news gathered through Common Crawl and prepared by
+Stanford OVAL. The upstream source is described as containing approximately 600 million articles
+in more than 100 languages. It is already a curated news collection: its source description
+includes text cleaning, duplicate removal, and language detection. [S1]
+
+PCAI began from this source and built a locally counted snapshot of 474,985,436 records, about
+475 million. After further preparation and filtering, the main country-linked news corpus
+contains 393,745,301 articles across 186 publisher countries. This is the roughly
+400-million-article resource behind the broader classification programme.
+
+The approximate 600 million and the exact local totals describe different stages. The source
+description is not an exact count of the project's downloaded snapshot, so the gap between them
+should not be presented as a precise number of articles removed by PCAI.
+
+## The collection at different stages
+
+| Stage | Articles or records | Meaning |
+| Upstream Stanford OVAL source | About 600 million | The broader international source collection. |
+| Locally acquired snapshot | 474,985,436 | The collection actually counted when brought into the project. |
+| Prepared text collection | 472,438,058 | After initial duplicate/date checks and a later privacy-cleaning pass. |
+| Linked to a supported publisher country | 394,231,021 | Records with usable, non-conflicting country attribution. |
+| Main corpus ready for classification | 393,745,301 | After final text/privacy eligibility and duplicate checks. |
+| Its recorded-year 2015-2026 slice | 388,842,327 | A date-focused subset of the same main corpus, not an extra collection. |
+
+The main corpus also contains 4,902,974 records with recorded years 2010-2014. Together these
+make 393,745,301. The 2015-2026 figure is often rounded to about 400 million when discussing the
+project's main news resource. It is important to retain its meaning as a subset rather than add
+it to the larger total.
+
+These are recorded source years. A date can come from article metadata, crawl information, or an
+acquisition-time substitution when another usable date is unavailable. The presence of a 2026
+date does not by itself establish fresh 2026 reporting. The current dated collection has no 2025
+entries.
+
+## What the filtering does
+
+| Preparation step | Purpose | Relevant scale |
+| Readable, comparable text | Standardize characters, spacing, and escaped symbols so equivalent text can be recognized. | Applied to the local snapshot. |
+| Initial duplicate and date checks | Remove repeated material and records outside the supported date rules. | 906,602 duplicates and 1,640,769 date exclusions. |
+| Reduce identifiable details | Mask detected email addresses and telephone numbers; later checks also mask links and user handles. | Most masking changes text without discarding the article. |
+| Establish publisher country | Use publisher reference information and supported country-domain evidence; leave unresolved or contradictory assignments out. | 78,207,037 records excluded from the country-linked view. |
+| Retain usable, eligible prose | Require enough readable text and consistent record information after privacy preparation. | 485,075 records excluded across these checks. |
+| Final duplicate and conflict checks | Prevent repeated sanitized content from being counted again as independent country evidence. | A further 645 records excluded. |
+
+The initial duplicate and date checks leave 472,438,065 records. Seven additional duplicates
+became apparent after later privacy cleaning, leaving the prepared-text total of 472,438,058.
+Publisher-country checks retain 394,231,021; final eligibility and duplicate checks leave the
+main 393,745,301.
+
+The initial supported date rules are not the same as the later 2015-2026 view. In particular,
+the main corpus still retains some earlier records. Likewise, the 485,075 eligibility exclusions
+cannot all be described as private or harmful articles: that total combines several text and
+record checks.
+
+Privacy masking reduces recoverable identifiers; it does not prove that every possible
+identifying detail has disappeared. Duplicate removal reduces repeated content, but different
+articles can still discuss the same event. These preparations improve the material available for
+analysis without making it a representative sample of everybody's experience.
+
+## What is not filtered out in advance
+
+The main CCNews corpus is general news, not a preselected collection of painful stories.
+Articles are not required to contain a pain keyword to enter this news collection. The
+classifier subsequently assesses whether distress is relevant and which themes are expressed.
+
+The acquired and prepared collections contain 116 recorded language codes. Language metadata
+helps organize the source; it does not guarantee equal amounts of material or equally reliable
+model performance in every language. Publisher output, crawler reach, language coverage, and the
+ability to establish a publisher's country all shape what is retained.
+
+Country still means the publisher's organizational origin. The filtering does not turn that into
+the location of the reported event, the nationality of the author, or a direct observation of
+residents' feelings. Excluding unresolved publishers can itself change which voices are
+represented.
+
+## Main corpus and classification progress
+
+The main corpus is prepared for the broader, ongoing classification programme. Preparation of
+the collection and completion of its AI analysis are separate milestones. The latest recorded
+operational state checked for this guide does not establish that a full 393.7-million-article
+production run has started; no live progress percentage is claimed for it here.
+
+The verified completed news classification covers 25,932,030 articles selected from within the
+main corpus, with up to 250,000 per country and attention to recorded-year coverage. The main
+corpus has no such per-country cap. The 25.9-million subset is part of the 393.7-million corpus,
+so those numbers must not be added together.
+
+The completed analysis below combines that 25.9-million news subset with five smaller text
+sources. It supplies the latest verified results discussed in this guide. The larger corpus
+provides the wider research resource; completion of the smaller run does not mean the entire
+resource has been classified.
+
 ## The latest completed classifier run
 
 The latest large news classification was completed and summarized by 8 September 2026. It
@@ -408,10 +503,10 @@ contribute 244,438 records across 175 countries. [S1-S6]
 
 ## What each source adds
 
-Stanford OVAL CCNews supplies published news from a much larger international archive. Its
-source description gives an approximate size of 600 million articles; the latest analysed
-selection is the much smaller 25.9 million stated above. News gives a view of what publishers
-cover and how events are described. It is not a representative interview with residents. [S1]
+Stanford OVAL CCNews supplies published news from the source collection described above. The
+completed analysis uses 25.9 million articles selected from the larger 393.7-million main corpus.
+News gives a view of what publishers cover and how events are described. It is not a
+representative interview with residents. [S1]
 
 Twitter Sentiment by Country contributes social posts with supplied country context. The
 analysed selection contains 166,837 records with recorded year 2020. The source provides country

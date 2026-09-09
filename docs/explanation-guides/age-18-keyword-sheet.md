@@ -36,16 +36,16 @@ The lines express geographic structure and shared themes, not pain spreading bet
 
 ## Latest PCAI research
 
-- Completed combined analysis: 26,176,468 texts across 192 countries.
-- 25,932,030 news articles plus 244,438 posts and complaints.
-- Adopted classifier fitted on 333,236 synthetic examples.
-- Prepared teaching collection: 573,143 examples across 100 languages.
-- Latest news: 104 language/variety hints; mostly recorded as 2017-2024.
-- News provides about 99.07% of records in the latest equal-record combination.
-- Anger/moral injury leads in 178 of 192 combined results; this describes model readings of texts.
+- CCNews upstream source: approximately 600 million articles.
+- Main country-linked corpus: 393,745,301 articles; 388,842,327 have recorded years 2015-2026.
+- Preparation: clean text, remove duplicates, check dates, mask identifiers, and resolve publisher country.
+- Verified completed run: 25,932,030 news articles plus 244,438 other texts, giving 26,176,468 records across 192 countries.
+- Adopted classifier fitted on 333,236 synthetic examples; broader teaching collection spans 100 languages.
+- Anger/moral injury leads in 178 of 192 combined results, describing model readings of texts.
 
-The detailed chapter explains the model, source mixture, evaluation, and limits. These counts
-are not counts of people interviewed or measures of national emotional prevalence.
+The main corpus belongs to the ongoing classification programme. The completed result above
+is a smaller selection; it is not a claim that the whole corpus has been classified. The guide
+explains source coverage, filtering, evaluation, and the distinction between these stages.
 
 ## Country examples
 

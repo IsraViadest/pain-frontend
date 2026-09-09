@@ -1,6 +1,6 @@
 # Exhibition project guides
 
-Last updated: 2026-09-09. Version: 1.3.
+Last updated: 2026-09-09. Version: 1.4.
 
 ## Agreed delivery
 
@@ -66,3 +66,13 @@ check bookmarks and links, confirm a one-page cheat sheet, and commit only this 
   entries; no timed scripts, prescribed performance directions, or internal file references.
   Latest classifier/data claims passed the bounded content review. PDF page bounds,
   navigation, source links, and optional-example layout were checked before delivery.
+- 2026-09-09: Added CCNews source scale and plain-language filtering. Distinguishes the
+  approximate 600M upstream description, 474,985,436 locally acquired records,
+  472,438,058 prepared records, and 393,745,301 country-linked main-corpus records.
+  The 388,842,327 dated 2015-2026 records are a subset of that main corpus.
+  The verified completed 25,932,030-news analysis remains separate from the broader
+  ongoing programme; a full-corpus production job was not established by current records.
+- CCNews expansion verification: independent factual review passed; final guide has 29 A4
+  pages and the keyword sheet has one. Rendered pages were inspected, including the revised
+  filtering tables. All 25 stories, bookmarks, 22 public links, page bounds, and key counts
+  pass. Audience PDFs contain no internal implementation filenames or prescribed scripts.
