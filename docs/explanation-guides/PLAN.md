@@ -1,12 +1,14 @@
 # Exhibition project guides
 
-Last updated: 2026-09-09. Version: 1.4.
+Last updated: 2026-09-09. Version: 1.5.
 
 ## Agreed delivery
 
 English project-reference guides for the artist team, at adult/age-18, age-5, age-12,
 undergraduate/graduate, and expert explanation levels. Produce and review one pair at a time,
 starting with the adult/age-18 reference. Each receives a separate one-page keyword PDF.
+The adult reference is approved. On 9 September the user requested the ELI5 and professor
+pairs together as the next delivery. The age-12 and undergraduate/graduate pairs remain pending.
 
 Current format, clarified 2026-09-09: structured facts and explanations, sources, representations,
 country stories, glossary, and optional framing examples. No verbatim scripts, timed talks,
@@ -25,9 +27,10 @@ illustrations. Missing original source methods are identified, not inferred.
 
 ## Files and verification
 
-Editable Markdown, a small ReportLab builder, screenshots, and the two PDFs live here.
+Editable Markdown, a small ReportLab builder, screenshots, and each audience's PDFs live here.
 The source Markdown holds the factual foundation for subsequent audience adaptations.
 Rebuild with the Python runtime described at the top of `build_guides.py`.
+Use `--audience age-5 professor` for the two new pairs; the default is the approved adult pair.
 
 Before delivery, verify source numbers and the reference format, render and inspect every PDF page,
 check bookmarks and links, confirm a one-page cheat sheet, and commit only this directory.
@@ -76,3 +79,18 @@ check bookmarks and links, confirm a one-page cheat sheet, and commit only this 
   pages and the keyword sheet has one. Rendered pages were inspected, including the revised
   filtering tables. All 25 stories, bookmarks, 22 public links, page bounds, and key counts
   pass. Audience PDFs contain no internal implementation filenames or prescribed scripts.
+- 2026-09-09: User approved the expanded adult pair and requested ELI5 and professor editions.
+  Both use the same factual foundation and 25 country examples. ELI5 uses concrete child-facing
+  explanations with separate artist background for counts and limitations. The professor
+  edition defines measurement and inference concepts across disciplines and expands PCAI
+  methods, evaluation, aggregation, and source interpretation. Both retain optional examples
+  rather than scripts, with one-page keyword sheets and editable sources alongside the PDFs.
+- The user additionally requested explicit 100-language classifier coverage and a complete
+  language list. Both editions identify the multilingual synthetic teaching collection and
+  include all 100 language names, while separating intended coverage from measured accuracy.
+- Final delivery verification: ELI5 guide22 A4 pages; professor guide33 A4 pages; each
+  keyword sheet one page. Both contain25 country stories, the complete100-language roster,
+  bookmarks and22 public source links. Independent factual review passed. Every page was
+  rendered and visually checked; table widths and a background-section placement were
+  corrected. Final checks cover page bounds, navigation, key counts, reference agreement,
+  and absence of internal implementation filenames or prescribed scripts.
