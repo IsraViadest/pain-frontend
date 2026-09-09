@@ -142,6 +142,7 @@ void main() {
 const FS = /* glsl */ `
 uniform vec3 uTint;
 uniform vec3 uShadeBase;
+uniform vec3 uOceanColor;
 uniform vec3 uLandTint;
 uniform float uLandTintStrength;
 uniform float uOceanAlphaBoost;
@@ -194,6 +195,7 @@ void main() {
   float heatMix = clamp(heat * uHeatStrength, 0.0, 1.0) * landMask;
   landCol = mix(landCol, heatCol, heatMix);
   vec3 col = mix(waterCol, landCol, landFrontMix);
+  if (landMask < 0.5) col = uOceanColor * (0.9 + 0.1 * frontFactor);
   if (uScarActive > 0.5 && uScarDepthMode > 0.5) {
     float scar = texture2D(uScarMap, vHeatUv).r;
     float west = texture2D(uScarMap, vHeatUv - vec2(uScarTexelSize.x, 0.0)).r;
@@ -431,6 +433,7 @@ export async function createEarthStippleGlobe(
     uniforms: {
       uTint: { value: initialTint.clone() },
       uShadeBase: { value: initialShadeBase.clone() },
+      uOceanColor: { value: initialShadeBase.clone().lerp(initialTint, 0.72) },
       uLandTint: { value: initialLandTint.clone() },
       uLandTintStrength: { value: initialLandTintStrength },
       uOceanAlphaBoost: { value: 1 },

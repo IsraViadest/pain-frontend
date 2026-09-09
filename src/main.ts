@@ -25,6 +25,7 @@ import { getMapLayerById, isChoroplethMapLayer, resolveLayerLexiconBucket } from
 import type { MapLayer, PainPoint } from "./types/api";
 import {
   GlobeView,
+  EMOTIONAL_STIPPLE_COLOR,
   type GlobeLayerDisplayMeta,
   type MarkerHoverInfo,
   type MultiplexHoverInfo,
@@ -492,7 +493,7 @@ function setStatus(msg: string): void {
 
 /** Stipple tint overrides for known layers; unknown ids use GET /init `color`. */
 const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
-  emopain: "#6B15CE",
+  emopain: EMOTIONAL_STIPPLE_COLOR,
   envpain: "#00674F",
   physpain: "#FF0000",
   socioecopain: "#FFFF00",

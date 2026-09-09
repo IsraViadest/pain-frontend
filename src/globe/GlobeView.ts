@@ -69,6 +69,7 @@ import { createSurfacePicker } from "./surfacePicker";
 import { COUNTRY_SELECTION_STORAGE_RESERVE_BYTES } from "../emo/selectionBorders";
 
 export type { Co2HazeTune };
+export const EMOTIONAL_STIPPLE_COLOR = "#6B15CE";
 type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
   "relief" | "shadow";
 type ScarReliefPalette = "coral" | "crimson" | "rose" | "vibrant";
@@ -1949,6 +1950,7 @@ export class GlobeView {
       const [tr, tg, tb] = DEBUG_SCAR_VISUAL.stippleTintRgb;
       u.uTint.value.set(tr, tg, tb);
       u.uShadeBase.value.set(or, og, ob);
+      u.uOceanColor.value.copy(u.uShadeBase.value).lerp(u.uTint.value, 0.72);
       u.uLandTint.value.set(lr, lg, lb);
       u.uLandTintStrength.value = 1;
       u.uOceanAlphaBoost.value = DEBUG_SCAR_VISUAL.stippleOceanAlphaBoost;
@@ -1957,6 +1959,13 @@ export class GlobeView {
       return;
     }
     u.uOceanPointScale.value = 1;
+    const ocean = getLayerBaseColorLinear(EMOTIONAL_STIPPLE_COLOR, this.visualTheme);
+    // Match the Emotional view's water mixture without changing the land's shared inputs.
+    u.uOceanColor.value.set(
+      0.28 * (this.visualTheme === "blue" ? 209 / 255 : 1) + 0.72 * ocean[0],
+      0.28 * (this.visualTheme === "blue" ? 247 / 255 : 1) + 0.72 * ocean[1],
+      0.28 + 0.72 * ocean[2],
+    );
     const emopainHex = this.showAllLayersMode
       ? getMapLayerById("emopain")?.color
       : undefined;
