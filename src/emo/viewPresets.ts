@@ -28,7 +28,7 @@ export const EMO_PRESETS: EmoPreset[] = [{
     "networkMode": "selected",
     "categoryGraph": "delaunay",
     "fontPxFar": 14,
-    "fontPxNear": 20,
+    "fontPxNear": 25,
     "cameraFar": 2.2,
     "cameraNear": 1.35,
     "arcWidth": 0.003,

@@ -74,7 +74,7 @@ export function applySocioeconomicPattern(
           (1.0 - uSocioMinimum) * (hatch - value);
         ` : ""}
         if (uSocioMissingActive > 0.5 && texture2D(uSocioMissingMap, vMapUv).r > 0.5) {
-          vec2 missingPhase = vMapUv * vec2(2048.0, 1024.0) / 12.0;
+          vec2 missingPhase = vMapUv * vec2(2048.0, 1024.0) / 10.0;
           float missingStripe = stripe(missingPhase.x - missingPhase.y, 0.125);
           if (uSocioMissingCross > 0.5) missingStripe = max(missingStripe,
             stripe(missingPhase.x + missingPhase.y, 0.125));

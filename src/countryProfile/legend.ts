@@ -1,3 +1,4 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
 import { SCAR_RELIEF_COLORS } from "../globe/scarReliefColors";
 import { Color } from "three";
 
@@ -11,7 +12,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
   svg.setAttribute("width", "184");
   svg.setAttribute("height", "136");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "temperature change in coral above emissions (co2) in green. " +
+  svg.setAttribute("aria-label", "temperature change in coral above emissions (CO₂) in green. " +
     "Each field runs from lower to higher relative strength. Cloud height is artistic.");
   svg.setAttribute("fill", "currentColor");
   svg.style.color = "#ffffff";
@@ -28,7 +29,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
 
   for (const [index, [label, color, key]] of ([
     ["temperature change", "#d74846", "temperature"],
-    ["emissions (co2)", "#b4ffd2", "co2"],
+    ["emissions (CO₂)", "#b4ffd2", "co2"],
   ] as const).entries()) {
     const id = `country-profile-legend-${key}`;
     const gradient = document.createElementNS(SVG_NS, "linearGradient");
@@ -98,7 +99,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
       text.replaceChildren();
       if (portrait) {
         text.setAttribute("transform", `translate(18, ${48 + index * 112}) rotate(-90)`);
-        for (const [line, label] of (index === 0 ? ["temperature", "change"] : ["emissions", "(co2)"]).entries()) {
+        for (const [line, label] of (index === 0 ? ["temperature", "change"] : ["emissions", "(CO₂)"]).entries()) {
           const span = document.createElementNS(SVG_NS, "tspan");
           span.setAttribute("x", "0");
           span.setAttribute("y", String(line * 12));
@@ -107,7 +108,7 @@ export function createEnvironmentalLegend(vertical = false): SVGSVGElement {
         }
       } else {
         text.removeAttribute("transform");
-        text.textContent = index === 0 ? "temperature change" : "emissions (co2)";
+        text.textContent = index === 0 ? "temperature change" : "emissions (CO₂)";
       }
       bar.setAttribute("x", String(portrait ? 42 : 0));
       bar.setAttribute("y", String(portrait ? 8 + index * 112 : (compact ? 20 : 24) + index * (compact ? 35 : 49)));
@@ -295,7 +296,7 @@ export function createSocioeconomicLegend(
     svg.append(swatch);
     return swatch;
   });
-  const labels = [gdpPerCapita ? "country-based wealth (GDP) by capita" : "country-based wealth (GDP)",
+  const labels = [gdpPerCapita ? "country-based wealth (GDP) per capita" : "country-based wealth (GDP)",
     gdpPerCapita ? "max" : "min", gdpPerCapita ? "min" : "max",
     style === "color" ? "continuous relative signal" : "same continuous value; examples", "no data"].map((label) => {
     const text = element("text");
@@ -343,17 +344,17 @@ export function createSocioeconomicLegend(
       if (index === 0 && portrait) text.setAttribute("transform", "translate(12, 63) rotate(-90)");
       else text.removeAttribute("transform");
       if (index === 0) {
-        text.setAttribute("font-size", "11");
+        text.setAttribute("font-size", "9");
         text.replaceChildren();
         if (portrait) {
           if (gdpPerCapita) text.setAttribute("transform", "translate(8, 63) rotate(-90)");
-          const lines = ["country-based", "wealth (GDP)", ...(gdpPerCapita ? ["by capita"] : [])];
+          const lines = ["country-based", "wealth (GDP)", ...(gdpPerCapita ? ["per capita"] : [])];
           for (const [line, label] of lines.entries()) {
             const span = element("tspan", { x: 0, y: line * (gdpPerCapita ? 9 : 12) });
             span.textContent = label;
             text.append(span);
           }
-        } else text.textContent = gdpPerCapita ? "country-based wealth (GDP) by capita" : "country-based wealth (GDP)";
+        } else text.textContent = gdpPerCapita ? "country-based wealth (GDP) per capita" : "country-based wealth (GDP)";
       }
     }
     missing.setAttribute("transform", `translate(${portrait ? 7 : 0}, ${portrait ? 123 : compact ? 83 : 117})`);

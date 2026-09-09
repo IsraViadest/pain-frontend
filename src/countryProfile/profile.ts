@@ -1,3 +1,4 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com) */
 import "./countryProfile.css";
 import { proportionalAreaScale, type CountryPainProfile } from "./data";
 import type { CountryProfilePreset } from "./presets";
@@ -186,11 +187,12 @@ function createEnvironmentalMetric(compact: boolean, inset: number, missingPatte
       temperature.style.fill = temperatureMissing && missingPattern
         ? "url(#country-profile-environmental-missing-hatch)" : "";
       temperature.style.transform = `scale(${tempScale.toFixed(4)})`;
+      temperature.style.display = temperatureMissing ? "none" : "";
       grain.style.transform = temperature.style.transform;
       cells.style.transform = temperature.style.transform;
       grain.style.display = cells.style.display = temperatureMissing ? "none" : "";
-      co2.style.stroke = co2Missing && missingPattern ? "#a8a8a8" : "";
-      co2.style.strokeDasharray = co2Missing && missingPattern ? "8 5" : "";
+      co2.style.display = co2Missing ? "none" : "";
+      co2.style.strokeWidth = String(4 * (1 + Math.max(0, Math.min(1, profile.co2.value ?? 0))));
       co2.style.opacity = co2Missing
         ? missingPattern ? "0.72" : "0"
         : Math.max(compact ? 0.10 : 0.12, Math.min(1, profile.co2.value!)).toFixed(3);
@@ -237,15 +239,17 @@ export class CountryProfileView {
   private syncPaintedSpacing(): void {
     if (!this.paintedSpacing) return;
     const metrics = [this.emotional, this.environmental.element, this.physical.element,
-      this.socioeconomic.element];
-    for (const metric of metrics.slice(1)) metric.style.marginLeft = "0px";
+      this.socioeconomic.element].filter(metric => !metric.hidden);
+    for (const metric of metrics) metric.style.marginLeft = "0px";
     this.englishTerm.style.transform = "";
     const visibleRect = (elements: readonly Element[]): { left: number; right: number } | null => {
       const rects = elements.flatMap((element) => {
         const style = getComputedStyle(element);
         const rect = element.getBoundingClientRect();
-        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0
-          ? [rect] : [];
+        const stroke = element instanceof SVGGeometryElement && style.stroke !== "none"
+          ? parseFloat(style.strokeWidth) / 2 : 0;
+        return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) > 0 && rect.width > 0
+          ? [{ left: rect.left - stroke, right: rect.right + stroke }] : [];
       });
       return rects.length ? {
         left: Math.min(...rects.map((rect) => rect.left)),
@@ -266,12 +270,9 @@ export class CountryProfileView {
     context.font = getComputedStyle(this.countryName).font;
     const target = context.measureText("n").width;
     this.host.style.setProperty("--cp-painted-gap", `${target.toFixed(3)}px`);
-    const bounds = [
-      () => visibleRect([this.nativeTerm, this.englishTerm]),
-      ...metrics.slice(1).map((metric) => () => visibleRect(
-        [...metric.querySelectorAll(".country-profile__outline, .country-profile__empty-outline")],
-      )),
-    ];
+    const bounds = metrics.map(metric => () => visibleRect(metric === this.emotional
+      ? [this.nativeTerm, this.englishTerm]
+      : [...metric.querySelectorAll(".country-profile__outline, .country-profile__empty-outline, .country-profile__co2, .country-profile__temperature")]));
     for (let index = 1; index < metrics.length; index++) {
       const previous = bounds[index - 1]!();
       const current = bounds[index]!();
@@ -422,10 +423,11 @@ export class CountryProfileView {
     this.currentLayer = layerId;
     this.host.dataset.layer = layerId;
     const all = layerId === "all-layers";
-    this.emotional.hidden = !all && layerId !== "emopain";
-    this.environmental.element.hidden = !all && layerId !== "envpain";
-    this.physical.element.hidden = !all && layerId !== "physpain";
-    this.socioeconomic.element.hidden = !all && layerId !== "socioecopain";
+    this.emotional.hidden = (!all && layerId !== "emopain") || this.profile?.emotional.value === null;
+    this.environmental.element.hidden = (!all && layerId !== "envpain") ||
+      (this.profile?.temperature.value === null && this.profile?.co2.value === null);
+    this.physical.element.hidden = (!all && layerId !== "physpain") || this.profile?.physical.value === null;
+    this.socioeconomic.element.hidden = (!all && layerId !== "socioecopain") || this.profile?.socioeconomic.value === null;
     if (this.boundsObserver) this.syncBounds();
   }
 
@@ -434,7 +436,7 @@ export class CountryProfileView {
     this.host.dataset.country = profile?.iso3 ?? "";
     this.host.hidden = !this.preview && (profile === null || this.suppressed);
     if (!profile) return;
-    this.countryName.textContent = profile.countryName.toLocaleLowerCase("en");
+    this.countryName.textContent = profile.countryName;
     const emotionMissing = profile.emotional.value === null;
     this.emotional.dataset.missing = String(emotionMissing);
     this.nativeTerm.textContent = emotionMissing
@@ -458,7 +460,7 @@ export class CountryProfileView {
     this.environmental.update(profile);
     this.physical.update(profile);
     this.socioeconomic.update(profile);
-    if (this.boundsObserver) this.syncBounds();
+    this.applyLayer(this.currentLayer);
   }
 
   setSuppressed(suppressed: boolean): void {
@@ -480,7 +482,7 @@ export class CountryProfileView {
     this.preview = profile;
     this.host.dataset.stage = profile ? "heading" : "full";
     this.host.hidden = !profile && (this.profile === null || this.suppressed);
-    this.countryName.textContent = (profile?.countryName ?? this.profile?.countryName ?? "").toLocaleLowerCase("en");
+    this.countryName.textContent = profile?.countryName ?? this.profile?.countryName ?? "";
     if (this.boundsObserver) this.syncBounds();
   }
 
