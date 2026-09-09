@@ -1959,8 +1959,10 @@ export class GlobeView {
       return;
     }
     u.uOceanPointScale.value = 1;
-    const ocean = getLayerBaseColorLinear(EMOTIONAL_STIPPLE_COLOR, this.visualTheme);
-    // Match the Emotional view's water mixture without changing the land's shared inputs.
+    const ocean = this.showAllLayersMode
+      ? getLayerBaseColorLinear(EMOTIONAL_STIPPLE_COLOR, this.visualTheme)
+      : this.getActiveLayerColorLinear();
+    // Individual views use their layer palette; the combined view keeps its Emotional ocean.
     u.uOceanColor.value.set(
       0.28 * (this.visualTheme === "blue" ? 209 / 255 : 1) + 0.72 * ocean[0],
       0.28 * (this.visualTheme === "blue" ? 247 / 255 : 1) + 0.72 * ocean[1],
@@ -1972,7 +1974,7 @@ export class GlobeView {
     const physpainHex = this.showAllLayersMode
       ? getMapLayerById("physpain")?.color
       : undefined;
-    if (this.physicalOceanBlue && this.currentLayerId === "physpain") {
+    if (!this.showAllLayersMode && this.physicalOceanBlue && this.currentLayerId === "physpain") {
       const oceanHex = getMapLayerById("emopain")?.color ?? "#546edb";
       const oceanRgb = getLayerBaseColorLinear(oceanHex, this.visualTheme);
       const landRgb = this.getActiveLayerColorLinear();
@@ -1996,13 +1998,11 @@ export class GlobeView {
           247 / 255,
           255 / 255,
         );
-        u.uLandTint.value.set(209 / 255, 247 / 255, 255 / 255);
-        u.uLandTintStrength.value = 0.3;
       } else {
         u.uShadeBase.value.set(1, 1, 1);
-        u.uLandTint.value.set(0.86, 0.9, 0.96);
-        u.uLandTintStrength.value = 0.22;
       }
+      u.uLandTint.value.set(rgb[0], rgb[1], rgb[2]);
+      u.uLandTintStrength.value = 1;
     }
     this.applyStippleTuneUniforms();
     this.applyStippleHeatUniforms();

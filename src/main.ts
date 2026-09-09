@@ -623,9 +623,10 @@ function applyCountryProfileEmotionSettings(): void {
 function applyCountryProfileGlobePreset(layerId: string): void {
   const preset = countryProfileRuntime?.preset;
   const quality = countryProfileRuntime?.quality?.settings;
+  const physical = layerId === "physpain" || layerId === "all-layers";
   applyCountryProfileEmotionSettings();
   globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
-  globe.setScarDepthStyle(preset?.scarDepthStyle ?? "none");
+  globe.setScarDepthStyle(physical ? preset?.scarDepthStyle ?? "none" : "none");
   globe.setScarReliefPalette(preset?.scarReliefPalette ?? "coral");
   globe.setScarDepthSize(layerId === "physpain" || layerId === "all-layers"
     ? preset?.scarDepthSize ?? false : false);
@@ -641,7 +642,6 @@ function applyCountryProfileGlobePreset(layerId: string): void {
   globe.setScarContourStyle(layerId === "physpain" || layerId === "all-layers"
     ? preset?.scarContourStyle ?? null : null);
   void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
-  const physical = layerId === "physpain" || layerId === "all-layers";
   const enhancedStipple = physical || preset?.stippleAllLayers === true;
   globe.setStippleContextOpacity(layerId === "envpain" ? preset?.environmentalContextOpacity ?? 1 :
     layerId === "socioecopain" ? preset?.socioeconomicContextOpacity ?? 1 : 1);

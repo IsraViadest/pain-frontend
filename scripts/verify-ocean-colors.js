@@ -12,7 +12,11 @@
     const program = gl.getParameter(gl.CURRENT_PROGRAM);
     if (gl.getUniformLocation(program, "uOceanColor") !== null) {
       const read = key => Array.from(gl.getUniform(program, gl.getUniformLocation(program, key)));
-      sample = { ocean: read("uOceanColor"), tint: read("uTint"), shade: read("uShadeBase") };
+      sample = { ocean: read("uOceanColor"), tint: read("uTint"), shade: read("uShadeBase"),
+        layerTint: read("uHeatHot"),
+        landTint: read("uLandTint"),
+        landStrength: gl.getUniform(program, gl.getUniformLocation(program, "uLandTintStrength")),
+        reliefMode: gl.getUniform(program, gl.getUniformLocation(program, "uScarDepthMode")) };
     }
     return originals.get(name).apply(this, args);
   };
@@ -25,7 +29,9 @@
     for (const blue of [false, true]) {
       if ((themeButton.getAttribute("aria-pressed") === "true") !== blue) themeButton.click();
       let emotional;
-      for (const layer of ["emopain", "envpain", "physpain", "socioecopain", "all-pain"]) {
+      let combined;
+      for (const layer of ["emopain", "all-pain", "envpain", "all-pain", "physpain", "all-pain",
+        "socioecopain", "all-pain"]) {
         const button = document.querySelector(`button[data-layer="${layer}"]`);
         if (!button) throw Error("Missing layer " + layer);
         if (!button.classList.contains("blob-button--active")) button.click();
@@ -36,8 +42,22 @@
         if (layer === "emopain") {
           emotional = sample.tint.map((value, i) => .72 * value + .28 * sample.shade[i]);
         }
-        if (!close(sample.ocean, emotional)) throw Error("Ocean differs from Emotional in " + layer);
-        rows.push({ theme: blue ? "blue" : "dark", layer, ocean: sample.ocean });
+        const shade = blue ? [209 / 255, 247 / 255, 1] : [1, 1, 1];
+        const expected = layer === "all-pain" ? emotional :
+          sample.layerTint.map((value, i) => .72 * value + .28 * shade[i]);
+        if (!close(sample.ocean, expected)) throw Error("Wrong ocean palette in " + layer);
+        if (!close(sample.landTint, sample.layerTint) || sample.landStrength !== 1) {
+          throw Error("Land does not use its layer palette in " + layer);
+        }
+        if (layer === "all-pain") {
+          if (combined && (!["ocean", "tint", "shade", "landTint"].every(key => close(sample[key], combined[key])))) {
+            throw Error("Combined palette depends on the previous layer");
+          }
+          combined = sample;
+        }
+        const physical = layer === "physpain" || layer === "all-pain";
+        if (sample.reliefMode !== (physical ? 5 : 0)) throw Error("Physical relief color leaked into " + layer);
+        rows.push({ theme: blue ? "blue" : "dark", layer, ocean: sample.ocean, reliefMode: sample.reliefMode });
       }
     }
     if (gl.getError() !== gl.NO_ERROR) throw Error("WebGL error");
