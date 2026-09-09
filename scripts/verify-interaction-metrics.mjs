@@ -8,6 +8,65 @@ import { resolve } from 'node:path';
 import { MetricsQueue, VisibleDuration, textMetrics } from '../src/api/metricsQueue.ts';
 
 const canary = 'PRIVATE answer 🫀 لا تحفظ';
+
+const consentSource = readFileSync(new URL('../src/survey/consentStorage.ts', import.meta.url), 'utf8');
+const consentCompiled = ts.transpileModule(consentSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+function consentFixture(initial = null) {
+  const state = { stored: initial, getThrows: false, setThrows: false, accessThrows: false };
+  const writes = [];
+  const window = new EventTarget();
+  const denied = () => { throw new DOMException('Storage denied', 'SecurityError'); };
+  const storage = {
+    getItem(key) { assert.equal(key, 'pain-consent-given'); if (state.getThrows) denied(); return state.stored; },
+    setItem(key, value) { if (state.setThrows) denied(); writes.push([key, value]); state.stored = value; },
+  };
+  const scope = { exports: {}, window };
+  Object.defineProperty(scope, 'localStorage', { get() { if (state.accessThrows) denied(); return storage; } });
+  vm.runInNewContext(consentCompiled, scope);
+  return { state, writes, ...scope.exports, revoke() {
+    state.stored = 'false';
+    const event = new Event('storage');
+    Object.defineProperties(event, { key: { value: 'pain-consent-given' }, storageArea: { value: storage } });
+    window.dispatchEvent(event);
+  } };
+}
+const deniedConsent = consentFixture();
+deniedConsent.state.accessThrows = true;
+assert.equal(deniedConsent.isConsentGiven(), false, 'Denied storage fails closed before any explicit choice');
+assert.equal(await deniedConsent.hasUserConsented(), false);
+await deniedConsent.recordConsent();
+assert.equal(deniedConsent.isConsentGiven(), true, 'An explicit choice survives in RAM when storage access is denied');
+await deniedConsent.recordDecline();
+assert.equal(deniedConsent.isConsentGiven(), false);
+assert.equal(deniedConsent.writes.length, 0);
+const failedWrites = consentFixture('true');
+failedWrites.state.setThrows = true;
+await failedWrites.recordDecline();
+assert.equal(failedWrites.isConsentGiven(), false, 'A failed decline write must override an old stored approval');
+failedWrites.state.stored = 'false';
+await failedWrites.recordConsent();
+assert.equal(await failedWrites.hasUserConsented(), true, 'A failed approval write must retain the explicit page choice');
+failedWrites.state.setThrows = false;
+failedWrites.revoke();
+assert.equal(failedWrites.isConsentGiven(), false, 'Cross-tab revocation supersedes the temporary page choice');
+const persistedConsent = consentFixture('false');
+assert.equal(persistedConsent.isConsentGiven(), false);
+persistedConsent.state.stored = 'true';
+assert.equal(await persistedConsent.hasUserConsented(), true);
+persistedConsent.state.getThrows = true;
+assert.equal(persistedConsent.isConsentGiven(), false, 'Without an explicit page choice, failed reads do not reuse an old approval');
+persistedConsent.state.getThrows = false;
+await persistedConsent.recordConsent();
+assert.deepEqual(persistedConsent.writes, [['pain-consent-given', 'true']]);
+persistedConsent.state.stored = 'false';
+assert.equal(persistedConsent.isConsentGiven(), false, 'Normal reads notice another tab revoking consent');
+persistedConsent.state.getThrows = true;
+assert.equal(persistedConsent.isConsentGiven(), false, 'A later failed read does not undo an observed revocation');
+await persistedConsent.recordDecline();
+assert.equal(persistedConsent.writes.at(-1)[1], 'false');
+
 let userId = '';
 let consent = false;
 let now = 0;
