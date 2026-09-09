@@ -87,6 +87,20 @@
   display: none;
 }
 
+.ui-hamburger__caption {
+  display: block;
+  text-align: center;
+  font: 12px/1.2 "Apercu Pro", sans-serif;
+  color: var(--text-primary);
+}
+
+.info-modal__layer-heading {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 20px auto 12px;
+}
+
 #ui-layer-stack {
   position: fixed;
   top: calc(50% - 40px);

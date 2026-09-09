@@ -107,6 +107,10 @@ async function createHamburgerButton(): Promise<HTMLButtonElement> {
   }
 
   button.appendChild(document.importNode(svg, true));
+  const caption = document.createElement("span");
+  caption.className = "ui-hamburger__caption";
+  caption.textContent = "more";
+  button.append(caption);
   return button;
 }
 
