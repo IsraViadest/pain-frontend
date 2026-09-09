@@ -5,7 +5,8 @@ Run: python3 docs/explanation-guides/build_guides.py
 On the author's Mac the bundled interpreter is:
 /Users/cs/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
 The guide uses installed Arial/Georgia fonts; pass --font-dir on another machine.
-Only this directory's two PDF outputs are written. QA renders belong in /tmp.
+Use --audience age-5 professor to build those pairs without rewriting the adult edition.
+Only the selected audience PDFs are written. QA renders belong in /tmp.
 """
 
 import argparse
@@ -37,6 +38,14 @@ CORAL = colors.HexColor('#b0443a')
 INK = colors.HexColor('#27323b')
 MUTED = colors.HexColor('#566570')
 PALE = colors.HexColor('#eef4f3')
+EDITIONS = {
+    'age-18': ('ADULT EDITION', 'Understanding the project',
+               'Shared background, source facts, meanings, and possibilities', '1.3'),
+    'age-5': ('EXPLAIN IT LIKE I AM FIVE', 'People, places, and care',
+              'Simple ideas, little stories, and background for the artists', '1.0'),
+    'professor': ('ADVANCED / PROFESSOR EDITION', 'Interpreting the evidence',
+                  'Measures, sources, models, and the meaning of the artwork', '1.0'),
+}
 
 
 def register_fonts(directory):
@@ -49,10 +58,11 @@ def register_fonts(directory):
                                  italic='Body-Italic', boldItalic='Body-BoldItalic')
 
 
-def styles():
+def styles(audience='age-18'):
     s = getSampleStyleSheet()
     s.add(ParagraphStyle('Text', fontName='Body', fontSize=10.2, leading=14.4,
-                         textColor=INK, spaceAfter=8, splitLongWords=True))
+                         textColor=INK, spaceAfter=8, splitLongWords=True,
+                         allowWidows=0))
     s.add(ParagraphStyle('TitleMain', fontName='Display', fontSize=28, leading=34,
                          textColor=NAVY, spaceAfter=18))
     s.add(ParagraphStyle('Major', parent=s['Text'], fontName='Display', fontSize=23,
@@ -77,6 +87,13 @@ def styles():
                          spaceAfter=5))
     s.add(ParagraphStyle('SheetHead', parent=s['Minor'], fontSize=10.6, leading=13,
                          spaceBefore=8, spaceAfter=5))
+    if audience == 'age-5':
+        for name in ('Text', 'BulletText'):
+            s[name].fontSize, s[name].leading = 12.4, 18
+        s['Minor'].fontSize, s['Minor'].leading = 14, 19
+        s['Note'].fontSize, s['Note'].leading = 10.2, 14
+        s['Cell'].fontSize, s['Cell'].leading = 9.6, 13
+        s['CellHead'].fontSize, s['CellHead'].leading = 9.6, 13
     return s
 
 
@@ -95,10 +112,11 @@ def markup(text, reference_links=True):
 
 
 class GuideDoc(BaseDocTemplate):
-    def __init__(self, filename, **kwargs):
+    def __init__(self, filename, audience='age-18', **kwargs):
+        self.audience = audience
         super().__init__(str(filename), pagesize=A4, leftMargin=MARGIN,
                          rightMargin=MARGIN, topMargin=55, bottomMargin=48,
-                         title='P.A.I.N. - Project guide for the artist team',
+                         title=f'P.A.I.N. - {EDITIONS[audience][1]}',
                          author='P.A.I.N. project documentation', **kwargs)
         self.addPageTemplates(PageTemplate(id='guide', frames=[Frame(
             MARGIN, 48, WIDTH, PAGE_H - 103, leftPadding=0, rightPadding=0,
@@ -112,8 +130,11 @@ class GuideDoc(BaseDocTemplate):
         canvas.line(MARGIN, PAGE_H - 36, PAGE_W - MARGIN, PAGE_H - 36)
         canvas.setFillColor(MUTED)
         canvas.setFont('Body', 8)
-        canvas.drawString(MARGIN, PAGE_H - 27, 'P.A.I.N.  /  ARTIST TEAM  /  PROJECT REFERENCE')
-        canvas.drawString(MARGIN, 28, 'Exhibition and research checked 9 September 2026  |  v1.3')
+        canvas.drawString(MARGIN, PAGE_H - 27,
+                          'P.A.I.N.  /  ARTIST TEAM  /  ' + EDITIONS[self.audience][0])
+        canvas.drawString(MARGIN, 28,
+                          'Exhibition and research checked 9 September 2026  |  v' +
+                          EDITIONS[self.audience][3])
         canvas.drawRightString(PAGE_W - MARGIN, 28, str(doc.page))
         canvas.restoreState()
 
@@ -159,7 +180,8 @@ class Diagram(Flowable):
     def __init__(self, kind):
         super().__init__()
         self.kind, self.width = kind, WIDTH
-        self.height = {'pipeline': 126, 'graph': 230, 'scale': 165}[kind]
+        self.height = {'pipeline': 126, 'graph': 230, 'scale': 165,
+                       'layers': 242, 'aggregation': 192}[kind]
 
     def label(self, x, y, text, size=9, color=INK, centered=True):
         c = self.canv
@@ -178,7 +200,36 @@ class Diagram(Flowable):
 
     def draw(self):
         c = self.canv
-        if self.kind == 'pipeline':
+        if self.kind == 'layers':
+            cards = [('BODY', 'When moving hurts', 'The marked surface', CORAL),
+                     ('FEELINGS', 'Words about hurt and worry', 'Words and lines', TEAL),
+                     ('OUR WORLD', 'Places changing around us', 'The atmosphere', TEAL),
+                     ('EVERYDAY LIFE', 'Resources and possibilities', 'The yellow layer',
+                      colors.HexColor('#997411'))]
+            w = (WIDTH - 18) / 2
+            for i, (title, meaning, cue, color) in enumerate(cards):
+                x, y = (i % 2) * (w + 18), 126 - (i // 2) * 117
+                c.setFillColor(PALE)
+                c.setStrokeColor(color)
+                c.roundRect(x, y, w, 104, 10, fill=1, stroke=1)
+                self.label(x + w / 2, y + 76, title, 11, color)
+                self.label(x + w / 2, y + 49, meaning, 10.5)
+                self.label(x + w / 2, y + 24, cue, 9, MUTED)
+        elif self.kind == 'aggregation':
+            self.label(WIDTH / 2, 176, 'The same texts can support different summaries', 12, TEAL)
+            for i, (title, formula, detail) in enumerate([
+                ('EXHIBITION', '0.75 x news mean + 0.25 x expression mean',
+                 'Fixed source-family weights when both exist'),
+                ('LATEST COMPLETED ANALYSIS', '(news score sum + expression score sum) / all records',
+                 'Each record has equal weight within its country')]):
+                y = 87 - i * 83
+                c.setFillColor(PALE)
+                c.setStrokeColor(TEAL)
+                c.roundRect(8, y, WIDTH - 16, 73, 5, fill=1, stroke=1)
+                self.label(WIDTH / 2, y + 53, title, 9, TEAL)
+                self.label(WIDTH / 2, y + 32, formula, 10)
+                self.label(WIDTH / 2, y + 13, detail, 8.8, MUTED)
+        elif self.kind == 'pipeline':
             labels = ['6 source\ncollections', 'PCAI\ncountry coding', 'Classifier\ngroup scores', 'Country means\n75/25 blend', 'Winning word\nand category']
             w = (WIDTH - 4 * 13) / 5
             for i, txt in enumerate(labels):
@@ -190,6 +241,8 @@ class Diagram(Flowable):
                 if i < 4:
                     self.arrow(x + w + 2, 70, x + w + 11, 70)
             self.label(WIDTH / 2, 21, 'Training examples are separate from the real texts analysed here.', 8.7)
+            self.label(WIDTH / 2, 7,
+                       'Earlier exhibition pipeline; the latest analysis uses equal record weights.', 8.5)
         elif self.kind == 'graph':
             for i, inside in enumerate([False, True]):
                 x0 = i * (WIDTH / 2 + 2)
@@ -236,6 +289,8 @@ def make_table(lines, s, width=WIDTH):
     n = len(rows[0])
     ratios = {2:[.28,.72], 3:[.24,.53,.23], 4:[.27,.19,.23,.31],
               5:[.31,.16,.13,.15,.25]}[n]
+    if rows[0][0] == 'Languages 1-25':
+        ratios = [.25] * 4
     if n == 3 and 'What it does not measure' in rows[0]:
         ratios = [.18,.41,.41]
     if n == 3:
@@ -248,6 +303,10 @@ def make_table(lines, s, width=WIDTH):
             'What it represents': [.25,.43,.32],
             'Articles or records': [.33,.23,.44],
             'Purpose': [.27,.43,.30],
+            'Selected exhibition material': [.26,.29,.45],
+            'Records': [.35,.23,.42],
+            'Size': [.32,.23,.45],
+            'Examples': [.32,.21,.47],
         }.get(rows[0][1], ratios)
     data = [[Paragraph(markup(cell), s['CellHead' if i==0 else 'Cell'])
              for cell in row] for i,row in enumerate(rows)]
@@ -259,6 +318,9 @@ def make_table(lines, s, width=WIDTH):
         ('TOPPADDING',(0,0),(-1,-1),7), ('BOTTOMPADDING',(0,0),(-1,-1),7),
         ('LINEBELOW',(0,0),(-1,0),.6,NAVY),
     ]))
+    if rows[0][0] == 'Languages 1-25':
+        table.setStyle(TableStyle([('TOPPADDING',(0,0),(-1,-1),4),
+                                   ('BOTTOMPADDING',(0,0),(-1,-1),4)]))
     return table
 
 
@@ -324,7 +386,7 @@ def parse_markdown(text, s, sheet=False):
             if ref and not sheet:
                 style='Reference'
             out.append(Paragraph(('&#8226; ' if bullet else '')+formatted,s[style]))
-    # Country stories are reference cards; keep their spoken text and evidence together.
+    # Keep each short country story with its evidence and interpretation.
     grouped=[]
     i=0
     while i<len(out):
@@ -340,24 +402,26 @@ def parse_markdown(text, s, sheet=False):
 
 
 class Cover(Flowable):
-    def __init__(self):
+    def __init__(self, audience='age-18'):
         super().__init__()
+        self.audience = audience
         self.width=WIDTH
         self.height=PAGE_H-110
 
     def draw(self):
         c=self.canv
+        edition, title, subtitle, version = EDITIONS[self.audience]
         c.setFillColor(TEAL)
         c.setFont('Body-Bold',10)
-        c.drawString(0,self.height-15,'ARTIST TEAM REFERENCE  /  ADULT EDITION')
+        c.drawString(0,self.height-15,'ARTIST TEAM REFERENCE  /  ' + edition)
         c.setFillColor(NAVY)
         c.setFont('Display',49)
         c.drawString(0,self.height-89,'P.A.I.N.')
         c.setFont('Display',29)
-        c.drawString(0,self.height-135,'Understanding the project')
+        c.drawString(0,self.height-135,title)
         c.setFont('Body',14)
         c.setFillColor(MUTED)
-        c.drawString(0,self.height-167,'Shared background, source facts, meanings, and possibilities')
+        c.drawString(0,self.height-167,subtitle)
         picture=ExhibitImage(ROOT/'assets/exhibition-overview.png',annotate=False)
         picture.canv=c
         picture.drawOn(c,0,180)
@@ -373,17 +437,22 @@ class Cover(Flowable):
         c.drawString(0,69,'What you see. What it means. Why it matters.')
         c.setFont('Body',9)
         c.setFillColor(MUTED)
-        c.drawString(0,29,'English project reference  |  9 September 2026  |  Version 1.3')
+        c.drawString(0,29,'English project reference  |  9 September 2026  |  Version ' + version)
         c.drawString(0,13,'With a separate one-page keyword sheet')
 
 
-def build_guide(s):
-    text=(ROOT/'age-18-project-guide.md').read_text()
+def build_guide(s, audience='age-18'):
+    text=(ROOT/f'{audience}-project-guide.md').read_text()
     assert len(re.findall(r'^## Story \d\d /',text,re.M))==25
     assert '\u2014' not in text,'No em dashes'
-    for title in ['# The visual language', '# Physical pain', '# Environmental pain',
-                  '# Socioeconomic pain', '# PCAI /', '# Optional ways to frame']:
-        assert title in text,title
+    used_references = set()
+    for first, last in re.findall(r'\[([LSC]\d+)(?:-([LSC]\d+))?\]', text):
+        used_references.add(first)
+        if last:
+            used_references.update(first[0] + str(n) for n in
+                                   range(int(first[1:]), int(last[1:]) + 1))
+    defined_references = set(re.findall(r'^\*\*\[([LSC]\d+)\]', text, re.M))
+    assert used_references <= defined_references, used_references - defined_references
     assert not re.search(r'^# [MSA][123] /|\*\*Say:\*\*|Looking pause:', text, re.M)
     toc=TableOfContents()
     toc.levelStyles=[ParagraphStyle('ContentsEntry',fontName='Body',fontSize=10.2,
@@ -393,15 +462,15 @@ def build_guide(s):
     heading.bookmark=(0,'Contents','contents')
     content=text.split('\n',1)[1]
     parsed=parse_markdown('# About this guide\n'+content,s)
-    story=[Cover(),PageBreak(),heading,
+    story=[Cover(audience),PageBreak(),heading,
            Paragraph('Facts, meanings, sources, country stories, and optional ways to frame the ideas.',s['Text']),toc]
     story.extend(parsed)
-    doc=GuideDoc(ROOT/'age-18-project-guide.pdf')
+    doc=GuideDoc(ROOT/f'{audience}-project-guide.pdf', audience=audience)
     doc.multiBuild(story)
 
 
-def build_sheet(s):
-    text=(ROOT/'age-18-keyword-sheet.md').read_text()
+def build_sheet(s, audience='age-18'):
+    text=(ROOT/f'{audience}-keyword-sheet.md').read_text()
     assert '\u2014' not in text
     parts=re.split(r'^## ',text,flags=re.M)
     sections={p.split('\n',1)[0]:p.split('\n',1)[1] for p in parts[1:]}
@@ -418,20 +487,21 @@ def build_sheet(s):
                               ('LEFTPADDING',(1,0),(1,0),12),
                               ('RIGHTPADDING',(1,0),(1,0),0),
                               ('LINEBEFORE',(1,0),(1,0),.5,colors.HexColor('#cbdad7'))]))
-    doc=BaseDocTemplate(str(ROOT/'age-18-keyword-sheet.pdf'),pagesize=A4,
+    doc=BaseDocTemplate(str(ROOT/f'{audience}-keyword-sheet.pdf'),pagesize=A4,
                        title='P.A.I.N. - Artist team quick reference',author='P.A.I.N. project documentation')
     frame=Frame(MARGIN,33,WIDTH,PAGE_H-65,leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)
     doc.addPageTemplates(PageTemplate(id='sheet',frames=[frame]))
     story=[Paragraph('P.A.I.N. / Quick reference',s['TitleMain']),
-           Paragraph('ARTIST TEAM  |  ADULT EDITION  |  ENGLISH  |  9 SEPTEMBER 2026',s['Small']),
+           Paragraph('ARTIST TEAM  |  ' + EDITIONS[audience][0] +
+                     '  |  ENGLISH  |  9 SEPTEMBER 2026',s['Small']),
            Spacer(1,8),table,
            Spacer(1,5),Paragraph('Shared background for explaining the project in your own words. Examples are possibilities, not required wording.',s['Small'])]
     doc.build(story)
 
 
-def verify_outputs():
-    guide=PdfReader(ROOT/'age-18-project-guide.pdf')
-    sheet=PdfReader(ROOT/'age-18-keyword-sheet.pdf')
+def verify_outputs(audience='age-18'):
+    guide=PdfReader(ROOT/f'{audience}-project-guide.pdf')
+    sheet=PdfReader(ROOT/f'{audience}-keyword-sheet.pdf')
     assert len(sheet.pages)==1,'Keyword sheet must remain one page'
     assert len(guide.outline)>=10,'Guide needs working navigation'
     text='\n'.join(page.extract_text() or '' for page in guide.pages)
@@ -439,6 +509,14 @@ def verify_outputs():
         visible='\n'.join(page.extract_text() or '' for page in document.pages)
         assert not re.search(r'/Users/|/Volumes/|\b\S+\.(?:json|ts|csv|py|parquet|npz|mjs|pdf)\b',
                              visible), 'Keep implementation filenames out of audience documents'
+        assert all(abs(float(p.mediabox.width)-PAGE_W) < 1 and
+                   abs(float(p.mediabox.height)-PAGE_H) < 1 for p in document.pages)
+        page_ids = {p.indirect_reference.idnum for p in document.pages}
+        for page in document.pages:
+            for ref in page.get('/Annots', []):
+                destination = ref.get_object().get('/Dest')
+                if isinstance(destination, list):
+                    assert destination[0].idnum in page_ids, 'Broken internal link'
     assert not re.search(r'\b[MSA][123] /|planned pauses|spoken words|Say:',text)
     for n in range(1,26):
         assert f'Story {n:02d}' in text,n
@@ -450,15 +528,17 @@ def verify_outputs():
             if obj.get('/A',{}).get('/URI'):
                 uris.append(str(obj['/A']['/URI']))
     assert len(uris)>=20,'Public references should be clickable'
-    print(f'PDF checks passed: guide {len(guide.pages)} pages; sheet 1 page; {len(uris)} public links.')
+    print(f'{audience}: guide {len(guide.pages)} pages; sheet 1 page; {len(uris)} public links.')
 
 
 if __name__=='__main__':
     args=argparse.ArgumentParser(description=__doc__)
     args.add_argument('--font-dir',type=Path,default=Path('/System/Library/Fonts/Supplemental'))
+    args.add_argument('--audience', nargs='+', choices=EDITIONS, default=['age-18'])
     config=args.parse_args()
     register_fonts(config.font_dir)
-    STYLE=styles()
-    build_guide(STYLE)
-    build_sheet(STYLE)
-    verify_outputs()
+    for audience in config.audience:
+        STYLE=styles(audience)
+        build_guide(STYLE, audience)
+        build_sheet(STYLE, audience)
+        verify_outputs(audience)
