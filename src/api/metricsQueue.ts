@@ -1,7 +1,7 @@
 /** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
  * Only these semantic codes and aggregate numbers may cross the analytics boundary. */
 const METRIC_TYPES = ["control", "country", "emotion", "survey", "window", "gesture", "page"] as const;
-const METRIC_TARGETS = ["layer", "all-layers", "theme", "sound", "about", "sources", "share", "consent", "survey", "survey-options", "survey-text", "survey-body", "country", "emotion", "emotion-filter", "globe", "page", "festival", "workshop", "result", "cycle", "quality", "menu", "source-link", "about-link", "globe-rotate", "globe-zoom"] as const;
+const METRIC_TARGETS = ["layer", "all-layers", "theme", "sound", "about", "sources", "share", "consent", "survey", "survey-options", "survey-text", "survey-body", "country", "emotion", "emotion-filter", "globe", "page", "festival", "workshop", "result", "cycle", "quality", "menu", "source-link", "about-link", "globe-rotate", "globe-zoom", "operator", "data-export", "exit", "update-settings"] as const;
 const METRIC_ACTIONS = ["click", "open", "close", "change", "enable", "disable", "next", "back", "submit", "start", "end", "visible", "hidden", "input"] as const;
 const LAYERS = ["emopain", "envpain", "physpain", "socioecopain", "all-layers"] as const;
 const EMOTIONS = ["01_pain", "02_hurt", "03_eco_anxiety", "04_uncertainty", "05_grief", "06_anger", "07_hardship", "08_displacement", "09_trauma", "10_loneliness", "11_depression", "12_fear", "13_helplessness", "14_shame"] as const;

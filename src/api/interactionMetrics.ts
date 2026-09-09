@@ -4,7 +4,7 @@ import { VisibleDuration } from "./metricsQueue";
 
 type Target = MetricEvent["target"];
 type OpenWindow = { duration: VisibleDuration; country?: string };
-const CONTROL_TARGETS: readonly Target[] = ["sound", "theme", "about", "sources", "share", "menu", "cycle", "quality"];
+const CONTROL_TARGETS: readonly Target[] = ["sound", "theme", "about", "sources", "share", "menu", "cycle", "quality", "operator", "data-export", "exit", "update-settings"];
 const MODALS = [".info-modal--visible", ".consent-modal--visible", ".survey-modal--visible", ".survey-result-modal--visible"];
 const WINDOW_ELEMENTS = ".info-modal,.consent-modal,.survey-modal,.survey-result-modal,#country-profile";
 
