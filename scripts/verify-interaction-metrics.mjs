@@ -308,6 +308,9 @@ for (let i = 0; i < 100; i++) dispatch(windowStub, 'pointermove', { pointerId: 1
 clock += 1000;
 dispatch(windowStub, 'pointerup', { pointerId: 1 });
 assert.equal(activity.filter(event => event.target === 'globe-rotate').length, 1, 'A drag emits one aggregate, not 100 moves');
+dispatch(canvas, 'pointerdown', { pointerId: 2, clientX: 0, clientY: 0 });
+dispatch(windowStub, 'pointercancel', { type: 'pointercancel', pointerId: 2 });
+assert.equal(activity.at(-1).action, 'end', 'Canceled contact must not be counted as a click');
 for (let i = 0; i < 100; i++) dispatch(canvas, 'wheel');
 for (const fn of [...timers.values()]) fn();
 assert.equal(activity.filter(event => event.target === 'globe-zoom').length, 1);

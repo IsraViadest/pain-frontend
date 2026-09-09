@@ -107,7 +107,8 @@ export function installInteractionMetrics(canvas: HTMLCanvasElement): () => void
   const endPointer = (event: PointerEvent): void => {
     if (!pointers.delete(event.pointerId) || pointers.size) return;
     trackInteraction({ type: "gesture", target: pinched ? "globe-zoom" : moved ? "globe-rotate" : "globe",
-      action: moved || pinched ? "end" : "click", count: 1, durationMs: performance.now() - gestureStart });
+      action: moved || pinched || event.type === "pointercancel" ? "end" : "click",
+      count: 1, durationMs: performance.now() - gestureStart });
   };
   window.addEventListener("pointerup", endPointer, { signal, passive: true });
   window.addEventListener("pointercancel", endPointer, { signal, passive: true });
