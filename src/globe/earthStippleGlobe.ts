@@ -475,6 +475,11 @@ export async function createEarthStippleGlobe(
     depthWrite: false,
     depthTest: true,
     blending: THREE.NormalBlending,
+    // Reserve bit 2 only for fragments that survive the dot shader and depth test.
+    // Country selection uses it to leave the painted dots intact.
+    stencilWrite: true, stencilWriteMask: 2, stencilFuncMask: 2,
+    stencilRef: 2, stencilFunc: THREE.AlwaysStencilFunc,
+    stencilZPass: THREE.ReplaceStencilOp,
   });
 
   const points = new THREE.Points(geom, material);

@@ -91,19 +91,21 @@ export async function createEmoSelectionLayer(options: {
     transparent: true,
     depthWrite: false,
     side: THREE.FrontSide,
+    stencilWrite: true, stencilWriteMask: 0, stencilFuncMask: 2,
+    stencilRef: 0, stencilFunc: THREE.EqualStencilFunc,
   });
   // Borrowed, not owned. destroy() must not dispose it; see the module docstring.
   const mesh = new THREE.Mesh(globe.getCountrySurfaceGeometry(), material);
-  mesh.renderOrder = 2;
+  mesh.renderOrder = 2.02;
   mesh.visible = false;
   globe.earthContent.add(mesh);
-  // The visible globe may be absent. Write its borrowed surface immediately before the wash
-  // so concave scars cannot reveal a far-side country through the transparent foreground.
+  // The visible globe may be absent. Mask far-side selection after dots have rendered,
+  // so selecting a country cannot introduce a new global occluder for those dots.
   const depthMaterial = new THREE.MeshBasicMaterial({
     colorWrite: false, depthWrite: true, transparent: true,
   });
   const depthMesh = new THREE.Mesh(mesh.geometry, depthMaterial);
-  depthMesh.renderOrder = mesh.renderOrder - 0.01;
+  depthMesh.renderOrder = 2.01;
   depthMesh.visible = false;
   globe.earthContent.add(depthMesh);
   const borders = createCountrySelectionBorders(globe);

@@ -24,11 +24,11 @@ export function createCountrySelectionBorders(globe: GlobeView) {
       depthWrite: false, depthTest: true, toneMapped: false, clipping: true,
       clippingPlanes: [front], polygonOffset: true, polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
-      // Round caps overlap. Blend each covered sample once, strongest batch first.
-      // The renderer clears this stencil bit with the frame; surface depth remains intact.
-      stencilWrite: true, stencilWriteMask: 1, stencilFuncMask: 1,
-      stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc,
-      stencilZPass: THREE.ReplaceStencilOp });
+      // Bit 1 deduplicates caps; bit 2 protects dots. Paint only where neither is set,
+      // then mark bit 1 without changing dot coverage or any other stencil bits.
+      stencilWrite: true, stencilWriteMask: 1, stencilFuncMask: 3,
+      stencilRef: 0, stencilFunc: THREE.EqualStencilFunc,
+      stencilZPass: THREE.InvertStencilOp });
     const mesh = new LineSegments2(new LineSegmentsGeometry(), material);
     mesh.renderOrder = 2.1 + index * 0.001;
     mesh.visible = false;
