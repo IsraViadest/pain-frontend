@@ -1550,3 +1550,10 @@ Black mode remains undecided. New screenshot-only options are A neutral grey at 
 Both greys have equal RGB components. The new sheet is545,264 bytes and is available at
 <http://127.0.0.1:5181/?group=dark2>. Images and measured settings remain in workspace
 `artifacts/ocean-dot-comparison-20260910`. No grey trial was added to runtime presets.
+
+## 2026-09-10: clear blue adopted for both themes
+
+User selected `dark2-C.png`. All the Pain now uses the same approved clear-blue ocean dots
+in black and blue mode. Soft gold and soft mint remain the accepted individual-layer choices.
+Full compliance/build and all 16 live layer/theme transitions pass. Applied on preview 5176;
+the Windows ZIP has not been rebuilt for this change.

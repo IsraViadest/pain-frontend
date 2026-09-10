@@ -1975,7 +1975,7 @@ export class GlobeView {
       0.28 + 0.72 * ocean[2],
     );
     const approvedOcean = this.showAllLayersMode
-      ? this.visualTheme === "blue" ? APPROVED_OCEAN_RGB.combinedBlue : null
+      ? APPROVED_OCEAN_RGB.combinedBlue
       : this.currentLayerId === "socioecopain" ? APPROVED_OCEAN_RGB.wealth
       : this.currentLayerId === "envpain" ? APPROVED_OCEAN_RGB.environment : null;
     if (approvedOcean) u.uOceanColor.value.set(...approvedOcean);

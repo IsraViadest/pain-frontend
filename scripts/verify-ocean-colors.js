@@ -28,7 +28,6 @@
     if (!themeButton || !initialLayer) throw Error("Preview controls missing");
     for (const blue of [false, true]) {
       if ((themeButton.getAttribute("aria-pressed") === "true") !== blue) themeButton.click();
-      let emotional;
       let combined;
       for (const layer of ["emopain", "all-pain", "envpain", "all-pain", "physpain", "all-pain",
         "socioecopain", "all-pain"]) {
@@ -39,12 +38,9 @@
         sample = undefined;
         for (let frame = 0; frame < 3; frame++) await new Promise(requestAnimationFrame);
         if (!sample) throw Error("Ocean material did not draw");
-        if (layer === "emopain") {
-          emotional = sample.tint.map((value, i) => .72 * value + .28 * sample.shade[i]);
-        }
         const shade = blue ? [209 / 255, 247 / 255, 1] : [1, 1, 1];
         const expected = layer === "all-pain"
-          ? blue ? [0.3550211764705882, 0.5939022222222219, 0.9283356862745098] : emotional
+          ? [0.3550211764705882, 0.5939022222222219, 0.9283356862745098]
           : layer === "socioecopain" ? [0.8208392156862745, 0.7611189542483658, 0.4625176470588235]
           : layer === "envpain" ? [0.4625176470588235, 0.8208392156862745, 0.6715385620915034]
           : sample.layerTint.map((value, i) => .72 * value + .28 * shade[i]);
