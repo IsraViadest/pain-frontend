@@ -233,7 +233,8 @@ void main() {
     uOceanAlphaMin
   );
   float alphaLand = disk * (0.2 + 0.44 * frontFactor);
-  float alpha = mix(alphaWater, alphaLand, landMask) * vDetailOpacity * uContextOpacity;
+  // Approved ocean treatments use Emotional's visibility; context fading stays on land.
+  float alpha = mix(alphaWater, alphaLand, landMask) * vDetailOpacity * mix(1.0, uContextOpacity, landMask);
   if (alpha < 0.002) discard;
   gl_FragColor = vec4(col, alpha);
 }

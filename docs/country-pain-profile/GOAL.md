@@ -1534,3 +1534,19 @@ Every capture verifies the same camera,82,000 points and unchanged land inputs. 
 were inspected. No live preset or application code changed; no winner has been adopted.
 The initial recommendation is C in each row, with B as the softer alternative. The screenshot
 helper now brings its owned page forward after a no-frame rejection; no wrong frame was saved.
+
+
+## 2026-09-10: approved ocean colors and brighter black-mode trials
+
+User chose Socioeconomic B (soft gold), Environmental B (soft mint, interpreting "economic B"),
+and All the Pain blue-mode C (clear blue). These are now applied using the exact shader RGB
+from the captured choices. Ocean visibility matches Emotional; land context fading is retained.
+The adopted screenshots match their selected prototypes with zero differing pixels in both
+checked ocean and central-globe regions. Full compliance/build,16 palette transitions and
+selection pixel stability across all five layers pass.
+
+Black mode remains undecided. New screenshot-only options are A neutral grey at HSL lightness
+0.641678431372549, B lighter grey at0.761678431372549, and C the exact selected clear blue.
+Both greys have equal RGB components. The new sheet is545,264 bytes and is available at
+<http://127.0.0.1:5181/?group=dark2>. Images and measured settings remain in workspace
+`artifacts/ocean-dot-comparison-20260910`. No grey trial was added to runtime presets.

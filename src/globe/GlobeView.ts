@@ -70,6 +70,12 @@ import { COUNTRY_SELECTION_STORAGE_RESERVE_BYTES } from "../emo/selectionBorders
 
 export type { Co2HazeTune };
 export const EMOTIONAL_STIPPLE_COLOR = "#6B15CE";
+// Shader RGB captured from the approved soft-gold, soft-mint and clear-blue screenshots.
+const APPROVED_OCEAN_RGB = {
+  wealth: [0.8208392156862745, 0.7611189542483658, 0.4625176470588235],
+  environment: [0.4625176470588235, 0.8208392156862745, 0.6715385620915034],
+  combinedBlue: [0.3550211764705882, 0.5939022222222219, 0.9283356862745098],
+} as const;
 type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
   "relief" | "shadow";
 type ScarReliefPalette = "coral" | "crimson" | "rose" | "vibrant";
@@ -1968,6 +1974,11 @@ export class GlobeView {
       0.28 * (this.visualTheme === "blue" ? 247 / 255 : 1) + 0.72 * ocean[1],
       0.28 + 0.72 * ocean[2],
     );
+    const approvedOcean = this.showAllLayersMode
+      ? this.visualTheme === "blue" ? APPROVED_OCEAN_RGB.combinedBlue : null
+      : this.currentLayerId === "socioecopain" ? APPROVED_OCEAN_RGB.wealth
+      : this.currentLayerId === "envpain" ? APPROVED_OCEAN_RGB.environment : null;
+    if (approvedOcean) u.uOceanColor.value.set(...approvedOcean);
     const emopainHex = this.showAllLayersMode
       ? getMapLayerById("emopain")?.color
       : undefined;
