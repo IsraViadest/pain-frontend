@@ -9,6 +9,8 @@
   <body>
     <div id="app">
       <canvas id="globe"></canvas>
+      <div id="emo-label-host" class="emo-label-host" hidden></div>
+      <div id="emo-legend" class="emo-legend" hidden aria-label="Pain categories"></div>
       <div id="ui-title"></div>
       <div id="ui-title-controls"></div>
       <div id="ui-layer-stack"></div>
@@ -19,6 +21,22 @@
       <p id="status" class="status" aria-live="polite" hidden></p>
       <button type="button" id="word-cloud-toggle" class="word-cloud-toggle" hidden></button>
       <div id="survey-modal"></div>
+      <button
+        type="button"
+        id="emo-view-toggle"
+        class="globe-debug-entry emo-view-entry"
+        hidden
+        aria-expanded="false"
+        aria-controls="emo-view-panel"
+      >
+        Views
+      </button>
+      <div
+        id="emo-view-panel"
+        class="globe-debug-panel-host globe-debug-panel-host--floating emo-view-panel-host"
+        hidden
+        aria-label="Emotional pain label views"
+      ></div>
       <button
         type="button"
         id="globe-debug-toggle"

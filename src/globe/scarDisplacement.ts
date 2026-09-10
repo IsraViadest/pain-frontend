@@ -40,15 +40,16 @@ export function sampleScarHeight01(
 
   const uu = ((u % 1) + 1) % 1;
   const vv = THREE.MathUtils.clamp(v, 0, 1);
-  const x = uu * (w - 1);
-  const y = vv * (h - 1);
+  // Match normalized LINEAR texture sampling: texel centers are (i + 0.5) / size.
+  const x = uu * w - 0.5;
+  const y = THREE.MathUtils.clamp(vv * h - 0.5, 0, h - 1);
   const x0 = Math.floor(x);
   const y0 = Math.floor(y);
-  const x1 = Math.min(x0 + 1, w - 1);
+  const x1 = x0 + 1;
   const y1 = Math.min(y0 + 1, h - 1);
   const tx = x - x0;
   const ty = y - y0;
-  const i = (ix: number, iy: number) => data[iy * w + ix] ?? 128;
+  const i = (ix: number, iy: number) => data[iy * w + ((ix % w) + w) % w] ?? 128;
   const r00 = i(x0, y0);
   const r10 = i(x1, y0);
   const r01 = i(x0, y1);

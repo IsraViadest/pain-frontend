@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "check": "node scripts/check-compliance.mjs",
     "preview": "vite preview",
-    "fetch:data": "node scripts/fetch-pain-data.mjs"
+    "fetch:data": "node scripts/fetch-pain-data.mjs",
+    "build:emo-data": "node scripts/build-emo-data.mjs",
+    "build:emo-fonts": "node scripts/build-emo-fonts.mjs",
+    "build:emo": "npm run build:emo-data && npm run build:emo-fonts"
   },
   "dependencies": {
     "cors": "^2.8.5",

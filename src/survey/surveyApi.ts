@@ -54,23 +54,19 @@ export async function submitSurvey(
       }),
     });
     if (!res.ok) {
-      const text = await res.text();
-      console.warn(`[surveyApi] POST /survey failed: ${res.status} ${res.statusText}: ${text}`);
+      console.warn(`[surveyApi] POST /survey failed: HTTP ${res.status}`);
       return null;
     }
     const body = (await res.json()) as unknown;
     if (!isSurveySubmissionResult(body)) {
       console.warn(
         "[surveyApi] POST /survey returned unexpected JSON (expected { lat:number, lng:number, text:string })",
-        body,
       );
       return null;
     }
     return body;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[surveyApi] POST /survey threw: ${msg}`);
+  } catch {
+    console.warn("[surveyApi] POST /survey request failed");
     return null;
   }
 }
-

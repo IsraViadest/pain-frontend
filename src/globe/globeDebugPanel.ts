@@ -487,12 +487,12 @@ const TEMP_HEAT_TUNE_SLIDERS: TempHeatTuneSliderSpec[] = [
 /** Sliders flattened for sync (`Scar …` section checkbox lives separately). */
 const ALL_TUNING_SLIDER_SPECS = TUNE_SECTIONS.flatMap((s) => s.sliders);
 
-function formatTuneValue(value: number, decimals: number): string {
+export function formatTuneValue(value: number, decimals: number): string {
   if (decimals <= 0) return String(Math.round(value));
   return value.toFixed(decimals);
 }
 
-function makeDetails(summaryText: string, defaultOpen: boolean): {
+export function makeDetails(summaryText: string, defaultOpen: boolean): {
   el: HTMLDetailsElement;
   body: HTMLElement;
 } {

@@ -35,12 +35,13 @@ const INNER_BORDER_LINEWIDTH = 0.00085;
  * when CPU-warping border strokes onto the scar field. ~0.5–0.6 keeps coast/inner lines
  * on the deformed shell and reduces z-fighting with stipple; shared by coast and inner.
  */
-const LINE_BIAS_FRACTION = 0.55;
+export const LINE_BIAS_FRACTION = 0.55;
 
-function appendOpenLineString(
+export function appendOpenLineString(
   coords: number[][],
   radius: number,
   out: number[],
+  maxDegrees: number,
 ): void {
   for (let i = 0; i < coords.length - 1; i++) {
     const p0 = coords[i]!;
@@ -55,25 +56,37 @@ function appendOpenLineString(
     ) {
       continue;
     }
-    const a = latLngToVector3(lat0, lng0, radius);
-    const b = latLngToVector3(lat1, lng1, radius);
-    out.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    let a = latLngToVector3(lat0, lng0, radius);
+    const end = latLngToVector3(lat1, lng1, radius);
+    const degrees = THREE.MathUtils.radToDeg(a.angleTo(end));
+    const count = Math.max(1, Math.ceil(degrees / maxDegrees));
+    const longitudeSpan = ((lng1 - lng0 + 540) % 360) - 180;
+    for (let step = 1; step <= count; step++) {
+      const t = step / count;
+      // Keep the source's unwrapped map segment; only add samples before scar displacement.
+      const b = step === count ? end : latLngToVector3(
+        lat0 + (lat1 - lat0) * t, lng0 + longitudeSpan * t, radius,
+      );
+      out.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      a = b;
+    }
   }
 }
 
 function collectOpenLineSegments(
   fc: FeatureCollection,
   radius: number,
+  maxDegrees = Infinity,
 ): Float32Array {
   const tmp: number[] = [];
   for (const f of fc.features) {
     const g = f.geometry;
     if (!g) continue;
     if (g.type === "LineString") {
-      appendOpenLineString((g as LineStringGeom).coordinates, radius, tmp);
+      appendOpenLineString((g as LineStringGeom).coordinates, radius, tmp, maxDegrees);
     } else if (g.type === "MultiLineString") {
       for (const line of (g as MultiLineStringGeom).coordinates) {
-        appendOpenLineString(line, radius, tmp);
+        appendOpenLineString(line, radius, tmp, maxDegrees);
       }
     }
   }
@@ -107,6 +120,9 @@ function makeFatLine(
 
 export interface GlobeBorderOutlines {
   readonly group: THREE.Group;
+  additionalStorageBytes(): number;
+  setMaxSegmentDegrees(degrees: number): void;
+  setDisplayPaths(paths: { coastLines: number[][][]; borderLines: number[][][] } | null): void;
   setCoastVisible(visible: boolean): void;
   setInnerBordersVisible(visible: boolean): void;
   setResolution(width: number, height: number): void;
@@ -145,13 +161,20 @@ export async function loadGlobeBorderOutlines(
 
   const coastFc = (await coastRes.json()) as FeatureCollection;
   const innerFc = (await innerRes.json()) as FeatureCollection;
+  let displayCoast = coastFc;
+  let displayInner = innerFc;
 
   const coastPos = collectOpenLineSegments(coastFc, radius);
   const innerPos = collectOpenLineSegments(innerFc, radius);
-  const coastBasePos = coastPos.slice();
-  const innerBasePos = innerPos.slice();
-  const coastWarpPos = coastPos.slice();
-  const innerWarpPos = innerPos.slice();
+  const originalSegments = (coastPos.length + innerPos.length) / 6;
+  let coastBasePos: Float32Array = coastPos.slice();
+  let innerBasePos: Float32Array = innerPos.slice();
+  let coastWarpPos = coastPos.slice();
+  let innerWarpPos = innerPos.slice();
+  let maxSegmentDegrees = Infinity;
+  let lastMap: THREE.DataTexture | null = null;
+  let lastScale = 0;
+  let lastBias = 0;
 
   const coastColor = new THREE.Color(0x6a7588);
   const innerColor = new THREE.Color(0x5a6270);
@@ -171,8 +194,32 @@ export async function loadGlobeBorderOutlines(
   const coastMat = coastLine.material as LineMaterial;
   const innerMat = innerLine.material as LineMaterial;
 
-  return {
+  const outlines: GlobeBorderOutlines = {
     group,
+    additionalStorageBytes(): number {
+      // Base XYZ endpoints, shared warp/instance buffer, and CPU/GPU distance buffers.
+      const segments = (coastBasePos.length + innerBasePos.length) / 6;
+      return Math.max(0, segments - originalSegments) * 88;
+    },
+    setMaxSegmentDegrees(degrees: number): void {
+      if (degrees === maxSegmentDegrees) return;
+      maxSegmentDegrees = degrees;
+      coastBasePos = collectOpenLineSegments(displayCoast, radius, degrees);
+      innerBasePos = collectOpenLineSegments(displayInner, radius, degrees);
+      coastWarpPos = coastBasePos.slice();
+      innerWarpPos = innerBasePos.slice();
+      this.setScarDisplacementMap(lastMap, lastScale, lastBias);
+    },
+    setDisplayPaths(paths): void {
+      const collection = (coordinates: number[][][]): FeatureCollection => ({
+        features: [{ geometry: { type: "MultiLineString", coordinates } }],
+      });
+      displayCoast = paths ? collection(paths.coastLines) : coastFc;
+      displayInner = paths ? collection(paths.borderLines) : innerFc;
+      const degrees = maxSegmentDegrees;
+      maxSegmentDegrees = NaN;
+      this.setMaxSegmentDegrees(degrees);
+    },
     setCoastVisible(visible: boolean): void {
       coastLine.visible = visible;
     },
@@ -199,6 +246,9 @@ export async function loadGlobeBorderOutlines(
       displacementBias: number,
     ): void {
       const scarActive = Boolean(map);
+      lastMap = map;
+      lastScale = displacementScale;
+      lastBias = displacementBias;
       // Write depth in scar mode so fat lines win over transparent stipple sprites.
       coastMat.depthWrite = true;
       innerMat.depthWrite = true;
@@ -237,6 +287,9 @@ export async function loadGlobeBorderOutlines(
 
       const coastGeom = coastLine.geometry as LineSegmentsGeometry;
       const innerGeom = innerLine.geometry as LineSegmentsGeometry;
+      // Release replaced attributes and Three's cached instance limit before changing density.
+      coastGeom.dispose();
+      innerGeom.dispose();
       coastGeom.setPositions(coastWarpPos);
       innerGeom.setPositions(innerWarpPos);
       coastLine.computeLineDistances();
@@ -273,4 +326,5 @@ export async function loadGlobeBorderOutlines(
       innerMat.dispose();
     },
   };
+  return outlines;
 }

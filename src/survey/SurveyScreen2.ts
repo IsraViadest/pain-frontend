@@ -1,5 +1,6 @@
 import { latLngToNormalizedMapXY, svgCoordsToLatLng } from "./mapUtils";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
+import { trackInteraction } from "../api/metricsApi";
 import { playButtonSound, SOUND_BUTTON_BLOB } from "../sound/buttonSound";
 import {
   SURVEY_BLOB_DEFS,
@@ -359,6 +360,8 @@ export function mountSurveyScreen2(
 
   const commitPlacement = (word: string, lat: number, lng: number): void => {
     upsertPlacement(state, word, lat, lng);
+    trackInteraction({ type: "survey", target: "survey-body", action: "change", step: 2,
+      count: 1, selectedCount: state.placements.length });
     renderPin({ word, lat, lng });
     refreshTray();
     syncAdvanceEnabled();

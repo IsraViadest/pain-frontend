@@ -6,7 +6,9 @@
  */
 import * as THREE from "three";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
-import { rasterLandMaskFromCountries } from "./landMaskRaster";
+import { rasterLandMaskFromCountries, rasterLandMaskFromGeometries } from "./landMaskRaster";
+import type { IndexedCountryGeometry } from "./countryGeometry";
+import type { createStippleDetailController, StippleDetailMode } from "./stippleDetailController";
 import { createNeutralHeatTexture } from "./painHeatField";
 
 /** Same Natural Earth source as vector coastlines / borders (WGS84 plate-carrée). */
@@ -27,20 +29,35 @@ const float EQUIRECT_INV_TWO_PI = 0.15915494309189533577;
 const float EQUIRECT_INV_PI = 0.31830988618379067154;
 
 attribute float aLand;
+attribute vec4 aRoot;
+attribute float aSizeScale;
+attribute vec3 aFade;
+attribute float aUniformDetail;
+uniform float uDetailMode;
+uniform float uDetailTime;
+uniform float uDetailFadeSeconds;
+uniform float uDetailFocal;
+uniform float uUniformDetailMix;
+varying float vDetailOpacity;
 varying float vLand;
 varying float vFresnel;
 varying float vFacing;
 varying vec2 vHeatUv;
 uniform float uPixelRatio;
+uniform float uPointScale;
 uniform float uOceanPointScale;
 uniform sampler2D uScarMap;
 uniform float uScarDispScale;
 uniform float uScarDispBias;
 uniform float uScarActive;
+uniform float uScarDepthSize;
+uniform float uScarMaxDepth;
 /** 1 = dents on land only; 0 = ocean + land (same shell — reduces “inner sphere”). */
 uniform float uScarLandOnly;
 /** Discard points with dot(normal, viewDir) below this (no hardware clip — avoids limb artifacts). */
 uniform float uFacingCullMin;
+uniform float uScarDepthMode;
+uniform vec2 uScarTexelSize;
 
 void main() {
   vec3 dir = normalize(position);
@@ -78,14 +95,48 @@ void main() {
   vec3 viewDir = normalize(-mvPosition.xyz);
   vFresnel = pow(1.0 - clamp(abs(dot(n, viewDir)), 0.0, 1.0), 2.0);
   vLand = aLand;
-  float landMask = vLand;
   float frontSize = 3.5;
   float rimSize = 2.5;
   float sizeByView = mix(frontSize, rimSize, smoothstep(0.0, 1.0, vFresnel));
   // Same screen size for land and ocean so scar dents read equally on both (large land
   // sprites previously hid deformation and looked like a separate shell).
   float baseSize = sizeByView * 0.72;
-  gl_PointSize = baseSize * uPixelRatio;
+  gl_PointSize = baseSize * uPixelRatio * uPointScale;
+  vDetailOpacity = 1.0;
+  if (uDetailMode > 1.5) {
+    float uniformArea = aUniformDetail < 0.5
+      ? 1.0 - 0.5 * uUniformDetailMix
+      : 0.5 * uUniformDetailMix;
+    gl_PointSize *= sqrt(max(0.0, uniformArea));
+  } else if (uDetailMode > 0.5) {
+    // Ocean dots use the normal land zoom sizing, without scar-dependent size changes.
+    // Every sibling shares one virtual root diameter. Area, not an extra alpha division,
+    // accounts for the four smaller dots; each still samples its own scar and heat field.
+    vec3 root = normalize(aRoot.xyz);
+    float rootU = fract(atan(root.z, -root.x) * EQUIRECT_INV_TWO_PI + 1.0);
+    float rootV = 0.5 - asin(clamp(root.y, -1.0, 1.0)) * EQUIRECT_INV_PI;
+    float rootH = texture2D(uScarMap, vec2(rootU, rootV)).r;
+    float rootRadius = length(position) +
+      (rootH * uScarDispScale + uScarDispBias) * uScarActive * landW;
+    vec3 rootView = (modelViewMatrix * vec4(root * rootRadius, 1.0)).xyz;
+    vec3 rootNormal = normalize(mat3(modelViewMatrix) * root);
+    float front = dot(rootNormal, normalize(-rootView));
+    float fresnel = pow(1.0 - clamp(abs(front), 0.0, 1.0), 2.0);
+    float minimumSize = mix(3.5, 2.5, smoothstep(0.0, 1.0, fresnel)) * 0.72 * uPointScale;
+    float spacing = uDetailFocal * rootRadius * aRoot.w / max(0.01, -rootView.z) * max(0.0, front);
+    float extraSize = max(0.0, 0.27 * spacing - minimumSize);
+    float rootSize = minimumSize + extraSize * smoothstep(0.0, 1.0, extraSize);
+    gl_PointSize = rootSize * aSizeScale * uPixelRatio;
+    float progress = uDetailFadeSeconds <= 0.0 ? 1.0 :
+      clamp((uDetailTime - aFade.z) / uDetailFadeSeconds, 0.0, 1.0);
+    vDetailOpacity = mix(aFade.x, aFade.y, smoothstep(0.0, 1.0, progress));
+  }
+  float relativeDepth = clamp((128.0 / 255.0 - h) / max(uScarMaxDepth, 0.00001), 0.0, 1.0);
+  float depthSize = uScarDepthSize < 0.0 ? 1.5 - 0.75 * relativeDepth :
+    1.0 + uScarDepthSize * relativeDepth;
+  // Physical sizes span 150% to 75% of the reduced ocean reference size.
+  gl_PointSize *= landW < 0.5 ? 0.85 : mix(1.0, 0.85 * depthSize,
+    uScarActive * step(0.00001, abs(uScarDepthSize)));
   gl_Position = projectionMatrix * mvPosition;
 }
 `;
@@ -93,6 +144,7 @@ void main() {
 const FS = /* glsl */ `
 uniform vec3 uTint;
 uniform vec3 uShadeBase;
+uniform vec3 uOceanColor;
 uniform vec3 uLandTint;
 uniform float uLandTintStrength;
 uniform float uOceanAlphaBoost;
@@ -105,10 +157,20 @@ uniform vec3 uHeatHot;
 uniform float uShowLand;
 uniform float uShowOcean;
 uniform float uFacingCullMin;
+uniform sampler2D uScarMap;
+uniform float uScarActive;
+uniform float uScarDepthMode;
+uniform vec2 uScarTexelSize;
+uniform vec3 uScarReliefLow;
+uniform vec3 uScarReliefHigh;
 varying float vLand;
+uniform float uContextOpacity;
+uniform sampler2D uSocioMissingMap;
+uniform float uSocioMissingActive;
 varying float vFresnel;
 varying float vFacing;
 varying vec2 vHeatUv;
+varying float vDetailOpacity;
 
 void main() {
   if (vFacing < uFacingCullMin) discard;
@@ -120,6 +182,8 @@ void main() {
   float landMask = vLand;
   if (landMask > 0.5 && uShowLand < 0.5) discard;
   if (landMask < 0.5 && uShowOcean < 0.5) discard;
+  if (landMask > 0.5 && uSocioMissingActive > 0.5 &&
+      texture2D(uSocioMissingMap, vec2(vHeatUv.x, 1.0 - vHeatUv.y)).r > 0.5) discard;
   float landFrontMix = landMask * (0.34 + 0.66 * frontFactor);
 
   vec3 baseCol = mix(uShadeBase * 0.86, uTint, 0.54);
@@ -133,13 +197,46 @@ void main() {
   float heatMix = clamp(heat * uHeatStrength, 0.0, 1.0) * landMask;
   landCol = mix(landCol, heatCol, heatMix);
   vec3 col = mix(waterCol, landCol, landFrontMix);
+  if (landMask < 0.5) col = uOceanColor * (0.9 + 0.1 * frontFactor);
+  if (uScarActive > 0.5 && uScarDepthMode > 0.5) {
+    float scar = texture2D(uScarMap, vHeatUv).r;
+    float west = texture2D(uScarMap, vHeatUv - vec2(uScarTexelSize.x, 0.0)).r;
+    float east = texture2D(uScarMap, vHeatUv + vec2(uScarTexelSize.x, 0.0)).r;
+    float south = texture2D(uScarMap, vHeatUv - vec2(0.0, uScarTexelSize.y)).r;
+    float north = texture2D(uScarMap, vHeatUv + vec2(0.0, uScarTexelSize.y)).r;
+    vec2 slope = vec2(east - west, north - south);
+    float hillshade = clamp(1.0 + dot(slope, normalize(vec2(-0.7, 0.7))) * 35.0, 0.5, 1.5);
+    float contourPhase = scar * 12.0;
+    float contourDistance = abs(fract(contourPhase + 0.5) - 0.5);
+    float contourWidth = max(fwidth(contourPhase) * 1.25, 0.055);
+    float contour = 1.0 - smoothstep(0.0, contourWidth, contourDistance);
+    float useHillshade = uScarDepthMode == 1.0 || uScarDepthMode == 4.0 ? 1.0 : 0.0;
+    float useContour = uScarDepthMode == 2.0 || uScarDepthMode == 3.0 ||
+      uScarDepthMode == 4.0 ? 1.0 : 0.0;
+    float contourMask = uScarDepthMode == 3.0 ? 1.0 : landMask;
+    col *= mix(1.0, hillshade, useHillshade * landMask *
+      (uScarDepthMode == 4.0 ? 0.65 : 1.0));
+    col += vec3(0.16, 0.18, 0.22) * max(0.0, hillshade - 1.0) * useHillshade * landMask;
+    col = mix(col, vec3(0.58, 0.66, 0.76), contour * contourMask * useContour *
+      (uScarDepthMode == 4.0 ? 0.24 : 0.42));
+    if (uScarDepthMode == 5.0) {
+      float valley = smoothstep(0.02, 0.32, max(0.0, 0.50196 - scar));
+      vec3 relief = mix(uScarReliefHigh, uScarReliefLow, valley);
+      relief *= mix(0.82, 1.18, clamp(hillshade * 0.5, 0.0, 1.0));
+      col = mix(col, relief, 0.88 * landMask);
+    }
+    if (uScarDepthMode == 6.0) {
+      col *= 1.0 - 0.45 * landMask * smoothstep(0.02, 0.32, max(0.0, 128.0 / 255.0 - scar));
+    }
+  }
 
   float alphaWater = max(
     min(disk * (0.1 + 0.35 * frontFactor) * uOceanAlphaBoost, 1.0),
     uOceanAlphaMin
   );
   float alphaLand = disk * (0.2 + 0.44 * frontFactor);
-  float alpha = mix(alphaWater, alphaLand, landMask);
+  // Approved ocean treatments use Emotional's visibility; context fading stays on land.
+  float alpha = mix(alphaWater, alphaLand, landMask) * vDetailOpacity * mix(1.0, uContextOpacity, landMask);
   if (alpha < 0.002) discard;
   gl_FragColor = vec4(col, alpha);
 }
@@ -261,6 +358,12 @@ interface EarthStippleGlobeResult {
   neutralScarTexture: THREE.DataTexture;
   /** Black stub for `uHeatMap` when heat overlay is off. */
   neutralHeatTexture: THREE.DataTexture;
+  setDisplayCountries(countries: readonly IndexedCountryGeometry[] | null): void;
+  setDetailMode(mode: StippleDetailMode): Promise<void>;
+  setDetailCapacity(capacity: number): void;
+  updateDetail(camera: THREE.PerspectiveCamera, width: number, height: number, dt: number): void;
+  getDetailStats(): { rootCount: number; descendantCount: number; familyCount: number;
+    additionalBytes: number; capacityLimit: number; targetCapacity: number } | null;
   dispose: () => void;
 }
 
@@ -298,9 +401,12 @@ export async function createEarthStippleGlobe(
     }
   }
 
+  let activeLand = land;
+  let activeLandIsGeoJson = landSource === "geojson";
   const positions: number[] = [];
   const normals: number[] = [];
   const lands: number[] = [];
+  const uniformDetail: number[] = [];
 
   for (let i = 0; i < pointCount; i++) {
     const p = fibonacciPointOnSphere(i, pointCount, radius);
@@ -314,12 +420,14 @@ export async function createEarthStippleGlobe(
     positions.push(p.x, p.y, p.z);
     normals.push(dir.x, dir.y, dir.z);
     lands.push(L);
+    uniformDetail.push(i % 2);
   }
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geom.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geom.setAttribute("aLand", new THREE.Float32BufferAttribute(lands, 1));
+  geom.setAttribute("aUniformDetail", new THREE.Float32BufferAttribute(uniformDetail, 1));
 
   const neutralScarTexture = createNeutralScarTexture();
   const neutralHeatTexture = createNeutralHeatTexture();
@@ -328,16 +436,28 @@ export async function createEarthStippleGlobe(
     uniforms: {
       uTint: { value: initialTint.clone() },
       uShadeBase: { value: initialShadeBase.clone() },
+      uOceanColor: { value: initialShadeBase.clone().lerp(initialTint, 0.72) },
       uLandTint: { value: initialLandTint.clone() },
       uLandTintStrength: { value: initialLandTintStrength },
       uOceanAlphaBoost: { value: 1 },
       uOceanAlphaMin: { value: 0.32 },
       uOceanPointScale: { value: 1 },
       uPixelRatio: { value: initialPixelRatio },
+      uPointScale: { value: 1 },
+      uContextOpacity: { value: 1 },
+      uSocioMissingMap: { value: null },
+      uSocioMissingActive: { value: 0 },
+      uDetailMode: { value: 0 },
+      uDetailTime: { value: 0 },
+      uDetailFadeSeconds: { value: 0.15 },
+      uDetailFocal: { value: 1 },
+      uUniformDetailMix: { value: 0 },
       uScarMap: { value: neutralScarTexture },
       uScarDispScale: { value: 0 },
       uScarDispBias: { value: 0 },
       uScarActive: { value: 0 },
+      uScarDepthSize: { value: 0 },
+      uScarMaxDepth: { value: 128 / 255 },
       uScarLandOnly: { value: 1 },
       uHeatMap: { value: neutralHeatTexture },
       uHeatActive: { value: 0 },
@@ -347,6 +467,10 @@ export async function createEarthStippleGlobe(
       uShowLand: { value: 1 },
       uShowOcean: { value: 1 },
       uFacingCullMin: { value: 0.04 },
+      uScarDepthMode: { value: 0 },
+      uScarTexelSize: { value: new THREE.Vector2(1 / 1000, 1 / 482) },
+      uScarReliefLow: { value: new THREE.Color(0x320611) },
+      uScarReliefHigh: { value: new THREE.Color(0xff6f78) },
     },
     vertexShader: VS,
     fragmentShader: FS,
@@ -354,18 +478,107 @@ export async function createEarthStippleGlobe(
     depthWrite: false,
     depthTest: true,
     blending: THREE.NormalBlending,
+    // Reserve bit 2 only for fragments that survive the dot shader and depth test.
+    // Country selection uses it to leave the painted dots intact.
+    stencilWrite: true, stencilWriteMask: 2, stencilFuncMask: 2,
+    stencilRef: 2, stencilFunc: THREE.AlwaysStencilFunc,
+    stencilZPass: THREE.ReplaceStencilOp,
   });
 
   const points = new THREE.Points(geom, material);
+  material.defaultAttributeValues.aRoot = [0, 0, 0, 0];
+  material.defaultAttributeValues.aSizeScale = [1];
+  material.defaultAttributeValues.aFade = [1, 1, 0];
+  material.defaultAttributeValues.aUniformDetail = [0];
   points.renderOrder = 2;
   points.frustumCulled = false;
+  let detail: ReturnType<typeof createStippleDetailController> | null = null;
+  let detailPromise: Promise<void> | null = null;
+  let requestedDetail: StippleDetailMode = "fixed";
+  let requestedCapacity = 131_072;
+  let disposed = false;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  async function setDetailMode(mode: StippleDetailMode): Promise<void> {
+    requestedDetail = mode;
+    if (mode === "uniform") {
+      detail?.setMode("fixed");
+      material.uniforms.uDetailMode.value = 2;
+      return;
+    }
+    if (detail) { detail.setMode(mode); return; }
+    if (mode === "fixed" || disposed) {
+      material.uniforms.uDetailMode.value = 0;
+      return;
+    }
+    if (!detailPromise) {
+      detailPromise = import("./stippleDetailController").then(({ createStippleDetailController }) => {
+        if (disposed || requestedDetail === "fixed") return;
+        detail = createStippleDetailController({ points, material, radius, capacity: requestedCapacity,
+          isLand: (direction) => {
+          if (activeLand.w <= 1 || activeLand.h <= 1) return false;
+          const { u, v } = dirToLandMaskUV(direction);
+          return isLandPixel(sampleLuminanceBilinear(activeLand.data, activeLand.w, activeLand.h, u, v),
+            activeLandIsGeoJson);
+        } });
+        detail.setMode(requestedDetail);
+      }).finally(() => { detailPromise = null; });
+    }
+    return detailPromise;
+  }
 
   return {
     points,
     material,
     neutralScarTexture,
     neutralHeatTexture,
+    setDetailMode,
+    setDetailCapacity(capacity): void {
+      requestedCapacity = capacity;
+      detail?.setCapacity(capacity);
+    },
+    updateDetail(camera, width, height, dt): void {
+      material.uniforms.uDetailFadeSeconds.value = reducedMotion.matches ? 0 : 0.15;
+      if (requestedDetail === "uniform") {
+        const near = THREE.MathUtils.clamp((2.05 - camera.position.length()) / 0.5, 0, 1);
+        material.uniforms.uUniformDetailMix.value = near * near * (3 - 2 * near);
+        return;
+      }
+      detail?.update(camera, width, height, dt);
+    },
+    getDetailStats: () => {
+      const stats = detail?.stats() ?? {
+        rootCount: pointCount, descendantCount: 0, familyCount: 0, additionalBytes: 0,
+        capacityLimit: requestedCapacity, targetCapacity: requestedCapacity,
+      };
+      return { ...stats, additionalBytes: stats.additionalBytes + land.data.byteLength +
+        (activeLand === land ? 0 : activeLand.data.byteLength) };
+    },
+    setDisplayCountries(countries): void {
+      const attribute = geom.getAttribute("aLand") as THREE.BufferAttribute;
+      if (!countries) {
+        activeLand = land;
+        activeLandIsGeoJson = landSource === "geojson";
+        attribute.copyArray(lands);
+      } else {
+        const mask = rasterLandMaskFromGeometries(countries);
+        activeLand = mask;
+        activeLandIsGeoJson = true;
+        const normal = geom.getAttribute("normal");
+        const direction = new THREE.Vector3();
+        for (let i = 0; i < attribute.count; i++) {
+          direction.fromBufferAttribute(normal, i);
+          const { u, v } = dirToLandMaskUV(direction);
+          const lum = sampleLuminanceBilinear(mask.data, mask.w, mask.h, u, v);
+          attribute.setX(i, isLandPixel(lum, true) ? 1 : 0);
+        }
+      }
+      attribute.needsUpdate = true;
+      detail?.invalidateLand();
+    },
     dispose: () => {
+      disposed = true;
+      detail?.dispose();
       geom.dispose();
       material.dispose();
       neutralScarTexture.dispose();

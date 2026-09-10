@@ -32,6 +32,8 @@ type ProductionChromeCallbacks = {
 
 /** API for syncing chrome state after programmatic layer / all-layers changes. */
 export type ProductionChrome = {
+  readonly countryCycleHost: HTMLElement;
+  setSharePainLabel: (label: string, looseLines?: boolean) => void;
   /** Highlight one layer blob; deactivates all others. */
   setActiveLayer: (layerId: string) => void;
   /**
@@ -105,6 +107,10 @@ async function createHamburgerButton(): Promise<HTMLButtonElement> {
   }
 
   button.appendChild(document.importNode(svg, true));
+  const caption = document.createElement("span");
+  caption.className = "ui-hamburger__caption";
+  caption.textContent = "more";
+  button.append(caption);
   return button;
 }
 
@@ -126,6 +132,12 @@ export async function mountProductionChrome(
   const layerStackHost = requireChild(appRoot, "ui-layer-stack");
   const sharePainHost = requireChild(appRoot, "ui-share-pain");
   const bottomLeftHost = requireChild(appRoot, "ui-bottom-left");
+  const query = new URLSearchParams(location.search);
+  const projection = query.get("cpProjection") === "1";
+  // Retain the measured footprint so selection never pulls the other controls downward.
+  sharePainHost.style.opacity = projection ? "0" : "";
+  sharePainHost.inert = projection;
+  if (projection) sharePainHost.setAttribute("aria-hidden", "true");
 
   const heading = document.createElement("h1");
   heading.className = "ui-title__heading";
@@ -138,6 +150,7 @@ export async function mountProductionChrome(
   const soundToggleBtn = document.createElement("button");
   soundToggleBtn.type = "button";
   soundToggleBtn.className = "ui-title__sound-toggle";
+  soundToggleBtn.dataset.metricTarget = "sound";
 
   const syncSoundToggle = (): void => {
     const enabled = isSoundEnabled();
@@ -168,6 +181,7 @@ export async function mountProductionChrome(
   const themeToggleBtn = document.createElement("button");
   themeToggleBtn.type = "button";
   themeToggleBtn.id = "theme-toggle";
+  themeToggleBtn.dataset.metricTarget = "theme";
   themeToggleBtn.className = "ui-title__sound-toggle";
   {
     const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
@@ -176,6 +190,7 @@ export async function mountProductionChrome(
   }
 
   const titleToggles = document.createElement("div");
+  titleToggles.className = "ui-title__toggles";
   titleToggles.style.display = "flex";
   titleToggles.style.flexDirection = "row";
   titleToggles.style.alignItems = "center";
@@ -184,6 +199,7 @@ export async function mountProductionChrome(
   titleToggles.append(soundToggleBtn, themeToggleBtn);
 
   const hamburgerBtn = await createHamburgerButton();
+  hamburgerBtn.dataset.metricTarget = "menu";
   let allLayersMode = false;
 
   const closeMobileMenu = (): void => {
@@ -256,7 +272,7 @@ export async function mountProductionChrome(
   for (const layer of layers) {
     const btn = await createBlobButton({
       svgName: resolveChromeLayerBlobSvg(layer.id),
-      label: layer.label,
+      label: layer.label.toLocaleLowerCase("en"),
       variant: "layer",
       skipActiveGradient: layer.id === "envpain",
       activeFill: layer.id === "envpain" ? "#CBB0B9" : undefined,
@@ -285,7 +301,7 @@ export async function mountProductionChrome(
 
   const sharePainBtn = await createBlobButton({
     svgName: "share_pain.svg",
-    label: "share your pain",
+    label: "locate your pain",
     variant: "share",
     soundFile: SOUND_BUTTON_SHARE,
     onClick: () => {
@@ -293,6 +309,7 @@ export async function mountProductionChrome(
     },
   });
   sharePainHost.appendChild(sharePainBtn);
+  sharePainBtn.dataset.metricTarget = "share";
 
   const aboutBtn = await createBlobButton({
     svgName: "new/blob_about.svg",
@@ -321,6 +338,8 @@ export async function mountProductionChrome(
   });
 
   bottomLeftHost.append(aboutBtn, dataSourcesBtn);
+  aboutBtn.dataset.metricTarget = "about";
+  dataSourcesBtn.dataset.metricTarget = "sources";
 
   const chromeActionButtons = [
     sharePainBtn,
@@ -329,7 +348,24 @@ export async function mountProductionChrome(
     hamburgerBtn,
   ];
 
+  sharePainBtn.classList.add("blob-button--lower-label");
+  dataSourcesBtn.classList.add("blob-button--lower-label");
+  if (!projection) {
+    const { mountFestivalMedia } = await import("./festival-media");
+    const videoButton = mountFestivalMedia(titleHost);
+    if (videoButton) chromeActionButtons.push(videoButton);
+  }
+
   return {
+    countryCycleHost: titleToggles,
+    setSharePainLabel(label: string, looseLines = false): void {
+      const text = sharePainBtn.querySelector<HTMLElement>(".blob-button__label");
+      if (!text) throw new Error("Share button label is missing");
+      text.textContent = label;
+      text.classList.toggle("blob-button__label--two-lines", label.includes("\n"));
+      text.classList.toggle("blob-button__label--loose-lines", looseLines);
+      sharePainBtn.setAttribute("aria-label", label.replace(/\s+/g, " "));
+    },
     setActiveLayer(layerId: string): void {
       applyActiveLayer(layerId);
     },

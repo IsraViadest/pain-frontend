@@ -86,7 +86,7 @@ export function mountSurveyScreen1(
       state.placements.some((entry) => entry.word === word)
     ) {
       console.warn(
-        `[SurveyScreen1] Placement for "${word}" without selectedWords entry.`,
+        "[SurveyScreen1] Placement exists without a selected word.",
       );
     }
     const isPlaced =

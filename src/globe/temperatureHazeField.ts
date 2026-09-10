@@ -4,11 +4,16 @@
  */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
+import { boxBlurField } from "./field-box-blur";
 import {
   painPointToFieldTexel,
   SCAR_MAP_HEIGHT,
   SCAR_MAP_WIDTH,
 } from "./painScarField";
+import {
+  applyFieldTexturePattern,
+  type FieldTexturePattern,
+} from "./fieldTexturePattern";
 
 /** pain-server `category` value that feeds the temperature haze shell. */
 const TEMPERATURE_HAZE_CATEGORY = "Temperature";
@@ -59,33 +64,6 @@ export const TEMPERATURE_HAZE_TUNE_DEFAULTS: TemperatureHazeTune = {
   alphaThreshold: 0.03,
 };
 
-function boxBlurHaze(
-  src: Float32Array,
-  width: number,
-  height: number,
-  radius: number,
-): Float32Array {
-  const out = new Float32Array(src.length);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let sum = 0;
-      let count = 0;
-      for (let dy = -radius; dy <= radius; dy++) {
-        const iy = y + dy;
-        if (iy < 0 || iy >= height) continue;
-        for (let dx = -radius; dx <= radius; dx++) {
-          // Equirect wrap on X so blur matches stamp wrap at the antimeridian.
-          const ix = ((x + dx) % width + width) % width;
-          sum += src[iy * width + ix]!;
-          count++;
-        }
-      }
-      out[y * width + x] = sum / count;
-    }
-  }
-  return out;
-}
-
 function makeHazeRgbaDataTexture(bytes: Uint8Array): THREE.DataTexture {
   const tex = new THREE.DataTexture(
     bytes as unknown as ArrayBufferView<ArrayBuffer>,
@@ -133,6 +111,7 @@ export function filterTemperatureHazePoints(points: PainPoint[]): PainPoint[] {
 export function createTemperatureHazeTexture(
   temperaturePoints: PainPoint[],
   tune: TemperatureHazeTune = TEMPERATURE_HAZE_TUNE_DEFAULTS,
+  pattern: FieldTexturePattern = "smooth",
 ): THREE.DataTexture {
   const hazeAcc = new Float32Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
 
@@ -166,17 +145,19 @@ export function createTemperatureHazeTexture(
     }
   }
 
-  let smoothed = boxBlurHaze(
+  let smoothed = boxBlurField(
     hazeAcc,
     SCAR_MAP_WIDTH,
     SCAR_MAP_HEIGHT,
     tune.blurPass1Radius,
+    true,
   );
-  smoothed = boxBlurHaze(
+  smoothed = boxBlurField(
     smoothed,
     SCAR_MAP_WIDTH,
     SCAR_MAP_HEIGHT,
     tune.blurPass2Radius,
+    true,
   );
 
   let maxHaze = 0;
@@ -200,6 +181,7 @@ export function createTemperatureHazeTexture(
     bytes[o + 2] = HAZE_BLUE_BYTE;
     bytes[o + 3] = alpha;
   }
+  applyFieldTexturePattern(bytes, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, pattern);
 
   return makeHazeRgbaDataTexture(bytes);
 }

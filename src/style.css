@@ -102,6 +102,25 @@ body {
     color 0.35s ease;
 }
 
+/* The page is dragged, not read. A drag that begins on the title, the subtitle or a layer button
+   used to rubber-band the surrounding prose on its way to the globe, and Cmd+A marked the whole
+   interface, neither of which is a selection anybody asked for. The emotional-pain labels were
+   already immune through their own rule; this covers the production chrome around them.
+
+   Fields opt back in explicitly rather than relying on the user-agent stylesheet: Safari inherits
+   `user-select: none` into inputs and textareas, so without this the survey's own answer boxes
+   would refuse a selection while being typed into. The emo panel's copyable snippet does the same
+   in emo.css. */
+body {
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
+}
+
 #app {
   position: relative;
   width: 100%;

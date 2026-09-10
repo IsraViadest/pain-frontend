@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { SCAR_RELIEF_COLORS } from "./scarReliefColors";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { MapLayer, PainPoint } from "../types/api";
 import { getMapLayerById, isChoroplethMapLayer } from "../api/layers";
@@ -9,7 +10,10 @@ import {
 import {
   aggregateChoroplethValues,
   createChoroplethTexture,
+  createChoroplethMissingMask,
   ensureChoroplethCountriesLoaded,
+  HIGHLIGHT_GROUP_BYTES,
+  type SocioeconomicMissingStyle,
 } from "./choroplethField";
 import {
   createEarthStippleGlobe,
@@ -39,6 +43,8 @@ import {
 import {
   createPainScarDisplacementTexture,
   drawScarMapPreview,
+  SCAR_MAP_HEIGHT,
+  SCAR_MAP_WIDTH,
 } from "./painScarField";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import {
@@ -47,8 +53,32 @@ import {
   SCAR_OVERLAY_SURFACE_BIAS,
 } from "./scarDisplacement";
 import { DEBUG_SCAR_VISUAL, isDebugScarVisual } from "./debugScarVisual";
+import {
+  stipplePointScaleAtCameraDistance,
+  type StipplePointTune,
+} from "./stipplePointScale";
+import type { FieldTexturePattern } from "./fieldTexturePattern";
+import { HazeTextureCache } from "./hazeTextureCache";
+import { getCountryGeometries, type IndexedCountryGeometry } from "./countryGeometry";
+import type { buildCountryDisplayGeometry } from "./countryDisplayGeometry";
+import type { StippleDetailMode } from "./stippleDetailController";
+import type { AtmosphereMode, createEnvironmentalAtmosphere } from "./environmentalAtmosphere";
+import type { SocioeconomicStyle } from "./socioeconomicPattern";
+import type { createScarContourLayer, ScarContourStyle } from "./scarContourLayer";
+import { createSurfacePicker } from "./surfacePicker";
+import { COUNTRY_SELECTION_STORAGE_RESERVE_BYTES } from "../emo/selectionBorders";
 
 export type { Co2HazeTune };
+export const EMOTIONAL_STIPPLE_COLOR = "#6B15CE";
+// Shader RGB captured from the approved soft-gold, soft-mint and clear-blue screenshots.
+const APPROVED_OCEAN_RGB = {
+  wealth: [0.8208392156862745, 0.7611189542483658, 0.4625176470588235],
+  environment: [0.4625176470588235, 0.8208392156862745, 0.6715385620915034],
+  combinedBlue: [0.3550211764705882, 0.5939022222222219, 0.9283356862745098],
+} as const;
+type ScarDepthStyle = "none" | "hillshade" | "contour-land" | "contour-all" | "hybrid" |
+  "relief" | "shadow";
+type ScarReliefPalette = "coral" | "crimson" | "rose" | "vibrant";
 
 /**
  * “Inner black sphere” in scar mode is usually NOT a mesh — land/ocean stipple is GPU-dented;
@@ -117,6 +147,8 @@ type MaterialWithClipping = THREE.Material & {
 };
 
 const RADIUS = 1;
+/** HQ supersampling stops at a 4K output buffer; effect targets retain their own quality caps. */
+const HIGH_QUALITY_MAX_PIXELS = 3840 * 2160;
 /** Max angular distance (°) between a surface click and nearest pain point before pick returns null. */
 const MAX_CLICK_SOUND_RADIUS_DEG = 15;
 
@@ -459,6 +491,7 @@ export class GlobeView {
     THREE.MeshBasicMaterial
   >;
   private co2HazeMap: THREE.DataTexture | null = null;
+  private readonly co2HazeCache = new HazeTextureCache();
   /**
    * SHELL temperature haze — equirect red+alpha map at TEMPERATURE_SHELL_RADIUS;
    * visible when Temperature points exist.
@@ -468,6 +501,13 @@ export class GlobeView {
     THREE.MeshBasicMaterial
   >;
   private temperatureShellMap: THREE.DataTexture | null = null;
+  private readonly temperatureHazeCache = new HazeTextureCache();
+  private atmosphere: ReturnType<typeof createEnvironmentalAtmosphere> | null = null;
+  private atmosphereMode: AtmosphereMode = "control";
+  private atmosphereSamples: 16 | 32 | 48 = 32;
+  private atmosphereFraction = 0.5;
+  private atmosphereSmooth = false;
+  private atmosphereGeneration = 0;
   /** SHELL rim — Larger additive sphere (BackSide); can read as an extra outer haze. */
   private readonly glow: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   /** SHELL markers — “points” viz mode only (InstancedMesh in rebuildMarkerInstanceMatrices). */
@@ -491,24 +531,51 @@ export class GlobeView {
   /** SHELL stipple — Points on sphere (ensureStipple → earthStippleGlobe). */
   private pointsStipple: THREE.Points | null = null;
   private pointsMaterial: THREE.ShaderMaterial | null = null;
-  private stippleCleanup: (() => void) | null = null;
+  private stippleHandle: Awaited<ReturnType<typeof createEarthStippleGlobe>> | null = null;
+  private stippleDetailMode: StippleDetailMode = "fixed";
+  private stippleDetailCapacity = 131_072;
+  private stipplePointCount: 82_000 | 164_000 = 82_000;
+  private stippleBuiltPointCount = 0;
+  private stippleContextOpacity = 1;
   private stipplePromise: Promise<void> | null = null;
   private stippleLandMaskUrl: string | null = null;
   /** Unwarped stipple shell; scar mode warps a copy into the points geometry. */
   private stippleBasePositions: Float32Array | null = null;
   /** Unwarped globe sphere; scar mode warps vertices (same path as stipple + borders). */
-  private readonly globeBasePositions: Float32Array;
+  private globeBasePositions: Float32Array;
   /** Unwarped choropleth sphere; scar mode warps vertices with the same scar map as the globe. */
   private choroplethBasePositions: Float32Array | null = null;
   private displayMode: GlobeDisplayMode = "texture";
   private painVizMode: PainVisualizationMode = PAIN_VIZ_MODE.points;
   private lastPainPoints: PainPoint[] = [];
   private scarDisplacementMap: THREE.DataTexture | null = null;
+  private roundedScarShoulder = false;
+  private scarDepthStyle: ScarDepthStyle = "none";
+  private scarContourStyle: ScarContourStyle | null = null;
+  private scarContourLayer: ReturnType<typeof createScarContourLayer> | null = null;
+  private scarContourGeneration = 0;
+  private scarContourLevels: 16 | 24 = 24;
+  private physicalOceanBlue = false;
+  private scarDepthSize = 0;
+  private scarSizeMap: THREE.DataTexture | null = null;
+  private scarMaxDepth = 128 / 255;
+  private scarReliefPalette: ScarReliefPalette = "coral";
+  private surfaceDetail: 1 | 2 = 1;
+  private originalSurfaceStorageBytes = 0;
+  private displayGeographyStorageBytes = 0;
+  private countryContourDegrees: number | null = null;
+  private displayGeography: ReturnType<typeof buildCountryDisplayGeometry> | null = null;
   private painHeatMap: THREE.DataTexture | null = null;
   private choroplethMap: THREE.DataTexture | null = null;
   private scarMapPreviewCanvas: HTMLCanvasElement | null = null;
   private scarBuildGeneration = 0;
   private choroplethBuildGeneration = 0;
+  private socioeconomicStyle: SocioeconomicStyle | null = null;
+  private socioeconomicMinimum = 0;
+  private socioeconomicContrast = 0.25;
+  private socioeconomicMissingStyle: SocioeconomicMissingStyle | undefined;
+  private socioeconomicMissingMap: THREE.DataTexture | null = null;
+  private socioeconomicStyleGeneration = 0;
   /**
    * When true, rebuild scars + choropleth shell + CO2 haze + word clouds together
    * from multi-layer `lastPainPoints` (filtered by uiLayer ids below).
@@ -555,6 +622,7 @@ export class GlobeView {
   private debugTune: GlobeDebugTune = { ...GLOBE_DEBUG_TUNE_DEFAULTS };
   /** Pain marker material / size (debug panel Markers section). */
   private markerTune: GlobeMarkerTune = { ...GLOBE_MARKER_TUNE_DEFAULTS };
+  private stipplePointTune: StipplePointTune = { scale: 1, nearBoost: 0 };
   /**
    * When false (production default), point markers stay disposed.
    * Debug panel “Show point markers” sets this so points-mode rebuild can run.
@@ -563,17 +631,22 @@ export class GlobeView {
   private heatTune: GlobeHeatTune = { ...GLOBE_HEAT_TUNE_DEFAULTS };
   private co2HazeTune: Co2HazeTune = { ...GLOBE_CO2_HAZE_TUNE_DEFAULTS };
   private tempHeatTune: TempHeatTune = { ...GLOBE_TEMP_HEAT_TUNE_DEFAULTS };
+  private environmentalFieldPattern: FieldTexturePattern = "smooth";
   /** Uniform scale for coast/border line shell (`bordersOutlines.group`). */
   private borderShellScale = BORDER_SHELL_SCALE_DEFAULT;
+  private highQuality = false;
+  private selectionBorderStorageBytes = 0;
+  private readonly surfacePicker: ReturnType<typeof createSurfacePicker>;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
       alpha: true,
+      // Selected border caps share one coverage bit, preventing doubled translucent joints.
+      stencil: true,
     });
     this.renderer.localClippingEnabled = true;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -616,6 +689,7 @@ export class GlobeView {
       opacity: 1,
     });
     this.globe = new THREE.Mesh(geo, mat);
+    this.surfacePicker = createSurfacePicker(this.globe);
     this.globe.renderOrder = 0;
     this.globeBasePositions = new Float32Array(
       geo.attributes.position!.array,
@@ -642,6 +716,7 @@ export class GlobeView {
     this.choroplethShell.renderOrder = 1;
     this.choroplethShell.visible = false;
     this.earthContent.add(this.choroplethShell);
+    this.originalSurfaceStorageBytes = this.surfaceStorageBytes();
 
     // --- Temperature haze shell (just outside globe; red+alpha equirect from Temperature points) ---
     this.temperatureShell = new THREE.Mesh(
@@ -723,6 +798,14 @@ export class GlobeView {
   }
 
   // --- Public mode API (called from main.ts HUD) ---
+
+  /** Opt-in output supersampling, independent of the country effect-detail tier. */
+  setHighQuality(enabled: boolean): void {
+    if (enabled === this.highQuality) return;
+    this.highQuality = enabled;
+    this.onResize();
+    this.scheduleChoroplethRebuild();
+  }
 
   /** Swap between procedural canvas texture and stippled point globe (test). */
   setGlobeDisplayMode(mode: GlobeDisplayMode): void {
@@ -920,6 +1003,7 @@ export class GlobeView {
   /** Rebuild the CO2 haze DataTexture from {@link lastPainPoints} and current tune. */
   rebuildCo2Haze(): void {
     this.rebuildCo2HazeMap();
+    this.syncAtmosphereFields();
   }
 
   /** Current border shell uniform scale (debug panel Borders section). */
@@ -976,9 +1060,32 @@ export class GlobeView {
     this.tempHeatTune = { ...this.tempHeatTune, ...partial };
   }
 
+  setStipplePointTune(partial: Partial<StipplePointTune>): void {
+    this.stipplePointTune = { ...this.stipplePointTune, ...partial };
+    this.applyStipplePointScale();
+  }
+
+  setEnvironmentalFieldPattern(pattern: FieldTexturePattern): void {
+    if (pattern === this.environmentalFieldPattern) return;
+    this.environmentalFieldPattern = pattern;
+    this.rebuildTemperatureShellMap();
+    this.rebuildCo2HazeMap();
+    this.syncAtmosphereFields();
+  }
+
+  private applyStipplePointScale(): void {
+    if (!this.pointsMaterial) return;
+    this.pointsMaterial.uniforms.uPointScale.value =
+      stipplePointScaleAtCameraDistance(
+        this.camera.position.length(),
+        this.stipplePointTune,
+      );
+  }
+
   /** Rebuild Temperature haze shell from {@link lastPainPoints} and current temp tune. */
   rebuildTempHeat(): void {
     this.rebuildTemperatureShellMap();
+    this.syncAtmosphereFields();
   }
 
   private applyStippleTuneUniforms(): void {
@@ -1036,6 +1143,8 @@ export class GlobeView {
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     if (scars) {
       return (
+        this.scarDepthStyle === "hillshade" ||
+        this.scarDepthStyle === "hybrid" ||
         GLOBE_SHELL_VISIBLE_IN_SCAR_MODE ||
         (isDebugScarVisual() && DEBUG_SCAR_VISUAL.showGlobeMeshInScarMode)
       );
@@ -1204,6 +1313,9 @@ export class GlobeView {
     }
     if (this.pointsMaterial) {
       const u = this.pointsMaterial.uniforms;
+      u.uSocioMissingMap.value = this.socioeconomicMissingMap;
+      u.uSocioMissingActive.value = this.shouldSuppressScarsForChoropleth() &&
+        this.socioeconomicMissingMap ? 1 : 0;
       const stippleOn = this.pointsStipple?.visible ?? false;
       u.uShowLand.value = this.resolveDebugLayerVisibility(
         "stippleLand",
@@ -1325,6 +1437,14 @@ export class GlobeView {
   }
 
   private disposeChoroplethMap(): void {
+    // A pending import/polygon load must not repaint a layer that has just been removed.
+    this.choroplethBuildGeneration++;
+    if (this.pointsMaterial) {
+      this.pointsMaterial.uniforms.uSocioMissingActive.value = 0;
+      this.pointsMaterial.uniforms.uSocioMissingMap.value = null;
+    }
+    this.socioeconomicMissingMap?.dispose();
+    this.socioeconomicMissingMap = null;
     const mat = this.choroplethShell.material;
     if (mat.map === this.choroplethMap) {
       mat.map = null;
@@ -1359,8 +1479,8 @@ export class GlobeView {
 
   /** Rebuild country choropleth texture when choropleth layer is active or show-all is on. */
   private scheduleChoroplethRebuild(): void {
-    const generation = ++this.choroplethBuildGeneration;
     this.disposeChoroplethMap();
+    const generation = this.choroplethBuildGeneration;
     if (!this.shouldPaintChoropleth()) {
       this.applyGlobeShellColor();
       return;
@@ -1374,11 +1494,23 @@ export class GlobeView {
       : this.currentLayerColorHex;
     void (async () => {
       await ensureChoroplethCountriesLoaded();
+      const { applySocioeconomicPattern } = await import("./socioeconomicPattern");
       if (generation !== this.choroplethBuildGeneration) return;
       if (!this.shouldPaintChoropleth()) return;
       const values = aggregateChoroplethValues(points);
-      this.choroplethMap = createChoroplethTexture(values, colorHex);
+      // Tune only country-fill detail here; mobile/default keeps the original allocation.
+      const mapWidth = Math.min(this.highQuality ? 2560 : 2048, this.renderer.capabilities.maxTextureSize);
+      this.socioeconomicMissingMap = createChoroplethMissingMask(
+        values, this.getDisplayCountryGeometries(), mapWidth);
+      this.choroplethMap = createChoroplethTexture(
+        values, colorHex, this.getDisplayCountryGeometries(), this.socioeconomicMinimum,
+        this.socioeconomicMissingStyle, mapWidth,
+      );
       this.applyChoroplethMaterial();
+      applySocioeconomicPattern(this.choroplethShell.material, this.socioeconomicStyle,
+        this.socioeconomicMinimum, this.socioeconomicContrast,
+        this.socioeconomicMissingStyle,
+        this.socioeconomicMissingMap);
       this.syncGlobeSurfaceVisibility();
     })();
   }
@@ -1391,6 +1523,16 @@ export class GlobeView {
     if (!scars || this.displayMode !== "points") return;
     if (isDebugScarVisual()) {
       this.applyDebugGlobeMaterial();
+      return;
+    }
+    if (this.scarDepthStyle === "hillshade" || this.scarDepthStyle === "hybrid") {
+      this.applyGlobeShellColor();
+      const mat = this.globe.material as THREE.MeshStandardMaterial;
+      mat.color.setHex(0x111827);
+      mat.roughness = 0.72;
+      mat.metalness = 0.02;
+      this.globe.scale.setScalar(0.998);
+      mat.needsUpdate = true;
       return;
     }
     this.applyGlobeShellColor();
@@ -1442,14 +1584,13 @@ export class GlobeView {
       this.pointsStipple = null;
       this.pointsMaterial = null;
     }
-    if (this.stippleCleanup) {
-      this.stippleCleanup();
-      this.stippleCleanup = null;
-    }
+    this.stippleHandle?.dispose();
+    this.stippleHandle = null;
     this.stippleNeutralScarTexture = null;
     this.stippleNeutralHeatTexture = null;
     this.stippleLandMaskUrl = null;
     this.stippleBasePositions = null;
+    this.stippleBuiltPointCount = 0;
   }
 
   private captureStippleBasePositions(): void {
@@ -1551,7 +1692,10 @@ export class GlobeView {
    * Does not add meshes; updates existing shells. See painScarField.ts, painHeatField.ts.
    */
   private syncScarVisualization(): void {
-    if (this.shouldSuppressScarsForChoropleth()) return;
+    if (this.shouldSuppressScarsForChoropleth()) {
+      this.scarContourLayer?.setField(null, 0, 0);
+      return;
+    }
     const scars =
       this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
     const mat = this.globe.material as THREE.MeshStandardMaterial;
@@ -1601,6 +1745,7 @@ export class GlobeView {
     this.applyGlobeScarShellMaterial();
     this.applyStippleScarUniforms();
     this.applyStippleHeatUniforms();
+    this.syncScarContourLayer();
     this.applyDebugLayerVisibility();
 
     if (isDebugScarVisual() && DEBUG_SCAR_VISUAL.logScarSync) {
@@ -1707,6 +1852,7 @@ export class GlobeView {
         scarLayerId,
         {
           stampRadiusMin: this.debugTune.scarStampRadiusMin,
+          roundedShoulder: this.roundedScarShoulder,
           stampRadiusMul: this.debugTune.scarStampRadiusMul,
           stampPeakMul: this.debugTune.scarStampPeakMul,
           falloffSigma: this.debugTune.scarFalloffSigma,
@@ -1714,15 +1860,11 @@ export class GlobeView {
           blurPass2Radius: this.debugTune.scarBlurPass2Radius,
         },
       );
-      this.rebuildPainHeatMap();
       this.updateScarMapPreview();
       void this.ensureStipple().then(() => {
         if (generation !== this.scarBuildGeneration) return;
         this.syncScarVisualization();
       });
-      if (this.pointsStipple && this.pointsMaterial) {
-        this.syncScarVisualization();
-      }
     }, 0);
   }
 
@@ -1730,7 +1872,8 @@ export class GlobeView {
   private ensureStipple(): Promise<void> {
     if (
       this.pointsStipple &&
-      this.stippleLandMaskUrl === STIPPLE_LAND_MASK_GEOJSON_URL
+      this.stippleLandMaskUrl === STIPPLE_LAND_MASK_GEOJSON_URL &&
+      this.stippleBuiltPointCount === this.stipplePointCount
     ) {
       if (!this.stippleBasePositions) {
         this.captureStippleBasePositions();
@@ -1741,12 +1884,13 @@ export class GlobeView {
       this.disposeStipple();
     }
     if (!this.stipplePromise) {
+      const requestedPointCount = this.stipplePointCount;
       const tint = new THREE.Vector3().fromArray(
         this.getActiveLayerColorLinear(),
       );
       this.stipplePromise = createEarthStippleGlobe(
         RADIUS,
-        82_000,
+        requestedPointCount,
         STIPPLE_LAND_MASK_GEOJSON_URL,
         tint,
         new THREE.Vector3(1, 1, 1),
@@ -1754,10 +1898,25 @@ export class GlobeView {
         0.16,
         this.renderer.getPixelRatio(),
       )
-        .then(({ points, material, dispose, neutralScarTexture, neutralHeatTexture }) => {
+        .then((result) => {
+          if (requestedPointCount !== this.stipplePointCount) {
+            result.dispose();
+            return;
+          }
+          const { points, material, neutralScarTexture, neutralHeatTexture, setDisplayCountries } = result;
           this.pointsStipple = points;
           this.pointsMaterial = material;
-          this.stippleCleanup = dispose;
+          material.uniforms.uScarDepthSize.value = this.scarDepthSize;
+          material.uniforms.uScarDepthMode.value = this.scarDepthMode();
+          this.applyScarReliefPalette();
+          material.uniforms.uContextOpacity.value = this.stippleContextOpacity;
+          this.stippleHandle = result;
+          this.stippleBuiltPointCount = requestedPointCount;
+          result.setDetailCapacity(this.stippleDetailCapacity);
+          if (this.displayGeography) setDisplayCountries(this.displayGeography.countries);
+          void result.setDetailMode(this.stippleDetailMode).catch((error) => {
+            console.error("[GlobeView] stipple detail failed:", error);
+          });
           this.stippleLandMaskUrl = STIPPLE_LAND_MASK_GEOJSON_URL;
           this.stippleNeutralScarTexture = neutralScarTexture;
           this.stippleNeutralHeatTexture = neutralHeatTexture;
@@ -1769,6 +1928,7 @@ export class GlobeView {
           mClip.clipping = false;
           mClip.clippingPlanes = [];
           this.applyPointsTint();
+          this.applyStipplePointScale();
           this.applyHemisphereClipping();
           this.captureStippleBasePositions();
           this.syncScarVisualization();
@@ -1779,6 +1939,9 @@ export class GlobeView {
         })
         .finally(() => {
           this.stipplePromise = null;
+          if (!this.stippleHandle && requestedPointCount !== this.stipplePointCount) {
+            void this.ensureStipple();
+          }
         });
     }
     return this.stipplePromise ?? Promise.resolve();
@@ -1793,6 +1956,7 @@ export class GlobeView {
       const [tr, tg, tb] = DEBUG_SCAR_VISUAL.stippleTintRgb;
       u.uTint.value.set(tr, tg, tb);
       u.uShadeBase.value.set(or, og, ob);
+      u.uOceanColor.value.copy(u.uShadeBase.value).lerp(u.uTint.value, 0.72);
       u.uLandTint.value.set(lr, lg, lb);
       u.uLandTintStrength.value = 1;
       u.uOceanAlphaBoost.value = DEBUG_SCAR_VISUAL.stippleOceanAlphaBoost;
@@ -1801,13 +1965,35 @@ export class GlobeView {
       return;
     }
     u.uOceanPointScale.value = 1;
+    const ocean = this.showAllLayersMode
+      ? getLayerBaseColorLinear(EMOTIONAL_STIPPLE_COLOR, this.visualTheme)
+      : this.getActiveLayerColorLinear();
+    // Individual views use their layer palette; the combined view keeps its Emotional ocean.
+    u.uOceanColor.value.set(
+      0.28 * (this.visualTheme === "blue" ? 209 / 255 : 1) + 0.72 * ocean[0],
+      0.28 * (this.visualTheme === "blue" ? 247 / 255 : 1) + 0.72 * ocean[1],
+      0.28 + 0.72 * ocean[2],
+    );
+    const approvedOcean = this.showAllLayersMode
+      ? APPROVED_OCEAN_RGB.combinedBlue
+      : this.currentLayerId === "socioecopain" ? APPROVED_OCEAN_RGB.wealth
+      : this.currentLayerId === "envpain" ? APPROVED_OCEAN_RGB.environment : null;
+    if (approvedOcean) u.uOceanColor.value.set(...approvedOcean);
     const emopainHex = this.showAllLayersMode
       ? getMapLayerById("emopain")?.color
       : undefined;
     const physpainHex = this.showAllLayersMode
       ? getMapLayerById("physpain")?.color
       : undefined;
-    if (emopainHex && physpainHex) {
+    if (!this.showAllLayersMode && this.physicalOceanBlue && this.currentLayerId === "physpain") {
+      const oceanHex = getMapLayerById("emopain")?.color ?? "#546edb";
+      const oceanRgb = getLayerBaseColorLinear(oceanHex, this.visualTheme);
+      const landRgb = this.getActiveLayerColorLinear();
+      u.uTint.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
+      u.uShadeBase.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
+      u.uLandTint.value.set(landRgb[0], landRgb[1], landRgb[2]);
+      u.uLandTintStrength.value = 1;
+    } else if (emopainHex && physpainHex) {
       const oceanRgb = getLayerBaseColorLinear(emopainHex, this.visualTheme);
       const landRgb = getLayerBaseColorLinear(physpainHex, this.visualTheme);
       u.uTint.value.set(oceanRgb[0], oceanRgb[1], oceanRgb[2]);
@@ -1823,13 +2009,11 @@ export class GlobeView {
           247 / 255,
           255 / 255,
         );
-        u.uLandTint.value.set(209 / 255, 247 / 255, 255 / 255);
-        u.uLandTintStrength.value = 0.3;
       } else {
         u.uShadeBase.value.set(1, 1, 1);
-        u.uLandTint.value.set(0.86, 0.9, 0.96);
-        u.uLandTintStrength.value = 0.22;
       }
+      u.uLandTint.value.set(rgb[0], rgb[1], rgb[2]);
+      u.uLandTintStrength.value = 1;
     }
     this.applyStippleTuneUniforms();
     this.applyStippleHeatUniforms();
@@ -1854,6 +2038,14 @@ export class GlobeView {
     u.uScarActive.value = active;
     if (scarOn && this.scarDisplacementMap) {
       u.uScarMap.value = this.scarDisplacementMap;
+      if (this.scarSizeMap !== this.scarDisplacementMap) {
+        this.scarSizeMap = this.scarDisplacementMap;
+        const bytes = this.scarDisplacementMap.image.data as Uint8Array;
+        let minimum = 128;
+        for (const byte of bytes) minimum = Math.min(minimum, byte);
+        this.scarMaxDepth = (128 - minimum) / 255;
+      }
+      u.uScarMaxDepth.value = this.scarMaxDepth;
     } else if (this.stippleNeutralScarTexture) {
       u.uScarMap.value = this.stippleNeutralScarTexture;
     }
@@ -1894,6 +2086,8 @@ export class GlobeView {
         resolution,
       );
       this.bordersOutlines.syncAppearance(this.visualTheme);
+      this.bordersOutlines.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
+      if (this.displayGeography) this.bordersOutlines.setDisplayPaths(this.displayGeography);
       this.bordersOutlines.setClippingPlanes(this.clipPlanesFront);
       this.syncScarVisualization();
       this.scene.remove(this.markersGroup);
@@ -1989,6 +2183,14 @@ export class GlobeView {
   }
 
   dispose(): void {
+    this.surfacePicker.dispose();
+    this.socioeconomicStyleGeneration++;
+    this.atmosphereGeneration++;
+    this.atmosphere?.dispose();
+    this.atmosphere = null;
+    this.scarContourGeneration++;
+    this.scarContourLayer?.dispose();
+    this.scarContourLayer = null;
     window.removeEventListener("resize", this.onResize);
     this.painVizMode = PAIN_VIZ_MODE.points;
     this.lastPainPoints = [];
@@ -2010,16 +2212,12 @@ export class GlobeView {
     this.choroplethShell.geometry.dispose();
     this.choroplethShell.material.dispose();
     this.choroplethBasePositions = null;
-    if (this.co2HazeMap) {
-      this.co2HazeMap.dispose();
-      this.co2HazeMap = null;
-    }
+    this.co2HazeCache.dispose();
+    this.co2HazeMap = null;
     this.co2Haze.geometry.dispose();
     this.co2Haze.material.dispose();
-    if (this.temperatureShellMap) {
-      this.temperatureShellMap.dispose();
-      this.temperatureShellMap = null;
-    }
+    this.temperatureHazeCache.dispose();
+    this.temperatureShellMap = null;
     this.temperatureShell.geometry.dispose();
     this.temperatureShell.material.dispose();
     this.glow.geometry.dispose();
@@ -2119,6 +2317,11 @@ export class GlobeView {
       lexiconBucket: string;
     },
   ): void {
+    if (enabled !== this.showAllLayersMode) {
+      // Layer metadata and new data arrive after the UI debounce. Remove the outgoing fill now.
+      this.disposeChoroplethMap();
+      this.scarBuildGeneration++;
+    }
     this.showAllLayersMode = enabled;
     if (enabled && opts) {
       this.allLayersPhyspainLayerId = opts.physpainLayerId;
@@ -2411,9 +2614,11 @@ export class GlobeView {
     if (this.showAllLayersMode) {
       this.scheduleChoroplethRebuild();
     }
+    // Heat depends on points and peak tuning, not completion of the deferred scar build.
     this.rebuildPainHeatMap();
     this.rebuildTemperatureShellMap();
     this.rebuildCo2HazeMap();
+    this.syncAtmosphereFields();
     this.syncGlobeSurfaceVisibility();
     this.refreshWordCloud();
   }
@@ -2423,29 +2628,31 @@ export class GlobeView {
    * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
    */
   private rebuildTemperatureShellMap(): void {
-    if (this.temperatureShellMap) {
-      this.temperatureShellMap.dispose();
-      this.temperatureShellMap = null;
-    }
     const temperaturePoints = filterTemperatureHazePoints(this.lastPainPoints);
     const mat = this.temperatureShell.material;
-    if (temperaturePoints.length === 0) {
-      mat.map = null;
-      mat.needsUpdate = true;
-      this.temperatureShell.visible = false;
-      return;
-    }
-    this.temperatureShellMap = createTemperatureHazeTexture(temperaturePoints, {
+    const tune = {
       stampRadiusBase: this.tempHeatTune.stampRadiusBase,
       stampRadiusSpan: this.tempHeatTune.stampRadiusSpan,
       blurPass1Radius: this.tempHeatTune.blurPass1Radius,
       blurPass2Radius: this.tempHeatTune.blurPass2Radius,
       maxAlpha: TEMPERATURE_HAZE_TUNE_DEFAULTS.maxAlpha,
       alphaThreshold: TEMPERATURE_HAZE_TUNE_DEFAULTS.alphaThreshold,
-    });
+    };
+    this.temperatureShellMap = null;
+    try {
+      this.temperatureShellMap = this.temperatureHazeCache.getTexture(
+        temperaturePoints, tune, this.environmentalFieldPattern,
+        () => createTemperatureHazeTexture(temperaturePoints, tune, this.environmentalFieldPattern),
+      );
+    } catch (error) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      this.syncAtmosphereFields();
+      throw error;
+    }
     mat.map = this.temperatureShellMap;
     mat.needsUpdate = true;
-    this.temperatureShell.visible = true;
+    this.temperatureShell.visible = this.temperatureShellMap !== null;
   }
 
   /**
@@ -2453,30 +2660,354 @@ export class GlobeView {
    * Triggered with scar/heat rebuilds from {@link rebuildPainGeometryAndTexture} / `setMarkers`.
    */
   private rebuildCo2HazeMap(): void {
-    if (this.co2HazeMap) {
-      this.co2HazeMap.dispose();
-      this.co2HazeMap = null;
-    }
     const co2Points = filterCo2HazePoints(this.lastPainPoints);
     const mat = this.co2Haze.material;
-    if (co2Points.length === 0) {
+    this.co2HazeMap = null;
+    try {
+      this.co2HazeMap = this.co2HazeCache.getTexture(
+        co2Points, this.co2HazeTune, this.environmentalFieldPattern,
+        () => createCo2HazeTexture(co2Points, this.co2HazeTune, this.environmentalFieldPattern),
+      );
+    } catch (error) {
       mat.map = null;
       mat.needsUpdate = true;
-      this.co2Haze.visible = false;
-      return;
+      this.syncAtmosphereFields();
+      throw error;
     }
-    this.co2HazeMap = createCo2HazeTexture(co2Points, this.co2HazeTune);
     mat.map = this.co2HazeMap;
     mat.needsUpdate = true;
-    this.co2Haze.visible = true;
+    this.co2Haze.visible = this.co2HazeMap !== null;
   }
 
-  /**
-   * Pause or resume ambient globe spin around the Y axis.
-   * Used to freeze the globe during the post-submit fly-to animation.
-   */
+  private syncAtmosphereFields(): void {
+    this.atmosphere?.setFields(this.temperatureShellMap, this.co2HazeMap);
+    this.temperatureShell.visible = this.temperatureShellMap !== null && this.atmosphere === null;
+    this.co2Haze.visible = this.co2HazeMap !== null && this.atmosphere === null;
+  }
+
+  setEnvironmentalAtmosphere(mode: AtmosphereMode, samples: 16 | 32 | 48 = 32, fraction = 0.5,
+    smooth = false): void {
+    this.atmosphereSamples = samples;
+    this.atmosphereFraction = fraction;
+    if (mode === this.atmosphereMode && smooth === this.atmosphereSmooth) return;
+    this.atmosphereSmooth = smooth;
+    this.atmosphereMode = mode;
+    const generation = ++this.atmosphereGeneration;
+    this.atmosphere?.dispose();
+    this.atmosphere = null;
+    this.syncAtmosphereFields();
+    if (mode === "control") return;
+    void import("./environmentalAtmosphere").then(({ createEnvironmentalAtmosphere }) => {
+      if (generation !== this.atmosphereGeneration) return;
+      this.atmosphere = createEnvironmentalAtmosphere({ mode, renderer: this.renderer,
+        camera: this.camera, earthContent: this.earthContent,
+        surfaceGeometry: this.getCountrySurfaceGeometry(),
+        smooth });
+      this.syncAtmosphereFields();
+    }).catch((error) => { console.error("[GlobeView] atmosphere failed:", error); });
+  }
+
+  getAtmosphereStats() {
+    return this.atmosphere?.stats() ?? null;
+  }
+
+  setSocioeconomicStyle(
+    style: SocioeconomicStyle | null,
+    minimumAlpha = 0,
+    contrast = 0.25,
+    missingStyle?: SocioeconomicMissingStyle,
+  ): void {
+    if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || Math.round(minimumAlpha * 255) >= 255) {
+      throw new RangeError("Socioeconomic reference must leave a visible range below full alpha");
+    }
+    if (!Number.isFinite(contrast) || contrast < 0 || contrast > 1) {
+      throw new RangeError("Socioeconomic contrast must be in [0, 1]");
+    }
+    if (style === this.socioeconomicStyle && minimumAlpha === this.socioeconomicMinimum &&
+        contrast === this.socioeconomicContrast &&
+        missingStyle === this.socioeconomicMissingStyle) return;
+    this.socioeconomicStyle = style;
+    this.socioeconomicMinimum = minimumAlpha;
+    this.socioeconomicContrast = contrast;
+    this.socioeconomicMissingStyle = missingStyle;
+    const generation = ++this.socioeconomicStyleGeneration;
+    void import("./socioeconomicPattern").then(({ applySocioeconomicPattern }) => {
+      if (generation !== this.socioeconomicStyleGeneration) return;
+      applySocioeconomicPattern(this.choroplethShell.material, style, minimumAlpha, contrast,
+        missingStyle, this.socioeconomicMissingMap);
+      this.scheduleChoroplethRebuild();
+    }).catch((error) => { console.error("[GlobeView] socioeconomic style failed:", error); });
+  }
+
+  /** The live surface shared by country fills and selection, including scar displacement. */
+  getCountrySurfaceGeometry(): THREE.BufferGeometry {
+    return this.choroplethShell.geometry;
+  }
+
+  /** Interpolate the same UV triangles used by the country fill, including live scar dents. */
+  projectCountryOutlinePositions(base: Float32Array, out: Float32Array): void {
+    const surface = this.choroplethShell.geometry;
+    const { widthSegments: width, heightSegments: height } = surface.parameters;
+    const positions = surface.getAttribute("position");
+    const direction = new THREE.Vector3();
+    for (let i = 0; i < base.length; i += 3) {
+      direction.fromArray(base, i);
+      const { u, v } = unitDirectionToGlobeEquirectUV(direction);
+      const x = u * width, y = v * height;
+      const ix = Math.min(width - 1, Math.floor(x)), iy = Math.min(height - 1, Math.floor(y));
+      const tx = x - ix, ty = y - iy;
+      const b = iy * (width + 1) + ix, d = b + width + 2;
+      const middle = ty <= tx ? b + 1 : b + width + 1;
+      const wb = 1 - Math.max(tx, ty), wd = Math.min(tx, ty), wm = Math.abs(tx - ty);
+      out[i] = positions.getX(b) * wb + positions.getX(d) * wd + positions.getX(middle) * wm;
+      out[i + 1] = positions.getY(b) * wb + positions.getY(d) * wd + positions.getY(middle) * wm;
+      out[i + 2] = positions.getZ(b) * wb + positions.getZ(d) * wd + positions.getZ(middle) * wm;
+    }
+  }
+
+  setSelectionBorderStorageBytes(bytes: number): void {
+    this.selectionBorderStorageBytes = bytes;
+  }
+
+  /** Perspective-aware front-side test for the selected country's geographic origin. */
+  isCountryOriginVisible(lat: number, lng: number): boolean {
+    const origin = latLngToVector3(lat, lng, RADIUS);
+    origin.applyAxisAngle(THREE.Object3D.DEFAULT_UP, this.globeSpinY);
+    return origin.dot(this.camera.position) > RADIUS * RADIUS;
+  }
+
+  getDisplayCountryGeometries(): readonly IndexedCountryGeometry[] {
+    return this.displayGeography?.countries ?? getCountryGeometries();
+  }
+
+  private countryBorderSampleDegrees(): number {
+    // Rounded trials need finer chord sampling to keep scar projection within one CSS pixel.
+    return this.displayGeography ? 0.01 : this.surfaceDetail === 2 ? 0.5 : Infinity;
+  }
+
+  /** Null preserves the historical line assets; zero uses the shared, unrounded boundary. */
+  async setCountryContourRounding(degrees: number | null): Promise<void> {
+    if (degrees === this.countryContourDegrees) return;
+    this.countryContourDegrees = degrees;
+    if (degrees === null) {
+      this.displayGeography = null;
+    } else {
+      const [{ buildCountryDisplayGeometry }] = await Promise.all([
+        import("./countryDisplayGeometry"), ensureChoroplethCountriesLoaded(),
+      ]);
+      if (degrees !== this.countryContourDegrees) return;
+      this.displayGeography = buildCountryDisplayGeometry(getCountryGeometries(), degrees);
+    }
+    // Conservative container allowance, computed once; canonical objects are borrowed.
+    const counted = new Set<object>();
+    const countStorage = (value: unknown, measure: boolean): number => {
+      if (value === null || typeof value !== "object" || counted.has(value)) return 0;
+      counted.add(value);
+      if (ArrayBuffer.isView(value)) return measure ? value.byteLength + 64 : 0;
+      const members = Object.values(value);
+      return (measure ? 256 + members.length * 8 : 0) +
+        members.reduce<number>((total, member) => total + countStorage(member, measure), 0);
+    };
+    if (this.displayGeography) countStorage(getCountryGeometries(), false);
+    this.displayGeographyStorageBytes = countStorage(this.displayGeography, true);
+    this.bordersOutlines?.setDisplayPaths(this.displayGeography);
+    this.bordersOutlines?.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
+    this.stippleHandle?.setDisplayCountries(this.displayGeography?.countries ?? null);
+    this.scheduleChoroplethRebuild();
+  }
+
+  setRoundedScarShoulder(rounded: boolean): void {
+    if (rounded === this.roundedScarShoulder) return;
+    this.roundedScarShoulder = rounded;
+    this.scheduleScarFieldRebuild();
+  }
+
+  private scarDepthMode(): number {
+    return { none: 0, hillshade: 1, "contour-land": 2, "contour-all": 3, hybrid: 4,
+      relief: 5, shadow: 6 }[
+      this.scarDepthStyle
+    ];
+  }
+
+  setScarDepthStyle(style: ScarDepthStyle): void {
+    if (style === this.scarDepthStyle) return;
+    this.scarDepthStyle = style;
+    if (this.pointsMaterial) this.pointsMaterial.uniforms.uScarDepthMode.value = this.scarDepthMode();
+    this.syncGlobeSurfaceVisibility();
+    this.applyGlobeScarShellMaterial();
+  }
+
+  private syncScarContourLayer(): void {
+    const scars =
+      this.painVizMode === PAIN_VIZ_MODE.scars || this.painVizMode === PAIN_VIZ_MODE.multiplexV0;
+    const physical = this.currentLayerId === "physpain" || this.showAllLayersMode;
+    const map = physical && scars && !this.shouldSuppressScarsForChoropleth()
+      ? this.scarDisplacementMap : null;
+    this.scarContourLayer?.setField(
+      map,
+      this.debugTune.scarDispScale,
+      this.debugTune.scarDispBias,
+    );
+  }
+
+  setScarContourStyle(style: ScarContourStyle | null): void {
+    if (style === this.scarContourStyle) return;
+    this.scarContourStyle = style;
+    const generation = ++this.scarContourGeneration;
+    this.scarContourLayer?.dispose();
+    this.scarContourLayer = null;
+    if (!style) return;
+    void import("./scarContourLayer").then(({ createScarContourLayer }) => {
+      if (generation !== this.scarContourGeneration || this.scarContourStyle !== style) return;
+      const layer = createScarContourLayer(this.surfaceDetail, this.getDisplayCountryGeometries());
+      layer.setStyle(style, SCAR_RELIEF_COLORS[this.scarReliefPalette]);
+      layer.setLevels(this.scarContourLevels);
+      this.scarContourLayer = layer;
+      this.earthContent.add(layer.object);
+      this.syncScarContourLayer();
+    }).catch((error) => { console.error("[GlobeView] scar contours failed:", error); });
+  }
+
+  setScarContourLevels(levels: 16 | 24): void {
+    if (levels === this.scarContourLevels) return;
+    this.scarContourLevels = levels;
+    this.scarContourLayer?.setLevels(levels);
+  }
+
+  setPhysicalOceanBlue(enabled: boolean): void {
+    if (enabled === this.physicalOceanBlue) return;
+    this.physicalOceanBlue = enabled;
+    this.applyPointsTint();
+  }
+
+  setScarDepthSize(mode: boolean | "recessed-small"): void {
+    this.scarDepthSize = mode === "recessed-small" ? -1 : mode ? 1 : 0;
+    if (this.pointsMaterial) this.pointsMaterial.uniforms.uScarDepthSize.value = this.scarDepthSize;
+  }
+
+  private applyScarReliefPalette(): void {
+    if (!this.pointsMaterial) return;
+    const colors = SCAR_RELIEF_COLORS[this.scarReliefPalette];
+    this.pointsMaterial.uniforms.uScarReliefLow.value.setHex(colors[0]);
+    this.pointsMaterial.uniforms.uScarReliefHigh.value.setHex(colors[1]);
+  }
+
+  setScarReliefPalette(palette: ScarReliefPalette): void {
+    if (palette === this.scarReliefPalette) return;
+    this.scarReliefPalette = palette;
+    this.applyScarReliefPalette();
+    if (this.scarContourStyle) {
+      this.scarContourLayer?.setStyle(this.scarContourStyle, SCAR_RELIEF_COLORS[palette]);
+    }
+  }
+
+  setStippleDetailMode(mode: StippleDetailMode): void {
+    if (mode === this.stippleDetailMode) return;
+    this.stippleDetailMode = mode;
+    void this.stippleHandle?.setDetailMode(mode).catch((error) => {
+      console.error("[GlobeView] stipple detail failed:", error);
+    });
+  }
+
+  setStipplePointCount(count: 82_000 | 164_000): void {
+    if (count === this.stipplePointCount) return;
+    this.stipplePointCount = count;
+    this.disposeStipple();
+    void this.ensureStipple();
+  }
+
+  setStippleContextOpacity(opacity: number): void {
+    this.stippleContextOpacity = opacity;
+    if (this.pointsMaterial) this.pointsMaterial.uniforms.uContextOpacity.value = opacity;
+  }
+
+  setStippleDetailCapacity(capacity: number): void {
+    this.stippleDetailCapacity = capacity;
+    this.stippleHandle?.setDetailCapacity(capacity);
+  }
+
+  getStippleDetailStats() {
+    return this.stippleHandle?.getDetailStats() ?? null;
+  }
+
+  private surfaceStorageBytes(): number {
+    let bytes = (this.globeBasePositions?.byteLength ?? 0) +
+      (this.choroplethBasePositions?.byteLength ?? 0);
+    const arrays = new Set<ArrayBufferLike>();
+    for (const geometry of [this.globe.geometry, this.choroplethShell.geometry]) {
+      for (const attribute of [...Object.values(geometry.attributes), geometry.index]) {
+        if (!attribute) continue;
+        const array = "data" in attribute ? attribute.data.array : attribute.array;
+        if (arrays.has(array.buffer)) continue;
+        arrays.add(array.buffer);
+        bytes += 2 * array.byteLength;
+      }
+    }
+    return bytes;
+  }
+
+  getRenderDetailStorage() {
+    const surface = Math.max(0, this.surfaceStorageBytes() - this.originalSurfaceStorageBytes);
+    const borders = this.bordersOutlines?.additionalStorageBytes() ?? 0;
+    const stipple = this.getStippleDetailStats()?.additionalBytes ?? 0;
+    const atmosphere = this.getAtmosphereStats()?.additionalBytes ?? 0;
+    const contours = this.scarContourLayer?.stats().additionalBytes ?? 0;
+    const geography = this.displayGeographyStorageBytes;
+    const missingMaskBytes = this.socioeconomicMissingMap?.image.data.byteLength ?? 0;
+    // CPU bytes plus GPU storage, and the temporary RGBA canvas/readback used during rebuild.
+    const socioeconomicMissing = 2 * missingMaskBytes;
+    const socioeconomicMissingScratch = 8 * missingMaskBytes;
+    const fillBytes = this.choroplethMap?.image.data.byteLength ?? 0;
+    const socioeconomicFillDetail = Math.max(0, fillBytes - 2048 * 1024 * 4) * 2;
+    // Reserve the synchronous blur's additional scratch even between rebuilds.
+    const fieldScratch = SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT * Float64Array.BYTES_PER_ELEMENT;
+    const environmentalFieldCache =
+      this.temperatureHazeCache.additionalStorageBytes(this.temperatureShellMap) +
+      this.co2HazeCache.additionalStorageBytes(this.co2HazeMap);
+    // Origin/peer painting can read two weight groups; legacy painting reads only one.
+    const highlightScratch = HIGHLIGHT_GROUP_BYTES;
+    const selectionBorders = this.selectionBorderStorageBytes;
+    const surfacePicking = this.surfacePicker.storageBytes();
+    return { surface, borders, stipple, atmosphere, contours, geography, fieldScratch,
+      environmentalFieldCache,
+      socioeconomicMissing, socioeconomicMissingScratch, socioeconomicFillDetail,
+      countryFillWidth: this.choroplethMap?.image.width ?? 0,
+      highlightScratch, selectionBorders, surfacePicking,
+      total: surface + borders + stipple + atmosphere + contours + geography +
+        fieldScratch + environmentalFieldCache + highlightScratch + selectionBorders + surfacePicking + socioeconomicMissing + socioeconomicMissingScratch + socioeconomicFillDetail };
+  }
+
+  /** Change sampling without replacing the geometry object borrowed by the selection layer. */
+  setSurfaceDetail(detail: 1 | 2): void {
+    if (detail === this.surfaceDetail) return;
+    this.surfaceDetail = detail;
+    for (const [mesh, radius] of [
+      [this.globe, RADIUS], [this.choroplethShell, CHOROPLETH_SHELL_RADIUS],
+    ] as const) {
+      const replacement = new THREE.SphereGeometry(radius, 192 * detail, 128 * detail);
+      mesh.geometry.dispose();
+      mesh.geometry.copy(replacement);
+      replacement.dispose();
+    }
+    this.globeBasePositions = new Float32Array(this.globe.geometry.attributes.position!.array);
+    this.choroplethBasePositions = new Float32Array(
+      this.choroplethShell.geometry.attributes.position!.array,
+    );
+    this.bordersOutlines?.setMaxSegmentDegrees(this.countryBorderSampleDegrees());
+    if (this.scarContourStyle) {
+      const style = this.scarContourStyle;
+      this.scarContourStyle = null;
+      this.setScarContourStyle(style);
+    }
+    this.syncScarVisualization();
+  }
+
   setAutoSpinEnabled(enabled: boolean): void {
     this.autoSpinEnabled = enabled;
+  }
+
+  isAutoSpinEnabled(): boolean {
+    return this.autoSpinEnabled;
   }
 
   /** Circle geometry radius for post-submit surface marker. */
@@ -2603,6 +3134,19 @@ export class GlobeView {
     if (this.pointsMaterial) {
       this.pointsMaterial.uniforms.uPixelRatio.value =
         this.renderer.getPixelRatio();
+      if (this.stipplePointTune.nearBoost !== 0) this.applyStipplePointScale();
+    }
+    if (this.stippleDetailMode !== "fixed" && this.pointsStipple?.visible) {
+      const { clientWidth, clientHeight } = this.renderer.domElement;
+      if (clientWidth > 0 && clientHeight > 0) {
+        this.pointsStipple.updateWorldMatrix(true, false);
+        this.camera.updateMatrixWorld();
+        this.stippleHandle?.updateDetail(this.camera, clientWidth, clientHeight, dt);
+      }
+    }
+    if (this.renderer.domElement.clientWidth > 0 && this.renderer.domElement.clientHeight > 0) {
+      this.atmosphere?.prepare(this.atmosphereSamples, this.atmosphereFraction,
+        COUNTRY_SELECTION_STORAGE_RESERVE_BYTES + 128 * 1024);
     }
     this.renderer.render(this.scene, this.camera);
   }
@@ -2986,6 +3530,23 @@ export class GlobeView {
     return null;
   }
 
+  /** Raycast the globe and return the hit in its rotating local WGS84 frame. */
+  pickSurfaceLatLng(
+    clientX: number,
+    clientY: number,
+  ): { lat: number; lng: number } | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    this.pointerNdc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hit = this.surfacePicker.pick(this.raycaster);
+    if (!hit) return null;
+    return vector3ToLatLng(this.globe.worldToLocal(hit.point.clone()));
+  }
+
   /**
    * Raycast the globe surface and return the nearest pain point within
    * {@link MAX_CLICK_SOUND_RADIUS_DEG} (all viz modes).
@@ -3004,8 +3565,7 @@ export class GlobeView {
       -(((clientY - rect.top) / rect.height) * 2 - 1),
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    const hits = this.raycaster.intersectObject(this.globe, false);
-    const hit = hits[0];
+    const hit = this.surfacePicker.pick(this.raycaster);
     if (!hit) return null;
 
     const click = vector3ToLatLng(hit.point);
@@ -3048,8 +3608,7 @@ export class GlobeView {
       -(((clientY - rect.top) / rect.height) * 2 - 1),
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    const hits = this.raycaster.intersectObject(this.globe, false);
-    const hit = hits[0];
+    const hit = this.surfacePicker.pick(this.raycaster);
     if (!hit) return null;
 
     const dir = hit.point.clone().normalize();
@@ -3449,7 +4008,14 @@ export class GlobeView {
     const h = window.innerHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h, false);
+    const normalRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const context = this.renderer.getContext();
+    const maxDimension = context.getParameter(context.MAX_RENDERBUFFER_SIZE) as number;
+    const ratio = this.highQuality ? Math.min(
+      Math.max(2, normalRatio * 1.5), 3,
+      Math.sqrt(HIGH_QUALITY_MAX_PIXELS / (w * h)), maxDimension / Math.max(w, h),
+    ) : normalRatio;
+    this.renderer.setDrawingBufferSize(w, h, ratio);
     this.bordersOutlines?.setResolution(w, h);
   };
 }

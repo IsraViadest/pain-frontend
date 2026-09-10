@@ -12,14 +12,20 @@
  */
 import "./style.css";
 import { fetchLayers, fetchPoints } from "./api/client";
+import { getCountryCentroid } from "./api/countryCentroids";
 import {
   METRICS_KIND_LAYER,
+  METRICS_KIND_CATEGORY,
   trackToggle,
+  trackInteraction,
 } from "./api/metricsApi";
+import { installInteractionMetrics } from "./api/interactionMetrics";
+import { installThreeFingerLayerSwipe } from "./ui/three-finger-layer-swipe";
 import { getMapLayerById, isChoroplethMapLayer, resolveLayerLexiconBucket } from "./api/layers";
 import type { MapLayer, PainPoint } from "./types/api";
 import {
   GlobeView,
+  EMOTIONAL_STIPPLE_COLOR,
   type GlobeLayerDisplayMeta,
   type MarkerHoverInfo,
   type MultiplexHoverInfo,
@@ -46,13 +52,31 @@ import {
 import { type SurveySubmissionPayload } from "./survey/surveyData";
 import { submitSurvey } from "./survey/surveyApi";
 import { showConsentModal } from "./survey/consentModal";
-import { initBackgroundMusic } from "./sound/backgroundMusic";
+import { initBackgroundMusic, isSoundEnabled } from "./sound/backgroundMusic";
 import {
   mountProductionChrome,
   type ProductionChrome,
 } from "./ui/productionChrome";
 import { playPainSound } from "./sound/soundEngine";
 import { hideLegend, showLegend } from "./ui/legend";
+import { installTextSelectionGuard } from "./ui/textSelectionGuard";
+import "./emo/emo.css";
+import { loadEmoData, type EmoData } from "./emo/emoData";
+import { createEmoLabelLayer, type EmoLabelLayer } from "./emo/labelLayer";
+import { createEmoArcLayer, type EmoArcLayer } from "./emo/arcs";
+import { createEmoSelectionLayer, type EmoSelectionLayer } from "./emo/selection";
+import { createEmoLeaderLineLayer, type EmoLeaderLineLayer } from "./emo/leaderLines";
+import { createEmoSelectionMotion, type EmoSelectionMotion } from "./emo/selectionMotion";
+import type { EmoViewParams } from "./emo/viewParams";
+import { createEmoLegend, type EmoLegendLayer } from "./emo/legend";
+import {
+  shouldOpenEmoPanel,
+  applyEmoCaptureOverrides,
+} from "./emo/emoViewConfig";
+import { DEFAULT_EMO_PRESET_ID, resolveEmoPresetParams, findEmoPreset, type EmoPreset } from "./emo/viewPresets";
+import { mountEmoViewPanel } from "./ui/emoViewPanel";
+import type { CountryProfileRuntime } from "./countryProfile/runtime";
+import type { CountryPresentation } from "./countryProfile/presentation";
 
 const THEME_STORAGE_KEY = "pain-ui-theme";
 
@@ -65,6 +89,7 @@ if (!canvas || !statusEl || !wordCloudToggle) {
 }
 
 const hudStatus = statusEl;
+installInteractionMetrics(canvas);
 let lastLayerId = "";
 let currentPainVizMode: PainVisualizationMode = PAIN_VIZ_MODE.scars;
 let chrome: ProductionChrome | null = null;
@@ -83,6 +108,7 @@ let loadPointsAbortController: AbortController | null = null;
 const LAYER_CHANGE_DEBOUNCE_MS = 150;
 /** Debounced {@link applyPendingLayerChange} timer for rapid layer clicks. */
 let pendingLayerChangeTimer: ReturnType<typeof setTimeout> | null = null;
+let layerChangeRevision = 0;
 
 const surveyModalHost = document.querySelector<HTMLElement>("#survey-modal");
 if (!surveyModalHost) throw new Error("Missing #survey-modal mount");
@@ -138,8 +164,27 @@ if (isDebugScarVisual()) {
   document.documentElement.dataset.scarDebug = "true";
 }
 
+// The page is dragged and looked at, not read. `body { user-select: none }` states that and
+// browsers enforce it only for gestures they consider the user's own, so Select All still
+// marks the words in some of them. See ui/textSelectionGuard.ts.
+installTextSelectionGuard();
+
 // --- Globe + optional debug panel (see index.html) ---
 const globe = new GlobeView(canvas);
+const displayQuery = new URLSearchParams(location.search);
+const highQuality = displayQuery.get("hq") === "1" ||
+  (displayQuery.get("cpProjection") === "1" &&
+    displayQuery.get("hq") !== "0");
+globe.setHighQuality(highQuality);
+if (displayQuery.get("cpProjection") === "1") {
+  installThreeFingerLayerSwipe(canvas, globe.controls, (direction) => {
+    if (document.querySelector(".info-modal--visible,.survey-modal--visible,.survey-result-modal--visible,.consent-modal--visible,#offline-operator-exit[open]")) return;
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>("#ui-layer-stack button[data-layer]")]
+      .filter((button) => !button.disabled);
+    const current = buttons.findIndex((button) => button.classList.contains("blob-button--active"));
+    if (current >= 0) buttons[(current + direction + buttons.length) % buttons.length]!.click();
+  });
+}
 const scarMapPreview = document.querySelector<HTMLCanvasElement>(
   "#scar-map-preview",
 );
@@ -174,16 +219,15 @@ async function runPostSubmitSequence(payload: SurveySubmissionPayload): Promise<
       globe.earthContent,
     );
     const removeSurfaceMarker = globe.addSurfaceMarker(resultLat, resultLng);
-    chrome?.setUiEnabled(false);
-    new Audio("/sounds/Results.mp3").play().catch(() => {});
+    if (isSoundEnabled()) new Audio("/sounds/Results.mp3").play().catch(() => {});
     showSurveyResultModal(overlayHost, {
       lat: resultLat,
       lng: resultLng,
+      message: res.text,
       onClose: () => {
         removeSurfaceMarker();
         hideSurveyResultModal();
         globe.setAutoSpinEnabled(true);
-        chrome?.setUiEnabled(true);
       },
     });
   } finally {
@@ -256,11 +300,13 @@ globe.setWordCloudEnabled(wordCloudEnabled);
 // --- Production chrome event handlers ---
 function syncThemeToggle(themeBtn: HTMLButtonElement): void {
   const t = document.documentElement.dataset.theme === "blue" ? "blue" : "dark";
-  themeBtn.textContent = t === "blue" ? "dark mode" : "blue mode";
+  themeBtn.textContent = "blue mode";
+  themeBtn.removeAttribute("aria-label");
   themeBtn.setAttribute("aria-pressed", t === "blue" ? "true" : "false");
 }
 
 function wireThemeToggle(themeBtn: HTMLButtonElement): void {
+  syncThemeToggle(themeBtn);
   themeBtn.addEventListener("click", () => {
     const next: VisualTheme =
       document.documentElement.dataset.theme === "blue" ? "dark" : "blue";
@@ -348,7 +394,12 @@ const CLICK_MAX_MOVE_PX = 5;
  */
 const SOUND_ENABLED = false;
 
+let countryPointer: { x: number; y: number; dragging: boolean } | null = null;
+let countryPointerCheckedAt = 0;
 canvas.addEventListener("pointermove", (ev) => {
+  if (ev.pointerType !== "touch") countryPointer = {
+    x: ev.clientX, y: ev.clientY, dragging: ev.buttons !== 0,
+  };
   if (wordCloudEnabled && currentLayerSupportsWordCloud()) {
     const w = globe.pickWordCloudHover(ev.clientX, ev.clientY);
     if (w) {
@@ -389,6 +440,11 @@ canvas.addEventListener("pointermove", (ev) => {
 
 canvas.addEventListener("pointerleave", () => {
   hoverModal.hidden = true;
+  countryPointer = null;
+  canvas.style.cursor = "";
+});
+canvas.addEventListener("pointerup", () => {
+  if (countryPointer) countryPointer.dragging = false;
 });
 
 /** Pointer down position for click-vs-drag detection on the globe canvas. */
@@ -437,11 +493,373 @@ function setStatus(msg: string): void {
 
 /** Stipple tint overrides for known layers; unknown ids use GET /init `color`. */
 const LAYER_STIPPLE_COLOR_OVERRIDES: Record<string, string> = {
-  emopain: "#6B15CE",
+  emopain: EMOTIONAL_STIPPLE_COLOR,
   envpain: "#00674F",
   physpain: "#FF0000",
   socioecopain: "#FFFF00",
 };
+
+// The selected design is now the normal site. Comparison builds remain on the archived branch.
+const countryProfileEnabled = true;
+const emoViewControlsEnabled = false;
+const emoViewsEnabled = true;
+const emoLabelHost = document.querySelector<HTMLElement>("#emo-label-host");
+const emoPanelHost = document.querySelector<HTMLElement>("#emo-view-panel");
+const emoPanelToggle = document.querySelector<HTMLButtonElement>("#emo-view-toggle");
+const emoLegendHost = document.querySelector<HTMLElement>("#emo-legend");
+let emoLabelLayer: EmoLabelLayer | null = null;
+let emoLegend: EmoLegendLayer | null = null;
+let emoArcLayer: EmoArcLayer | null = null;
+let emoLeaderLineLayer: EmoLeaderLineLayer | null = null;
+let emoSelectionLayer: EmoSelectionLayer | null = null;
+let emoMotion: EmoSelectionMotion | null = null;
+const emoView = { presetId: DEFAULT_EMO_PRESET_ID,
+  params: resolveEmoPresetParams(findEmoPreset(DEFAULT_EMO_PRESET_ID)!) };
+let emoPreset: EmoPreset | undefined = findEmoPreset(emoView.presetId);
+let emoParams = emoView.params;
+let emoPanel: { setParam: (key: "randomSeed", value: number) => void } | null = null;
+let countryProfileRuntime: CountryProfileRuntime | null = null;
+let countryProfileRuntimeReady: Promise<void> | null = null;
+let countryPresetReady: Promise<import("./countryProfile/presets").CountryProfilePreset> | null = null;
+function countryPreset() {
+  return countryPresetReady ??= import("./countryProfile/presets").then((module) =>
+    module.resolveCountryProfilePreset());
+}
+let emotionExclusions: Set<string> | null = null;
+let filterRevision = 0;
+let filterWork = Promise.resolve();
+async function loadViewEmotions(): Promise<EmoData> {
+  if (!countryProfileEnabled) return loadEmoData();
+  const preset = await countryPreset();
+  const dataset = preset.emotionDataset === "combined-v2-no-anger" ? "combined-v2" : preset.emotionDataset;
+  const base = await loadEmoData(dataset);
+  if (emotionExclusions === null) {
+    const value = new URL(location.href).searchParams.get("cpExclude");
+    emotionExclusions = new Set(value === null
+      ? preset.emotionDataset === "combined-v2-no-anger" ? ["06_anger"] : []
+      : value.split(",").filter(Boolean));
+  }
+  const { filterEmotions } = await import("./emo/categoryFilter");
+  return filterEmotions(base, emotionExclusions);
+}
+function toggleEmotionCategory(cat: string): void {
+  if (!emotionExclusions) return;
+  // The legend stops propagation, so its activation cannot reach the document observer.
+  trackInteraction({ type: "emotion", target: "emotion-filter", action: "click", emotion: cat });
+  if (emotionExclusions.has(cat)) emotionExclusions.delete(cat);
+  else emotionExclusions.add(cat);
+  emoLegend?.setExcluded(emotionExclusions);
+  trackToggle(METRICS_KIND_CATEGORY, `emotion-filter:${cat}`, !emotionExclusions.has(cat));
+  const url = new URL(location.href);
+  url.searchParams.set("cpExclude", [...emotionExclusions].sort().join(","));
+  history.replaceState(null, "", url);
+  const revision = ++filterRevision;
+  filterWork = filterWork.then(async () => {
+    if (revision !== filterRevision) return;
+    const data = await loadViewEmotions();
+    if (revision !== filterRevision) return;
+    countryPresentation?.allowManualMotion();
+    const selected = countryProfileRuntime?.selectedIso3;
+    // Record the outgoing network before its category data is replaced or filtered away.
+    const selectedEmotion = selected
+      ? countryProfileRuntime?.profiles.get(selected)?.emotional.categoryKey : null;
+    if (selected && selectedEmotion) trackInteraction({ type: "emotion", target: "emotion",
+      action: "close", country: selected, emotion: selectedEmotion, enabled: false });
+    emoLegend?.destroy(); emoLegend = null;
+    emoLabelLayer?.destroy(); emoLabelLayer = null;
+    emoArcLayer?.destroy(); emoArcLayer = null;
+    emoLeaderLineLayer?.destroy(); emoLeaderLineLayer = null;
+    emoSelectionLayer?.destroy(); emoSelectionLayer = null;
+    emoMotion = null;
+    const labels = await mountEmotionLayers(data);
+    countryProfileRuntime?.refreshEmotions(data);
+    syncEmoLayer(lastLayerId);
+    if (selected && data.countries[selected] && (lastLayerId === "emopain" || lastLayerId === "all-layers")) {
+      preserveCountryProfileOnEmoClear = true;
+      try { labels?.selectCountry(selected); }
+      finally { preserveCountryProfileOnEmoClear = false; }
+    }
+    document.querySelector<HTMLButtonElement>(`.emo-legend__exclude[data-cat="${cat}"]`)?.focus();
+    if (emoLegendHost) emoLegendHost.dataset.filterRevision = String(revision);
+  }).catch((error) => { setStatus(`Emotion filter failed: ${String(error)}`); console.error(error); });
+}
+async function fetchViewPoints(layer: string, signal?: AbortSignal): Promise<PainPoint[]> {
+  if (countryProfileEnabled && layer === "socioecopain" &&
+      (await countryPreset()).socioeconomicDataset === "gdp-per-capita-2024") {
+    const { loadGdpPerCapita } = await import("./countryProfile/gdpPerCapita");
+    return loadGdpPerCapita();
+  }
+  return fetchPoints(layer, signal);
+}
+let countryPresentation: CountryPresentation | null = null;
+// Retain the cycle implementation for later comparison without mounting or running it.
+const countryCycleEnabled = false;
+let preserveCountryProfileOnEmoClear = false;
+let presentationBaseParams: EmoViewParams | null = null;
+
+/** Whole globe words fade behind visible chrome, using the label layer's existing box sweep. */
+function countryChromeRects(): readonly DOMRectReadOnly[] {
+  return [...document.querySelectorAll<HTMLElement>(
+    "#ui-title, #festival-media, #video-invitation, #ui-layer-stack, #ui-share-pain, #ui-bottom-left, #ui-legend, #emo-legend, #country-profile",
+  )].flatMap((element) => {
+    const style = getComputedStyle(element);
+    if (style.visibility === "hidden" || Number(style.opacity) <= 0.01) return [];
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
+      rect.left < innerWidth && rect.top < innerHeight ? [rect] : [];
+  });
+}
+
+function applyCountryProfileEmotionSettings(): void {
+  const preset = countryProfileRuntime?.preset;
+  emoLabelLayer?.setOcclusionRects(preset?.chromeOcclusion ? countryChromeRects : null);
+  document.getElementById("emo-legend")?.toggleAttribute(
+    "data-soft-halo",
+    preset?.emotionalLegendHalo === true,
+  );
+  emoSelectionLayer?.setPeerStrength(preset?.selectionPeerStrength ?? null);
+}
+
+function applyCountryProfileGlobePreset(layerId: string): void {
+  const preset = countryProfileRuntime?.preset;
+  const quality = countryProfileRuntime?.quality?.settings;
+  const physical = layerId === "physpain" || layerId === "all-layers";
+  applyCountryProfileEmotionSettings();
+  globe.setRoundedScarShoulder(preset?.roundedScarShoulder ?? false);
+  globe.setScarDepthStyle(physical ? preset?.scarDepthStyle ?? "none" : "none");
+  globe.setScarReliefPalette(preset?.scarReliefPalette ?? "coral");
+  globe.setScarDepthSize(layerId === "physpain" || layerId === "all-layers"
+    ? preset?.scarDepthSize ?? false : false);
+  globe.setPhysicalOceanBlue(preset?.physicalOceanBlue === true);
+  globe.setEnvironmentalAtmosphere(preset?.atmosphereMode ?? "control",
+    quality?.samples ?? preset?.atmosphereSamples ?? 32,
+    quality?.fraction ?? preset?.atmosphereFraction ?? 0.5, preset?.atmosphereSmooth);
+  globe.setSocioeconomicStyle(preset?.socioeconomicStyle ?? null,
+    countryProfileRuntime?.socioeconomicMinimum ?? 0, preset?.socioeconomicPatternContrast ?? 0.25,
+    preset?.socioeconomicMissingStyle);
+  globe.setSurfaceDetail(preset?.surfaceDetail ?? 1);
+  globe.setScarContourLevels(preset?.scarContourLevels ?? 24);
+  globe.setScarContourStyle(layerId === "physpain" || layerId === "all-layers"
+    ? preset?.scarContourStyle ?? null : null);
+  void globe.setCountryContourRounding(preset?.countryContourDegrees ?? null);
+  const enhancedStipple = physical || preset?.stippleAllLayers === true;
+  globe.setStippleContextOpacity(layerId === "envpain" ? preset?.environmentalContextOpacity ?? 1 :
+    layerId === "socioecopain" ? preset?.socioeconomicContextOpacity ?? 1 : 1);
+  globe.setStippleDetailCapacity(quality?.capacity ?? 131_072);
+  globe.setStipplePointCount(preset?.stipplePointCount ?? 82_000);
+  const detail = preset?.physicalDetail ?? "fixed";
+  globe.setStippleDetailMode(enhancedStipple ?
+    quality && (detail === "split1" || detail === "split2") ? quality.detail : detail : "fixed");
+  globe.setStipplePointTune({
+    scale: enhancedStipple ? preset?.physicalPointScale ?? 1 : 1,
+    nearBoost: enhancedStipple ? preset?.physicalPointNearBoost ?? 0 : 0,
+  });
+  globe.setEnvironmentalFieldPattern(
+    preset?.environmentalFieldPattern ?? "smooth",
+  );
+}
+
+function applyEmoParams(next: EmoViewParams): void {
+  emoParams = next;
+  emoLabelLayer?.setParams(next);
+  emoArcLayer?.setParams(next);
+  emoLeaderLineLayer?.setParams(next);
+  emoSelectionLayer?.setParams(next);
+  emoLegend?.setParams(next);
+  emoMotion?.setParams(next);
+}
+
+function setPresentationTiming(active: boolean, timeScale: number): void {
+  if (!active) {
+    if (presentationBaseParams) applyEmoParams(presentationBaseParams);
+    presentationBaseParams = null;
+    return;
+  }
+  if (!presentationBaseParams) presentationBaseParams = { ...emoParams };
+  const preset = countryProfileRuntime?.preset;
+  const factor = (preset?.cycle?.motionScale ?? (preset?.refinement ? 1.5 : 3)) * timeScale;
+  applyEmoParams({
+    ...presentationBaseParams,
+    selectionMotionMs: presentationBaseParams.selectionMotionMs * factor,
+    selectionLeaderMs: presentationBaseParams.selectionLeaderMs * factor,
+    selectionSpreadMs: presentationBaseParams.selectionSpreadMs * factor,
+  });
+}
+
+/**
+ * Show the DOM label views for the emotional layer and for all-layers mode, and suppress the
+ * incumbent sprite word cloud while they are up so the two never draw at once.
+ * Other single layers keep their existing visuals untouched.
+ *
+ * The control preset is the incumbent word cloud, so it inverts the pair: sprites on, DOM
+ * labels hidden. This runs after the setWordCloudEnabled calls in applyGlobeLayer and
+ * handleAllLayers, so it has the last word.
+ */
+function syncEmoLayer(layerId: string): void {
+  if (!emoViewsEnabled || !emoLabelHost) return;
+  const active = layerId === "emopain" || layerId === "all-layers";
+  const sprites = active && emoPreset?.useIncumbentSprites === true;
+  // Leaving the emotional layer returns the globe to its default state rather than to the state
+  // it happened to be left in. Hiding the labels is not enough: the country mark, the network and
+  // the leader lines are scene objects, and a selection made here would otherwise still be
+  // marking countries on an environmental or physical globe that never asked for it. Coming back
+  // therefore starts clean, and the country has to be clicked again.
+  if (!active || sprites) {
+    preserveCountryProfileOnEmoClear = true;
+    try {
+      emoLabelLayer?.clearSelection();
+    } finally {
+      preserveCountryProfileOnEmoClear = false;
+    }
+    // Snap rather than ease. A layer switch is not a gesture on the globe, and easing it would
+    // leave a half-sunk world on screen for anyone who switched back inside the transition.
+    emoMotion?.reset();
+  }
+  emoLabelHost.hidden = !active || sprites;
+  // The legend is held to the emotional layer alone, not to all-layers mode. The operator's
+  // reason: all-layers is the whole globe at once and the strip is a key to one of its four
+  // layers, so it belongs where that layer is the subject. The labels and the network still run
+  // in both, which is decision 7 and is not reopened here.
+  emoLegend?.setVisible(layerId === "emopain" && !sprites);
+  emoArcLayer?.setVisible(active && !sprites);
+  emoLeaderLineLayer?.setVisible(active && !sprites);
+  // Which globe is underneath decides how far a leader line may reach down. In all-layers mode
+  // the base mesh is an invisible depth mask, so a line can be buried below the scar dents and
+  // be cut back to the surface; on the emotional layer alone that mesh is hidden and nothing
+  // cuts anything, so the same line reaches out of the planet as a spear. See leaderLines.ts.
+  emoLeaderLineLayer?.setDepthMasked(layerId === "all-layers");
+  if (active) {
+    globe.setWordCloudEnabled(sprites);
+  }
+}
+
+/** Show or hide the views panel, keeping the entry button's aria state in step. */
+function setEmoPanelOpen(open: boolean): void {
+  if (!emoPanelHost || !emoPanelToggle) return;
+  emoPanelHost.hidden = !open;
+  emoPanelToggle.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {
+  emoPanelToggle.hidden = false;
+  emoPanelToggle.title = "Toggle emotional pain label views ([ and ] step between them)";
+  emoPanelToggle.addEventListener("click", () => setEmoPanelOpen(emoPanelHost.hidden));
+}
+
+function handleCountrySurfaceClick(clientX: number, clientY: number): void {
+  const runtime = countryProfileRuntime;
+  if (!runtime) return;
+  countryPresentation?.allowManualMotion();
+  const surface = globe.pickSurfaceLatLng(clientX, clientY);
+  const iso3 = surface ? runtime.countryAt(surface.lat, surface.lng) : null;
+  const emotionalLayer = lastLayerId === "emopain" || lastLayerId === "all-layers";
+
+  if (!iso3) {
+    if (emotionalLayer) emoLabelLayer?.clearSelection();
+    runtime.clear(true);
+    return;
+  }
+  if (!emotionalLayer) {
+    runtime.toggle(iso3, true);
+    return;
+  }
+  if (!runtime.profiles.get(iso3)?.emotional.categoryKey) {
+    preserveCountryProfileOnEmoClear = true;
+    try { emoLabelLayer?.clearSelection(); }
+    finally { preserveCountryProfileOnEmoClear = false; }
+    runtime.toggle(iso3, true);
+    return;
+  }
+  if (runtime.selectedIso3 === iso3) emoLabelLayer?.clearSelection();
+  else emoLabelLayer?.selectCountry(iso3);
+}
+
+async function ensureCountryProfileRuntime(): Promise<void> {
+  if (!countryProfileEnabled || countryProfileRuntime) return;
+  countryProfileRuntimeReady ??= (async () => {
+    const { CountryProfileRuntime } = await import("./countryProfile/runtime");
+    countryProfileRuntime = await CountryProfileRuntime.create(
+      pointCache,
+      appRootEl,
+      lastLayerId,
+      await loadViewEmotions(),
+      highQuality,
+    );
+    const runtime = countryProfileRuntime;
+    applyCountryProfileGlobePreset(lastLayerId);
+    if (runtime.preset.refinement) {
+      chrome?.setSharePainLabel(
+        runtime.preset.sharePainLabel ?? "share your pain\nlocate it",
+        runtime.preset.sharePainLooseLines,
+      );
+    }
+    if (!countryCycleEnabled) return;
+    const { CountryPresentation } = await import("./countryProfile/presentation");
+    countryPresentation = new CountryPresentation({
+    appRoot: appRootEl,
+    controlHost: runtime.preset.refinement ? chrome?.countryCycleHost : undefined,
+    refinement: runtime.preset.refinement,
+    profiles: runtime.profiles,
+    controls: globe.controls,
+    getSelectedIso3: () => runtime.selectedIso3,
+    getCurrentLayer: () => lastLayerId,
+    enterAllLayers: async () => {
+      if (lastLayerId !== "all-layers") await handleAllLayers();
+    },
+    restoreLayer: (layerId) => {
+      if (layerId === lastLayerId) return;
+      if (layerId === "all-layers") {
+        void handleAllLayers().catch((error) =>
+          setStatus(error instanceof Error ? error.message : String(error)),
+        );
+      } else handleLayerChange(layerId);
+    },
+    moveTo: async (iso3, signal, durationMs) => {
+      const centroid = getCountryCentroid(iso3);
+      if (!centroid) throw new Error(`No presentation centroid for ${iso3}`);
+      await flyGlobeToLatLng(
+        globe.camera,
+        globe.controls,
+        centroid.lat,
+        centroid.lng,
+        globe.earthContent,
+        { durationMs, signal, preserveRadius: runtime.preset.cycle?.preserveZoom },
+      );
+    },
+    selectCountry: (iso3) => {
+      runtime.select(iso3, false);
+      if (runtime.profiles.get(iso3)?.emotional.categoryKey) emoLabelLayer?.selectCountry(iso3);
+    },
+    clearCountry: () => {
+      runtime.clear(false);
+      emoLabelLayer?.clearSelection();
+    },
+    isBuilding: (iso3) => {
+      const category = runtime.profiles.get(iso3)?.emotional.categoryKey;
+      return category ? emoMotion?.isBuilding(category) === true : false;
+    },
+    isRetreating: () => (emoMotion?.retreatingCategories().length ?? 0) > 0,
+    setMotionPaused: (paused) => emoMotion?.setPaused(paused),
+    setPresentationTiming,
+    setProfileSuppressed: (suppressed) => runtime.setProfileSuppressed(suppressed),
+    setProfileAutoplay: (autoplay) => runtime.setAutoplay(autoplay),
+    previewCountry: (iso3) => runtime.previewCountry(iso3),
+    previewDuringFlight: runtime.preset.cycle?.previewDuringFlight,
+    revealWithNetwork: runtime.preset.cycle?.revealWithNetwork,
+    prepareMs: runtime.preset.cycle?.prepareMs,
+    flightMs: runtime.preset.cycle?.flightMs,
+    dwellMs: runtime.preset.cycle?.dwellMs,
+    getAutoSpin: () => globe.isAutoSpinEnabled(),
+    setAutoSpin: (enabled) => globe.setAutoSpinEnabled(enabled),
+    });
+  })();
+  try {
+    await countryProfileRuntimeReady;
+  } catch (error) {
+    countryProfileRuntimeReady = null;
+    throw error;
+  }
+}
 
 /**
  * Apply layer visuals and auto-switch pain viz mode:
@@ -452,8 +870,10 @@ function applyGlobeLayer(layerId: string): void {
     layerId === "physpain" ? PAIN_VIZ_MODE.scars : PAIN_VIZ_MODE.points;
   currentPainVizMode = vizMode;
   globe.setPainVisualizationMode(vizMode);
+  applyCountryProfileGlobePreset(layerId);
 
   globe.setWordCloudEnabled(layerId === "emopain");
+  syncEmoLayer(layerId);
 
   const layer = getMapLayerById(layerId);
   const meta: GlobeLayerDisplayMeta | undefined = layer
@@ -465,10 +885,13 @@ function applyGlobeLayer(layerId: string): void {
       }
     : undefined;
   globe.updateLayerVisuals(layerId, meta);
-  showLegend(layerId);
+  showLegend(layerId, countryProfileRuntime?.legendForLayer(layerId));
 }
 
-function applyPendingLayerChange(layerId: string): void {
+async function applyPendingLayerChange(
+  layerId: string,
+  revision: number,
+): Promise<void> {
   globe.setMarkers([]);
   const prevLayerId = lastLayerId;
   if (
@@ -483,9 +906,11 @@ function applyPendingLayerChange(layerId: string): void {
   lastLayerId = layerId;
   applyGlobeLayer(layerId);
   syncWordCloudForCurrentLayer();
-  void loadPoints().catch((e) =>
-    setStatus(e instanceof Error ? e.message : String(e)),
-  );
+  await loadPoints();
+  if (revision !== layerChangeRevision) return;
+  // Start after setMarkers too. Cached loadPoints resolves immediately, but its synchronous globe
+  // rebuild still blocks the frame in which a CSS transition would otherwise begin.
+  countryProfileRuntime?.setLayer(layerId);
 }
 
 function handleLayerChange(layerId: string): void {
@@ -497,8 +922,18 @@ function handleLayerChange(layerId: string): void {
   ) {
     return;
   }
+  const revision = ++layerChangeRevision;
   loadPointsAbortController?.abort();
   if (showAllLayersActive) {
+    // BEFORE THE GLOBE CHANGES, NOT 150 MS AFTER IT. All-layers mode is what makes the base mesh
+    // an invisible depth mask, and that mask is the only thing cutting the buried part of every
+    // leader line back to the surface. The rest of this switch is debounced by
+    // LAYER_CHANGE_DEBOUNCE_MS to coalesce rapid clicks, so leaving the foot to the deferred
+    // syncEmoLayer drew every line's whole buried length across the disc for that window.
+    // Photographed at 60 ms after the click: hairlines over the ocean and the land; at 1500 ms,
+    // none. The layer this belongs to rebuilds its geometry inside the call rather than on its
+    // next frame, because the render loop draws before it updates these layers.
+    emoLeaderLineLayer?.setDepthMasked(false);
     showAllLayersActive = false;
     globe.setShowAllLayersMode(false);
     chrome?.setAllLayersActive(false);
@@ -509,7 +944,9 @@ function handleLayerChange(layerId: string): void {
   clearTimeout(pendingLayerChangeTimer ?? undefined);
   pendingLayerChangeTimer = setTimeout(() => {
     pendingLayerChangeTimer = null;
-    applyPendingLayerChange(layerId);
+    void applyPendingLayerChange(layerId, revision).catch((e) =>
+      setStatus(e instanceof Error ? e.message : String(e)),
+    );
   }, LAYER_CHANGE_DEBOUNCE_MS);
 }
 
@@ -522,6 +959,11 @@ async function handleAllLayers(): Promise<void> {
     setStatus("No layers loaded yet");
     return;
   }
+  const revision = ++layerChangeRevision;
+
+  loadPointsAbortController?.abort();
+  clearTimeout(pendingLayerChangeTimer ?? undefined);
+  pendingLayerChangeTimer = null;
 
   showAllLayersActive = true;
   chrome?.setAllLayersActive(true);
@@ -539,6 +981,7 @@ async function handleAllLayers(): Promise<void> {
   currentPainVizMode = PAIN_VIZ_MODE.scars;
   globe.setPainVisualizationMode(PAIN_VIZ_MODE.scars);
   globe.setWordCloudEnabled(true);
+  syncEmoLayer("all-layers");
   globe.setShowAllLayersMode(true, {
     physpainLayerId: phys?.id ?? "physpain",
     choroplethLayerId: socio?.id ?? "socioecopain",
@@ -559,14 +1002,22 @@ async function handleAllLayers(): Promise<void> {
     }
   }
   const fetchedLists = await Promise.all(
-    layersToFetch.map((layer) => fetchPoints(layer.id)),
+    layersToFetch.map((layer) => fetchViewPoints(layer.id)),
   );
   for (let i = 0; i < layersToFetch.length; i++) {
     const points = fetchedLists[i] ?? [];
     pointCache.set(layersToFetch[i]!.id, points);
   }
+  if (revision !== layerChangeRevision) {
+    await ensureCountryProfileRuntime();
+    return;
+  }
   const allPoints: PainPoint[] = [...cachedPoints, ...fetchedLists.flat()];
   globe.setMarkers(allPoints);
+  await ensureCountryProfileRuntime();
+  if (revision !== layerChangeRevision) return;
+  applyCountryProfileGlobePreset(lastLayerId);
+  countryProfileRuntime?.setLayer(lastLayerId);
   syncWordCloudToggle();
   setStatus(
     `${allPoints.length} point(s) across ${cachedLayers.length} layer(s) — all visuals`,
@@ -611,7 +1062,7 @@ async function loadPoints(): Promise<void> {
   const controller = new AbortController();
   loadPointsAbortController = controller;
   try {
-    const points = await fetchPoints(layer, controller.signal);
+    const points = await fetchViewPoints(layer, controller.signal);
     if (controller.signal.aborted) return;
     pointCache.set(layer, points);
     globe.setMarkers(points);
@@ -631,15 +1082,169 @@ async function loadPoints(): Promise<void> {
 }
 
 // --- render loop + initial API bootstrap ---
-function loop(): void {
+let detailStatsAt = -Infinity;
+function loop(now: number): void {
   globe.tick();
+  const selectedOrigin = countryProfileRuntime?.selectedIso3;
+  const centroid = selectedOrigin ? getCountryCentroid(selectedOrigin) : null;
+  countryProfileRuntime?.setOriginVisible(!centroid || globe.isCountryOriginVisible(centroid.lat, centroid.lng));
+  if (canvas && countryPointer && countryProfileRuntime && now - countryPointerCheckedAt >= 50) {
+    countryPointerCheckedAt = now;
+    const { x, y, dragging } = countryPointer;
+    if (dragging) canvas.style.cursor = "grabbing";
+    else if (emoLabelLayer?.countryAtPoint(x, y)) canvas.style.cursor = "pointer";
+    else {
+      const surface = globe.pickSurfaceLatLng(x, y);
+      canvas.style.cursor = surface && countryProfileRuntime.countryAt(surface.lat, surface.lng)
+        ? "pointer" : "default";
+    }
+  }
+  // Before the three layers, so none of them sees a different instant of the same animation.
+  emoMotion?.tick();
+  emoLabelLayer?.update();
+  emoArcLayer?.update();
+  emoLeaderLineLayer?.update();
+  const exactCountry = countryProfileRuntime?.preset.selectionPeerStrength !== undefined &&
+    ((lastLayerId !== "emopain" && lastLayerId !== "all-layers") ||
+      (selectedOrigin && !countryProfileRuntime.profiles.get(selectedOrigin)?.emotional.categoryKey))
+    ? countryProfileRuntime.selectedIso3 : null;
+  emoSelectionLayer?.setExactCountry(exactCountry,
+    exactCountry ? getMapLayerById(lastLayerId)?.color ?? "#ffffff" : "#ffffff");
+  emoSelectionLayer?.update();
+  const runtime = countryProfileRuntime;
+  const quality = runtime?.quality;
+  if (quality) {
+    const category = runtime.selectedIso3 ? runtime.profiles.get(runtime.selectedIso3)?.emotional.categoryKey : null;
+    const busy = Boolean(emoMotion?.retreatingCategories().length ||
+      (category && emoMotion?.isBuilding(category)));
+    const pool = globe.getStippleDetailStats();
+    const ready = pool !== null && pool.capacityLimit === quality.settings.capacity &&
+      pool.targetCapacity === quality.settings.capacity;
+    const change = quality.tick(now, busy, ready, document.hidden);
+    if (change === "apply") applyCountryProfileGlobePreset(lastLayerId);
+    if (change || now - detailStatsAt >= 1000) {
+      detailStatsAt = now;
+      const storage = globe.getRenderDetailStorage();
+      appRootEl.dataset.cpQuality = quality.level;
+      appRootEl.dataset.cpQualityTarget = quality.target;
+      appRootEl.dataset.cpDetailBytes = String(storage.total);
+      appRootEl.dataset.cpCountryFillWidth = String(storage.countryFillWidth);
+      appRootEl.dataset.cpDetailBudget = String(quality.activeBudgetBytes);
+      appRootEl.dataset.cpBudgetExceeded = String(storage.total > quality.activeBudgetBytes);
+    }
+  }
   requestAnimationFrame(loop);
+}
+
+async function mountEmotionLayers(data: EmoData): Promise<EmoLabelLayer | null> {
+  if (!emoLabelHost) return null;
+  emoMotion = createEmoSelectionMotion({ data: data, params: emoParams });
+  emoLabelLayer = await createEmoLabelLayer({
+    host: emoLabelHost,
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+    // The label layer owns the selection because it owns the click; the arcs and the
+    // country fill are told from here.
+    onSelect: (selection) => {
+      countryPresentation?.allowManualMotion();
+      const previousCountry = countryProfileRuntime?.selectedIso3;
+      const previousEmotion = previousCountry
+        ? countryProfileRuntime?.profiles.get(previousCountry)?.emotional.categoryKey : null;
+      if (selection) trackInteraction({ type: "emotion", target: "emotion",
+        action: previousCountry ? "change" : "open", emotion: selection.cat,
+        country: selection.iso3, enabled: true });
+      else if (previousCountry && previousEmotion) trackInteraction({ type: "emotion",
+        target: "emotion", action: "close", emotion: previousEmotion,
+        country: previousCountry, enabled: false });
+      // Order matters here. setSelection clears any wave in flight, and the arc layer starts
+      // the new one, so the arcs go second or the wave they just planned is thrown away.
+      emoMotion?.setSelection(selection?.cat ?? null);
+      emoArcLayer?.setSelectedCategory(selection?.cat ?? null, selection?.iso3 ?? null);
+      emoSelectionLayer?.setSelectedCategory(selection?.cat ?? null);
+      emoLegend?.setSelectedCategory(selection?.cat ?? null);
+      if (!preserveCountryProfileOnEmoClear) {
+        if (selection) countryProfileRuntime?.select(selection.iso3, true);
+        else countryProfileRuntime?.clear(true);
+      }
+      // The leader lines are not told directly: they follow the motion, which is the one
+      // signal all three layers share, so they cannot disagree about what is selected.
+    },
+    onCanvasMiss: countryProfileEnabled ? handleCountrySurfaceClick : undefined,
+    // Walk the seed rather than randomising it, so clicking back and forth is repeatable.
+    onReshuffle: () => {
+      emoPanel?.setParam("randomSeed", (Math.round(emoParams.randomSeed) % 200) + 1);
+    },
+  });
+  emoArcLayer = await createEmoArcLayer({
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+  });
+  emoLeaderLineLayer = await createEmoLeaderLineLayer({
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+  });
+  emoSelectionLayer = await createEmoSelectionLayer({
+    globe,
+    data: data,
+    params: emoParams,
+    motion: emoMotion,
+  });
+  if (emoLegendHost) {
+    emoLegend = await createEmoLegend({
+      host: emoLegendHost,
+      data: data,
+      params: emoParams,
+      // A legend click is a click on a country, taking the same path as one on the globe.
+      // There is no second selection route, so nothing can drift out of step with it.
+      excluded: emotionExclusions ?? undefined,
+      onToggleCategory: countryProfileEnabled ? toggleEmotionCategory : undefined,
+      onPick: (iso3) => emoLabelLayer?.selectCountry(iso3),
+      // Under `legendRepeatClick: "clear"`, a second click on the word already selected puts
+      // the selection away by the same route a click on empty globe takes.
+      onClear: () => emoLabelLayer?.clearSelection(),
+      // Clicking the word whose network is still arriving does nothing. The legend asks
+      // before it rolls, so a blocked click does not walk the seeded sequence.
+      isBusy: (cat) => emoMotion?.isBuilding(cat) === true,
+    });
+  }
+  applyCountryProfileEmotionSettings();
+  return emoLabelLayer;
 }
 
 (async () => {
   initBackgroundMusic();
+  const emotionsReady = (async () => {
+    if (emoViewsEnabled && emoLabelHost) {
+      try {
+        await mountEmotionLayers(await loadViewEmotions());
+        syncEmoLayer(lastLayerId);
+        applyEmoCaptureOverrides(globe);
+        if (emoViewControlsEnabled && emoPanelHost && emoPanelToggle) {
+          emoPanel = mountEmoViewPanel(emoPanelHost, {
+            initialPresetId: emoView.presetId,
+            initialParams: emoView.params,
+            onChange: (preset, params) => {
+              emoPreset = preset;
+              applyEmoParams(params);
+              syncEmoLayer(lastLayerId);
+            },
+            onMinimise: () => setEmoPanelOpen(false),
+          });
+          setEmoPanelOpen(shouldOpenEmoPanel());
+        }
+      } catch (e) {
+        console.error("[main] emo label views failed to start", e);
+      }
+    }
+  })();
   try {
-    const layers = await fetchLayers();
+    const [layers] = await Promise.all([fetchLayers(), emotionsReady]);
     await loadLayersIntoChrome(layers);
     // Default to all-layers on load instead of activating the first API layer.
     await handleAllLayers();

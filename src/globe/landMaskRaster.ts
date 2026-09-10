@@ -92,7 +92,15 @@ export async function rasterLandMaskFromCountries(
     throw new Error(`Land mask GeoJSON fetch failed: ${res.status}`);
   }
   const fc = (await res.json()) as LandMaskFeatureCollection;
+  return rasterLandMaskFromGeometries(fc.features, sampleW, sampleH);
+}
 
+/** Display-only geography; canonical country lookup is never changed. */
+export function rasterLandMaskFromGeometries(
+  features: readonly LandMaskFeature[],
+  sampleW = 1024,
+  sampleH = 512,
+): { data: Uint8ClampedArray; w: number; h: number } {
   const canvas = document.createElement("canvas");
   canvas.width = sampleW;
   canvas.height = sampleH;
@@ -105,7 +113,7 @@ export async function rasterLandMaskFromCountries(
   ctx.fillRect(0, 0, sampleW, sampleH);
   ctx.fillStyle = "#fff";
 
-  for (const feature of fc.features) {
+  for (const feature of features) {
     const g = feature.geometry;
     if (!g) continue;
     if (g.type === "Polygon") {

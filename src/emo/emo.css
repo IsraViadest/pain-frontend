@@ -1,0 +1,556 @@
+/* Emotional-pain label views. Text is DOM, positioned each frame over the WebGL canvas. */
+@import "./fonts.generated.css";
+
+/* Overlay sits above the canvas but below the production chrome (z-index 2). Only the labels
+   themselves take pointer events, so dragging the globe still works between them. */
+.emo-label-host {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  contain: layout paint;
+  --emo-font-px: 13px;
+  --emo-second-scale: 0.72;
+}
+
+.emo-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1.35; /* headroom for Thai, Lao, Devanagari and Tibetan ascenders/descenders */
+  /* The overlay never takes a pointer event. A label that did was invisible to OrbitControls,
+     because the canvas is not its ancestor, so a wheel or a drag beginning over one of 144
+     labels neither zoomed nor rotated, and the wheel then rubber-banded the page instead. The
+     label layer resolves a click by hit-testing under the attribute below, for the length of
+     one elementFromPoint call. */
+  pointer-events: none;
+  user-select: none;
+  /* Only transform and opacity are written per frame, so this stays on the compositor. */
+  will-change: transform, opacity;
+  /* --emo-grey runs 1 (full white, facing the camera) to 1 - edgeDesaturation (at the limb). */
+  --emo-grey: 1;
+  /* --emo-tint feeds the same mix as the limb fade, so colour and distance compose rather than
+     fight. White by default; a preset switches a palette on via the host's data-colour. */
+  --emo-tint: #ffffff;
+  color: color-mix(in srgb, var(--emo-tint) calc(var(--emo-grey) * 100%), #6f8598);
+  text-shadow: 0 1px 3px rgba(0, 3, 18, 0.85);
+}
+
+/* The halo, opt-in through labelHalo. The shipped drop shadow above is directional: it darkens
+   below a glyph and leaves its top edge unprotected, which is the weakest case over the bright
+   choropleth, where the globe is brightest. This surrounds every stroke instead. Three stacked
+   shadows rather than one, because a single soft shadow at this radius is too thin to separate
+   white text from yellow land; they composite into one even surround. --emo-halo is written by
+   the label layer as a fraction of the current font size, so it holds its proportion on zoom. */
+.emo-label-host[data-halo="on"] .emo-label {
+  text-shadow:
+    0 0 var(--emo-halo) rgba(0, 3, 18, 0.95),
+    0 0 var(--emo-halo) rgba(0, 3, 18, 0.95),
+    0 0 calc(var(--emo-halo) * 2) rgba(0, 3, 18, 0.8);
+}
+
+/* Two multipliers, one for the main lines and one for the smaller English line beneath them, so
+   a preset can grow the word without growing its subtitle. Both are written inline by the label
+   layer, per label rather than per host, because the spread animation grows each label as the
+   wave reaches it and they therefore differ from one another mid-animation. These are the resting
+   values, which is what a label that is not emphasised keeps. */
+.emo-label {
+  --emo-emphasis: 1;
+  --emo-emphasis-second: 1;
+}
+
+.emo-label__native {
+  font-size: calc(var(--emo-font-px) * var(--emo-emphasis));
+  font-weight: 600;
+}
+
+/* Two classes, so this outranks the weight above. The 19 Noto subsets ship at weight 400 only,
+   so this is synthesised for the non-Latin scripts, as the 600 above already is. Emboldening
+   does not break Arabic joining or Indic conjuncts, which is why decision 6 bans italic and not
+   this. Most of the emphasis is carried by the size step regardless. */
+.emo-label--emphasis .emo-label__native,
+.emo-label--emphasis .emo-label__english {
+  font-weight: 800;
+}
+
+/* English on its own is the primary line; under a native line it drops back. No italic anywhere:
+   most Noto script faces have none, and synthetic oblique reads as broken in Arabic and Indic. */
+.emo-label__english {
+  font-size: calc(var(--emo-font-px) * var(--emo-emphasis));
+  font-weight: 600;
+}
+
+.emo-label__english--secondary {
+  font-size: calc(var(--emo-font-px) * var(--emo-second-scale) * var(--emo-emphasis-second));
+  font-weight: 400;
+  opacity: 0.68;
+}
+
+/* Set for the duration of a single hit test and removed again, so nothing is ever painted with
+   it on. See labelAt() in labelLayer.ts. */
+.emo-label-host[data-hit="on"] .emo-label {
+  pointer-events: auto;
+}
+
+.emo-label:focus-visible {
+  outline: 1px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* Colour palettes, opt-in per decision 3: the category families are not clean enough to carry
+   meaning, so white stays the default and a preset opts in with colourMode.
+
+   "family" is the group-by-colour view: five bright violets and pinks, as asked for. "category"
+   needs fourteen values, which five shades of violet cannot separate, so that ramp walks the
+   whole hue circle at one bright pastel lightness instead. */
+.emo-label-host[data-colour="family"] .emo-label[data-family="acute"] { --emo-tint: #ff9ab0; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="dread"] { --emo-tint: #d0a6ff; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="loss"] { --emo-tint: #93c5ff; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="social"] { --emo-tint: #ff9be8; }
+.emo-label-host[data-colour="family"] .emo-label[data-family="collapse"] { --emo-tint: #a98bff; }
+
+.emo-label-host[data-colour="category"] .emo-label[data-cat="01_pain"] { --emo-tint: hsl(300 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="02_hurt"] { --emo-tint: hsl(326 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="03_eco_anxiety"] { --emo-tint: hsl(352 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="04_uncertainty"] { --emo-tint: hsl(18 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="05_grief"] { --emo-tint: hsl(44 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="06_anger"] { --emo-tint: hsl(70 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="07_hardship"] { --emo-tint: hsl(96 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="08_displacement"] { --emo-tint: hsl(122 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="09_trauma"] { --emo-tint: hsl(148 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="10_loneliness"] { --emo-tint: hsl(174 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="11_depression"] { --emo-tint: hsl(200 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="12_fear"] { --emo-tint: hsl(226 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="13_helplessness"] { --emo-tint: hsl(252 95% 80%); }
+.emo-label-host[data-colour="category"] .emo-label[data-cat="14_shame"] { --emo-tint: hsl(278 95% 80%); }
+
+/* "violet" is the near-white ramp: one narrow band from violet through orchid to pink, at a
+   lightness high enough that the set still reads as white from across the room. Two categories
+   side by side are told apart; a category is not identified from its hue alone, and is not meant
+   to be. That is the opposite trade from "category" above, which separates all fourteen at the
+   cost of putting yellow and green text on a yellow-green choropleth. */
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="01_pain"] { --emo-tint: hsl(250 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="02_hurt"] { --emo-tint: hsl(257 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="03_eco_anxiety"] { --emo-tint: hsl(265 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="04_uncertainty"] { --emo-tint: hsl(272 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="05_grief"] { --emo-tint: hsl(279 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="06_anger"] { --emo-tint: hsl(287 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="07_hardship"] { --emo-tint: hsl(294 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="08_displacement"] { --emo-tint: hsl(301 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="09_trauma"] { --emo-tint: hsl(308 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="10_loneliness"] { --emo-tint: hsl(316 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="11_depression"] { --emo-tint: hsl(323 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="12_fear"] { --emo-tint: hsl(330 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="13_helplessness"] { --emo-tint: hsl(338 60% 89%); }
+.emo-label-host[data-colour="violet"] .emo-label[data-cat="14_shame"] { --emo-tint: hsl(345 60% 89%); }
+
+/* The category legend: the 14 English category names down the left, each one clickable.
+
+   Unlike the labels this is chrome and takes pointer events, so a wheel over the strip does not
+   reach the globe. `overflow: hidden` makes the box a scroll container, which is the only reason
+   overscroll-behavior can apply to it, and that is what stops such a wheel handing the rest of
+   the gesture to the document and rubber-banding the page.
+
+   It shares the left side with the views panel, which sits above it at z-index 3, so ?ev=2 is
+   where the legend is actually looked at. */
+/* The strip spans the space the page leaves free on the left: from the sound toggle under the
+   title down to the about and data-sources buttons. The layer measures those two and writes the
+   bounds here, so the words spread out to fill whatever is between them rather than clustering
+   round the middle. The fallbacks are what the strip does before the chrome has mounted. */
+.emo-legend {
+  position: fixed;
+  left: 18px;
+  top: var(--emo-legend-top, 22vh);
+  bottom: var(--emo-legend-bottom, 12vh);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* The layer solves the gap and the end padding together so that the words fill the height with
+     twice a gap kept clear at each end, and stop spreading once the gap reaches its floor. That
+     is why this is flex-start with an explicit gap rather than space-between, which has no floor
+     and would keep compressing until the words touched. */
+  justify-content: flex-start;
+  gap: var(--emo-legend-gap, 0.4em);
+  padding: var(--emo-legend-pad, 0) 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  font-size: var(--emo-legend-font-px, 15px);
+}
+
+/* Narrow screens have no room for a full-height strip: the title alone takes the top third and
+   the chrome the page keeps moves to the bottom left. The words wrap into a box instead, spaced
+   out along each line so the block reads as one field of words rather than as a ragged list.
+
+   The background exists only here. Over the globe the words carry their own text shadow and need
+   nothing behind them, but a box of small words at this size does, and it is kept mostly see
+   through so the globe still reads underneath it. */
+/* The two halves of the narrow layout's L. They cost the wide layout nothing: `display: contents`
+   leaves the words as the host's own flex children, so the vertical strip is laid out exactly as
+   it was before the rows existed. */
+.emo-legend__row {
+  display: contents;
+}
+
+@media (max-width: 768px), (max-height: 500px) {
+  .emo-legend {
+    /* Read back by legend.ts. The breakpoint is written once, and this is where. */
+    --emo-legend-narrow: 1;
+    /* ONE RHYTHM FOR THE WHOLE BLOCK. The space between two lines of one row and the space
+       between the two rows are the same number, so the L reads as a single field of words with a
+       rectangular hole cut out of it rather than as two stacked boxes. It was 22 px within a row
+       and 54 px across the join, because each row's own 8 px of vertical padding landed there on
+       top of the column gap. */
+    --emo-legend-row-gap: 0.28em;
+    /* Breathing room round the words, drawn rather than reserved. See the background below. */
+    --emo-legend-inset: 8px;
+    top: auto;
+    /* The share pill's own distance from the bottom of the screen, measured by the layer, so the
+       words end on the same edge the pill does. */
+    bottom: var(--emo-legend-bottom, 20px);
+    left: 20px;
+    right: 20px;
+    width: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: var(--emo-legend-row-gap);
+    /* The inset lives here rather than on the rows, so that the backgrounds below can reach into
+       it without `overflow: hidden` on this element clipping them: overflow clips to the padding
+       box, and the padding is inside it. */
+    padding: var(--emo-legend-inset) 0;
+    background: none;
+  }
+
+  .emo-legend__row {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    align-content: flex-end;
+    justify-content: space-between;
+    box-sizing: border-box;
+    width: 100%;
+    gap: var(--emo-legend-row-gap) 0.4em;
+    /* No vertical padding: it would land between the two rows and break the one rhythm. */
+    padding: 0 10px;
+  }
+
+  /* THE BACKGROUND IS ONE L, DRAWN AS TWO PIECES THAT EXACTLY ABUT.
+     The dark box has to be behind the words and never behind the share pill, and it also has to
+     be continuous, so the two pieces meet at the corner row's top edge with neither a gap nor an
+     overlap: at this alpha an overlap reads as a darker band straight across the join, and a gap
+     as a bright line. Which is why the wide piece reaches down by exactly the row gap. */
+  .emo-legend__row::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: -1;
+    background: rgba(0, 0, 8, 0.34);
+  }
+
+  .emo-legend__row--wide::before {
+    top: calc(-1 * var(--emo-legend-inset));
+    bottom: calc(-1 * var(--emo-legend-row-gap));
+    border-radius: 10px 10px 0 0;
+  }
+
+  .emo-legend__row--corner::before {
+    top: 0;
+    bottom: calc(-1 * var(--emo-legend-inset));
+    border-radius: 0 0 10px 10px;
+  }
+
+  /* Either row can be the only one, and then it is a plain box rather than half an L. The layer
+     sets the class rather than the stylesheet deducing it: the corner's case is one `+` away, but
+     the wide row's would need `:has()`, and a browser without it would silently paint the single
+     box with two square corners and its bottom cut short. See open question 22. */
+  .emo-legend__row--wide.emo-legend__row--only::before {
+    bottom: calc(-1 * var(--emo-legend-inset));
+    border-radius: 10px;
+  }
+
+  .emo-legend__row--corner.emo-legend__row--only::before {
+    top: calc(-1 * var(--emo-legend-inset));
+    border-radius: 10px;
+  }
+
+  /* One row holds everything whenever the words fit beside the pill, and an empty box would
+     otherwise still paint its background. */
+  .emo-legend__row:empty {
+    display: none;
+  }
+
+  /* The row beside the share pill: as wide as the space to its left, and exactly as tall as a
+     whole number of lines at the shared rhythm, rounded up so that it always covers the pill's
+     own height. That is what keeps the full-width row above it clear of the pill: the join sits
+     at or above the pill's top edge by construction rather than by measurement. */
+  .emo-legend__row--corner {
+    width: var(--emo-legend-corner-w, 100%);
+    min-height: var(--emo-legend-corner-h, 0);
+  }
+
+  /* Natural width, so the layer's packing measures what it will get. */
+  .emo-legend__item {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* The page's own legend occupies this corner when it is open, so the box steps above it. */
+  #app:has(#ui-legend.legend--visible) .emo-legend {
+    bottom: calc(20px + 15vh + 14px);
+  }
+
+  #app.mobile-menu-open .emo-legend {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@media (max-height: 500px) {
+  .emo-legend {
+    box-sizing: border-box;
+    justify-content: flex-start;
+    right: auto;
+    width: min(250px, calc(100vw - 40px));
+    overflow-y: auto;
+  }
+
+  .emo-legend__row {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-height: 500px) and (max-width: 744px) and (orientation: landscape) {
+  .emo-legend {
+    width: min(250px, var(--profile-side-space, 250px));
+  }
+
+  .emo-legend__row {
+    padding-inline: 4px;
+  }
+
+  .emo-legend__item {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.emo-legend[hidden] {
+  display: none;
+}
+
+/* A button for the keyboard and for the semantics, with every trace of a button removed. The
+   chosen word is white and nothing else about it changes: no larger, no bolder, because a key
+   that moves when it is read is harder to read. Only the opacity is written, from the layer. */
+.emo-legend__item {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  text-shadow: 0 1px 3px rgba(0, 3, 18, 0.85);
+  transition: opacity 180ms ease;
+  /* The layer writes the custom property, not `opacity` itself, so that :hover below still wins
+     normally rather than needing !important to beat an inline declaration. */
+  opacity: var(--emo-legend-alpha, 0.55);
+}
+
+.emo-legend[data-soft-halo="true"] .emo-legend__item {
+  text-shadow:
+    0 1px 3px rgba(0, 3, 18, 0.85),
+    0 0 7px rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 768px), (max-height: 500px) {
+  .emo-legend[data-soft-halo="true"] .emo-legend__item {
+    text-shadow: 0 1px 3px rgba(0, 3, 18, 0.85);
+  }
+}
+
+.emo-legend__item:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.emo-legend__item:focus-visible {
+  outline: 1px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
+.emo-legend__choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  width: max-content;
+}
+
+.emo-legend__heading {
+  margin: 0;
+  max-width: 180px;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+  text-shadow: 0 1px 4px #000;
+  flex-shrink: 0;
+}
+
+.emo-legend__count {
+  margin-left: 0.45em;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+}
+
+.emo-legend__item[data-excluded="true"] .emo-legend__name {
+  text-decoration: line-through;
+}
+
+.emo-legend__item:disabled { cursor: default; }
+
+.emo-legend__exclude {
+  border: 0;
+  background: none;
+  color: #fff;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.18;
+  transition: opacity 180ms ease;
+}
+
+.emo-legend__exclude[aria-pressed="true"],
+.emo-legend__exclude:hover,
+.emo-legend__exclude:focus-visible { opacity: 1; }
+
+.emo-legend__exclude:focus-visible {
+  outline: 1px solid #88c8ff;
+  outline-offset: 1px;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .emo-legend__exclude { width: 24px; height: 24px; }
+}
+
+/* View panel. The box, rows and sliders reuse the globe debug panel's classes from style.css,
+   which is left untouched; only the side differs, so the entry and panel mirror the debug ones
+   in the opposite corner. Both sit at z-index 3, above the production chrome at 2. */
+.emo-view-entry {
+  right: auto;
+  left: 14px;
+}
+
+.emo-view-panel-host {
+  right: auto;
+  left: 12px;
+}
+
+/* Two deliberate departures from the debug panel, both because this one sits over 195 bright
+   labels rather than over empty globe. Opaque, because at the shared 0.92 the labels behind it
+   read as ghost text across every control. And taller, with the switcher held out of the scroll
+   area, because the parameter list only grows as later phases add to it. Specificity beats the
+   .globe-debug-panel rules without depending on stylesheet order. */
+.globe-debug-panel.emo-view-panel-host {
+  display: flex;
+  flex-direction: column;
+  max-height: min(78vh, 720px);
+  overflow: hidden;
+  /* A wheel that reaches the end of the list inside chains to the document, and the document has
+     nothing to scroll, so macOS rubber-bands the whole page instead. `overflow: hidden` already
+     makes this box a scroll container, which is what lets this apply to it: the gesture stops
+     here rather than travelling outward. */
+  overscroll-behavior: contain;
+  background: #0b0d14;
+  /* A drag that starts on a preset name and ends on the globe rubber-bands the panel's prose,
+     which reads as a glitch rather than as a selection. The labels themselves were already
+     immune. The snippet box is the one thing here that exists to be copied, so it opts back in. */
+  user-select: none;
+}
+
+.emo-view-panel__snippet {
+  user-select: text;
+}
+
+/* The display rule above outranks the user-agent stylesheet's [hidden] { display: none }, so
+   without this the hidden attribute sets the property and changes nothing on screen. */
+.globe-debug-panel.emo-view-panel-host[hidden] {
+  display: none;
+}
+
+/* flex and min-height are load-bearing, not tidiness. A flex item whose overflow is not `visible`
+   has its automatic minimum size resolve to 0, so without these this box collapsed to zero height:
+   its 622px of controls spilled out and were clipped by the host's overflow, leaving 305px of the
+   panel unreachable and nothing for the wheel to scroll. */
+.emo-view-panel__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* The scrolling box itself, for the same reason as the host above: reaching the top or the
+     bottom of 51 controls must not hand the rest of the gesture to the page. */
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+/* The panel covers a third of the globe, so hiding it has to be one obvious click rather than a
+   hunt for the faint entry button in the corner. [ and ] still step between views while hidden,
+   which makes hide-then-compare the natural way to look at a preset full screen. */
+.emo-view-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.emo-view-panel__minimise {
+  flex: none;
+  margin: -2px -4px 0 0;
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-hint, #8fa0b4);
+  font-size: 1rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.emo-view-panel__minimise:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.emo-view-panel__minimise:focus-visible {
+  outline: 1px solid rgba(120, 200, 255, 0.6);
+  outline-offset: 1px;
+}
+
+.emo-view-panel__snippet {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-muted, #c8d2e0);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  resize: vertical;
+}

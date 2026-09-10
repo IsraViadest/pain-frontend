@@ -1,17 +1,26 @@
+/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
 const SOUND_ENABLED_KEY = "pain-sound-enabled";
 const BACKGROUND_MUSIC_SRC = "/sounds/BackgroundPPP.mp3";
 
 let audio: HTMLAudioElement | null = null;
 let unlockListenersAttached = false;
+let suppressed = false;
+let pagePreference = true;
+let memoryOnly = false;
 
 function readPreference(): boolean {
-  const value = localStorage.getItem(SOUND_ENABLED_KEY);
-  if (value === null) return true;
-  return value === "true";
+  if (memoryOnly) return pagePreference;
+  try {
+    const value = localStorage.getItem(SOUND_ENABLED_KEY);
+    if (value !== null) pagePreference = value === "true";
+  } catch { /* The explicit page choice still works when browser storage is unavailable. */ }
+  return pagePreference;
 }
 
 function writePreference(enabled: boolean): void {
-  localStorage.setItem(SOUND_ENABLED_KEY, enabled ? "true" : "false");
+  pagePreference = enabled;
+  try { localStorage.setItem(SOUND_ENABLED_KEY, enabled ? "true" : "false"); memoryOnly = false; }
+  catch { memoryOnly = true; }
 }
 
 function removeUnlockListeners(): void {
@@ -22,7 +31,7 @@ function removeUnlockListeners(): void {
 }
 
 function onUserGestureUnlock(): void {
-  if (!audio || !readPreference() || !audio.muted) return;
+  if (!audio || suppressed || !readPreference() || !audio.muted) return;
   audio.muted = false;
   void audio.play().then(() => {
     removeUnlockListeners();
@@ -45,14 +54,16 @@ export function initBackgroundMusic(): void {
 
   audio = new Audio(BACKGROUND_MUSIC_SRC);
   audio.loop = true;
-  audio.preload = "auto";
+  audio.preload = "metadata";
   const wantEnabled = readPreference();
-  audio.muted = !wantEnabled;
+  audio.muted = suppressed || !wantEnabled;
   attachUnlockListeners();
-  void audio.play().catch(() => {
+  void audio.play().then(() => {
+    document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
+  }).catch(() => {
     if (!audio) return;
     audio.muted = true;
-    void audio.play().catch(() => {});
+    document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
   });
 }
 
@@ -68,10 +79,21 @@ export function setSoundEnabled(enabled: boolean): void {
   }
   if (!audio) return;
 
-  audio.muted = !enabled;
+  audio.muted = suppressed || !enabled;
   writePreference(enabled);
 
   if (enabled) {
-    void audio.play().catch(() => {});
+    void audio.play().catch(() => {
+      if (audio) audio.muted = true;
+      attachUnlockListeners();
+      document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
+    });
   }
+}
+
+/** Video temporarily owns audio without changing the visitor's saved music preference. */
+export function setBackgroundMusicSuppressed(value: boolean): void {
+  suppressed = value;
+  if (audio) audio.muted = suppressed || !readPreference();
+  document.dispatchEvent(new CustomEvent("backgroundMusicStateChanged"));
 }

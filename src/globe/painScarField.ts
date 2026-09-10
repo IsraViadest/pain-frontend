@@ -5,6 +5,7 @@
  */
 import * as THREE from "three";
 import type { PainPoint } from "../types/api";
+import { boxBlurField } from "./field-box-blur";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 import { hasPainPointCoordinates, latLngToVector3 } from "./latLng";
 import { isDebugScarVisual } from "./debugScarVisual";
@@ -23,14 +24,13 @@ export function painPointToFieldTexel(
   p: PainPoint,
 ): { cx: number; cy: number } | null {
   if (!hasPainPointCoordinates(p)) return null;
-  const maxCol = SCAR_MAP_WIDTH - 1;
-  const maxRow = SCAR_MAP_HEIGHT - 1;
   const { u, v } = unitDirectionToGlobeEquirectUV(
     latLngToVector3(p.lat, p.lng, 1),
   );
   return {
-    cx: Math.floor(((u % 1) + 1) % 1 * maxCol),
-    cy: Math.floor(THREE.MathUtils.clamp(v, 0, 1) * maxRow),
+    cx: Math.floor(((u % 1) + 1) % 1 * SCAR_MAP_WIDTH),
+    cy: Math.min(SCAR_MAP_HEIGHT - 1,
+      Math.floor(THREE.MathUtils.clamp(v, 0, 1) * SCAR_MAP_HEIGHT)),
   };
 }
 
@@ -42,7 +42,7 @@ function makeRedDataTexture(bytes: Uint8Array): THREE.DataTexture {
     THREE.RedFormat,
     THREE.UnsignedByteType,
   );
-  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
@@ -61,6 +61,8 @@ type ScarMapBuildStats = {
 
 /** CPU-side knobs for stamping + blurring before the scar DataTexture uploads to GPU. */
 type ScarHeightMapBuildParams = {
+  /** Smoothly close the outer shoulder while preserving center and half-height support. */
+  roundedShoulder: boolean;
   /** Floor on stamp radius in texture pixels (after intensity-based size). */
   stampRadiusMin: number;
   /** Scales footprint; large values merge sites and flatten detail. */
@@ -75,6 +77,7 @@ type ScarHeightMapBuildParams = {
 };
 
 const DEFAULT_SCAR_HEIGHT_MAP_BUILD: ScarHeightMapBuildParams = {
+  roundedShoulder: false,
   stampRadiusMin: 5,
   stampRadiusMul: 1,
   stampPeakMul: 1,
@@ -107,37 +110,6 @@ function scarStampIntensityBlend(intensity01: number): number {
 function scarStampPeakIntensityBlend(intensity01: number): number {
   const t = Math.sqrt(THREE.MathUtils.clamp(intensity01, 0, 1));
   return SCAR_STAMP_PEAK_INTENSITY_FLOOR + SCAR_STAMP_PEAK_INTENSITY_WEIGHT * t;
-}
-
-/**
- * Box blur on float scar depth (neutral = {@link SCAR_NEUTRAL_DEPTH}).
- * Smooths the height field so coastlines / stipple follow broad dents instead of pixel spikes.
- */
-function boxBlurScarDepth(
-  src: Float32Array,
-  width: number,
-  height: number,
-  radius: number,
-): Float32Array {
-  const out = new Float32Array(src.length);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let sum = 0;
-      let count = 0;
-      for (let dy = -radius; dy <= radius; dy++) {
-        const iy = y + dy;
-        if (iy < 0 || iy >= height) continue;
-        for (let dx = -radius; dx <= radius; dx++) {
-          const ix = x + dx;
-          if (ix < 0 || ix >= width) continue;
-          sum += src[iy * width + ix]!;
-          count++;
-        }
-      }
-      out[y * width + x] = sum / count;
-    }
-  }
-  return out;
 }
 
 /**
@@ -185,18 +157,27 @@ export function createPainScarDisplacementTexture(
         SCAR_STAMP_PEAK_INTENSITY_SPAN * scarStampPeakIntensityBlend(p.intensity)) *
       cfg.stampPeakMul;
 
+    // Longitude is undefined at a pole. Its stamp covers the complete row, once per texel.
+    const atPole = Math.abs(p.lat!) === 90;
+    const firstDx = atPole ? -cx : -radiusPx;
+    const lastDx = atPole ? SCAR_MAP_WIDTH - cx - 1 : radiusPx;
+
     for (let dy = -radiusPx; dy <= radiusPx; dy++) {
       const iy = cy + dy;
       if (iy < 0 || iy >= SCAR_MAP_HEIGHT) continue;
-      for (let dx = -radiusPx; dx <= radiusPx; dx++) {
-        const dist = Math.sqrt(dx * dx + dy * dy);
+      for (let dx = firstDx; dx <= lastDx; dx++) {
+        const dist = atPole ? Math.abs(dy) : Math.sqrt(dx * dx + dy * dy);
         if (dist > radiusPx) continue;
         let ix = cx + dx;
         ix = ((ix % SCAR_MAP_WIDTH) + SCAR_MAP_WIDTH) % SCAR_MAP_WIDTH;
         const idx = iy * SCAR_MAP_WIDTH + ix;
         const t = dist / radiusPx;
         // Smooth shoulder (vs (1−t)^3 + tiny support) removes high-frequency jigglies on outlines.
-        const falloffDepth = Math.exp(-(t * t) * cfg.falloffSigma);
+        let falloffDepth = Math.exp(-(t * t) * cfg.falloffSigma);
+        if (cfg.roundedShoulder) {
+          const edge = THREE.MathUtils.clamp((t - 0.85) / 0.15, 0, 1);
+          falloffDepth *= 1 - edge * edge * (3 - 2 * edge);
+        }
         const sub = peakDent * falloffDepth;
         depthAcc[idx] = Math.max(SCAR_MIN_DEPTH, depthAcc[idx]! - sub);
       }
@@ -205,10 +186,10 @@ export function createPainScarDisplacementTexture(
 
   let smoothed: Float32Array = depthAcc;
   if (blur1 > 0) {
-    smoothed = boxBlurScarDepth(smoothed, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, blur1);
+    smoothed = boxBlurField(smoothed, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, blur1, true);
   }
   if (blur2 > 0) {
-    smoothed = boxBlurScarDepth(smoothed, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, blur2);
+    smoothed = boxBlurField(smoothed, SCAR_MAP_WIDTH, SCAR_MAP_HEIGHT, blur2, true);
   }
 
   if (isDebugScarVisual()) {
@@ -221,6 +202,14 @@ export function createPainScarDisplacementTexture(
   const depthBytes = new Uint8Array(SCAR_MAP_WIDTH * SCAR_MAP_HEIGHT);
   for (let i = 0; i < smoothed.length; i++) {
     depthBytes[i] = Math.round(THREE.MathUtils.clamp(smoothed[i]!, 0, 255));
+  }
+
+  // Every vertex at a pole is the same position, even when nearby nonpolar stamps reach it.
+  for (const row of [0, SCAR_MAP_HEIGHT - 1]) {
+    const start = row * SCAR_MAP_WIDTH;
+    let sum = 0;
+    for (let x = 0; x < SCAR_MAP_WIDTH; x++) sum += depthBytes[start + x]!;
+    depthBytes.fill(Math.round(sum / SCAR_MAP_WIDTH), start, start + SCAR_MAP_WIDTH);
   }
 
   return makeRedDataTexture(depthBytes);

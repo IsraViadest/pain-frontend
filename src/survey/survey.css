@@ -785,6 +785,21 @@
   color: #07153b;
 }
 
+.survey-result-modal__message {
+  margin: 6px 0 0;
+  font-family: "Hypodermic", sans-serif;
+  font-size: clamp(0.9rem, 1.6vw, 1rem);
+  line-height: 1.5;
+  color: #07153b;
+}
+
+.survey-result-modal__description {
+  margin: 14px 0 0;
+  font: 12px/1.4 "Apercu Pro", sans-serif;
+  color: #07153b;
+  opacity: .7;
+}
+
 /* Survey consent modal — visual language matches info modal (z-index 6). */
 
 .consent-modal {

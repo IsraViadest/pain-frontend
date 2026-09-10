@@ -52,16 +52,16 @@ export async function showConsentModal(
   const bodyEl = document.createElement("p");
   bodyEl.className = "consent-modal__body";
   bodyEl.textContent =
-    "Your contribution to this artwork can also help us learn more about how people experience and express pain. Your responses are collected anonymously. We do not collect information that allows us to identify you or link your answers back to you. The anonymous responses may be analysed and used for research purposes, including reports and scientific publications. Please avoid including information in open-text fields that could identify you or another person. Because your responses cannot be linked back to you, it will not be possible to identify or remove your individual responses after you submit them.";
+    "Your answers are processed for the artwork's response. We do not retain your written text or which survey answers you selected. If you agree, we retain the resulting globe location and record survey activity for research: steps visited, button and selection counts, whether you added text, its character count, and time spent in the survey. Activity is linked by a random visit identifier, without your name. General artwork interactions are recorded separately. Please avoid entering information that identifies you or another person. You can decline survey activity recording and still use the artwork.";
 
   const subheadingEl = document.createElement("h3");
   subheadingEl.className = "consent-modal__subheading";
-  subheadingEl.textContent = "How AI is used:";
+  subheadingEl.textContent = "About the response:";
 
   const aiBodyEl = document.createElement("p");
   aiBodyEl.className = "consent-modal__body";
   aiBodyEl.textContent =
-    "The text you enter in the open question is processed by an AI system to generate a personalised response for you as part of the artwork. It should not be understood as medical advice, diagnosis or professional guidance. Your text is processed within the EU.";
+    "This experience offers an artistic location and a response drawn from prepared texts. It is not a medical assessment, diagnosis or professional guidance.";
 
   const actions = document.createElement("div");
   actions.className = "consent-modal__actions";

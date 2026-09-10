@@ -19,8 +19,13 @@ const MOBILE_MAX_WIDTH_PX = 768;
 
 let imgEl: HTMLImageElement | null = null;
 let currentFileName: string | null = null;
+let currentContent: SVGSVGElement | undefined;
+const generatedContentByLayer = new Map<string, SVGSVGElement>();
 let swapTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let resizeBound = false;
+let chromeBounds: ResizeObserver | undefined;
+let profileChanges: MutationObserver | undefined;
+let observedProfile: HTMLElement | null = null;
 
 function legendAssetUrl(fileName: string): string {
   const base = import.meta.env.BASE_URL;
@@ -37,8 +42,73 @@ function getLegendHost(): HTMLElement | null {
 function positionLegendUnderTitle(): void {
   const host = getLegendHost();
   if (!host) return;
-  if (window.innerWidth <= MOBILE_MAX_WIDTH_PX) {
+  currentContent?.dispatchEvent(new Event("resize"));
+  const picker = document.getElementById("ui-layer-stack");
+  const title = document.getElementById("ui-title");
+  const share = document.getElementById("ui-share-pain");
+  const shareBounds = share?.getBoundingClientRect();
+  const shareRect = shareBounds && shareBounds.width > 0 && shareBounds.height > 0
+    ? shareBounds : null;
+  const profile = document.getElementById("country-profile");
+  if (profile !== observedProfile) {
+    if (observedProfile) chromeBounds?.unobserve(observedProfile);
+    profileChanges?.disconnect();
+    observedProfile = profile;
+    if (profile) {
+      chromeBounds?.observe(profile);
+      profileChanges ??= new MutationObserver(positionLegendUnderTitle);
+      profileChanges.observe(profile, { attributes: true, attributeFilter: ["style", "hidden"] });
+    }
+  }
+  const fitControls = (document.getElementById("app")?.hasAttribute("data-cp-fit-controls") &&
+    innerHeight < 650) || share?.classList.contains("ui-share-pain--with-video");
+  const compact = innerWidth <= MOBILE_MAX_WIDTH_PX || innerHeight <= 500 || fitControls;
+  const about = document.getElementById("ui-bottom-left");
+  if (about) about.style.maxWidth = compact && shareRect
+    ? `${Math.max(48, shareRect.left - 28)}px` : "";
+  if (picker && title && share) {
+    const hamburger = title.querySelector<HTMLElement>(".ui-hamburger");
+    // Landscape controls occupy the right rail, clear of the subtitle on the left.
+    const top = fitControls && innerWidth > innerHeight
+      ? hamburger && getComputedStyle(hamburger).display !== "none"
+        ? hamburger.getBoundingClientRect().bottom + 12 : 20
+      : title.getBoundingClientRect().bottom + 12;
+    let bottom = shareRect ? shareRect.top - 12 : innerHeight - 20;
+    const card = profile?.getBoundingClientRect();
+    const pickerLeft = innerWidth - 20 - picker.getBoundingClientRect().width;
+    if (card && card.width > 0 && pickerLeft < card.right + 8 && innerWidth - 20 > card.left - 8) {
+      bottom = Math.min(bottom, card.top - 12);
+    }
+    const naturalHeight = picker.scrollHeight;
+    const centeredTop = innerHeight / 2 - 40 - naturalHeight / 2;
+    const constrained = compact && (innerHeight <= 500 || centeredTop < top || centeredTop + naturalHeight > bottom);
+    const available = Math.max(0, bottom - top);
+    picker.toggleAttribute("data-height-constrained", constrained);
+    picker.style.top = constrained ? `${top}px` : "";
+    // Below 24px tap height, keep scrolling instead of shrinking controls further.
+    const smallestButton = Math.min(...Array.from(picker.children, (button) =>
+      (button as HTMLElement).offsetHeight));
+    const scale = fitControls && constrained && naturalHeight > 0
+      ? Math.min(1, Math.max(24 / Math.max(24, smallestButton), available / naturalHeight)) : 1;
+    picker.style.setProperty("--picker-fit-scale", String(scale));
+    picker.style.maxHeight = constrained ? `${available / scale}px` : "";
+    if (constrained) picker.style.setProperty("--picker-available-height", `${available}px`);
+    else picker.style.removeProperty("--picker-available-height");
+  }
+  // The stacked pair's inter-scale gap is at its center, aligned by the normal CSS anchor.
+  host.style.top = "";
+  host.style.bottom = "";
+  if (innerWidth > MOBILE_MAX_WIDTH_PX && innerHeight > 500 &&
+      currentContent?.hasAttribute("data-stacked") && title) {
+    host.style.setProperty("--environment-stack-space",
+      `${Math.max(0, innerHeight - 2 * (title.getBoundingClientRect().bottom + 12))}px`);
+  } else host.style.removeProperty("--environment-stack-space");
+  if (compact) {
     host.style.left = "";
+    return;
+  }
+  if (currentContent?.dataset.orientation === "vertical") {
+    host.style.left = `${TITLE_INSET_LEFT_PX}px`;
     return;
   }
   const headingEl = document.querySelector<HTMLElement>(".ui-title__heading");
@@ -53,13 +123,18 @@ function ensureLegendResizeListener(): void {
   window.addEventListener("resize", () => {
     positionLegendUnderTitle();
   });
+  chromeBounds = new ResizeObserver(positionLegendUnderTitle);
+  for (const id of ["ui-title", "ui-share-pain"]) {
+    const element = document.getElementById(id);
+    if (element) chromeBounds.observe(element);
+  }
 }
 
 /** Position after paint (and again when the SVG finishes loading). */
 function afterLegendShown(): void {
   ensureLegendResizeListener();
   positionLegendUnderTitle();
-  if (imgEl && !imgEl.complete) {
+  if (imgEl?.isConnected && !imgEl.complete) {
     imgEl.addEventListener("load", () => {
       positionLegendUnderTitle();
     }, { once: true });
@@ -75,63 +150,76 @@ function clearSwapTimeout(): void {
 
 /** Slide the legend off-screen (emopain, all-layers, unknown ids). */
 export function hideLegend(): void {
+  ensureLegendResizeListener();
   clearSwapTimeout();
   currentFileName = null;
+  currentContent = undefined;
   const host = getLegendHost();
   host?.classList.remove("legend--visible");
   host?.removeAttribute("data-layer");
   if (host) host.style.left = "";
+  positionLegendUnderTitle();
 }
 
 /**
  * Show the legend for `layerId`, or hide it when the layer has no SVG
- * (emopain and unknown ids).
+ * (emopain and unknown ids). Supplied SVG content is remembered per trimmed layer id.
+ * Omit content to reuse it, or pass null to clear it and restore the legacy image.
  *
  * When already visible and switching to another legend layer, waits for the
  * 400ms slide-out before swapping the image and sliding back in.
  */
-export function showLegend(layerId: string): void {
+export function showLegend(layerId: string, content?: SVGSVGElement | null): void {
+  const layer = layerId.trim();
+  if (content === null) generatedContentByLayer.delete(layer);
+  else if (content !== undefined) generatedContentByLayer.set(layer, content);
+  content = generatedContentByLayer.get(layer);
   const host = getLegendHost();
   if (!host) return;
 
-  const fileName = LEGEND_SVG_BY_LAYER[layerId.trim()];
-  if (!fileName) {
+  const fileName = LEGEND_SVG_BY_LAYER[layer] ?? null;
+  if (!fileName && !content) {
     hideLegend();
     return;
   }
 
   clearSwapTimeout();
 
-  if (!imgEl) {
+  if (!content && !imgEl) {
     imgEl = document.createElement("img");
     imgEl.className = "ui-legend__img";
     imgEl.alt = "";
-    host.appendChild(imgEl);
   }
 
-  imgEl.alt = `${layerId} legend`;
-  const nextSrc = legendAssetUrl(fileName);
+  if (imgEl) imgEl.alt = `${layer} legend`;
+  const nextSrc = fileName ? legendAssetUrl(fileName) : "";
   const alreadyVisible = host.classList.contains("legend--visible");
-  const switchingLegend = alreadyVisible && currentFileName !== fileName;
+  const switchingLegend = alreadyVisible &&
+    (currentFileName !== fileName || currentContent !== content);
+  currentFileName = fileName;
+  currentContent = content;
+  const show = (): void => {
+    if (content) {
+      content.classList.add("ui-legend__img");
+      host.replaceChildren(content);
+    } else if (imgEl) {
+      imgEl.src = nextSrc;
+      host.replaceChildren(imgEl);
+    }
+    host.dataset.layer = layer;
+    host.classList.add("legend--visible");
+    afterLegendShown();
+  };
 
   if (switchingLegend) {
     host.classList.remove("legend--visible");
     void host.offsetHeight;
-    currentFileName = fileName;
     swapTimeoutId = setTimeout(() => {
       swapTimeoutId = null;
-      if (!imgEl) return;
-      imgEl.src = nextSrc;
-      host.dataset.layer = layerId.trim();
-      host.classList.add("legend--visible");
-      afterLegendShown();
+      show();
     }, LEGEND_SWAP_RETRIGGER_MS);
     return;
   }
 
-  imgEl.src = nextSrc;
-  currentFileName = fileName;
-  host.dataset.layer = layerId.trim();
-  host.classList.add("legend--visible");
-  afterLegendShown();
+  show();
 }
