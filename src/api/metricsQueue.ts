@@ -1,4 +1,8 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/**
  * Only these semantic codes and aggregate numbers may cross the analytics boundary. */
 const METRIC_TYPES = ["control", "country", "emotion", "survey", "window", "gesture", "page"] as const;
 const METRIC_TARGETS = ["layer", "all-layers", "theme", "sound", "about", "sources", "share", "consent", "survey", "survey-options", "survey-text", "survey-body", "country", "emotion", "emotion-filter", "globe", "page", "festival", "workshop", "result", "cycle", "quality", "menu", "source-link", "about-link", "globe-rotate", "globe-zoom", "operator", "data-export", "exit", "update-settings"] as const;

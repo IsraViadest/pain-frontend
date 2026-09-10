@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 // node --expose-gc --import tsx scripts/verify-scar-contour-memory.ts
 import assert from "node:assert/strict";
 import * as THREE from "three";

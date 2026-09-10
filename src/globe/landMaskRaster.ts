@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * Rasterize Natural Earth country polygons to an equirectangular land mask
  * using the same plate-carrée mapping as borders and globeEquirectUV.

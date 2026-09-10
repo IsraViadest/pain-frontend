@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /** Box blur with clipped latitude and optional periodic longitude. Radius is a nonnegative integer. */
 export function boxBlurField(
   src: Float32Array,

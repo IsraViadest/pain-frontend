@@ -1,4 +1,8 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Browser expression for artifacts/emo-views/eval.mjs.
  * Run with cpTimeScale=0.005. Defaults to the required 30-minute stability interval.
  */

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 type Matte = {
   width: number; height: number; frameCount: number;
   fpsNumerator: number; fpsDenominator: number; startTime: number;

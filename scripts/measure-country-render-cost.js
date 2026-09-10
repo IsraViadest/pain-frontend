@@ -1,4 +1,8 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Browser expression for the existing artifacts/emo-views/eval.mjs runner.
  * Run separately from the frame-pacing gate. Query: perfLayer, perfMs (default 6000).
  * CPU: aggregate synchronous rAF callback wall time, including instrumentation overhead.

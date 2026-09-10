@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 const SOUND_ENABLED_KEY = "pain-sound-enabled";
 const BACKGROUND_MUSIC_SRC = "/sounds/BackgroundPPP.mp3";
 

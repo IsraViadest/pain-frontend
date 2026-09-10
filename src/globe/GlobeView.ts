@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import * as THREE from "three";
 import { SCAR_RELIEF_COLORS } from "./scarReliefColors";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";

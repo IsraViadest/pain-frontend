@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * SHELL: stipple points (THREE.Points on a sphere).
  * Created by GlobeView.ensureStipple() → createEarthStippleGlobe().

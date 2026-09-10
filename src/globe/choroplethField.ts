@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * Country choropleth as an equirectangular RGBA DataTexture (Canvas 2D fill).
  * Same plate-carrée projection as {@link landMaskRaster.ts} / scar maps; resolution 2048×1024.

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { SurveySessionState } from "./surveyData";
 import { textMetrics, trackInteraction } from "../api/metricsApi";
 import {

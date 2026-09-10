@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import "./ui.css";
 import type { MapLayer } from "../types/api";
 import { resolveLayerBlobSvg } from "../api/layers";

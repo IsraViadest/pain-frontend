@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Run in the existing eval.mjs browser helper against Vite with v46-dots_water-depth. */
 (async () => {
   const check = (value, message) => { if (!value) throw Error(message); };

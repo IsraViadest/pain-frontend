@@ -1,3 +1,5 @@
+# File attribution
+# created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
 """Check all selectable glyphs and source scores; --browser also tests the live filter in Vite."""
 import csv
 import json

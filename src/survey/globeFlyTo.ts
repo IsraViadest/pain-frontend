@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as THREE from "three";
 import { latLngToVector3 } from "../globe/latLng";

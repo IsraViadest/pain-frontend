@@ -1,5 +1,8 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs expression. Requires loaded Vite, all-pain selected, no country cycle.
- * created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
  * Isolates the actual atmospheric composite, then repeats with a deterministic deformed mesh.
  * No screenshot or source-field attribution: far-only fixtures diagnose occlusion independently.
  */

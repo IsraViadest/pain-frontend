@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /** Shared low/high colors for physical relief dots and their legend. */
 export const SCAR_RELIEF_COLORS = {
   // Dark endpoint RGB lifted 10% from #320611, rounded to 8-bit channels.

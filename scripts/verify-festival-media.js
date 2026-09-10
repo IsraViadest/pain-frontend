@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs runner; test actual progressive playback and responsive hit areas. */
 (async()=>{
  const check=(v,m)=>{if(!v)throw Error(m)};

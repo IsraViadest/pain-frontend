@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Real application draw check for the optional continuous scar-contour pass. */
 (async () => {
   const gl = document.querySelector("canvas")?.getContext("webgl2");

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* GPU-backed expression for artifacts/emo-views/eval.mjs. Synthetic rendering + real data. */
 (async () => {
   const check = (ok, message) => { if (!ok) throw Error(message); };

@@ -1,6 +1,9 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Vite browser expression for artifacts/emo-views/eval.mjs. No WebGL context is created.
- * Created by Christian Stelmach (chrisp.stel@gmail.com), GitHub @cstelmach.
  */
 (async () => {
   const cleanup = [];

@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 const START = Date.parse("2026-09-11T12:00:00Z"); // Friday 14:00, Europe/Vienna.
 const END = Date.parse("2026-09-11T14:00:00Z");
 

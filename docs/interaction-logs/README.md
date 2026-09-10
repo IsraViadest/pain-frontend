@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 # Reading and analysing interaction logs
 
 Last updated: 2026-09-10. Version: 1.0.

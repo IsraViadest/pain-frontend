@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 # AGY Research Report: Clarity / Perception Lane -- Multi-Script Globe Visualization
 
 Session: clarity-perception-globe-20260902

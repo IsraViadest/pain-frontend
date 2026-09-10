@@ -1,4 +1,8 @@
-/* created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/**
  * Run through artifacts/emo-views/eval.mjs on the live Vite preview.
  * Render the production vertex shader into a float target. Reading gl_PointSize through
  * a varying checks exact size ratios without whole-pixel rounding or color/alpha differences.

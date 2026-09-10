@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Actual MeshBasicMaterial pattern shader and choropleth alpha, evaluated by existing eval.mjs.
  * Synthetic countries only. Imports code modules but never requests country or application data.
  */

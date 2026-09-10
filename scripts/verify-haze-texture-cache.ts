@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 // Run: node --import tsx scripts/verify-haze-texture-cache.ts
 import assert from "node:assert/strict";
 import * as THREE from "three";

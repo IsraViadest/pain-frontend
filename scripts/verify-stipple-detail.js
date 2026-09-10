@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs expression: real shaders, bounded detail, and uniform-field visual weight. */
 (async () => {
   let globe, controller, renderer, target, gl;

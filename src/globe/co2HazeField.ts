@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * CO2 haze intensity map (RGBA DataTexture) for a shell slightly outside the globe.
  * Stamps / blurs like {@link ./painHeatField.ts}; RGB is gray from tune.hazeColor, alpha carries intensity.

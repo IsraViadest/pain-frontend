@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type * as THREE from "three";
 import type { SocioeconomicMissingStyle } from "./choroplethField";
 

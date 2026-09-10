@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 // node --import tsx scripts/verify-three-finger-layer-swipe.ts
 import assert from "node:assert/strict";
 import { installThreeFingerLayerSwipe } from "../src/ui/three-finger-layer-swipe";

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import "./survey.css";
 import { mountSurveyScreen1 } from "./SurveyScreen1";
 import { mountSurveyScreen2 } from "./SurveyScreen2";

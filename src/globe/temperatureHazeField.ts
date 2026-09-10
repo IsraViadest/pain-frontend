@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * Temperature haze intensity map (RGBA DataTexture) for a shell slightly outside the globe.
  * Stamps / blurs like {@link ./co2HazeField.ts}; RGB is fixed red (#ff0000), alpha carries intensity.

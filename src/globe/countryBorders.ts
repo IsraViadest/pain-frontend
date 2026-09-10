@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * SHELL: coastlines + country borders (fat LineSegments2 in a THREE.Group).
  * Loaded by GlobeView.loadCountryOutlines() → loadGlobeBorderOutlines().

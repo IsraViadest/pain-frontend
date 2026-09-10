@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Real app wheel gestures and actual submitted point counts, using existing eval.mjs. */
 (async () => {
   let restore;

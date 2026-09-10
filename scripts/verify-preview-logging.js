@@ -1,4 +1,8 @@
-/* created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/**
  * Local preview only: activates real controls and writes identifiable test-visit events.
  * Run with eval.mjs, then verify this userId/tabId against the collector's JSONL file. */
 (async () => {

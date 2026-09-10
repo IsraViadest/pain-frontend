@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SURVEY_FLY_TO_DURATION_MS } from "../survey/surveyData";
 import type { CountryPainProfile } from "./data";

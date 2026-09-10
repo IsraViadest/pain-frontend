@@ -1,4 +1,8 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Vite browser expression for artifacts/emo-views/eval.mjs at each compact preset and viewport.
  * Synthetic values exercise the real profile view with every real country/native term.
  * This measures layout and encoding, not the real countries' pain values.

@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 ===EXECUTIVE_SUMMARY===
 Standard treatments in production globe visualization for country labels, great-circle arcs, and far-side occlusion vary significantly across major libraries (deck.gl, globe.gl, Mapbox GL JS, CesiumJS, ECharts GL, and D3). WebGL-native primitives generally benefit from automatic hardware depth-testing for far-side occlusion, whereas DOM/HTML overlay approaches necessitate manual visibility calculations. Crucially, screen-space label decluttering implementations across the industry predominantly hide or show labels rather than dynamically repositioning them to avoid rendering flicker during rotation. A critical genre pitfall involves complex-script typography (e.g., Arabic, Thai) where canvas/WebGL texture atlas approaches inherently bypass the browser's native contextual shaping, requiring developers to leverage DOM overlays for typographically accurate multi-script labels.
 ===END_EXECUTIVE_SUMMARY===

@@ -1,4 +1,8 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Browser expression for the existing workspace `artifacts/emo-views/eval.mjs` runner.
  * It is read as text and evaluated in GPU-backed Chrome; it is not bundled into the app.
  *

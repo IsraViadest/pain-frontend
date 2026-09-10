@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /** Camera verification helpers and the retained internal panel URL formatter. */
 import * as THREE from "three";
 import type { GlobeView } from "../globe/GlobeView";

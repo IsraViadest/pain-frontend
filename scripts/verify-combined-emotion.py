@@ -1,3 +1,5 @@
+# File attribution
+# created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
 """Check combined-v2 winners, missingness and font coverage. Run with fontTools installed."""
 import csv
 import json

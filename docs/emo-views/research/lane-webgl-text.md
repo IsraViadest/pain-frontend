@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 ===EXECUTIVE_SUMMARY===
 Bottom-line: The only rendering paths capable of correctly shaping all 20 complex scripts natively are DOM Overlays (`CSS2DRenderer`), Canvas 2D (`fillText`), and WASM shaping engines (`harfbuzzjs` or `three-text`). `troika-three-text` (v0.52.5) and standard MSDF/SDF bitmap atlases do not support full OpenType shaping and will fail on complex scripts like Indic, Khmer, and Myanmar. While DOM and Canvas paths provide correct shaping via browser engines, they present severe performance or occlusion challenges for rendering 195 labels at 60fps. WASM-based HarfBuzz solutions (combined with MSDF) offer the optimal balance of correct shaping and WebGL performance, though they add bundle size.
 ===END_EXECUTIVE_SUMMARY===

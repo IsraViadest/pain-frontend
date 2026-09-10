@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 type CountryQualityLevel = "light" | "standard" | "rich";
 type CountryQualityRequest = CountryQualityLevel | "auto";
 

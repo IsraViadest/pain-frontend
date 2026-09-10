@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { latLngToNormalizedMapXY, svgCoordsToLatLng } from "./mapUtils";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import { trackInteraction } from "../api/metricsApi";

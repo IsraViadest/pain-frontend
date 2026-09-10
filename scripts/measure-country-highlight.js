@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* CPU-only Vite expression: node ../../artifacts/emo-views/eval.mjs <url> 1200 < this-file */
 (async () => {
   const results = [];

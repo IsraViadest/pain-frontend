@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 # Country Profiles and Expressive Globe Rendering Goal
 
 Last Updated: 2026-09-05

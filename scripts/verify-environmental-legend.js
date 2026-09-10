@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Real generated legend: colors, responsive placement, and wheel routing. */
 (async () => {
   try {

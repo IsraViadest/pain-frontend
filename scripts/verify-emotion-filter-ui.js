@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs browser expression. Run v43-a, frozen India camera, desktop or mobile. */
 (async () => {
   const check = (ok, message) => { if (!ok) throw Error(message); };

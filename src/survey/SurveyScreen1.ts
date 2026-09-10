@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { scheduleBubbleFieldLayout } from "./surveyBubbleLayout";
 import { createSurveyAdvanceGate } from "./surveyAdvanceGate";
 import { isConsentGiven } from "./consentStorage";

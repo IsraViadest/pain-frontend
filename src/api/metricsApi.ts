@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { apiUrl, useMockApi } from "./config";
 import { getPainServerUserId } from "./session";
 import { isConsentGiven } from "../survey/consentStorage";

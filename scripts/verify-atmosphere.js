@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Real WebGL: field registration, hidden-surface occlusion, sampling, and owned resources. */
 (async () => {
   let renderer, atmosphere;

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * Scar height map (DataTexture) — not a visible shell.
  * Fed into stipple vertex shader + CPU border warp; optional globe CPU warp when visible.

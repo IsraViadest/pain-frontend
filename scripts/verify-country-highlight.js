@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Actual canvas textures and the shared highlight layer. Run with existing eval.mjs. */
 (async () => {
   const textures = [];

@@ -1,5 +1,8 @@
 /*
- * created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Live Vite browser expression for artifacts/emo-views/eval.mjs.
  * Use a fresh page with cp=1, cpPreset=v46-dots_water-depth, freeze=1, cam=20,78,2.35.
  * Pipe the JSON result to jq -e '.passed == true'. No images are returned or saved.

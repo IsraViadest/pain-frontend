@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# File attribution
+# created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
 """Build the artist-team reference pair using ReportLab, Pillow, and pypdf.
 
 Run: python3 docs/explanation-guides/build_guides.py
