@@ -1576,3 +1576,14 @@ endpoint changes from #320611 to #370713 (RGB channels increased 10%, rounded), 
 dots, contours, and the legend. Thirty-two GPU size cases and all five live layer settings
 pass, as does the build. The prior fixture forced scar sizing but missed the disabled release
 setting; the check now explicitly asserts that the live Physical/all-pain modes are enabled.
+
+## 2026-09-10: preserve ocean contours during country selection
+
+Selection added a full depth surface at the contour shell's nominal radius, removing
+14,554 contour-covered pixels in the normal Physical view and 10,191 in the close view.
+Contours now render at 2.005, before selection depth at 2.01, retaining ordinary depth testing
+and geographic horizon rejection. Their resting geometry and number of passes do not change.
+Physical/all-pain coverage is identical with selection off/on at distances 2.35 and 1.6;
+all five dot-coverage checks also pass. Three synthetic horizon tests retain visible front
+contours and zero rear alpha. Full compliance/build passes. The selection test now waits for
+the painted selection state before measurement, rather than relying on a fixed delay alone.

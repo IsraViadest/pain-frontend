@@ -90,10 +90,12 @@
         "Missing fixture: unique production selection fill, depth, and border objects");
       return { fill: fill[0], depth: depth[0], borders };
     }
-    function measure(layer) {
-      const dots = globe.pointsStipple, material = globe.pointsMaterial;
-      check(dots?.isPoints && dots.visible && dots.material === material && material.uniforms.uScarMap,
-        "Missing fixture: visible production stipple shader and geometry");
+    function measure(layer, contour = false) {
+      const dots = contour ? globe.earthContent.getObjectByName("scar-contours") : globe.pointsStipple;
+      const material = dots?.material, bit = contour ? 4 : 2;
+      check(dots?.visible && material?.uniforms.uScarMap,
+        "Missing fixture: visible production dots or contours");
+      quad.material.stencilFuncMask = quad.material.stencilRef = bit;
       const { fill, depth, borders } = selectionObjects();
       check(fill.visible && fill.material.map && depth.visible && borders.children.some((line) => line.visible),
         "Missing fixture: selected fill, depth, or outlines are absent");
@@ -102,7 +104,8 @@
       const width = gl.drawingBufferWidth, height = gl.drawingBufferHeight, pixels = width * height;
       check(pixels > 0, "Missing fixture: nonempty drawing buffer");
       const visibility = new Map();
-      const kept = new Set([dots, globe.globe, globe.choroplethShell, fill, depth, ...borders.children]);
+      const kept = new Set([dots, globe.pointsStipple, globe.globe, globe.choroplethShell,
+        fill, depth, ...borders.children]);
       globe.scene.traverse((object) => {
         if (!object.geometry || !object.material) return;
         visibility.set(object, object.visible);
@@ -118,12 +121,12 @@
       try {
         // On the old implementation only, observe surviving fragments without changing RGB/depth.
         if (instrumented) Object.assign(material, {
-          stencilWrite: true, stencilWriteMask: 2, stencilFuncMask: 2,
-          stencilRef: 2, stencilFunc: THREE.AlwaysStencilFunc,
+          stencilWrite: true, stencilWriteMask: bit, stencilFuncMask: bit,
+          stencilRef: bit, stencilFunc: THREE.AlwaysStencilFunc,
           stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp,
           stencilZPass: THREE.ReplaceStencilOp,
         });
-        check((material.stencilWriteMask & 2) && (material.stencilRef & 2) &&
+        check((material.stencilWriteMask & bit) && (material.stencilRef & bit) &&
           material.stencilZPass === THREE.ReplaceStencilOp,
         "Missing fixture: dot stencil does not preserve the observation bit");
         const scratch = new Uint8Array(pixels * 4);
@@ -170,9 +173,10 @@
         const errors = [];
         if (!hiddenCoverage || !corePixels) errors.push("Missing fixture: measurable full-coverage dot pixels");
         if (!selectionChangedPixels) errors.push("Missing fixture: selection has no visible effect");
-        if (coverageChanged) errors.push("Selection changed dot coverage");
-        if (coreRgbChanged) errors.push("Selection changed fully covered dot RGB");
-        return { layer, country: selectedCountry(), width, height, instrumentedDotStencil: instrumented,
+        if (coverageChanged) errors.push("Selection changed " + (contour ? "contour" : "dot") + " coverage");
+        if (!contour && coreRgbChanged) errors.push("Selection changed fully covered dot RGB");
+        return { layer, subject: contour ? "contours" : "dots", distance: globe.camera.position.length(),
+          country: selectedCountry(), width, height, instrumentedDotStencil: instrumented,
           pointCount: dots.geometry.getAttribute("position").count,
           orders: { dots: dots.renderOrder, depth: depth.renderOrder, fill: fill.renderOrder,
             borders: borders.children.map((line) => line.renderOrder) },
@@ -215,11 +219,27 @@
       clickCanvas(x, y);
       await waitFor(() => selectedCountry() === "IND", "India selection through " + route);
       await wait(2500);
+      await waitFor(() => {
+        const { fill, depth, borders } = selectionObjects();
+        return fill.visible && fill.material.map && depth.visible && borders.children.some(line => line.visible);
+      }, "painted India selection in " + layer);
       rows.push({ ...measure(layer), selectionRoute: route });
+      if (layer === "physpain" || layer === "all-pain") {
+        rows.push(measure(layer, true));
+        const position = globe.camera.position.clone();
+        try {
+          globe.camera.position.setLength(1.6);
+          globe.camera.updateMatrixWorld();
+          rows.push(measure(layer, true));
+        } finally {
+          globe.camera.position.copy(position);
+          globe.camera.updateMatrixWorld();
+        }
+      }
     }
-    result = { passed: rows.length === 5 && rows.every((row) => row.passed), rows,
-      scope: "Production dot shader/geometry and country fill/depth/borders; unrelated drawables hidden. " +
-        "Exact stencil coverage and RGB at fully covered dot pixels, in two synchronous renders." };
+    result = { passed: rows.length === 9 && rows.every((row) => row.passed), rows,
+      scope: "Production dots, contours and country fill/depth/borders; unrelated drawables hidden. " +
+        "Exact stencil coverage and dot-core RGB in synchronous renders; contour coverage at two distances." };
   } catch (error) { result = { passed: false, error: String(error.stack ?? error), rows }; }
   finally {
     const cleanupErrors = [];

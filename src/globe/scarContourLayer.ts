@@ -123,7 +123,9 @@ export function createScarContourLayer(
   });
   const object = new THREE.Mesh(geometry, material);
   object.name = "scar-contours";
-  object.renderOrder = 2.2;
+  // Paint before selection's full depth shell (2.01), which is coplanar with contours.
+  // Ordinary globe depth and the shader's horizon rejection still apply.
+  object.renderOrder = 2.005;
   object.frustumCulled = false;
   object.visible = false;
 
