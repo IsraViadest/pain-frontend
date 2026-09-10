@@ -1,8 +1,6 @@
 /*
  * File attribution
  * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
- * changes: +9 / -1 lines (excluding attribution)
- * baseline: 53edb18a0826 (main before PR #15)
  */
 /**
  * Rasterize Natural Earth country polygons to an equirectangular land mask

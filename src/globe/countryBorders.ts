@@ -1,8 +1,6 @@
 /*
  * File attribution
  * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
- * changes: +66 / -12 lines (excluding attribution)
- * baseline: 53edb18a0826 (main before PR #15)
  */
 /**
  * SHELL: coastlines + country borders (fat LineSegments2 in a THREE.Group).

@@ -1,8 +1,6 @@
 /*
  * File attribution
  * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
- * changes: +30 / -41 lines (excluding attribution)
- * baseline: 53edb18a0826 (main before PR #15)
  */
 /**
  * Scar height map (DataTexture) — not a visible shell.

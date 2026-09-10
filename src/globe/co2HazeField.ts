@@ -1,8 +1,6 @@
 /*
  * File attribution
  * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
- * changes: +11 / -29 lines (excluding attribution)
- * baseline: 53edb18a0826 (main before PR #15)
  */
 /**
  * CO2 haze intensity map (RGBA DataTexture) for a shell slightly outside the globe.

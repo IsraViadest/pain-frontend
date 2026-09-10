@@ -1,8 +1,6 @@
 /*
  * File attribution
  * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
- * changes: +52 / -8 lines (excluding attribution)
- * baseline: 53edb18a0826 (main before PR #15)
  */
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as THREE from "three";
