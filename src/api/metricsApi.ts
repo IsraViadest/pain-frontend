@@ -1,3 +1,9 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +74 / -60 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 import { apiUrl, useMockApi } from "./config";
 import { getPainServerUserId } from "./session";
 import { isConsentGiven } from "../survey/consentStorage";

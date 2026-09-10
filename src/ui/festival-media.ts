@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import "./festival-media.css";
 import { mountWorkshopCountdown } from "./workshop-countdown";
 import { VIDEO_POSTER_CLIP, VIDEO_POSTER_ASPECT } from "./video-outline.generated";

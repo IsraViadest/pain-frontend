@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /** Selected release configuration. All design rounds remain on feat/country-pain-profile-rounds. */
 type CountryProfileLayout =
   | "literal-row"

@@ -1,4 +1,8 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * GPU-backed Vite browser expression for artifacts/emo-views/eval.mjs.
  * Run with ?cp=1&cpTimeScale=0.05&freeze=1. Require passed:true in the JSON result.
  * Exercises the actual arc and cycle modules independently, then the visible app gesture.

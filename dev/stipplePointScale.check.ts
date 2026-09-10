@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { stipplePointScaleAtCameraDistance } from "../src/globe/stipplePointScale";
 
 const fixed = { scale: 1.18, nearBoost: 0 };

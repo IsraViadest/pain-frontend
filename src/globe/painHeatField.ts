@@ -1,3 +1,9 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +5 / -29 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 /**
  * Heat intensity map (DataTexture) — not a visible shell.
  * Tints land stipple dots in scar mode (earthStippleGlobe fragment shader).

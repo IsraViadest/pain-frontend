@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Real application draws: atmospheric passes must stop outside all/environmental layers. */
 (async () => {
   const gl = document.querySelector("canvas").getContext("webgl2");

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import * as THREE from "three";
 import { sampleScarHeight01 } from "./scarDisplacement";
 import {

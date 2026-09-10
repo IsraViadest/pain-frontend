@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 /** Windows must release system three/four-finger gestures before the page can receive them. */

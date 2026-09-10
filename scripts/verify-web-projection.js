@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Browser expression for the existing eval.mjs runner, using the v48 default. */
 (async () => {
   const check = (ok, message) => { if (!ok) throw Error(message); };

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { EmoData } from "../src/emo/emoData";
 import { buildCountryGeometries } from "../src/globe/countryGeometry";
 import type { PainPoint } from "../src/types/api";

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Whole-label occlusion behind real chrome, including clear and restoration. Use cam=20,78,2.35. */
 (async () => {
   const changed = [];

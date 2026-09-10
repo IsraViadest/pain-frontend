@@ -1,3 +1,9 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +621 / -16 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 /**
  * App entry — wires production UI chrome to GlobeView and pain-server (or dev mock).
  *

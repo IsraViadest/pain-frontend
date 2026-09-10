@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { applyFieldTexturePattern } from "../src/globe/fieldTexturePattern";
 
 const makeBytes = () => new Uint8Array(24 * 24 * 4).fill(200);

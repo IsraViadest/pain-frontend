@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { emoCategoryLabel, emoNativeTerm, type EmoData } from "../emo/emoData";
 import { aggregateChoroplethValues } from "../globe/choroplethField";
 import {

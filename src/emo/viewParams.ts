@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { EmoCategoryGraph, EmoWorldGraph } from "./graphs";
 
 /**

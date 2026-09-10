@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /** Run: node --import tsx scripts/verify-surface-picker.ts */
 import assert from "node:assert/strict";
 import * as THREE from "three";

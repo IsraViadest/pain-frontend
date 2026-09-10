@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 // Final retained comparisons. Print recipes by default; --capture writes only new PNGs.
 // Existing shot.mjs owns and closes each fresh Chrome profile. No additional browser dependency.
 // ponytail: run browser helpers sequentially; coordinate their debug-port allocation before

@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 ===EXECUTIVE_SUMMARY===
 This synthesis addresses the cross-domain vocabulary and algorithms for (A) point-feature label placement and (B) multiplex/multilayer geographic network visualization for a 3D Three.js globe. The findings are drawn from a two-phase research process: a quick scan and a subsequent deep dive. Notably, several seminal papers regarding cartographic rules, 3D view management, and edge bundling rest on the quick-scan model's recall and could not be independently verified via primary source fetching due to paywalls or unsupported PDF formats. A critical conflict was identified regarding collision detection tools for WebGL: while the quick scan positioned Mapbox's GridIndex as a standard technique, the fetched primary README explicitly recommends `rbush` for general use instead. Furthermore, the dataset's disjoint-node-set structure requires careful handling, as primary network science sources (Kivela et al., 2014) exclude such structures from their formal definition of "multiplex" networks.
 ===END_EXECUTIVE_SUMMARY===

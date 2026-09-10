@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Actual WebGL readback against the CPU scar sampler, using the installed renderer. */
 (async () => {
   let renderer, geometry, material, target;

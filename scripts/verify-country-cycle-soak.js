@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* eval.mjs expression: cpQuality=standard&cpTimeScale=.005, optional soakMs for bounded rounds.
  * The wall-clock interval is never multiplied by cpTimeScale. Keep the tab visible.
  * Run alone: existing browser helpers choose uncoordinated debugging ports.

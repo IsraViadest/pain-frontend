@@ -1,4 +1,9 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +14 / -13 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 type InfoModalOptions = {
   title: string;
   body: string;

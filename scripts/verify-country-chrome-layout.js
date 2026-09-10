@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Vite expression for eval.mjs. Use cp=1, a generated-legend preset, cpTimeScale=.01. */
 (async () => {
   const stages = [];

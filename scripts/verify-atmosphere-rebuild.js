@@ -1,4 +1,8 @@
-/* created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/**
  * Existing eval.mjs expression on a loaded Vite page. Exercises real texture rebuilds.
  */
 (async () => {

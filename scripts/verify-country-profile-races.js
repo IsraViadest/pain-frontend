@@ -1,4 +1,8 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Browser expression for artifacts/emo-views/eval.mjs.
  * Run with cp=1, cpPreset=v18-b_clear-chrome (or retained v7), cpTimeScale=0.005, and freeze=1.
  * Pipe the JSON result to `jq -e '.passed == true'` so a reported failure exits nonzero.

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 export type StippleDetailDepth = 0 | 1 | 2;
 
 /** Nearest-neighbor angles in radians; the packed source directions are never changed. */

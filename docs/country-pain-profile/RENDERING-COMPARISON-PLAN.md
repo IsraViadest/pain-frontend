@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 # Rendering comparison against the evening Windows version
 
 Last Updated: 2026-09-09

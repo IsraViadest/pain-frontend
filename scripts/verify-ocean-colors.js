@@ -1,4 +1,8 @@
-/* created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/**
  * Run with the existing eval.mjs helper against the local preview. */
 (async () => {
   const gl = document.querySelector("canvas")?.getContext("webgl2");

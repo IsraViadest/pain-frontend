@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import assert from "node:assert/strict";
 import { boxBlurField } from "../src/globe/field-box-blur";
 

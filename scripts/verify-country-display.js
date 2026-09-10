@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs browser expression: shared display consumers and projected edge bounds. */
 (async () => {
   const disposable = [];

@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 # Selected web and projection release
 
 Last updated: 2026-09-09. Version: 2.0.

@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 # AGY Research Report: Unconventional Encodings for a Multilingual Pain-Category Globe (Creative Lane)
 
 Session: emo-globe-creative-20260902-224830

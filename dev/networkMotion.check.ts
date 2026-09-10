@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import assert from "node:assert/strict";
 import type { EmoData } from "../src/emo/emoData";
 import { createEmoSelectionMotion } from "../src/emo/selectionMotion";

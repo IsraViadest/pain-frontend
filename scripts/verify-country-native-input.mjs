@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 // Connect to an owned eval.mjs page with nativeInput=1. Uses the same Chrome DevTools transport.
 // The caller keeps that page alive with window.finishNativeInput; no browser is launched here.
 const port = Number(process.argv[2]);

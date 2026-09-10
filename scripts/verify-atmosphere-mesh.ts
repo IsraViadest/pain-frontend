@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 // node --import tsx scripts/verify-atmosphere-mesh.ts
 import assert from "node:assert/strict";
 import * as THREE from "three";

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /**
  * The order in which a network reaches the countries in it, starting from the one that was
  * clicked.

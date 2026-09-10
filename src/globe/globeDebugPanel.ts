@@ -1,3 +1,9 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +2 / -2 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 /**
  * Opt-in dev HUD: layer visibility toggles + tuning sliders for GlobeView.
  * Mounted from main.ts when ?globeDebug=1 or localStorage pain-globe-debug=1.

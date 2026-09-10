@@ -1,3 +1,9 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +11 / -29 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 /**
  * Temperature haze intensity map (RGBA DataTexture) for a shell slightly outside the globe.
  * Stamps / blurs like {@link ./co2HazeField.ts}; RGB is fixed red (#ff0000), alpha carries intensity.

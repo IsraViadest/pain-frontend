@@ -1,3 +1,9 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +5 / -4 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 import * as THREE from "three";
 import { unitDirectionToGlobeEquirectUV } from "./globeEquirectUV";
 

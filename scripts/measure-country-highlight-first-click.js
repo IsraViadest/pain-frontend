@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs expression. Fresh v18 page, cam=20,78,2.35; testReadHint=1 is a runtime trial.
  * Observe actual first-click canvas readbacks and long tasks. No fixture warmup hides cold costs.
  */

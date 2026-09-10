@@ -1,3 +1,7 @@
+<!--
+File attribution
+created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+-->
 # Exhibition project guides
 
 Last updated: 2026-09-09. Version: 1.6.

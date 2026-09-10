@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs runner, v45-a_fit-short-screen, pass actual viewport dimensions. */
 (async () => {
   const check = (ok, message) => { if (!ok) throw Error(message); };

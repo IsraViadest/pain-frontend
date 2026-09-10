@@ -1,3 +1,5 @@
+# File attribution
+# created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
 """Extract the moving film silhouette without changing any video pixels.
 
 Requires the existing OpenCV and NumPy Python packages and ffprobe.

@@ -1,4 +1,8 @@
 /*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Browser expression for artifacts/emo-views/eval.mjs. Run separately from pacing gates.
  * Query: perfScenario=rest|selected|building, optional perfLayer, sampleMs=8000.
  * GPU queries enclose complete draw-containing rAF callbacks, including their clears/uploads.

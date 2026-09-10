@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { DataTexture } from "three";
 import type { PainPoint } from "../types/api";
 import type { FieldTexturePattern } from "./fieldTexturePattern";

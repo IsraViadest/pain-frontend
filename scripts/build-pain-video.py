@@ -1,3 +1,5 @@
+# File attribution
+# created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
 """Build the video qualities and its first-frame silhouette. Requires ffmpeg and Pillow.
 
 Run: python3 scripts/build-pain-video.py '/path/to/PAIN Animation.mp4'

@@ -1,3 +1,9 @@
+/*
+ * File attribution
+ * edited by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ * changes: +38 / -15 lines (excluding attribution)
+ * baseline: 53edb18a0826 (main before PR #15)
+ */
 import "./survey.css";
 import { mountSurveyScreen1 } from "./SurveyScreen1";
 import { mountSurveyScreen2 } from "./SurveyScreen2";

@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 // node --import tsx scripts/verify-sound-preference.mjs
 import assert from 'node:assert/strict';
 import { initBackgroundMusic, isSoundEnabled, setSoundEnabled, setBackgroundMusicSuppressed } from '../src/sound/backgroundMusic.ts';

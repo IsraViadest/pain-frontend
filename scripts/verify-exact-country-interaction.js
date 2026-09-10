@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Real app selection path through all three non-emotional views. Use cpTimeScale=.05. */
 (async () => {
   try {

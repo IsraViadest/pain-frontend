@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /** Shared Natural Earth country polygons and exact point lookup. */
 
 type PolygonCoords = number[][][];

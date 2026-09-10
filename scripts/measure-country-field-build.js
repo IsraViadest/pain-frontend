@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs expression: real source rows, actual field builders, CPU timing and byte hashes.
  * Load cp=1 first. No registration, scene changes, GPU upload or per-frame instrumentation.
  */

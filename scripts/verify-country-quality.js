@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Live app expression for existing eval.mjs. Suggested URL controls:
  * cp=1&cpPreset=v18-a_composed&cpQuality=auto|light|standard|rich&cam=20,78,2.35&freeze=1
  * No private module/prototype patches; GPU settings are inspected at actual draw calls.

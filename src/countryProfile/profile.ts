@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import "./countryProfile.css";
 import { proportionalAreaScale, type CountryPainProfile } from "./data";
 import type { CountryProfilePreset } from "./presets";

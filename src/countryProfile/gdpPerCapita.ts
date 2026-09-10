@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import type { PainPoint } from "../types/api";
 
 /** The raw GDP series is independent of the legacy already-normalized socioeconomic endpoint. */

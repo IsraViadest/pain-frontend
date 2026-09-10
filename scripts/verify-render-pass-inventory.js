@@ -1,5 +1,8 @@
 /*
- * Created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach.
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
+/*
  * Browser expression for artifacts/emo-views/eval.mjs, on either the frozen evening bundle
  * or Vite. Start on a visible, loaded page with no country selected or autoplay active.
  * Run alone: eight complete application rAF timestamps per layer, after settling.

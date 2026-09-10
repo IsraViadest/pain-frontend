@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { METRICS_KIND_CATEGORY, trackToggle } from "../api/metricsApi";
 import { loadEmoData, type EmoData } from "../emo/emoData";
 import {

@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Live continuous scale, pattern examples, missingness, and responsive input routing. */
 (async () => {
   const factories = [];

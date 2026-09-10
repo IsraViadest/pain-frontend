@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /* Existing eval.mjs expression. Use v18-a_composed (hatch), preferably cpQuality=standard.
  * Measures programmatic click dispatch, complete matching render submission, the following
  * probe rAF opportunity, and intersecting long tasks. This is not compositor/physical input-to-paint.

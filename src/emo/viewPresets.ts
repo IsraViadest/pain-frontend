@@ -1,3 +1,7 @@
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 /** Selected emotional network. Historical variations remain on feat/country-pain-profile-rounds. */
 import { DEFAULT_EMO_PARAMS, type EmoViewParams } from "./viewParams";
 

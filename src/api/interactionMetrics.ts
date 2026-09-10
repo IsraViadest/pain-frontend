@@ -1,4 +1,7 @@
-/** created by: Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach */
+/*
+ * File attribution
+ * created by Christian Stelmach (chrisp.stel@gmail.com), GitHub: @cstelmach
+ */
 import { flushInteractionMetrics, stopInteractionMetrics, trackInteraction, type MetricEvent } from "./metricsApi";
 import { VisibleDuration } from "./metricsQueue";
 
