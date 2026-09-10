@@ -1517,3 +1517,20 @@ open findings. Temporary Emotional, Environmental and Pacific images were inspec
 was generated. These are development-host checks, not new projector or physical-phone evidence.
 The root screenshot helper now checks an actually visible label and its country ID for freeze
 stability; the first DOM label can be culled at a Pacific camera. That helper is outside Git.
+
+
+## 2026-09-10: screenshot-only ocean color comparison
+
+Prepared three ocean treatments plus the unchanged control for Socioeconomic, Environmental,
+All the Pain in blue mode, and All the Pain in black mode. The18 full screenshots include two
+Emotional references. Four comparison sheets include enlarged ocean crops and are each under
+0.6MB. Files and measured color/opacity values are in workspace
+`artifacts/ocean-dot-comparison-20260910`; the comparison page is <http://127.0.0.1:5181/>.
+
+Yellow/green candidates use Emotional's ocean visibility instead of the existing quarter
+opacity, while land and atmosphere retain their settings. A-C vary saturation at fixed hue
+and HSL lightness. The black-mode candidates vary graphite lightness at fixed low saturation.
+Every capture verifies the same camera,82,000 points and unchanged land inputs. All screenshots
+were inspected. No live preset or application code changed; no winner has been adopted.
+The initial recommendation is C in each row, with B as the softer alternative. The screenshot
+helper now brings its owned page forward after a no-frame rejection; no wrong frame was saved.
