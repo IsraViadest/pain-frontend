@@ -1557,3 +1557,12 @@ User selected `dark2-C.png`. All the Pain now uses the same approved clear-blue 
 in black and blue mode. Soft gold and soft mint remain the accepted individual-layer choices.
 Full compliance/build and all 16 live layer/theme transitions pass. Applied on preview 5176;
 the Windows ZIP has not been rebuilt for this change.
+
+## 2026-09-10: ocean dots follow normal country zoom sizing
+
+User clarified that "default" means the countries' existing zoom sizing, not a fixed pixel
+size. Ocean dots now share the 1.18 base scale and normal zoom regrowth. Physical scar effects
+remain land-only for sizing, so ocean dots use the other layers' normal reference size.
+The selected preset and country-dot behavior are preserved. Sixteen production-shader pixel
+checks pass at four distances and DPR 1/2, including scar-size isolation. Full compliance/build
+passes. The earlier fixed-size interpretation was reverted before committing.

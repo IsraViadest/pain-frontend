@@ -95,29 +95,29 @@ void main() {
   vec3 viewDir = normalize(-mvPosition.xyz);
   vFresnel = pow(1.0 - clamp(abs(dot(n, viewDir)), 0.0, 1.0), 2.0);
   vLand = aLand;
-  float landMask = vLand;
   float frontSize = 3.5;
   float rimSize = 2.5;
   float sizeByView = mix(frontSize, rimSize, smoothstep(0.0, 1.0, vFresnel));
   // Same screen size for land and ocean so scar dents read equally on both (large land
   // sprites previously hid deformation and looked like a separate shell).
   float baseSize = sizeByView * 0.72;
-  float pointScale = mix(1.0, uPointScale, landMask);
-  gl_PointSize = baseSize * uPixelRatio * pointScale;
+  gl_PointSize = baseSize * uPixelRatio * uPointScale;
   vDetailOpacity = 1.0;
   if (uDetailMode > 1.5) {
     float uniformArea = aUniformDetail < 0.5
       ? 1.0 - 0.5 * uUniformDetailMix
       : 0.5 * uUniformDetailMix;
     gl_PointSize *= sqrt(max(0.0, uniformArea));
-  } else if (uDetailMode > 0.5 && landW > 0.5) {
+  } else if (uDetailMode > 0.5) {
+    // Ocean dots use the normal land zoom sizing, without scar-dependent size changes.
     // Every sibling shares one virtual root diameter. Area, not an extra alpha division,
     // accounts for the four smaller dots; each still samples its own scar and heat field.
     vec3 root = normalize(aRoot.xyz);
     float rootU = fract(atan(root.z, -root.x) * EQUIRECT_INV_TWO_PI + 1.0);
     float rootV = 0.5 - asin(clamp(root.y, -1.0, 1.0)) * EQUIRECT_INV_PI;
     float rootH = texture2D(uScarMap, vec2(rootU, rootV)).r;
-    float rootRadius = length(position) + (rootH * uScarDispScale + uScarDispBias) * uScarActive;
+    float rootRadius = length(position) +
+      (rootH * uScarDispScale + uScarDispBias) * uScarActive * landW;
     vec3 rootView = (modelViewMatrix * vec4(root * rootRadius, 1.0)).xyz;
     vec3 rootNormal = normalize(mat3(modelViewMatrix) * root);
     float front = dot(rootNormal, normalize(-rootView));
