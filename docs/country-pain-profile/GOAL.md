@@ -1481,3 +1481,39 @@ Ocean dots use the actual Emotional override and theme mixture in every layer (0
 GPU checks matched all five layers in both themes; the land branch, opacity, geometry and
 scar contours are preserved. A physical-layer capture was inspected. No new Windows ZIP,
 public deployment, Docker repair or gallery was created during this task.
+
+
+## 2026-09-10: selection-stable dots, layer palettes and atmospheric horizon
+
+Three application commits: 368ea9e (individual palettes), f11857a (selection protection),
+4b29985 (geographic atmospheric horizon). All changes are live on preview5176; logging remains
+on collector5180. The Windows ZIP and public deployment were not rebuilt or changed.
+
+Selecting India previously removed64,398 of79,363 dot-covered pixels in the isolated all-pain
+comparison, and91,369 of106,334 in Physical Pain. The selection depth sphere rendered before
+stipple, while the wash/borders could paint over it. Dots now write stencil bit2; selection
+depth/fill render afterward, and fill/borders protect those samples. Border dedup retains bit1.
+All five layers preserve exact dot coverage and full-coverage dot RGB before/after selection,
+while country highlighting remains visibly active. The test excludes unrelated atmosphere,
+network and leader drawing and compares synchronous frames; partial MSAA background pixels
+are not asserted to keep identical RGB. Dot count, sizes and heights are unchanged.
+
+Individual views use their violet, blue-green, red and yellow palettes for land/ocean stipple.
+Physical relief shading is restricted to Physical/all-pain. Combined mode retains its prior
+palette and no longer depends on whether the previous layer was Physical. Sixteen live palette
+checks cover both themes and return to combined mode from each individual layer.
+
+The far-only test did not reproduce central transmission through the globe. It did reproduce
+raised atmospheric fields remaining visible beyond the geographic horizon. Integration now
+ends at the unit-source visibility cone as well as actual surface depth. An initial nearest-ray
+half cutoff was rejected after review proved that it removed raised CO2 above still-visible
+locations. The rationalized cone intersection preserves that case without extra field samples.
+Atmospheric depth now borrows the country surface, which updates even when the base mesh hides.
+Thirty-six far/horizon cases render zero alpha; six narrow just-visible near-horizon controls
+remain visible, including camera distance1.35. Broader atmosphere and highlight tests pass.
+
+Final compliance/build passes. Final default entry is221.98kB gzip. Independent review has no
+open findings. Temporary Emotional, Environmental and Pacific images were inspected; no gallery
+was generated. These are development-host checks, not new projector or physical-phone evidence.
+The root screenshot helper now checks an actually visible label and its country ID for freeze
+stability; the first DOM label can be culled at a Pacific camera. That helper is outside Git.
