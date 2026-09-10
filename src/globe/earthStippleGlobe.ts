@@ -134,7 +134,9 @@ void main() {
   float relativeDepth = clamp((128.0 / 255.0 - h) / max(uScarMaxDepth, 0.00001), 0.0, 1.0);
   float depthSize = uScarDepthSize < 0.0 ? 1.5 - 0.75 * relativeDepth :
     1.0 + uScarDepthSize * relativeDepth;
-  gl_PointSize *= mix(1.0, depthSize, landW * uScarActive);
+  // Physical sizes span 150% to 75% of the reduced ocean reference size.
+  gl_PointSize *= landW < 0.5 ? 0.85 : mix(1.0, 0.85 * depthSize,
+    uScarActive * step(0.00001, abs(uScarDepthSize)));
   gl_Position = projectionMatrix * mvPosition;
 }
 `;

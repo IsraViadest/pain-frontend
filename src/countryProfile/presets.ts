@@ -133,6 +133,7 @@ const CURRENT_COUNTRY_PROFILE: CountryProfilePreset = {
   "stipplePointCount": 82000,
   "scarDepthStyle": "relief",
   "scarReliefPalette": "coral",
+  "scarDepthSize": "recessed-small",
   "physicalOceanBlue": true,
   "scarContourStyle": "water-dots-depth",
   "scarContourLevels": 16,

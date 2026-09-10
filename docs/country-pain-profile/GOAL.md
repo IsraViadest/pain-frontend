@@ -1566,3 +1566,13 @@ remain land-only for sizing, so ocean dots use the other layers' normal referenc
 The selected preset and country-dot behavior are preserved. Sixteen production-shader pixel
 checks pass at four distances and DPR 1/2, including scar-size isolation. Full compliance/build
 passes. The earlier fixed-size interpretation was reverted before committing.
+
+## 2026-09-10: restore physical scar sizing and reduce ocean dots
+
+The selected preset now explicitly enables `recessed-small` sizing in Physical/all-pain.
+Ocean diameter is 85% of normal country sizing. Physical depth multipliers run from 150%
+to 75% of that reduced reference; other country dots retain their size. The darkest coral
+endpoint changes from #320611 to #370713 (RGB channels increased 10%, rounded), shared by
+dots, contours, and the legend. Thirty-two GPU size cases and all five live layer settings
+pass, as does the build. The prior fixture forced scar sizing but missed the disabled release
+setting; the check now explicitly asserts that the live Physical/all-pain modes are enabled.
