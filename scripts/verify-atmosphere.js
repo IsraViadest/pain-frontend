@@ -142,6 +142,12 @@
       setSurface(() => 1.2);
       const enclosed = read();
       check(enclosed.alpha === 0, mode + ": air inside hidden surface did not clip");
+      if (isVolume) {
+        surface.setDrawRange(0, 0);
+        const withoutEnclosure = read();
+        surface.setDrawRange(0, Infinity);
+        check(withoutEnclosure.alpha > 0, mode + ": surface-occlusion positive control is empty");
+      }
       setSurface(() => 1);
       const qualities = isVolume ? [16, 32, 48].map((steps) => ({ steps, ...read(steps) })) : [];
       if (qualities.length) {
@@ -171,7 +177,8 @@
         atmosphere.setFields(temperature, co2);
         check(inside.front.alpha > 0, "inside-shell camera lost nearby air");
         check(inside.back.alpha === 0, "inside-shell camera sees air through the surface");
-        check(inside.withoutSurfaceDepth.alpha > 0, "inside-shell far-side fixture is not visible without depth");
+        check(inside.withoutSurfaceDepth.alpha === 0,
+          "horizon cutoff must still hide rear air when surface depth is absent");
       }
       renderer.setViewport(3, 4, 200, 210);
       renderer.setScissor(5, 6, 180, 190);
@@ -220,13 +227,13 @@
       camera.aspect = 1;
       camera.updateProjectionMatrix();
     }
-    // Rear air is visible outside the globe but clipped inside its silhouette. This exposes
-    // the stepped nearest-depth edge which the front-facing field checks cannot detect.
+    // A nonempty near-side field exercises silhouette reconstruction without relying on
+    // the old rear-air halo, which the horizon cutoff now deliberately removes.
     renderer.setSize(640, 640, false);
     camera.position.z = 3.5;
     const edgeSurface = new THREE.SphereGeometry(1, 192, 128);
     const edgeBytes = new Uint8Array(128 * 4);
-    for (let x = 64; x < 128; x++) edgeBytes[x * 4 + 3] = 100;
+    for (let x = 0; x < 128; x++) edgeBytes[x * 4 + 3] = 100;
     const edgeField = new THREE.DataTexture(edgeBytes, 128, 1, THREE.RGBAFormat);
     edgeField.minFilter = edgeField.magFilter = THREE.LinearFilter;
     edgeField.needsUpdate = true;
@@ -240,6 +247,7 @@
       renderer.render(scene, camera);
       const rgba = new Uint8Array(640 * 640 * 4), gl = renderer.getContext();
       gl.readPixels(0, 0, 640, 640, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+      check(rgba.some((value, i) => i % 4 === 3 && value > 0), "Atmospheric edge fixture is empty");
       edgeCaptures.push(rgba);
       atmosphere.dispose(); atmosphere = null;
     }
@@ -252,7 +260,7 @@
       edgePixelCount++;
     }
     const edgeMeanAlphaError = edgeError / edgePixelCount;
-    check(edgeMeanAlphaError < 1, "Rear atmospheric edge is still magnified from low resolution: " + edgeMeanAlphaError);
+    check(edgeMeanAlphaError < 1, "Atmospheric edge is still magnified from low resolution: " + edgeMeanAlphaError);
     // A 2x image with one ray per pixel provides the exact four spatial sample positions.
     // Disable its own AA so the reference does not accidentally supersample twice.
     renderer.setSize(1280, 1280, false);

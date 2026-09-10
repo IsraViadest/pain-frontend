@@ -2689,7 +2689,8 @@ export class GlobeView {
     void import("./environmentalAtmosphere").then(({ createEnvironmentalAtmosphere }) => {
       if (generation !== this.atmosphereGeneration) return;
       this.atmosphere = createEnvironmentalAtmosphere({ mode, renderer: this.renderer,
-        camera: this.camera, earthContent: this.earthContent, surfaceGeometry: this.globe.geometry,
+        camera: this.camera, earthContent: this.earthContent,
+        surfaceGeometry: this.getCountrySurfaceGeometry(),
         smooth });
       this.syncAtmosphereFields();
     }).catch((error) => { console.error("[GlobeView] atmosphere failed:", error); });

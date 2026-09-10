@@ -76,13 +76,21 @@ vec4 integrateVolume(vec2 uv) {
   vec3 origin = (uInverseEarth * uCameraWorld * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   vec3 direction = normalize(localPosition(uv, 1.0) - origin);
   float b = dot(origin, direction);
+  float cameraRadiusSquared = dot(origin, origin);
   float outerRadius = mix(1.09, 1.145, uSeparated);
-  float discriminant = b * b - dot(origin, origin) + outerRadius * outerRadius;
+  float discriminant = b * b - cameraRadiusSquared + outerRadius * outerRadius;
   if (discriminant <= 0.0) return vec4(0.0);
   float reach = sqrt(discriminant);
   float nearDistance = max(0.0, dot(localPosition(uv, 0.0) - origin, direction));
   float start = max(nearDistance, -b - reach);
-  float end = -b + reach;
+  // Field locations belong to the unit globe. Stop at its source-visibility cone,
+  // not the raised air's tangent, so visible locations keep their full vertical column.
+  // This is the rationalized positive root of dot(normalize(origin + t*direction), origin)=1.
+  float groundTangent = sqrt(max(cameraRadiusSquared - 1.0, 0.0));
+  float lateralDistance = sqrt(max(cameraRadiusSquared - b * b, 0.0));
+  float horizonDistance = cameraRadiusSquared * groundTangent /
+    max(-b * groundTangent + lateralDistance, 0.0001);
+  float end = min(-b + reach, horizonDistance);
   end = min(end, surfaceDistance(uv, origin, direction, end));
   if (end <= start) return vec4(0.0);
 
